@@ -145,9 +145,10 @@ side: "the date portion will be ignored and the time portion will be treated as 
 *duration*."
 
 So `isRelative = true` with a `remanageTime` of `2026-01-01T04:30:00Z` means "four hours and
-thirty minutes after the start", and the `2026-01-01` is thrown away. The consequence worth
-knowing: a duration expressed this way cannot exceed 24 hours, because it is carried in a
-time-of-day.
+thirty minutes after the start", and the `2026-01-01` is thrown away. It follows from that
+description, rather than from any separately documented limit, that a duration expressed this
+way cannot exceed 24 hours: it is carried in a time-of-day, and a time-of-day does not go past
+23:59:59.
 
 SolarWinds' own recommendation, from the same page, is to avoid it: "I recommend passing
 `false` for `isRelative` - it makes the scripts more clear and consistent." Compute the end
@@ -484,9 +485,15 @@ entities:
 | `Orion.Nodes` | `(netObjectId, unmanageTime, remanageTime, isRelative, allowOverlapping)` | `(netObjectId)` | `allowUnmanage` |
 | `Orion.NPM.Interfaces` | `(netObjectId, unmanageTime, remanageTime, isRelative, allowOverlapping)` | `(netObjectId)` | `allowUnmanage` |
 | `Orion.Volumes` | `(netObjectId, unmanageTime, remanageTime, isRelative, allowOverlapping)` | `(netObjectId)` | `allowUnmanage` |
-| `Orion.APM.Application` | `(netObjetId, unmanageTime, remanageTime, isRelative, allowOverlapping)` | `(netObjetId)` | |
-| `Orion.SEUM.Transactions` | `(netObjectId, unmanageTime, remanageTime, isRelative)` | `(netObjectId)` | |
+| `Orion.APM.Application` | `(netObjetId, unmanageTime, remanageTime, isRelative, allowOverlapping)` | `(netObjetId)` | see below |
+| `Orion.SEUM.Transactions` | `(netObjectId, unmanageTime, remanageTime, isRelative)` | `(netObjectId)` | see below |
 | `Orion.Cloud.Instances` | `(virtualMachineId)` | `(virtualMachineId)` | `allowUnmanage` |
+
+The two "see below" rows carry no required right on the verb record itself, so the
+entity-level access control governs. `Orion.APM.Application` declares `invoke` for
+`allowUnmanage` and for `manageNodes`; `Orion.SEUM.Transactions` declares `read,invoke` for
+`everyone` and everything for `admin`. Check with
+`python3 tools/schema_query.py show <Entity>`.
 
 Regenerate for your version:
 

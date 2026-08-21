@@ -233,6 +233,11 @@ def netobject_table(netobjects, version) -> str:
     out.append("")
     out.append("---\n")
     out.append(
+        "For what a NetObject prefix is, where it is required, and how it differs from a "
+        "bare id, see [../schema/netobject-types.md](../schema/netobject-types.md). This "
+        "page is the table; that page is the explanation.\n"
+    )
+    out.append(
         "To confirm an entity's key properties against your own server, which is the "
         "authoritative answer for your version:\n\n"
         "```sql\n"
@@ -289,6 +294,12 @@ def status_table(statuses, version) -> str:
         "GROUP BY s.StatusName\n"
         "ORDER BY COUNT(n.NodeID) DESC\n"
         "```\n"
+    )
+    out.append(
+        "For what the ranks mean for rollup, which statuses apply only to interfaces or "
+        "only to applications, and how to reason about them in a report, see "
+        "[../schema/status-codes.md](../schema/status-codes.md). This page is the table; "
+        "that page is the explanation.\n"
     )
     out.append(
         "One caveat when reporting on outages: a node can be Down because it is genuinely "

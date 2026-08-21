@@ -132,6 +132,8 @@ This table comes from a community reference workbook that predates the current s
 
 ---
 
+For what a NetObject prefix is, where it is required, and how it differs from a bare id, see [../schema/netobject-types.md](../schema/netobject-types.md). This page is the table; that page is the explanation.
+
 To confirm an entity's key properties against your own server, which is the authoritative answer for your version:
 
 ```sql

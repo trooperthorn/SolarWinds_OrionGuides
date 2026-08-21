@@ -383,9 +383,12 @@ FROM Orion.CustomProperty cp
 ORDER BY cp.Table, cp.Field
 ```
 
-`Table` is the storage table name, which is the custom properties entity name without its
-namespace: `NodesCustomProperties`, `InterfacesCustomProperties`, `VolumesCustomProperties`.
-`TargetEntity` names the entity the property applies to. Filter to one object type:
+`Table` is the storage table name rather than the entity name. For nodes it is
+`NodesCustomProperties`, which is what SolarWinds' own examples use, and the pattern is the
+custom properties entity name with its namespace removed. Rather than deriving it for other
+object types, run the unfiltered query above once and read the distinct `Table` values off
+your own server. `TargetEntity` carries the entity the property applies to, which is the
+other way to identify the object type. Filter to one:
 
 ```sql
 SELECT cp.Field, cp.DataType, cp.MaxLength, cp.Description, cp.Mandatory, cp.Default

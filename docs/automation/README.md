@@ -16,7 +16,7 @@ an automation ends up complicated.
 | Interface | Route | Use it for | Cannot |
 |:---|:---|:---|:---|
 | Query | `POST /Query` | Reading anything, including the scope of a change | Change anything. It is read only. |
-| CRUD | `POST /Create/{Entity}`, `GET|POST|DELETE /{uri}` | Setting property values on one entity instance, creating and deleting instances | Express an operation that is more than a set of property assignments |
+| CRUD | `POST /Create/{Entity}`, then `GET`, `POST` or `DELETE` on `/{uri}` | Setting property values on one entity instance, creating and deleting instances | Express an operation that is more than a set of property assignments |
 | Invoke | `POST /Invoke/{Entity}/{Verb}` | Named operations: `Unmanage`, `PollNow`, `Acknowledge`, `CreateCustomProperty` | Be discovered by guessing. Verb names and argument order must be looked up. |
 | Bulk | `POST /BulkUpdate`, `POST /BulkDelete` | The same property change or deletion across many URIs in one request | Report per-item results. A success means "accepted", not "all applied". |
 

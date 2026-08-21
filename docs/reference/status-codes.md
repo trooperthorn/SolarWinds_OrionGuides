@@ -60,4 +60,6 @@ GROUP BY s.StatusName
 ORDER BY COUNT(n.NodeID) DESC
 ```
 
+For what the ranks mean for rollup, which statuses apply only to interfaces or only to applications, and how to reason about them in a report, see [../schema/status-codes.md](../schema/status-codes.md). This page is the table; that page is the explanation.
+
 One caveat when reporting on outages: a node can be Down because it is genuinely unreachable, or Unmanaged because someone opened a maintenance window. Filter `UnManaged = FALSE` when you mean the former.

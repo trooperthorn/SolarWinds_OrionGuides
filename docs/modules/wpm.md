@@ -845,11 +845,16 @@ is `Transaction` and `RelyTransactions`.
 breakage in the module and it is recorded in
 [../reference/schema-changes-2026.1-to-2026.2.md](../reference/schema-changes-2026.1-to-2026.2.md).
 
-**`Orion.SEUM.Agents.Unmanaged` has a lowercase `m`.** The entity declares that property
-itself, spelled differently from the inherited `UnManaged` that
-`Orion.SEUM.Transactions` and every other `System.ManagedEntity` descendant uses. Use the
-declared spelling on `Orion.SEUM.Agents`, and do not copy a predicate between the two
-entities without checking.
+**`Orion.SEUM.Agents.Unmanaged` has a lowercase `m`.** `System.ManagedEntity` declares
+`UnManaged`, `UnManageFrom` and `UnManageUntil`, and `Orion.SEUM.Transactions` declares
+`UnManaged` itself with that capitalisation. `Orion.SEUM.Agents` declares its own
+`Unmanaged` instead, alongside the inherited `UnManageFrom` and `UnManageUntil`. Use the
+spelling the entity declares, and do not copy a predicate from a transaction query into a
+location query without checking it:
+
+```bash
+python3 tools/schema_query.py props Orion.SEUM.Agents --grep manage
+```
 
 **`ConnectionStatus` does not join to `Orion.StatusInfo`.** It resolves through
 `Orion.SEUM.AgentConnectionStatus`, navigable as `ConnectionStatusInfo`. The inherited
