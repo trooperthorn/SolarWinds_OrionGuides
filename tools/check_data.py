@@ -211,6 +211,39 @@ def main() -> None:
     if claims and not wrong:
         c.note(f"{claims} namespace count(s) quoted in the module pages all match the schema")
 
+    # PowerShell cmdlet names. The SwisPowerShell module exports seven, and an invented
+    # eighth reads exactly like the real ones. Sample scripts in this repository follow the
+    # same Verb-Noun convention, so their own names are allowed by filename.
+    swis_cmdlets = {
+        "Connect-Swis",
+        "Get-SwisData",
+        "Get-SwisObject",
+        "New-SwisObject",
+        "Set-SwisObject",
+        "Remove-SwisObject",
+        "Invoke-SwisVerb",
+    }
+    script_names = {
+        os.path.splitext(os.path.basename(p))[0]
+        for p in glob.glob(os.path.join(ROOT, "scripts", "**", "*.ps1"), recursive=True)
+    }
+    cmdlet_re = re.compile(r"\b((?:Connect|Get|Set|New|Remove|Invoke|Export|Import|Add|Update)-Swis[A-Za-z]*)\b")
+    for path in sorted(
+        glob.glob(os.path.join(ROOT, "docs", "**", "*.md"), recursive=True)
+        + glob.glob(os.path.join(ROOT, "scripts", "**", "*"), recursive=True)
+    ):
+        if not os.path.isfile(path) or "reference" in os.path.relpath(path, ROOT).split(os.sep):
+            continue
+        if not path.endswith((".md", ".ps1")):
+            continue
+        text = open(path, encoding="utf-8", errors="replace").read()
+        for name in set(cmdlet_re.findall(text)):
+            if name not in swis_cmdlets and name not in script_names:
+                c.fail(
+                    f"{os.path.relpath(path, ROOT)} uses {name}, which is neither a "
+                    f"SwisPowerShell cmdlet nor a script in this repository"
+                )
+
     # Status tables written by hand. The generated one under docs/reference cannot drift,
     # but a narrative page that reproduces the table can, and a wrong rank quietly inverts
     # what a reader believes about rollup severity.
