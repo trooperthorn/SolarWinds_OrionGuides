@@ -978,10 +978,13 @@ python3 tools/schema_query.py children Orion.Virtualization.Instance
 appears throughout older references. `Orion.SRM.LUNs` *is* capitalised, which is what makes
 the wrong form feel right.
 
-**There is no `Caption` anywhere in `Orion.VIM.`** Every other module uses `Caption` as the
+**No `Orion.VIM.` entity has a `Caption` column.** Every other module uses `Caption` as the
 display name and this one does not: hosts use `HostName`, everything else uses `Name`, and
 `DisplayName` is available on the managed entities because it is inherited from
-`System.Entity`. A query written from habit with `vm.Caption` fails.
+`System.Entity`. A query written from habit with `vm.Caption` fails. The only column in the
+namespace with "caption" in its name is `EntityCaption` on
+`Orion.VIM.CapacityPlanning.ReportDefinitions`, which is a report label rather than an object
+name.
 
 **A VM's `NodeID` is usually null.** It is populated only when the guest is separately
 monitored as a node. Inner-joining `Orion.Nodes` on it silently narrows the result to that
@@ -1081,3 +1084,16 @@ WHERE FullName LIKE 'Orion.VIM.%'
   parameters.
 - [../../scripts/swql/10-virtualization.swql](../../scripts/swql/10-virtualization.swql) for
   more verified virtualization sample queries.
+- SolarWinds:
+  [Discovery](https://solarwinds.github.io/OrionSDK/docs/discovery/) for the platform-wide
+  discovery verbs the VIM discovery sequence parallels, and
+  [Credential Management](https://solarwinds.github.io/OrionSDK/docs/credential-management/)
+  for creating the `credentialsId` that `ValidateExistingCredentials` and
+  `CreateDiscoveryJob` want.
+- SolarWinds:
+  [Unmanaging Entities](https://solarwinds.github.io/OrionSDK/docs/unmanaging-entities/) for
+  the `Orion.Nodes.Unmanage` signature, which is what you call for a hypervisor host since no
+  VIM entity has one of its own.
+- SolarWinds:
+  [SWQL Functions](https://solarwinds.github.io/OrionSDK/docs/swql-functions/) for `DayDiff`,
+  `AddDay`, `DateTrunc` and the rest of the date arithmetic used above.

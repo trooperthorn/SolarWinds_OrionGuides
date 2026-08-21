@@ -161,6 +161,25 @@ def main() -> None:
             print("Add each to the index for its section, or to a sibling page.", file=sys.stderr)
             broken.extend(f"orphan page: {o}" for o in orphans)
 
+        # A section README is that section's index, and it goes stale in a specific way:
+        # it is written before its later siblings exist, so those pages end up reachable
+        # from somewhere but not from the index a reader actually browses.
+        docs_root = os.path.join(ROOT, "docs")
+        if os.path.isdir(docs_root):
+            for name in sorted(os.listdir(docs_root)):
+                section = os.path.join(docs_root, name)
+                readme = os.path.join(section, "README.md")
+                if not os.path.isdir(section) or not os.path.isfile(readme):
+                    continue
+                siblings = sorted(
+                    f for f in os.listdir(section) if f.endswith(".md") and f != "README.md"
+                )
+                text = open(readme, encoding="utf-8", errors="replace").read()
+                linked_here = set(re.findall(r"\]\(([\w.-]+\.md)\)", text))
+                unlisted = [s for s in siblings if s not in linked_here]
+                for s in unlisted:
+                    broken.append(f"docs/{name}/README.md does not link to its sibling {s}")
+
     if broken:
         print(f"\n{len(broken)} broken link(s):", file=sys.stderr)
         for b in broken:

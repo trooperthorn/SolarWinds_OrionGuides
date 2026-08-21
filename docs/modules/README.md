@@ -36,6 +36,7 @@ entity whose name equals the listed prefix or begins with that prefix plus a dot
 | [dpa](dpa.md) | Database Performance Analyzer | Database instances, wait times, blocking, deadlocks, expensive queries | `Orion.DPA.` and `DPA.` | 27 |
 | [log-analyzer](log-analyzer.md) | Log Analyzer | Syslog messages, SNMP traps, log file entries, processing rules | `Orion.OLM.` | 21 |
 | [hardware-health](hardware-health.md) | Hardware Health | Fans, power supplies, temperature sensors, chassis, blades, racks | `Orion.HardwareHealth.` | 33 |
+| [qoe](qoe.md) | Quality of Experience | Packet-inspection applications, categories, probes and probe assignments | `Orion.DPI.` | 14 |
 | [cloud](cloud.md) | Cloud monitoring | AWS and Azure accounts, instances, volumes, cloud metrics | `Orion.Cloud.` | 148 |
 | [agents](agents.md) | Agent management | Deployed agents, plugins, versions, agent-based polling | `Orion.AgentManagement.` | 16 |
 

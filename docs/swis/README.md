@@ -165,6 +165,14 @@ four hundred nodes without four hundred HTTP requests. See
   entities support which operations.
 - [uris.md](uris.md) explains the SWIS URI format, the system identifier, and how to build
   URIs that address nav properties and custom properties.
+- [bulk-operations.md](bulk-operations.md) covers `BulkUpdate` and `BulkDelete`, and why
+  their empty response means the read-back is part of the operation rather than optional.
+- [invoke-verbs.md](invoke-verbs.md) is the complete guide to calling verbs: the positional
+  argument contract, how to pass parameters from each client, and worked examples.
+- [verb-catalog.md](verb-catalog.md) is the shortlist of verbs worth knowing, grouped by
+  the task you are trying to do.
+- [metadata-introspection.md](metadata-introspection.md) shows how to ask a live server
+  about its own schema, which is the authority for the version in front of you.
 
 ## Verifying anything in this guide
 

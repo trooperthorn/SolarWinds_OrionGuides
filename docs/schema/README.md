@@ -271,6 +271,10 @@ too. Every `sql` block in this documentation is re-validated on every build.
 - [entity-model.md](entity-model.md) for inheritance, keys, URIs and rights.
 - [relationships.md](relationships.md) for the three relationship kinds and navigation.
 - [using-the-data.md](using-the-data.md) to query the JSON directly or regenerate it.
+- [netobject-types.md](netobject-types.md) for what a NetObject prefix is and the verbs
+  that require `N:42` rather than `42`.
+- [status-codes.md](status-codes.md) for what the status integers mean and why a lower
+  rollup rank is worse.
 - [joins-and-navigation.md](../swql/joins-and-navigation.md) for the SWQL side of the same
   material: what a navigation does to your row count, and how to filter a base-entity query.
 - [entity-index.md](../reference/entity-index.md) for all 2067 entities in one table, and

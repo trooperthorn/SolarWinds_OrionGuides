@@ -973,3 +973,14 @@ WHERE FullName LIKE 'Orion.SRM.%'
   parameters.
 - [../../scripts/swql/12-udt-and-storage.swql](../../scripts/swql/12-udt-and-storage.swql)
   for more verified SRM sample queries.
+- SolarWinds:
+  [Creating Custom Properties](https://solarwinds.github.io/OrionSDK/docs/creating-custom-properties/)
+  and
+  [Managing Custom Properties](https://solarwinds.github.io/OrionSDK/docs/managing-custom-properties/)
+  for the verb set that makes up 45 of SRM's 52 verbs.
+- SolarWinds:
+  [Unmanaging Entities](https://solarwinds.github.io/OrionSDK/docs/unmanaging-entities/) for
+  how `Unmanage` works on the entities that do publish it, which SRM's do not.
+- SolarWinds:
+  [SWQL Functions](https://solarwinds.github.io/OrionSDK/docs/swql-functions/) for `DayDiff`,
+  `MinuteDiff`, `AddDay` and `DateTrunc` as used in the queries above.
