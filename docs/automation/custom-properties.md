@@ -96,6 +96,8 @@ unused. This is the verb that most rewards looking up the signature.
 python3 tools/schema_query.py verb Orion.NodesCustomProperties CreateCustomProperty
 ```
 
+Its sixteen parameters summarise to this, with `?` marking the optional ones:
+
 ```text
 Orion.NodesCustomProperties.CreateCustomProperty(
     PropertyName, Description, ValueType, Size, ValidRange, Parser, Header,

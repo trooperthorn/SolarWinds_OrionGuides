@@ -1382,5 +1382,58 @@ class TestContractSignatures(unittest.TestCase):
         self.assertFalse(any(p["required"] for p in verb["parameters"][1:]))
 
 
+class TestOutputPairing(unittest.TestCase):
+    """A command block pairs with the output block directly under it, and no further.
+
+    Most documented commands are shown without their output. With a non-greedy ".*?" the
+    command group ran forward from one of those until it found some later pair, swallowing
+    every real command/output pair in between; the match then had a hundred-line
+    "command", runnable() rejected it, and the whole span went unchecked in silence. That
+    is the failure mode a checker must not have, because it reports success.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_examples
+
+        cls.mod = check_examples
+
+    def test_a_command_without_output_does_not_swallow_the_next_pair(self):
+        page = (
+            "```bash\nfirst --no-output-shown\n```\n\n"
+            "Prose between them.\n\n"
+            "```bash\nsecond --has-output\n```\n\n"
+            "```text\nthe real output\n```\n"
+        )
+        pairs = [
+            (m.group("cmd").strip(), m.group("out").strip())
+            for m in self.mod.PAIR_RE.finditer(page)
+        ]
+        self.assertEqual(pairs, [("second --has-output", "the real output")])
+
+    def test_neither_group_spans_a_fence(self):
+        page = (
+            "```bash\ncmd --one\n```\n\n```text\nout one\n```\n\n"
+            "```bash\ncmd --two\n```\n\n```text\nout two\n```\n"
+        )
+        pairs = [
+            (m.group("cmd").strip(), m.group("out").strip())
+            for m in self.mod.PAIR_RE.finditer(page)
+        ]
+        self.assertEqual(pairs, [("cmd --one", "out one"), ("cmd --two", "out two")])
+        for cmd, out in pairs:
+            self.assertNotIn("```", cmd)
+            self.assertNotIn("```", out)
+
+    def test_an_elision_marker_allows_a_gap_but_a_missing_line_still_fails(self):
+        actual = ["Verb.Name", "  returns: number", "  requires: admin"]
+        ok, _ = self.mod.matches(["Verb.Name", "...", "  requires: admin"], actual)
+        self.assertTrue(ok)
+        # Without the marker the lines have to follow closely, which is what catches an
+        # output block that quietly went stale.
+        ok, _ = self.mod.matches(["Verb.Name", "  requires: nonesuch"], actual)
+        self.assertFalse(ok)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

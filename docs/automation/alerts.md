@@ -1061,6 +1061,11 @@ python3 tools/schema_query.py verb Orion.Actions TestAlertingAction
 ```text
 Orion.Actions.TestAlertingAction
   returns: SolarWinds.Orion.Core.Models.Actions.ActionResult
+  return shape (3 member(s)):
+    Status                                       SolarWinds.Orion.Core.Models.Actions.ActionStatus
+        one of: Unknown, Success, Failed, Canceled, NotApproved
+    ErrorMessage                                 string
+    ActionTitle                                  string
   REST:    POST /Invoke/Orion.Actions/TestAlertingAction
   requires: manageAlerts
   parameters (2):
@@ -1068,11 +1073,16 @@ Orion.Actions.TestAlertingAction
     context: SolarWinds.Orion.Core.Models.Actions.Contexts.AlertingActionContext (required)
 ```
 
+Read the result rather than the absence of an exception. `Status` is an enumeration with five
+values, and only `Success` means the action ran: `Failed` carries the reason in
+`ErrorMessage`, while `NotApproved` and `Canceled` mean it never ran at all, which is a
+different thing to report to whoever pressed the button.
+
 `TestReportingAction` has the same two-argument shape with a `ReportingActionContext` in
 place of the alerting one, and **requires `admin` rather than `manageAlerts`**. That
 asymmetry is worth knowing before you hand a test button to an alert operator.
 
-What the schema does not give you is the *inside* of those two types: it names
+What the schema does not give you is the *inside* of the two **argument** types: it names
 `ActionDefinition` and the two context types but does not describe their members, so the
 document you have to build is not documented here. `Metadata.VerbArgument` on a live server
 carries an `XmlTemplate` column that shows what SWIS expects. See

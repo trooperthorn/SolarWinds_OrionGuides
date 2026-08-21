@@ -52,9 +52,15 @@ GENERATED_MARKER = "GENERATED FILE"
 
 # A bash block, then optional prose-free whitespace, then an output block. The output
 # block is fenced with no language or with text/console, which is how these are written.
+# Neither group may cross a fence. With a plain ".*?" the command group runs forward
+# from a bash block that has no output block under it until it finds some later pair,
+# swallowing the real command/output pairs in between: the match then has a
+# hundred-line "command", runnable() rejects it, and everything inside was skipped
+# without a word. Most bash blocks are shown without their output, so this silently
+# disabled the check across whole pages.
+NOFENCE = r"(?:(?!```)[\s\S])*"
 PAIR_RE = re.compile(
-    r"```bash\n(?P<cmd>.*?)```\s*\n+```(?:text|console|json|)\n(?P<out>.*?)```",
-    re.S,
+    rf"```bash\n(?P<cmd>{NOFENCE})```\s*\n+```(?:text|console|json|)\n(?P<out>{NOFENCE})```",
 )
 
 # Two kinds of invocation are safe and meaningful to run: this repository's own tools,
