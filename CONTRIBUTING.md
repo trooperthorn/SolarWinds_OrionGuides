@@ -110,6 +110,9 @@ Specifics:
   a signature to its subject all the time, but the ones you do write must be in contract
   order. Arguments are positional, so this is the error that reaches a reader as a call
   that returns the wrong answer instead of one that fails.
+- SWQL function calls are checked by argument count, since the reference gives their
+  parameters placeholder names. Naming a function without arguments, `` `Avg()` ``, is
+  read as a name rather than a call and is left alone.
 - Link the official SolarWinds documentation where it already says something well, rather
   than paraphrasing it loosely.
 - Cross-link sibling pages with relative links.

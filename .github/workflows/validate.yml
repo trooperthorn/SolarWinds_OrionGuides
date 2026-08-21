@@ -96,7 +96,7 @@ jobs:
 
       # Arguments are positional, so a reordered signature in prose becomes a call that
       # returns the wrong answer rather than one that errors.
-      - name: Check verb signatures in prose against the contract
+      - name: Check verb and function signatures in prose
         run: python3 tools/check_signatures.py --version 2026.2
 
       # A page that shows a command and its output is making a claim that rots like any

@@ -627,6 +627,87 @@ class TestSignatureClaims(unittest.TestCase):
     def test_unknown_verb_name_resolves_to_nothing(self):
         self.assertIsNone(self.contract.resolve("Frobnicate", []))
 
+    def test_balanced_scan_reads_a_nested_call(self):
+        # A regex stopping at the first ')' truncates ToLocal(GetUtcDate()) and then
+        # reports the mangled remainder.
+        text = "`ToLocal(GetUtcDate())` converts."
+        body = self.mod.balanced_arguments(text, text.index("("))
+        self.assertEqual(body, "GetUtcDate()")
+        self.assertEqual(self.mod.split_arguments(body), ["GetUtcDate()"])
+
+    def test_unterminated_call_is_not_read(self):
+        self.assertIsNone(self.mod.balanced_arguments("`Sum(a` and more", 4))
+
+    def test_arguments_split_at_the_top_level_only(self):
+        self.assertEqual(
+            self.mod.split_arguments("a, Concat(b, c), d"), ["a", "Concat(b, c)", "d"])
+
+
+class TestFunctionArity(unittest.TestCase):
+    """SWQL functions are checked by argument count, since the reference names are
+    placeholders that real prose has no reason to repeat."""
+
+    @classmethod
+    def setUpClass(cls):
+        import check_signatures
+
+        cls.functions = check_signatures.Functions()
+
+    def test_fixed_arity(self):
+        self.assertEqual(self.functions.arity("Round")[:2], (2, 2))
+        self.assertEqual(self.functions.arity("Year")[:2], (1, 1))
+
+    def test_variadic_is_unbounded(self):
+        # Concat is written Concat(a, b, c, ...) and takes any number beyond that.
+        low, high, _ = self.functions.arity("Concat")
+        self.assertEqual(high, float("inf"))
+        self.assertGreaterEqual(low, 1)
+
+    def test_optional_arguments_widen_the_range(self):
+        low, high, _ = self.functions.arity("String_Agg")
+        self.assertEqual(low, 2)
+        self.assertGreater(high, low)
+
+    def test_unknown_name_has_no_arity(self):
+        self.assertIsNone(self.functions.arity("Frobnicate"))
+
+
+class TestSignatureNegation(unittest.TestCase):
+    """A form named in order to warn readers off it must not be reported."""
+
+    @classmethod
+    def setUpClass(cls):
+        import check_entity_references as cer
+        import check_signatures
+
+        cls.negated = staticmethod(cer.negated_nearby)
+        cls.mod = check_signatures
+
+    def span(self, text, name):
+        start = text.index(f"`{name}(")
+        body = self.mod.balanced_arguments(text, text.index("(", start))
+        # The span must cover the closing backtick, or a negation that follows the call
+        # is searched for in the middle of the arguments.
+        return start, start + 1 + len(name) + 1 + len(body) + 2
+
+    def test_negation_after_the_call_is_detected(self):
+        text = "A standalone negation: `IsNull(x)` is not a thing."
+        start, end = self.span(text, "IsNull")
+        self.assertTrue(self.negated(text, start, end))
+
+    def test_an_ordinary_call_is_not_read_as_negated(self):
+        text = "Use `Round(v.Percent, 1)` to round the value."
+        start, end = self.span(text, "Round")
+        self.assertFalse(self.negated(text, start, end))
+
+
+class TestContractSignatures(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import check_signatures
+
+        cls.contract = check_signatures.Contract(VERSION)
+
     def test_real_signature_from_the_contract(self):
         verb = self.contract.resolve("SuppressAlerts", ["Orion.AlertSuppression"])
         names = [p["name"] for p in verb["parameters"]]

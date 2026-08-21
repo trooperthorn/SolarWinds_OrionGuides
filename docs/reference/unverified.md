@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**80 statements across 31 pages.**
+**89 statements across 32 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -92,6 +92,24 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - ## What is not verified here
 
+## [high-availability.md](../automation/high-availability.md)
+
+**[The pool](../automation/high-availability.md#the-pool)**
+
+- The value set behind `CurrentStatus` is **not documented in the published schema**, so treat the integer as opaque and compare pools against each other rather than against a hard-coded number.
+**[Pool members](../automation/high-availability.md#pool-members)**
+
+- `Status`, `PreferredStatus` and `RepairStatus` are integers whose value sets are **not documented in the published schema**.
+**[Safe in a controlled window, with a human deciding](../automation/high-availability.md#safe-in-a-controlled-window-with-a-human-deciding)**
+
+- The schema records **no description** for this verb, so its exact semantics when the two arrays are different lengths, or when a target is not in the same pool, are **not documented in the published schema** and are not verified here.
+- What it repairs, and whether it is disruptive, is **not documented in the published schema**.
+**[Gotchas](../automation/high-availability.md#gotchas)**
+
+- Which one the server accepts cannot be verified here; find out with `ValidateEditPool` before running the real call.
+- SolarWinds' sample joins `Orion.StatusInfo` on member `Status`, which is suggestive but is unverified here.
+- `SelectiveSwitchover` and `RepairPool` have no schema descriptions.** Their exact behaviour is not documented in the published schema and is not verified here.
+
 ## [node-management.md](../automation/node-management.md)
 
 **[The properties to set on create](../automation/node-management.md#the-properties-to-set-on-create)**
@@ -111,9 +129,15 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [pollers.md](../automation/pollers.md)
 
+**[Interfaces: discover, then add with default pollers](../automation/pollers.md#interfaces-discover-then-add-with-default-pollers)**
+
+- The exact shape the verb result takes when it comes back through `Invoke-SwisVerb` is a serialisation detail of the PowerShell client rather than a schema fact, and it is **not verified here**; inspect `$discovered` once interactively before writing the filter, and adjust the property path.
 **[Nodes: the list resources job](../automation/pollers.md#nodes-the-list-resources-job)**
 
 - And the tree it manipulates is XML whose element and display names are runtime data rather than schema, so the exact `DisplayName` values are **not verified here**; dump `$results` once for the device family you are automating and read the names off it.
+**[Polling parameters](../automation/pollers.md#polling-parameters)**
+
+- The individual `SettingID` values are installation data rather than schema, and they are **not recorded in the published schema**.
 
 ## [agents.md](../modules/agents.md)
 

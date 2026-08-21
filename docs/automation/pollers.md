@@ -341,9 +341,9 @@ Invoke-SwisVerb $swis 'Orion.NPM.Interfaces' 'AddInterfacesOnNode' @(
 ```
 
 The exact shape the verb result takes when it comes back through `Invoke-SwisVerb` is a
-serialisation detail of the PowerShell client rather than a schema fact, and it is **not
-verified here**; inspect `$discovered` once interactively before writing the filter, and adjust
-the property path. SolarWinds' own
+serialisation detail of the PowerShell client rather than a schema fact, and it is
+**not verified here**; inspect `$discovered` once interactively before writing the filter, and
+adjust the property path. SolarWinds' own
 [`NPM.DiscoverAndAddInterfacesOnNode.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/NPM.DiscoverAndAddInterfacesOnNode.ps1)
 sample is the reference for that.
 
@@ -546,8 +546,8 @@ WHERE s.SettingID LIKE @pattern
 ORDER BY s.SettingID
 ```
 
-The individual `SettingID` values are installation data rather than schema and are **not
-recorded in the published schema**; SolarWinds' page names
+The individual `SettingID` values are installation data rather than schema, and they are
+**not recorded in the published schema**. SolarWinds' page names
 `NPM_Settings_Routing_VRF_PollInterval` and `WLP_Settings_PollRogues` as examples. Find the
 one you want with the `LIKE` query above rather than guessing at it.
 
