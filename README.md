@@ -17,7 +17,7 @@ So this repository:
 
 - **Centralizes the guidance** on how the platform actually works, from architecture down
   to the specific reason a date filter returns the wrong hour.
-- **Ships the schema as data.** 2067 entities, 19,328 properties, 958 verbs, and 2992
+- **Ships the schema as data.** 2067 entities, 19,328 properties, 1021 verbs, and 2992
   relationship edges, extracted from SolarWinds' own published sources into JSON that
   automations and AI systems can read directly.
 - **Documents every Invoke verb with its parameters**, in order, with the required right

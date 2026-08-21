@@ -6204,6 +6204,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.APM.Common.Models.TestComponentResult",
     "restPath": "/Invoke/Orion.APM.ApplicationTemplate/StartTestComponents",
     "summaryRaw": "Start application template components test.The unique integer representation of node to assign template to.Unique Guid representation of application template.The unique integer representation of credentials.Returns list of TestComponentResult."
    },
@@ -6224,6 +6225,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.APM.Common.Models.TestComponentResult",
     "restPath": "/Invoke/Orion.APM.ApplicationTemplate/GetTestComponentStatus",
     "summaryRaw": "Returns list of status of template components test.Array of job guids.Returns list of TestComponentResult."
    }
@@ -24230,6 +24232,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.String~",
     "restPath": "/Invoke/Orion.AlertConfigurations/GetComplexPropertiesByAlertID"
    }
   ],
@@ -25659,6 +25662,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionState",
     "restPath": "/Invoke/Orion.AlertSuppression/GetAlertSuppressionState"
    }
   ],
@@ -57664,6 +57668,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem",
     "restPath": "/Invoke/Orion.Discovery/GetDiscoveryProfileResourcesResult"
    }
   ],
@@ -60359,6 +60364,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Orion.Environment/CanInstall"
    },
    {
@@ -60412,6 +60418,7 @@
     ],
     "parameters": [],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Orion.Environment/GetSqlServerIpAddresses"
    },
    {
@@ -60442,6 +60449,7 @@
     ],
     "parameters": [],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.Environment/GetOrionServerCertificate"
    },
    {
@@ -66710,6 +66718,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.Frequencies/SaveReportFrequencies"
    },
    {
@@ -66740,6 +66749,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.Frequencies/SaveTimePeriodFrequencies"
    },
    {
@@ -86335,6 +86345,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Orion.Licensing.Licenses/ActivateOnline"
    },
    {
@@ -86349,6 +86360,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Orion.Licensing.Licenses/ActivateOffline"
    },
    {
@@ -86378,6 +86390,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Orion.Licensing.Licenses/Deactivate"
    },
    {
@@ -86496,6 +86509,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Orion.Licensing.Licenses/GetAvailableAssignments"
    },
    {
@@ -95545,6 +95559,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Orion.NPM.Interfaces/GetSupportedMetrics",
     "summaryRaw": "Returns list of metrics to poll on Interface entityInterfaceID of a target Interface"
    },
@@ -108343,6 +108358,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.Netflow.InterfaceSources/EnableFlowInterfaceSources"
    },
    {
@@ -108360,6 +108376,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.Netflow.InterfaceSources/DisableFlowInterfaceSources"
    },
    {
@@ -108620,6 +108637,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.Netflow.NodeSources/EnableFlowNodeSources"
    },
    {
@@ -108637,6 +108655,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.Netflow.NodeSources/DisableFlowNodeSources"
    },
    {
@@ -112588,6 +112607,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Orion.Nodes/GetSupportedMetrics",
     "summaryRaw": "Returns list of metrics to poll on Node entityNodeID of a target node"
    },
@@ -112869,6 +112889,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem",
     "restPath": "/Invoke/Orion.Nodes/GetListResourcesResult",
     "summaryRaw": "Get the result of List Resources discoveryJob identifier to get status forProvide node id to identify engine running the discovery"
    },
@@ -112898,6 +112919,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem",
     "restPath": "/Invoke/Orion.Nodes/GetListResourcesResultByEngine",
     "summaryRaw": "Get the result of List Resources discoveryJob identifier to get status forEngine id used to execute given discovery job"
    },
@@ -112933,6 +112955,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Int32~",
     "restPath": "/Invoke/Orion.Nodes/ImportSelectedListResourcesResult"
    },
    {
@@ -117681,6 +117704,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Orion.PM.DatabaseHelper/GetListOfDatabases"
    },
    {
@@ -117710,6 +117734,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Orion.PM.DatabaseHelper/GetAccountsList"
    },
    {
@@ -135714,6 +135739,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Orion.SEM.Events/GetEventDetails"
    }
   ],
@@ -148060,6 +148086,7 @@
     "accessControl": [],
     "parameters": [],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Orion.SRM.StorageArrays/GetLicensedArrays"
    },
    {
@@ -154157,6 +154184,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Orion.SSO/ValidateUserToken"
    }
   ],
@@ -158539,6 +158567,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.TechnologyPollingAssignments/EnableAssignments"
    },
    {
@@ -158560,6 +158589,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.TechnologyPollingAssignments/DisableAssignments"
    },
    {
@@ -158589,6 +158619,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.TechnologyPollingAssignments/EnableAssignmentsOnNetObjects"
    },
    {
@@ -158618,6 +158649,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "number",
     "restPath": "/Invoke/Orion.TechnologyPollingAssignments/DisableAssignmentsOnNetObjects"
    }
   ],
@@ -179834,6 +179866,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Orion.Volumes/GetSupportedMetrics",
     "summaryRaw": "Returns list of metrics to poll on Volume entityVolumeID of a target Volume"
    },
@@ -183846,6 +183879,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.Int32_System.String_array~",
     "restPath": "/Invoke/Orion.WirelessHeatMap.Map/StartClientSignalPoll"
    },
    {

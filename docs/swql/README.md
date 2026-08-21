@@ -133,7 +133,7 @@ You cannot create a table, declare a variable, create a temp table, write a `WHI
 call a stored procedure. The operations that a T-SQL developer would reach for a stored
 procedure to do are exposed instead as **verbs** on entities, invoked over a separate
 interface: `Orion.Nodes.Unmanage`, `Orion.AlertActive.Acknowledge`,
-`Orion.NodesCustomProperties.CreateCustomProperty`. In 2026.2 there are 958 of them, 794
+`Orion.NodesCustomProperties.CreateCustomProperty`. In 2026.2 there are 1021 of them, 848
 with typed parameters. They are documented in
 [../reference/verb-index.md](../reference/verb-index.md).
 

@@ -1,12 +1,12 @@
 # Verb catalog
 
-SWIS schema 2026.2 declares **958 verbs** across **186 entities**. Of those, **794 publish
-typed, named, ordered parameters** and **332 return `System.Void`**. This page is not all 958.
+SWIS schema 2026.2 declares **1021 verbs** across **186 entities**. Of those, **848 publish
+typed, named, ordered parameters** and **332 return `System.Void`**. This page is not all 1021.
 It is the subset you are most likely to need, grouped by the task you are trying to do, plus
 the commands to query the remaining ones yourself.
 
 If you already know the verb name, [../reference/verb-index.md](../reference/verb-index.md)
-lists all 958 with signature, return type and required right. If you do not yet know how to
+lists all 1021 with signature, return type and required right. If you do not yet know how to
 call one, start with [invoke-verbs.md](invoke-verbs.md).
 
 ## How to read these tables
@@ -17,7 +17,7 @@ call one, start with [invoke-verbs.md](invoke-verbs.md).
   argument array after the last one you want to supply.
 - **Requires** is the right the schema declares for `invoke` **on that verb**. `not declared`
   is not the same as "no restriction". Rights are declared at two levels, and the entity often
-  carries one when the verb does not. 629 of the 958 verbs declare no verb-level right, and
+  carries one when the verb does not. 629 of the 1021 verbs declare no verb-level right, and
   363 of those belong to an entity that declares an `invoke` right of its own. Each table
   below names the entity-level right wherever a row says `not declared`. NCM and IPAM then
   enforce their own module roles on top of both. See
@@ -397,7 +397,7 @@ These three are the exception to the two-level rule above. `Metadata.Entity` dec
 access control at all, and `System.QueryPlanCache` declares only `read` for `system`, so
 neither publishes an `invoke` right at either level.
 
-## Querying the full set of 958
+## Querying the full set of 1021
 
 The catalog above is curated. Everything else is one command away, and there are three ways
 to get at it depending on where you are.
@@ -422,7 +422,7 @@ python3 tools/schema_query.py --json verb Orion.HA.Pools CreatePool
 
 ### With `jq` against `data/schema/2026.2/verbs.json`
 
-The file is a flat JSON array of 958 records. Each record has `entity`, `namespace`, `name`,
+The file is a flat JSON array of 1021 records. Each record has `entity`, `namespace`, `name`,
 `summary`, `parameters` (an ordered array of `{name, type, required}`, some with `items`,
 `description` or `enum`), `returns`, `restPath` and `accessControl`. 245 records also carry a
 `summaryRaw`, the run-on summary text from the rendered schema page, kept where it differs
@@ -513,6 +513,6 @@ Everything the `Metadata` namespace can tell you is in
   and Python, with six fully worked examples.
 - [metadata-introspection.md](metadata-introspection.md) covers live schema introspection.
 - [../reference/verb-index.md](../reference/verb-index.md) is the complete generated table of
-  all 958 verbs.
+  all 1021 verbs.
 - [../reference/netobject-types.md](../reference/netobject-types.md) maps entity types to the
   NetObject prefixes that `netObjectId` arguments expect.

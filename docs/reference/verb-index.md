@@ -4,7 +4,7 @@
 
 # Verb index
 
-Every invokable verb in platform version **2026.2**: 958 verbs, of which 794 carry typed, named, ordered parameters recovered from the SWIS Swagger contract.
+Every invokable verb in platform version **2026.2**: 1021 verbs, of which 848 carry typed, named, ordered parameters recovered from the SWIS Swagger contract.
 
 **Arguments are positional.** The names below come from the contract and from the documentation, but they never travel on the wire: both the REST body and `Invoke-SwisVerb` send an ordered array. The order in the Signature column is therefore the whole contract, and getting it wrong produces a type error at best and a silent misfire at worst.
 
@@ -27,11 +27,11 @@ ORDER BY Position
 
 | Namespace | Verbs |
 | --- | ---: |
-| [Orion](#orion) | 614 |
+| [Orion](#orion) | 676 |
 | [Cirrus](#cirrus) | 132 |
 | [Cortex](#cortex) | 83 |
 | [IPAM](#ipam) | 67 |
-| [NCM](#ncm) | 28 |
+| [NCM](#ncm) | 29 |
 | [UamsClient](#uamsclient) | 11 |
 | [PlatformConnect](#platformconnect) | 7 |
 | [PlatformBridge](#platformbridge) | 6 |
@@ -50,6 +50,7 @@ ORDER BY Position
 | `Orion.ADM.NodeInventory` | `ScheduleEnable` | `(jobTag, nodeIds, millisecondsTimeout)` | `System.Void` | `manageNodes` | More intelligent 'enable'. During execution adm plugin is installed if not exists. 'Enable' is… |
 | `Orion.ADM.NodeInventory` | `SchedulePollNow` | `(jobTag, nodeIds, millisecondsTimeout)` | `string` | `manageNodes` | More intelligent 'poll now' which can be resolved by its guid. It also triggers an indication w… |
 | `Orion.ADM.NodeInventory` | `UninstallConnectionQualityAgentPlugin` | `()` | `System.Void` | `manageNodes` | Uninstall 'ADMConnectionQuality' agent plugin from all nodes with agent where this plugin is in… |
+| `Orion.AIIM.AiOpsMetricStatus` | `SaveAiOpsMetricStatus` | `(sourceUri, metricName, timestampUtc, norLowerBounds, norUpperBounds, norValidFromUtc, norValidUntilUtc)` | `System.Void` |  | The verb for saving AiOps metric status |
 | `Orion.APIPoller.ApiPoller` | `AssignTemplate` | `(entityType, entityId, templateId, configuration, parameters)` | `number` | `manageNodes` | Assign a new ApiPoller Template |
 | `Orion.APIPoller.ApiPoller` | `CreateApiPollerFromTemplate` | `(entityType, entityId, template, configuration, parameters)` | `number` | `manageNodes` | Create new ApiPoller Template |
 | `Orion.APIPoller.ApiPoller` | `ExportTemplateFromApiPoller` | `(apiPollerId)` | `string` | `manageNodes` | Export an ApiPoller Template |
@@ -355,6 +356,11 @@ ORDER BY Position
 | `Orion.NPM.InterfacesCustomProperties` | `CreateCustomPropertyWithValues` | `(PropertyName, Description, ValueType, Size, ValidRange, Parser, Header, Alignment, Format, Units, Value, Usages?, Mandatory?, Default?, SourceId?, SourceName?, DisplayName?)` | `System.Void` |  |  |
 | `Orion.NPM.InterfacesCustomProperties` | `DeleteCustomProperty` | `(PropertyName)` | `System.Void` |  |  |
 | `Orion.NPM.InterfacesCustomProperties` | `ModifyCustomProperty` | `(PropertyName, Description, Size, Values, Usages?, Mandatory?, Default?, SourceId?, SourceName?, propertyDisplayName?)` | `System.Void` |  |  |
+| `Orion.Netflow.IPAddressGroupsManagement` | `DeleteAllIpGroups` | `(autoResolveApplicationConflicts)` | `SolarWinds.Netflow.Contracts.IPGroups.Manag…` |  |  |
+| `Orion.Netflow.IPAddressGroupsManagement` | `DeleteIpGroups` | `(ipGroupIds, autoResolveApplicationConflicts)` | `SolarWinds.Netflow.Contracts.IPGroups.Manag…` |  |  |
+| `Orion.Netflow.IPAddressGroupsManagement` | `SetIPRanges` | `(ipGroupId, ipRanges, autoResolveApplicationConflicts)` | `SolarWinds.Netflow.Contracts.IPGroups.Manag…` |  |  |
+| `Orion.Netflow.IPAddressGroupsManagement` | `SetIpGroupsAsModified` | `()` | `System.Void` |  |  |
+| `Orion.Netflow.IPGroupExternalRelation` | `CreateFromIPAMGroup` | `(externalIpGroupId)` | `System.Void` |  |  |
 | `Orion.Netflow.InterfaceSources` | `DisableFlowInterfaceSources` | `(interfaceIds)` | `array` |  |  |
 | `Orion.Netflow.InterfaceSources` | `EnableFlowInterfaceSources` | `(interfaceIds)` | `array` |  |  |
 | `Orion.Netflow.InterfaceSources` | `SetExporterFlowDirection` | `(configurations)` | `boolean` |  |  |
@@ -507,6 +513,62 @@ ORDER BY Position
 | `Orion.SEUM.Transactions` | `Create` | `(recordingId, agentId)` | `number` |  | Verb to create transaction |
 | `Orion.SEUM.Transactions` | `Remanage` | `(netObjectId)` | `System.Void` |  | Verb to remanage transaction |
 | `Orion.SEUM.Transactions` | `Unmanage` | `(netObjectId, unmanageTime, remanageTime, isRelative)` | `System.Void` |  | Verb to unmanage transaction |
+| `Orion.SRM.BusinessLayer` | `AddCredential` | `(credential, credType)` | `number` |  | Adds a new credential for storage array authentication |
+| `Orion.SRM.BusinessLayer` | `AddManualE2EMapping` | `(volumeId, netObjectId, netObjectType)` | `number` |  | Adds manual end-to-end mapping between storage and virtualization layers |
+| `Orion.SRM.BusinessLayer` | `AddProvider` | `(provider)` | `number` |  | Adds a new storage provider |
+| `Orion.SRM.BusinessLayer` | `CheckIfCredentialNameExists` | `(displayName)` | `boolean` |  | Checks if a credential name already exists |
+| `Orion.SRM.BusinessLayer` | `DeleteArrays` | `(ids)` | `System.Void` |  | Deletes one or more storage arrays |
+| `Orion.SRM.BusinessLayer` | `DeleteCredentials` | `(ids)` | `System.Void` |  | Deletes one or more credentials |
+| `Orion.SRM.BusinessLayer` | `DeleteProviders` | `(providerIds)` | `System.Void` |  | Deletes one or more storage providers |
+| `Orion.SRM.BusinessLayer` | `DiscoveryImport` | `(engineId, providers, arrays)` | `System.Void` |  | Imports discovered storage arrays into SRM |
+| `Orion.SRM.BusinessLayer` | `DiscoveryResponder` | `(ipAddress, port, userName, password, templateId)` | `array` |  | Handles discovery response operations |
+| `Orion.SRM.BusinessLayer` | `DropManualE2EMapping` | `(volumeIds)` | `System.Void` |  | Removes manual end-to-end mapping |
+| `Orion.SRM.BusinessLayer` | `GetAllArrays` | `()` | `System.Collections.Generic.IEnumerable~Sola…` |  | Gets information about all storage arrays |
+| `Orion.SRM.BusinessLayer` | `GetAllEngines` | `()` | `System.Collections.Generic.IEnumerable~Sola…` |  | Gets information about all polling engines |
+| `Orion.SRM.BusinessLayer` | `GetArray` | `(storageArrayID)` | `SolarWinds.SRM.Common.Models.ArrayEntity` |  | Gets information about a specific storage array |
+| `Orion.SRM.BusinessLayer` | `GetArrayProvider` | `(arrayId)` | `SolarWinds.SRM.Common.Models.ProviderInfo` |  | Gets the provider information for a storage array |
+| `Orion.SRM.BusinessLayer` | `GetArraysByVendorId` | `(storageArrayIds)` | `System.Collections.Generic.IEnumerable~Sola…` |  | Gets all arrays from a specific vendor |
+| `Orion.SRM.BusinessLayer` | `GetCredential` | `(credentialID, credType)` | `SolarWinds.Orion.Core.SharedCredentials.Cre…` |  | Retrieves credential information by ID |
+| `Orion.SRM.BusinessLayer` | `GetCredentialNames` | `(credType)` | `array` |  | Gets the names of all available credentials |
+| `Orion.SRM.BusinessLayer` | `GetCredentialType` | `(id)` | `SolarWinds.SRM.Common.Enums.CredentialType` |  | Gets the type of a specific credential |
+| `Orion.SRM.BusinessLayer` | `GetDeviceGroup` | `(groupId)` | `SolarWinds.SRM.Common.Models.DeviceGroup` |  | Gets information about a specific device group |
+| `Orion.SRM.BusinessLayer` | `GetDiscoveryJobResult` | `(discoveryId)` | `SolarWinds.SRM.Common.Models.DiscoveryResul…` |  | Retrieves the result of a discovery job |
+| `Orion.SRM.BusinessLayer` | `GetEngine` | `(engineId)` | `SolarWinds.SRM.Common.Models.PollingEngine` |  | Gets information about a specific polling engine |
+| `Orion.SRM.BusinessLayer` | `GetLicenseInfo` | `()` | `SolarWinds.SRM.Common.Models.LicenseEntity` |  | Gets current license information for SRM |
+| `Orion.SRM.BusinessLayer` | `GetLicensedObjects` | `()` | `array` |  | Gets the list of licensed objects in SRM |
+| `Orion.SRM.BusinessLayer` | `GetNetObjectCaption` | `(tableName, idFieldName, id)` | `string` |  | Gets the caption of a network object |
+| `Orion.SRM.BusinessLayer` | `GetPrimaryEngineID` | `()` | `number` |  | Gets the ID of the primary polling engine |
+| `Orion.SRM.BusinessLayer` | `GetPropertyAvailability` | `(templateString, templateProperties, categories)` | `array` |  | Gets availability information for object properties |
+| `Orion.SRM.BusinessLayer` | `GetProviderArrays` | `(providerId)` | `System.Collections.Generic.IEnumerable~Sola…` |  | Gets all arrays associated with a specific provider |
+| `Orion.SRM.BusinessLayer` | `GetProviders` | `(providerIds)` | `array` |  | Gets all configured storage providers |
+| `Orion.SRM.BusinessLayer` | `GetRestConfiguration` | `(groupId)` | `string` |  | Gets REST configuration for API communication |
+| `Orion.SRM.BusinessLayer` | `GetSetting` | `(field)` | `string` |  | Gets a specific SRM setting value |
+| `Orion.SRM.BusinessLayer` | `GetStorageArrayProperty` | `(storageArrayId, propertyName)` | `string` |  | Gets a specific property of a storage array |
+| `Orion.SRM.BusinessLayer` | `GetTestConnectionJobResult` | `(testConnectionJobId)` | `SolarWinds.SRM.Common.Models.TestConnection…` |  | Retrieves the result of a test connection job |
+| `Orion.SRM.BusinessLayer` | `GetVserver` | `(vserverId)` | `SolarWinds.SRM.Common.Models.VServerEntity` |  | Gets information about a specific virtual server |
+| `Orion.SRM.BusinessLayer` | `ImportArrays` | `(engineId, deviceGroupId, providers, arrays)` | `System.Void` |  | Imports specified storage arrays into monitoring |
+| `Orion.SRM.BusinessLayer` | `LogOIP` | `(message)` | `System.Void` |  | Logs OIP (Orion Improvement Program) data |
+| `Orion.SRM.BusinessLayer` | `RefreshLicense` | `()` | `System.Void` |  | Refreshes license information from the license server |
+| `Orion.SRM.BusinessLayer` | `RemanageArrays` | `(ids)` | `System.Void` |  | Sets storage arrays back to managed state |
+| `Orion.SRM.BusinessLayer` | `ReportJobDuration` | `(duration)` | `System.Void` |  | Reports the duration of completed jobs |
+| `Orion.SRM.BusinessLayer` | `StoreResponderArray` | `(ipAddress, port, snapshotId, storageArrayId, arrayName, vendor, isCluster, templateId, userName, password)` | `System.Void` |  | Stores array information from discovery responder |
+| `Orion.SRM.BusinessLayer` | `SubmitDiscoveryJob` | `(connectionInfos, groupId)` | `string` |  | Submits a discovery job for storage array discovery |
+| `Orion.SRM.BusinessLayer` | `SubmitTestConnectionJob` | `(connectionInfos)` | `string` |  | Submits a test connection job to verify connectivity to storage provider |
+| `Orion.SRM.BusinessLayer` | `TestCredentials` | `(connectionInfo)` | `SolarWinds.SRM.Common.Exceptions.ErrorState` |  | Tests connectivity using specified credentials |
+| `Orion.SRM.BusinessLayer` | `UnmanageArrays` | `(ids, from, until)` | `System.Void` |  | Sets storage arrays to unmanaged state |
+| `Orion.SRM.BusinessLayer` | `UpdateArray` | `(array)` | `number` |  | Updates storage array information |
+| `Orion.SRM.BusinessLayer` | `UpdateArrayPollingIntervals` | `(storageArrayId, statCollection, rediscoveryInterval, topologyInterval, controllerInterval)` | `number` |  | Updates polling intervals for storage arrays |
+| `Orion.SRM.BusinessLayer` | `UpdateCredential` | `(credential, credType)` | `System.Void` |  | Updates an existing credential |
+| `Orion.SRM.BusinessLayer` | `UpdateEntityCustomProperties` | `(entityUris, customProperties)` | `System.Void` |  | Updates custom properties for SRM entities |
+| `Orion.SRM.BusinessLayer` | `UpdateLicenseInfo` | `()` | `System.Void` |  | Updates license information in the system |
+| `Orion.SRM.BusinessLayer` | `UpdateNetObjectCaption` | `(tableName, idFieldName, id, caption)` | `number` |  | Updates the caption of a network object |
+| `Orion.SRM.BusinessLayer` | `UpdatePollingEngine` | `(objectsTableName, keyColumnName, ids, engineId)` | `number` |  | Updates polling engine configuration |
+| `Orion.SRM.BusinessLayer` | `UpdateProvider` | `(provider)` | `System.Void` |  | Updates provider information |
+| `Orion.SRM.BusinessLayer` | `UpdateProviderArrays` | `(arrayIds, providerId)` | `System.Void` |  | Updates arrays associated with a provider |
+| `Orion.SRM.BusinessLayer` | `UpdateProviderPollingProperties` | `(providerIDs, pollingInterval)` | `System.Void` |  | Updates polling properties for a provider |
+| `Orion.SRM.BusinessLayer` | `UpdateStorageArrayProperties` | `(storageArrayId, properties)` | `System.Void` |  | Updates multiple properties of a storage array |
+| `Orion.SRM.BusinessLayer` | `UpdateStorageArrayProperty` | `(storageArrayId, propertyName, value)` | `System.Void` |  | Updates a specific property of a storage array |
+| `Orion.SRM.BusinessLayer` | `UpdateStorageControllerPollingFeature` | `(storageArrayId, isPollingEnabled)` | `number` |  | Updates polling feature configuration for storage controllers |
 | `Orion.SRM.DeviceMigrations` | `RefreshDeviceMigrations` | `()` | `System.Void` |  | Will trigger a refresh SRM Device migrations table with updated info |
 | `Orion.SRM.DeviceMigrations` | `TriggerMigration` | `(migrationType, migrationObject, objectID)` | `SolarWinds.SRM.Common.BL.MigrationResults.M…` |  | Will trigger a migration for a particular storage array to new monitoring |
 | `Orion.SRM.FileShareCustomProperties` | `CreateCustomProperty` | `(PropertyName, Description, ValueType, Size, ValidRange, Parser, Header, Alignment, Format, Units, Usages?, Mandatory?, Default?, SourceId?, SourceName?, DisplayName?)` | `System.Void` |  |  |
@@ -984,6 +1046,7 @@ ORDER BY Position
 | `NCM.OneTimeOperations` | `BulkDeleteOneTimeOperations` | `(ids)` | `number` |  | Deletes one time operations in bulk. |
 | `NCM.OneTimeOperations` | `UpdateOneTimeOperation` | `(id, status, scriptContent, reboot)` | `boolean` |  | Updates one time operation details. |
 | `NCM.SecurityPolicy` | `GetSecurityPolicyAppIds` | `(nodeId, policyName)` | `array` |  | Gets list of security policy IDs for the node. |
+| `NCM.SwisEntityTemplate` | `Ping` | `()` | `boolean` |  |  |
 | `NCM.VulnerabilitiesAnnouncements` | `GetSettings` | `()` | `SolarWinds.SecObs.Common.Models.Vulnerabili…` |  | Gets all vulnerabilities settings.             For valid Orion user with at least Administrator… |
 | `NCM.VulnerabilitiesAnnouncements` | `InitVulnerabilitySchedule` | `()` | `System.Void` |  | Initializes vulnerability schedule.             For valid Orion user with at least Administrato… |
 | `NCM.VulnerabilitiesAnnouncements` | `IsVulnerabilityMatchingActive` | `()` | `boolean` |  | Checks if vulnerability matching is active.             For valid Orion user with at least WebV… |

@@ -47,7 +47,7 @@ the work:
 | `TimeStamp` | `System.Byte[]` | **Not a date.** A row-version column for concurrency. |
 | `NetworkNode` | `System.Int32` | *(from `Orion.MixedObjectType`)* the related node id |
 | `NetObjectID` | `System.Int32` | *(from `Orion.MixedObjectType`)* id within its own type |
-| `NetObjectType` | `System.String` | *(from `Orion.MixedObjectType`)* which type that is |
+| `NetObjectType` | `System.String` | *(from `Orion.MixedObjectType`)* the NetObject **prefix** for that type, such as `I`, not an entity name |
 
 `Orion.Events` inherits from `Orion.MixedObjectType`, whose own summary explains the design:
 "Base class for SWIS entities that contains records from multiple netobject types. E.g.
@@ -105,7 +105,7 @@ columns.
 | `AuditEventMessage` | `System.String` | The rendered description |
 | `NetworkNode` | `System.Int32` | The node the change was about, when there is one |
 | `NetObjectID` | `System.Int32` | The changed object's id within its type |
-| `NetObjectType` | `System.String` | Which type that is |
+| `NetObjectType` | `System.String` | The NetObject **prefix** for that type, same convention as on `Orion.Events` |
 | `DetailsUrl` | `System.String` | Relative URL to the object in the console |
 | `DisplayName` | `System.String` | |
 | `ObservationTimestamp` | `System.DateTime` | *(from `Orion.LogEntity`)* |
@@ -219,9 +219,30 @@ WHERE e.NetworkNode = @nodeId
 ORDER BY e.EventTime DESC
 ```
 
-The difference is not academic. An interface flap on node 42 has `NetObjectType =
-'Orion.NPM.Interfaces'` and `NetworkNode = 42`. Both queries find it, but only the second one
-also finds events the platform did not associate with a node object.
+The difference is not academic. An interface flap on node 42 carries the interface's own
+`NetObjectType`/`NetObjectID` pair and `NetworkNode = 42`. Both queries find it, but only the
+second one also finds events the platform did not associate with a node object.
+
+Note what `NetObjectType` holds on these two entities: the short NetObject **prefix**, in its
+own column next to the bare id, not a SWIS entity name. `Orion.NPM.Interfaces` has the prefix
+`I`, `Orion.Nodes` has `N`, `Orion.Volumes` has `V`. This is the opposite of
+`Orion.AlertObjects.EntityType`, which does hold the entity name, and writing
+`WHERE e.NetObjectType = 'Orion.NPM.Interfaces'` gets you a query that runs and returns
+nothing. Which prefixes your installation actually stores is a data question, so group by the
+column once before writing a filter on it:
+
+```sql
+SELECT
+    e.NetObjectType,
+    COUNT(e.EventID) AS Events
+FROM Orion.Events e
+WHERE e.EventTime >= AddDay(-7, GetDate())
+GROUP BY e.NetObjectType
+ORDER BY COUNT(e.EventID) DESC
+```
+
+The prefix table is in
+[../reference/netobject-types.md](../reference/netobject-types.md).
 
 Which engine recorded an event is a declared join as well, and it is the fastest way to spot
 one polling engine misbehaving:
@@ -721,6 +742,10 @@ not affect alerting. There is no verb to unacknowledge an event, unlike alerts, 
 - **Selecting `Orion.Events.TimeStamp` as a date.** It is a `System.Byte[]` row-version
   column. `EventTime` is the date.
 - **Guessing that the navigation property is `EventTypes`.** It is `EventTypeProperties`.
+- **Filtering `NetObjectType` with a SWIS entity name.** On `Orion.Events` and
+  `Orion.AuditingEvents` that column holds the short NetObject prefix, `N`, `I`, `V`, not
+  `Orion.Nodes` or `Orion.NPM.Interfaces`. The query runs and returns nothing.
+  `Orion.AlertObjects.EntityType` is the column that holds entity names.
 - **Hard-coding `EventType` integers.** They are installation data and modules add their own.
   Join to `Orion.EventTypes` and filter on `Name`, or read the integers off the server you
   are targeting.
@@ -743,6 +768,7 @@ not affect alerting. There is no verb to unacknowledge an event, unlike alerts, 
 |---|---|---|
 | The numeric values of `Orion.Events.EventType` | Installation data, not schema. Modules contribute their own. | `SELECT EventType, Name, OrionFeatureName FROM Orion.EventTypes ORDER BY EventType` |
 | The numeric values of `Orion.AuditingEvents.ActionTypeID` | Installation data, not schema | `SELECT ActionTypeID, ActionType, ActionTypeDisplayName FROM Orion.AuditingActionTypes ORDER BY ActionType` |
+| Which NetObject prefixes actually appear in `Orion.Events.NetObjectType` and `Orion.AuditingEvents.NetObjectType` | The column holds a prefix rather than an entity name, but the set of prefixes present depends on which modules are installed and what has happened | `SELECT NetObjectType, COUNT(EventID) FROM Orion.Events WHERE EventTime >= AddDay(-7, GetDate()) GROUP BY NetObjectType` |
 | The key names in `Orion.AuditingArguments.ArgsKey` | Depend on the action type; not in the schema | Pick one audit entry of the kind you care about and select its `Arguments.ArgsKey` and `Arguments.ArgsValue` |
 | The meaning of `Orion.AuditingActionTypes.OperationStatus` | `System.Int16` with no description in the schema | `SELECT OperationStatus, COUNT(ActionTypeID) FROM Orion.AuditingActionTypes GROUP BY OperationStatus`, then correlate with action types you can reproduce |
 | The timezone of `Orion.NetObjectDowntime.DateTimeFrom` and `DateTimeUntil` | Undocumented; the names do not end in `Utc` | `SELECT TOP 5 DateTimeFrom, MinuteDiff(DateTimeFrom, GetDate()), MinuteDiff(DateTimeFrom, GetUtcDate()) FROM Orion.NetObjectDowntime ORDER BY DateTimeFrom DESC` on a row whose age you know |

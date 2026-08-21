@@ -45,6 +45,22 @@ class Schema:
             )
         self._entities: dict[str, dict] | None = None
         self._index = self._load("index.json")
+        self._types: dict[str, dict] | None = None
+        self._all_verbs: list | None = None
+
+    def all_verbs(self) -> list:
+        """Every verb, including the ones named only by the REST contract."""
+        if self._all_verbs is None:
+            self._all_verbs = self._load("verbs.json")
+        return self._all_verbs
+
+    @property
+    def types(self) -> dict:
+        """Swagger definitions for the types verbs return and take, keyed by type name."""
+        if self._types is None:
+            path = os.path.join(self.root, "types.json")
+            self._types = self._load("types.json") if os.path.isfile(path) else {}
+        return self._types
 
     def _load(self, name):
         with open(os.path.join(self.root, name), encoding="utf-8") as fh:
@@ -252,10 +268,20 @@ def cmd_verbs(schema: Schema, args):
 
 
 def cmd_verb(schema: Schema, args):
-    rec = schema.get(args.entity)
-    matches = [v for v in rec["verbs"] if v["name"].lower() == args.verb.lower()]
+    try:
+        rec = schema.get(args.entity)
+        pool = rec["verbs"]
+    except SystemExit:
+        # Five entities are named only by the REST contract and have no rendered schema
+        # page, so there is no entity record to look in. Their verbs are still invokable
+        # and still in verbs.json.
+        pool = [v for v in schema.all_verbs() if v["entity"].lower() == args.entity.lower()]
+        if not pool:
+            raise
+        rec = {"entity": pool[0]["entity"]}
+    matches = [v for v in pool if v["name"].lower() == args.verb.lower()]
     if not matches:
-        names = ", ".join(v["name"] for v in rec["verbs"]) or "(none)"
+        names = ", ".join(v["name"] for v in pool) or "(none)"
         sys.exit(f"error: {rec['entity']} has no verb {args.verb!r}\navailable: {names}")
     v = matches[0]
 
@@ -263,7 +289,26 @@ def cmd_verb(schema: Schema, args):
         print(f"{rec['entity']}.{v['name']}")
         if v.get("summary"):
             print(f"  {v['summary']}")
-        print(f"  returns: {v.get('returns','?')}")
+        returns = v.get("returns", "?")
+        print(f"  returns: {returns}")
+        shape = schema.types.get(returns)
+        # A bare "array" or a long .NET type name tells a reader nothing about what comes
+        # back. When the contract defines the type, show its members.
+        if shape is None and v.get("returnsItems"):
+            shape = schema.types.get(v["returnsItems"])
+        if shape and shape.get("members"):
+            print(f"  return shape ({len(shape['members'])} member(s)):")
+            for m in shape["members"]:
+                item = f"<{m['items']}>" if m.get("items") else ""
+                note = f"  {m['description']}" if m.get("description") else ""
+                print(f"    {m['name']:<44} {m['type']}{item}{note}")
+                # A member typed as a defined enum is only half an answer without its
+                # values, and those are the thing a caller actually has to compare against.
+                member_type = schema.types.get(m.get("items") or m["type"])
+                if member_type and member_type.get("enum"):
+                    print(f"        one of: {', '.join(str(e) for e in member_type['enum'])}")
+        elif shape and shape.get("enum"):
+            print(f"    one of: {', '.join(str(e) for e in shape['enum'])}")
         print(f"  REST:    POST {v.get('restPath','')}")
         for ac in v.get("accessControl", []):
             print(f"  requires: {ac['right']}")

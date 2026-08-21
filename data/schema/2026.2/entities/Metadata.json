@@ -210,6 +210,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Metadata.Entity/GetAliases"
    },
    {

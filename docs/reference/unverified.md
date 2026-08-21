@@ -33,9 +33,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [alerts.md](../automation/alerts.md)
 
-**[Reading suppression state properly](../automation/alerts.md#reading-suppression-state-properly)**
-
-- The extracted schema records the verb as returning `array` without describing the element, so **the exact serialised member names on the wire are not verified here**.
 **[What is not verified here](../automation/alerts.md#what-is-not-verified-here)**
 
 - ## What is not verified here
@@ -346,6 +343,9 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Hosts, clusters, datacenters and vCenters](../modules/vman.md#hosts-clusters-datacenters-and-vcenters)**
 
 - **Unverified:** `PollingTaskTypeID` is an integer whose enumeration is not in the extracted schema, so select `DISTINCT` on your own server before filtering on a specific value.
+**[Alarms](../modules/vman.md#alarms)**
+
+- **Unverified:** `AcknowledgedTime` sits beside them but its summary names no zone, so do not assume it matches; acknowledge an alarm at a known wall-clock time on your own server and read the column back before comparing it to either function.
 **[The virtual machine verbs change production state](../modules/vman.md#the-virtual-machine-verbs-change-production-state)**
 
 - `storageDestination` is a string and is optional; the schema does not record what form it takes, so **unverified**: confirm against your own server before relying on it, for example by checking the argument type in `Metadata.VerbArgument`.

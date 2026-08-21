@@ -2188,6 +2188,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Cortex.Orion.Interface/Core.AddToCortex"
    },
    {
@@ -2953,6 +2954,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Cortex.Orion.NetMan.CloudMonitoring.CloudAccount/Orion.NetMan.CloudMonitoring.CreateOrUpdateCloudAccount"
    },
    {
@@ -2974,6 +2976,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Cortex.Orion.NetMan.CloudMonitoring.CloudAccount/Orion.NetMan.CloudMonitoring.GetCloudAccountState"
    },
    {
@@ -2995,6 +2998,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Cortex.Orion.NetMan.CloudMonitoring.CloudAccount/Orion.NetMan.CloudMonitoring.RemoveCloudAccount"
    }
   ],
@@ -5704,6 +5708,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Cortex.Orion.Node/Core.AddToCortex"
    },
    {
@@ -9681,6 +9686,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
     "restPath": "/Invoke/Cortex.Orion.Volume/Core.AddToCortex"
    },
    {

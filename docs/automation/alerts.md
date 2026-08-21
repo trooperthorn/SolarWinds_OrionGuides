@@ -642,6 +642,13 @@ python3 tools/schema_query.py verb Orion.AlertConfigurations Import
 Orion.AlertConfigurations.Import
   This verb imports alert into system from alert xml
   returns: SolarWinds.Orion.Core.Common.Alerting.AlertImportResult
+  return shape (5 member(s)):
+    AlertId                                      number
+    Name                                         string
+    MigrationMessage                             string
+    IncorrectPasswordForDecryptSensitiveData     boolean
+    AlertDefinitionIsNotSupported                boolean
+  REST:    POST /Invoke/Orion.AlertConfigurations/Import
   requires: admin
   requires: manageAlerts
   parameters (3):
@@ -667,9 +674,19 @@ $alertXml = Get-Content 'HighCpu.xml' -Raw
 $result = Invoke-SwisVerb $swis 'Orion.AlertConfigurations' 'Import' @($alertXml)
 ```
 
-`Import` returns an `AlertImportResult`, which SolarWinds documents as carrying `AlertId`,
-`Name` and `MigrationMessage`. Read `MigrationMessage`: an import that lands on a server
-missing a referenced custom property or credential succeeds partially and says so there.
+`Import` returns an `AlertImportResult`. SolarWinds' page describes three members; the 2026.2
+contract declares five:
+
+| Member | Type | Read it when |
+|:---|:---|:---|
+| `AlertId` | number | Always — it is the id of what you just created |
+| `Name` | string | Always |
+| `MigrationMessage` | string | Always. An import that lands on a server missing a referenced custom property or credential succeeds partially and says so here |
+| `IncorrectPasswordForDecryptSensitiveData` | boolean | The export carried sensitive data and your `protectionPassword` did not match |
+| `AlertDefinitionIsNotSupported` | boolean | The XML is an alert this server will not accept |
+
+The last two are the ones that turn a silent partial import into a diagnosable one, and they
+are the reason to read the whole result rather than just `AlertId`.
 
 ## What fired in a window: alert history
 
@@ -897,23 +914,37 @@ is the check.
 
 `GetAlertSuppressionState` exists because querying `Orion.AlertSuppression` directly does not
 tell you the whole truth: it shows rows created **for** an entity, not suppression the entity
-**inherits** from a parent, and not suppression scheduled to start later. SolarWinds
-documents the returned shape as one record per entity carrying `EntityUri`,
-`SuppressedParentUri`, `SuppressionMode`, `SuppressedFrom` and `SuppressedUntil`, with
-`SuppressionMode` being:
+**inherits** from a parent, and not suppression scheduled to start later.
 
-| Value | Mode |
-|---:|:---|
-| 0 | NotSuppressed |
-| 1 | SuppressedByItself |
-| 2 | SuppressedByParent |
-| 3 | SuppressionScheduledForItself |
-| 4 | SuppressionScheduledForParent |
+`schema_query.py` prints the return type as a bare `array`, which is why it is easy to
+assume the element is undocumented. It is not. The 2026.2 Swagger contract types the response
+as an array of `SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionState`, and
+declares **seven** members on it, two more than SolarWinds' prose describes:
 
-Those field and enum names come from SolarWinds' documentation of the returned .NET type. The
-extracted schema records the verb as returning `array` without describing the element, so
-**the exact serialised member names on the wire are not verified here**. If a client needs
-them exactly, call the verb once and inspect what comes back.
+| Member | Type |
+|:---|:---|
+| `EntityUri` | string |
+| `SuppressedParentUri` | string — populated only when the suppression is inherited |
+| `SuppressionMode` | `EntityAlertSuppressionMode` |
+| `SuppressedFrom` | date-time |
+| `SuppressedUntil` | date-time |
+| `Reason` | string — the `reason` passed to `SuppressAlerts` |
+| `ScheduleName` | string |
+
+`SuppressionMode` is a **string** enum in the contract, not an integer, so compare against
+the names rather than against ordinals:
+
+| Value | Meaning |
+|:---|:---|
+| `NotSuppressed` | Alerts trigger normally |
+| `SuppressedByItself` | A suppression row exists for this entity and is in effect now |
+| `SuppressedByParent` | Inherited; `SuppressedParentUri` names the parent |
+| `SuppressionScheduledForItself` | A row exists but its window has not started |
+| `SuppressionScheduledForParent` | Inherited, and not started |
+
+What is still worth confirming once is presentation rather than naming: how `Invoke-SwisVerb`
+nests the repeated element in the XML it hands back. Call the verb on an entity you have
+just suppressed and inspect the response.
 
 ### Suppression, dependencies and unmanaging
 
@@ -991,8 +1022,13 @@ JOIN Orion.Actions a ON asg.ActionID = a.ActionID
 WHERE asg.ParentID = @alertId
 ```
 
-The reliable, schema-supported route from an alert to the actions that ran for it is
-`Orion.AlertHistory.ActionID`, which is a declared reference:
+The reliable route from an alert to the actions that ran for it is
+`Orion.AlertHistory.ActionID`. Be clear about what that is: a plain `System.Int32` column,
+not a navigation property. `Orion.AlertHistory` declares exactly one relationship,
+`AlertObjects`, so there is no dotted path from a history row to `Orion.Actions` and you join
+on the id explicitly if you want the action's title. What makes it reliable is that the
+platform writes the id onto the history row itself, so the correlation is recorded rather
+than inferred:
 
 ```sql
 SELECT
@@ -1000,17 +1036,46 @@ SELECT
     ah.EventType,
     ah.Message,
     ah.ActionID,
+    a.Title AS ActionTitle,
+    a.ActionTypeID,
     ah.AlertObjects.AlertConfigurations.Name AS AlertName
 FROM Orion.AlertHistory ah
+LEFT JOIN Orion.Actions a ON ah.ActionID = a.ActionID
 WHERE ah.EventType IN (5, 6)
   AND ah.TimeStamp >= ToUtc(AddDay(-1, GetDate()))
 ORDER BY ah.TimeStamp DESC
 ```
 
-`Orion.Actions` also carries `TestAlertingAction` and `TestReportingAction` verbs. Neither
-declares typed parameters in 2026.2, so their argument shape cannot be documented from the
-extracted data; `Metadata.VerbArgument` on a live server carries an `XmlTemplate` column that
-shows what SWIS expects. See
+The `LEFT JOIN` is deliberate: an action that has since been deleted leaves its id on the
+history row with nothing to join to, and an inner join would silently drop exactly the rows
+an incident review wants.
+
+`Orion.Actions` also carries `TestAlertingAction` and `TestReportingAction`, which fire an
+action once without waiting for an alert to trigger it. Both take two typed arguments in
+2026.2, and they do **not** require the same right:
+
+```bash
+python3 tools/schema_query.py verb Orion.Actions TestAlertingAction
+```
+
+```text
+Orion.Actions.TestAlertingAction
+  returns: SolarWinds.Orion.Core.Models.Actions.ActionResult
+  REST:    POST /Invoke/Orion.Actions/TestAlertingAction
+  requires: manageAlerts
+  parameters (2):
+    action: SolarWinds.Orion.Core.Models.Actions.ActionDefinition (required)
+    context: SolarWinds.Orion.Core.Models.Actions.Contexts.AlertingActionContext (required)
+```
+
+`TestReportingAction` has the same two-argument shape with a `ReportingActionContext` in
+place of the alerting one, and **requires `admin` rather than `manageAlerts`**. That
+asymmetry is worth knowing before you hand a test button to an alert operator.
+
+What the schema does not give you is the *inside* of those two types: it names
+`ActionDefinition` and the two context types but does not describe their members, so the
+document you have to build is not documented here. `Metadata.VerbArgument` on a live server
+carries an `XmlTemplate` column that shows what SWIS expects. See
 [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
 ## Alert schedules
@@ -1095,8 +1160,9 @@ does not. See [scheduling.md](scheduling.md).
   still holds.
 - **NetObject id passed to `SuppressAlerts`.** It takes URIs. `Unmanage` takes NetObject ids.
   They are not interchangeable.
-- **A `403` on suppression read as an alerting rights problem.** The three
-  `Orion.AlertSuppression` write verbs require `allowUnmanage`.
+- **A `403` on suppression read as an alerting rights problem.** The two
+  `Orion.AlertSuppression` write verbs, `SuppressAlerts` and `ResumeAlerts`, require
+  `allowUnmanage`. Only the read verb, `GetAlertSuppressionState`, is `everyone`.
 - **`PowerShell` flattening a single array argument.** `Unacknowledge`, `ClearAlert` and
   `ResumeAlerts` each take exactly one argument which is an array. Use
   `@( , [string[]] $uris )`.
@@ -1115,10 +1181,11 @@ does not. See [scheduling.md](scheduling.md).
 | `Orion.AlertSchedules.AlertConfigurationID` refers to `Orion.AlertConfigurations.AlertID` | Inferred from the column name; no navigation property is declared | Set a schedule on one alert in the UI, then `SELECT * FROM Orion.AlertSchedules` and compare with that alert's `AlertID` |
 | `Orion.ActionsAssignments.ParentID` refers to an alert id | Not declared; `EnvironmentType` and `CategoryType` imply the entity is shared with reporting | Attach an action to a known alert, then filter `Orion.ActionsAssignments` on that `ActionID` and read `ParentID` |
 | The unit of `Orion.AlertConfigurations.Frequency` | `System.Int64` with no unit in the schema | Set a known evaluation interval on a test alert and read the value back |
-| The wire member names returned by `GetAlertSuppressionState` | The verb is typed `array` with no element description; the member names here come from SolarWinds' documentation of the .NET type | Call the verb once and inspect the response |
-| Argument shapes for `MigrateAdvancedAlert`, `MigrateAllAdvancedAlerts`, `MigrateAdvancedAlertFromXML`, `TestAlertingAction`, `TestReportingAction` | All declared with no typed parameters in 2026.2 | `SELECT Position, Name, Type, IsOptional, XmlTemplate FROM Metadata.VerbArgument WHERE EntityName = 'Orion.AlertConfigurations'` |
+| How `Invoke-SwisVerb` nests the `GetAlertSuppressionState` response in XML | The member names and the `SuppressionMode` values are in the 2026.2 contract; the XML element nesting a PowerShell caller sees is not | Suppress one entity, call the verb, and inspect the response |
+| Argument shapes for `MigrateAdvancedAlert`, `MigrateAllAdvancedAlerts`, `MigrateAdvancedAlertFromXML` | All three are declared with no typed parameters at all in 2026.2 | `SELECT Position, Name, Type, IsOptional, XmlTemplate FROM Metadata.VerbArgument WHERE EntityName = 'Orion.AlertConfigurations'` |
+| The members of `ActionDefinition`, `AlertingActionContext` and `ReportingActionContext`, the two arguments to `TestAlertingAction` and `TestReportingAction` | The contract names the parameters and their types but does not describe the types | `SELECT Position, Name, Type, IsOptional, XmlTemplate FROM Metadata.VerbArgument WHERE EntityName = 'Orion.Actions'` |
 | Whether `Orion.AlertHistory.TimeStamp` and `Orion.AlertActive.TriggeredDateTime` are UTC | Undocumented in the schema, and neither name ends in `Utc` | The `MinuteDiff` measurement query above |
-| The `Severity`, alert-history `EventType` and `SuppressionMode` value tables | Taken from SolarWinds' published alerts page, not from the extracted schema | [Alert Entities](https://solarwinds.github.io/OrionSDK/docs/alerts/) |
+| The `Severity` and alert-history `EventType` value tables | Taken from SolarWinds' published alerts page, not from the extracted schema. The `SuppressionMode` values are not in this category: they come from the 2026.2 contract | [Alert Entities](https://solarwinds.github.io/OrionSDK/docs/alerts/) |
 
 ## Related pages
 

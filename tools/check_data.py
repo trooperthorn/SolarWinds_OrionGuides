@@ -30,6 +30,8 @@ FLOORS = {
     "verbsWithTypedParameters": 400,
     "relationshipEdges": 2000,
     "creatableEntities": 100,
+    "types": 200,
+    "verbsWithKnownReturnShape": 400,
 }
 
 # Entities that must always exist. If one of these is missing, the extraction is broken
@@ -305,15 +307,24 @@ def main() -> None:
     # A verb the extractor found only in the Swagger contract carries sourceOnly. The guides
     # state that none do in this version, so if a rebuild produces one, that statement has
     # to be revisited rather than left standing.
-    source_only = [v for v in verbs if v.get("sourceOnly")]
-    agents = os.path.join(ROOT, "AGENTS.md")
-    if os.path.isfile(agents):
-        with open(agents, encoding="utf-8", errors="replace") as fh:
-            claims_none = "no verb carries it" in " ".join(fh.read().split())
+    source_only = [v for v in verbs if v.get("sourceOnly") == "swagger"]
+    orphan_entities = sorted({v["entity"] for v in source_only} - set(entities))
+    c.require(
+        len(source_only) == counts.get("verbsFromSwaggerOnly", -1),
+        f"sourceOnly count mismatch: {len(source_only)} in verbs.json, "
+        f"{counts.get('verbsFromSwaggerOnly')} in manifest",
+    )
+    # Those verbs exist precisely because their entity has no rendered page. If one ever
+    # gains a page, the verb should be joined to it rather than left marked contract-only.
+    for v in source_only:
         c.require(
-            not (claims_none and source_only),
-            f"AGENTS.md says no verb carries sourceOnly, but {len(source_only)} do",
+            v["entity"] not in entities,
+            f"{v['entity']}.{v['name']} is marked sourceOnly but its entity has a page",
         )
+    if source_only:
+        c.note(f"{len(source_only)} verb(s) come from the contract alone, on "
+               f"{len(orphan_entities)} entity/entities with no schema page: "
+               f"{', '.join(orphan_entities)}")
 
     # PowerShell cmdlet names. The SwisPowerShell module exports seven, and an invented
     # eighth reads exactly like the real ones. Sample scripts in this repository follow the

@@ -301,7 +301,7 @@ share is a name and a quota rather than a performance object.
 
 `FileShareID`, `FileServerID`, `VolumeID`, `ID`, `Name`, `UserCaption`, `Caption`,
 `DisplayName`, `Type`, `Path`, `Quota`, `Free`, `Used`, `LastSync`, `Status`,
-`StatusDescription`, `DetailsUrl`, plus the inherited `UnManaged` trio.
+`StatusDescription`, `DetailsUrl`, `Description`, plus the `UnManaged` trio.
 
 Here `Free` and `Used` are `System.Int64` byte counts, unlike the boolean `Free` on
 `Orion.SRM.LUNs`. Two entities in the same namespace using the same column name for a
@@ -347,9 +347,10 @@ to `Spare = FALSE` has been consumed by a rebuild.
 `StorageArrayID`, `Manufacturer`, `Model`, `SerialNumber`, `Firmware`, `Type`,
 `HAConfigurationState`, `TotalMemory`, `MemoryUsed`, `MemoryUtilization`, `CPUFrequency`,
 `CPUCount`, `TotalCacheSize`, `Utilization`, the IOPS/BytesPS/IOSize/IOLatency families, and
-two columns that appear only here and on the port entity: `IOPSDistribution` and
-`BytesPSDistribution`, the share of the array's total work this controller is doing. Port
-counts come as `FcPortCount`, `EthernetPortCount` and `ISCSIPortCount`.
+two columns that appear only here, on the port entity, and on those two entities' statistics
+tables: `IOPSDistribution` and `BytesPSDistribution`, the share of the array's total work
+this controller is doing. Port counts come as `FcPortCount`, `EthernetPortCount` and
+`ISCSIPortCount`.
 
 Controller balance is the thing to watch. On a dual-controller array both
 `IOPSDistribution` values should sit near 50, and a persistent split like 85/15 usually means
@@ -397,9 +398,11 @@ does. See [vman.md](vman.md) for the Virtualization Manager side of these joins.
 
 Twelve statistics entities cover seven of the object types. Five of them get a pair, one
 entity for capacity and one for performance; controllers and controller ports get
-performance only; file shares and physical disks get neither. All twelve inherit
-`System.StatisticsEntity`, so all twelve carry `ObservationTimestamp`,
-`ObservationFrequency` and `Weight` even though none of them declares those columns.
+performance only; file shares, providers and physical disks get none. All twelve inherit
+`System.StatisticsEntity`, so all twelve carry `ObservationTimestamp` and
+`ObservationFrequency` without declaring them. `Weight` comes from the same base, but ten of
+the twelve redeclare it as `System.Single` rather than the base's `System.Double`; only the
+two storage controller entities leave it inherited.
 
 | Object | Capacity history | Performance history |
 |---|---|---|
@@ -444,7 +447,7 @@ The seven per-object base entities and their concrete counts:
 | `Orion.SRM.PoolThresholds` | 10 | IOPS (4), IO size (3), bytes per second (3), no latency |
 | `Orion.SRM.StorageArrayThresholds` | 10 | Same as pools |
 | `Orion.SRM.VServerThresholds` | 10 | Same as pools |
-| `Orion.SRM.StorageControllerThresholds` | 15 | The above plus latency, utilization and the two distribution metrics |
+| `Orion.SRM.StorageControllerThresholds` | 15 | IOPS (3, plus distribution instead of other), IO latency (3), IO size (3), bytes per second (3, plus distribution), utilization |
 | `Orion.SRM.StorageControllerPortThresholds` | 4 | IOPS total and distribution, bytes per second total and distribution |
 
 Because the properties are inherited, `show` reports zero properties for every one of them

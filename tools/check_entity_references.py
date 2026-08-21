@@ -426,6 +426,17 @@ def main() -> None:
                     names.update(v["name"].lower() for v in arec.get("verbs") or [])
             verbs_by_entity[name] = names
 
+        # 63 verbs are published by the REST contract for entities that have no rendered
+        # schema page, so there is no entity record to resolve them against. They are real
+        # and invokable, and the guides name them, so the prose check has to know them.
+        verbs_path = os.path.join(ROOT, "data", "schema", args.version, "verbs.json")
+        if os.path.isfile(verbs_path):
+            with open(verbs_path, encoding="utf-8") as fh:
+                for v in json.load(fh):
+                    if v.get("sourceOnly") == "swagger":
+                        entities.add(v["entity"])
+                        verbs_by_entity.setdefault(v["entity"], set()).add(v["name"].lower())
+
         def members(entity):
             props, navs = index.members(entity)
             verbs = verbs_by_entity.get(entity, set())

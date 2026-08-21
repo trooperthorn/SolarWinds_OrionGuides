@@ -53,8 +53,8 @@ This repository documents SWIS schema version **2026.2**. The extraction under
 | Entities | 2067 |
 | Namespaces (top-level) | 16 |
 | Properties | 19328 |
-| Verbs | 958 |
-| Verbs with typed parameters | 794 |
+| Verbs | 1021 |
+| Verbs with typed parameters | 848 |
 | Relationship (navigation) edges | 2992 |
 | Entities that support create | 250 |
 

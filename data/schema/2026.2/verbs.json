@@ -86,6 +86,7 @@
   "summary": "Gets users who should review operations. For valid Orion user with at least Engineer NCM role.",
   "parameters": [],
   "returns": "array",
+  "returnsItems": "SolarWinds.NCM.Contracts.InformationService.NCMApprovalUser",
   "restPath": "/Invoke/Cirrus.ApproveQueue/GetApprovalUsers",
   "summaryRaw": "Gets users who should review operations. For valid Orion user with at least Engineer NCM role.The data about reviewers. Full type: Array of SolarWinds.NCM.Contracts.InformationService.NCMApprovalUser",
   "accessControl": []
@@ -335,6 +336,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/ConfigSearch",
   "summaryRaw": "Searches for the config (Verb ConfigSearch will be removed. Please use the ConfigSearch2 verb instead). Valid for Orion manage node users with at least WebViewer NCM role.Config search term.Array of config IDs. Full type: Array of System.Guid",
   "accessControl": []
@@ -352,6 +354,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/ConfigSearch2",
   "summaryRaw": "Searches for the config. Valid for Orion manage node users with at least WebViewer NCM role.Config search term.Array of config IDs. Full type: Array of System.Guid",
   "accessControl": []
@@ -432,6 +435,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/DownloadConfig",
   "summaryRaw": "Downloads config file for the particular node. Valid for Orion manage node users with at least WebDownloader NCM role.Array of NCM node IDs.Config type.Array of transfer IDs. Full type: array of System.Guid",
   "accessControl": []
@@ -465,6 +469,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/DownloadConfigOnNodes",
   "summaryRaw": "Downloads config file for the particular nodes. Valid for Orion manage node users with at least WebDownloader NCM role. The list of nodes.Device template.Config type.Array of transfer IDs. Full type: array of System.Guid",
   "accessControl": []
@@ -499,6 +504,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/ExecuteScript",
   "summaryRaw": "Executes script on the particular node. Valid for Orion manage node users with at least WebUploader NCM role.Array of NCM node IDs.Script to execute.Should a device be rebooted after script execution(true/false).Array of transfer IDs. Full type: array of System.Guid",
   "accessControl": []
@@ -532,6 +538,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/ExecuteScriptOnNodes",
   "summaryRaw": "Executes script on the particular nodes. Valid for Orion manage node users with at least WebUploader NCM role.The list of nodes.Device template.Script to execute.Array of transfer IDs. Full type: array of System.Guid",
   "accessControl": []
@@ -559,6 +566,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/ExecuteScriptPerNode",
   "summaryRaw": "Executes scripts per nodes. Valid for Orion manage node users with at least WebUploader NCM role.Array of scripts and nodes.Should a device be rebooted after script execution(true/false).Array of transfer IDs. Full type: array of System.Guid",
   "accessControl": []
@@ -588,6 +596,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/GetInterfaceConfigSnippets",
   "summaryRaw": "Gets interface config snippets. Valid for Orion manage node users with at least WebViewer NCM role.The ID of the core node.Array of config snippets. Full type: array of System.String",
   "accessControl": []
@@ -613,6 +622,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/GetPermissionsByRole",
   "summaryRaw": "Gets all permissions for specified role. Valid for Orion manage node users with at least WebViewer NCM role.Role name.Array of permissions. Full type: array of System.String",
   "accessControl": []
@@ -710,6 +720,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/ReExecute",
   "summaryRaw": "Re-executes script Valid for Orion manage node users with at least WebDownloader NCM role.Array of ticket ID.Array of transfer IDs. Full type: array of System.Guid",
   "accessControl": []
@@ -838,6 +849,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/UploadConfig",
   "summaryRaw": "Uploads config. Valid for Orion manage node users with at least WebUploader NCM role.NCM node ID.Config type.Config.Device should be rebooted after upload(true/false).Array of transfer IDs. Full type: array of System.Guid",
   "accessControl": []
@@ -871,6 +883,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigArchive/UploadConfigPerNode",
   "summaryRaw": "Uploads config. Valid for Orion manage node users with at least WebUploader NCM role.Array of script and node.Config type.Device should be rebooted after upload(true/false).Array of transfer IDs. Full type: array of System.Guid",
   "accessControl": []
@@ -1049,6 +1062,7 @@
   "summary": "Gets tag list.\n            Valid for Orion manage node users with at least WebUploader NCM role.",
   "parameters": [],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigSnippets/GetTagsList",
   "summaryRaw": "Gets tag list. Valid for Orion manage node users with at least WebUploader NCM role.Tag list. Full type: System.Collections.Generic.List",
   "accessControl": []
@@ -1070,6 +1084,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Cirrus.ConfigSnippets/GetTagsListForSnippets",
   "summaryRaw": "Gets tag list for snippet. Valid for Orion manage node users with at least WebUploader NCM role.Array of snippet IDs.Tag list. Full type: System.Collections.Generic.List",
   "accessControl": []
@@ -1717,6 +1732,7 @@
   "summary": "Retrieve list of all connection profiles created in NCM.\n            User needs Orion node management rights with NCM role WebViewer or higher to call this verb.",
   "parameters": [],
   "returns": "array",
+  "returnsItems": "SolarWinds.NCM.Contracts.InformationService.ConnectionProfile",
   "restPath": "/Invoke/Cirrus.Nodes/GetAllConnectionProfiles",
   "summaryRaw": "Retrieve list of all connection profiles created in NCM. User needs Orion node management rights with NCM role WebViewer or higher to call this verb.List of all ConnectionProfile objects. Full type: array of SolarWinds.NCM.Contracts.InformationService.ConnectionProfile",
   "accessControl": []
@@ -2163,6 +2179,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.NCM.Contracts.InformationService.NetworkNode",
   "restPath": "/Invoke/Cirrus.PolicyReports/GenerateRemediationScriptForNodes",
   "summaryRaw": "Generates remediation scripts. If compliance only for administrators option enabled then it's valid only for Orion admins. If not then valid for Orion users with at least WebViewer NCM role.NCM node IDs.Compliance policy report ID.Compliance policy ID.Compliance policy rule ID.Script template.Array of scripts and nodes data. Full type: SolarWinds.NCM.Contracts.InformationService.NetworkNode",
   "accessControl": []
@@ -2943,6 +2960,7 @@
   "summary": "Gets all RegExes.\n            For valid Orion user with at least WebViewer NCM role.",
   "parameters": [],
   "returns": "array",
+  "returnsItems": "SolarWinds.NCM.Contracts.ConfigComparison.RegEx",
   "restPath": "/Invoke/Cirrus.Settings/GetRegExes",
   "summaryRaw": "Gets all RegExes. For valid Orion user with at least WebViewer NCM role.All available RegExes. Full type: SolarWinds.NCM.Contracts.ConfigComparison.Regex[].",
   "accessControl": []
@@ -3112,6 +3130,7 @@
   "summary": "Cross tests connection between all pollers. Only for Orion administrators.",
   "parameters": [],
   "returns": "array",
+  "returnsItems": "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestHostResults",
   "restPath": "/Invoke/Cirrus.Settings/NetworkingSelfTest",
   "summaryRaw": "Cross tests connection between all pollers. Only for Orion administrators.Test results. Full type: Array of SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestHostResults,",
   "accessControl": [
@@ -3776,6 +3795,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Cortex.Orion.Interface/Core.AddToCortex",
   "accessControl": [
    {
@@ -4205,6 +4225,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Cortex.Orion.NetMan.CloudMonitoring.CloudAccount/Orion.NetMan.CloudMonitoring.CreateOrUpdateCloudAccount",
   "accessControl": [
    {
@@ -4228,6 +4249,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Cortex.Orion.NetMan.CloudMonitoring.CloudAccount/Orion.NetMan.CloudMonitoring.GetCloudAccountState",
   "accessControl": [
    {
@@ -4251,6 +4273,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Cortex.Orion.NetMan.CloudMonitoring.CloudAccount/Orion.NetMan.CloudMonitoring.RemoveCloudAccount",
   "accessControl": [
    {
@@ -4769,6 +4792,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Cortex.Orion.Node/Core.AddToCortex",
   "accessControl": [
    {
@@ -5173,6 +5197,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Cortex.Orion.Volume/Core.AddToCortex",
   "accessControl": [
    {
@@ -5927,6 +5952,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.IPAM.Contract.APtrRecordsPair",
   "restPath": "/Invoke/IPAM.DhcpDnsManagement/GetAandPTRrecordsForDnsZone",
   "accessControl": []
  },
@@ -6159,6 +6185,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.IPAM.Contract.GetGroupNodeDto",
   "restPath": "/Invoke/IPAM.GroupManagement/GetAllGroupNodesByName",
   "accessControl": []
  },
@@ -6175,6 +6202,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.IPAM.Contract.GetGroupNodeDto",
   "restPath": "/Invoke/IPAM.GroupManagement/GetGroupsByName",
   "accessControl": []
  },
@@ -7677,6 +7705,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.IPAM.Contract.GetGroupNodeDto",
   "restPath": "/Invoke/IPAM.SupernetManagement/GetSupernetsByName",
   "accessControl": []
  },
@@ -7693,6 +7722,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Metadata.Entity/GetAliases",
   "accessControl": []
  },
@@ -8256,8 +8286,20 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/NCM.SecurityPolicy/GetSecurityPolicyAppIds",
   "summaryRaw": "Gets list of security policy IDs for the node.ID of the node.Policy name.List of security policy ids for the node. Full type: System.Collections.Generic.List .",
+  "accessControl": []
+ },
+ {
+  "entity": "NCM.SwisEntityTemplate",
+  "namespace": "NCM",
+  "name": "Ping",
+  "summary": "",
+  "parameters": [],
+  "returns": "boolean",
+  "restPath": "/Invoke/NCM.SwisEntityTemplate/Ping",
+  "sourceOnly": "swagger",
   "accessControl": []
  },
  {
@@ -8470,6 +8512,67 @@
     "right": "manageNodes"
    }
   ]
+ },
+ {
+  "entity": "Orion.AIIM.AiOpsMetricStatus",
+  "namespace": "Orion",
+  "name": "SaveAiOpsMetricStatus",
+  "summary": "The verb for saving AiOps metric status",
+  "parameters": [
+   {
+    "name": "sourceUri",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "metricName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "timestampUtc",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "norLowerBounds",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   },
+   {
+    "name": "norUpperBounds",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   },
+   {
+    "name": "norValidFromUtc",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "string",
+     "format": "date-time"
+    }
+   },
+   {
+    "name": "norValidUntilUtc",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "string",
+     "format": "date-time"
+    }
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.AIIM.AiOpsMetricStatus/SaveAiOpsMetricStatus",
+  "sourceOnly": "swagger",
+  "accessControl": []
  },
  {
   "entity": "Orion.APIPoller.ApiPoller",
@@ -9239,6 +9342,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.APM.Common.Models.TestComponentResult",
   "restPath": "/Invoke/Orion.APM.ApplicationTemplate/GetTestComponentStatus",
   "summaryRaw": "Returns list of status of template components test.Array of job guids.Returns list of TestComponentResult.",
   "accessControl": []
@@ -9287,6 +9391,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.APM.Common.Models.TestComponentResult",
   "restPath": "/Invoke/Orion.APM.ApplicationTemplate/StartTestComponents",
   "summaryRaw": "Start application template components test.The unique integer representation of node to assign template to.Unique Guid representation of application template.The unique integer representation of credentials.Returns list of TestComponentResult.",
   "accessControl": []
@@ -11384,6 +11489,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.String~",
   "restPath": "/Invoke/Orion.AlertConfigurations/GetComplexPropertiesByAlertID",
   "accessControl": [
    {
@@ -11881,6 +11987,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionState",
   "restPath": "/Invoke/Orion.AlertSuppression/GetAlertSuppressionState",
   "accessControl": [
    {
@@ -14161,6 +14268,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem",
   "restPath": "/Invoke/Orion.Discovery/GetDiscoveryProfileResourcesResult",
   "accessControl": []
  },
@@ -14610,6 +14718,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Orion.Environment/CanInstall",
   "accessControl": []
  },
@@ -14654,6 +14763,7 @@
   "summary": "Returns Orion certificate",
   "parameters": [],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.Environment/GetOrionServerCertificate",
   "accessControl": [
    {
@@ -14688,6 +14798,7 @@
   "summary": "Returns array of IP addresses of current SQL server",
   "parameters": [],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Orion.Environment/GetSqlServerIpAddresses",
   "accessControl": [
    {
@@ -15048,6 +15159,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.Frequencies/SaveReportFrequencies",
   "accessControl": [
    {
@@ -15080,6 +15192,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.Frequencies/SaveTimePeriodFrequencies",
   "accessControl": [
    {
@@ -16101,6 +16214,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Orion.Licensing.Licenses/ActivateOffline",
   "accessControl": []
  },
@@ -16147,6 +16261,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Orion.Licensing.Licenses/ActivateOnline",
   "accessControl": []
  },
@@ -16214,6 +16329,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Orion.Licensing.Licenses/Deactivate",
   "accessControl": []
  },
@@ -16261,6 +16377,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Orion.Licensing.Licenses/GetAvailableAssignments",
   "accessControl": []
  },
@@ -17190,6 +17307,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Orion.NPM.Interfaces/GetSupportedMetrics",
   "summaryRaw": "Returns list of metrics to poll on Interface entityInterfaceID of a target Interface",
   "accessControl": [
@@ -17736,6 +17854,106 @@
   "accessControl": []
  },
  {
+  "entity": "Orion.Netflow.IPAddressGroupsManagement",
+  "namespace": "Orion",
+  "name": "DeleteAllIpGroups",
+  "summary": "",
+  "parameters": [
+   {
+    "name": "autoResolveApplicationConflicts",
+    "type": "boolean",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.Netflow.Contracts.IPGroups.ManageIpGroupsResult",
+  "restPath": "/Invoke/Orion.Netflow.IPAddressGroupsManagement/DeleteAllIpGroups",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.Netflow.IPAddressGroupsManagement",
+  "namespace": "Orion",
+  "name": "DeleteIpGroups",
+  "summary": "",
+  "parameters": [
+   {
+    "name": "ipGroupIds",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   },
+   {
+    "name": "autoResolveApplicationConflicts",
+    "type": "boolean",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.Netflow.Contracts.IPGroups.ManageIpGroupsResult",
+  "restPath": "/Invoke/Orion.Netflow.IPAddressGroupsManagement/DeleteIpGroups",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.Netflow.IPAddressGroupsManagement",
+  "namespace": "Orion",
+  "name": "SetIPRanges",
+  "summary": "",
+  "parameters": [
+   {
+    "name": "ipGroupId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "ipRanges",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "SolarWinds.Netflow.Contracts.IPGroups.IPRange"
+    }
+   },
+   {
+    "name": "autoResolveApplicationConflicts",
+    "type": "boolean",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.Netflow.Contracts.IPGroups.ManageIpGroupsResult",
+  "restPath": "/Invoke/Orion.Netflow.IPAddressGroupsManagement/SetIPRanges",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.Netflow.IPAddressGroupsManagement",
+  "namespace": "Orion",
+  "name": "SetIpGroupsAsModified",
+  "summary": "",
+  "parameters": [],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.Netflow.IPAddressGroupsManagement/SetIpGroupsAsModified",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.Netflow.IPGroupExternalRelation",
+  "namespace": "Orion",
+  "name": "CreateFromIPAMGroup",
+  "summary": "",
+  "parameters": [
+   {
+    "name": "externalIpGroupId",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.Netflow.IPGroupExternalRelation/CreateFromIPAMGroup",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
   "entity": "Orion.Netflow.InterfaceSources",
   "namespace": "Orion",
   "name": "DisableFlowInterfaceSources",
@@ -17751,6 +17969,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.Netflow.InterfaceSources/DisableFlowInterfaceSources",
   "accessControl": []
  },
@@ -17770,6 +17989,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.Netflow.InterfaceSources/EnableFlowInterfaceSources",
   "accessControl": []
  },
@@ -17808,6 +18028,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.Netflow.NodeSources/DisableFlowNodeSources",
   "accessControl": []
  },
@@ -17827,6 +18048,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.Netflow.NodeSources/EnableFlowNodeSources",
   "accessControl": []
  },
@@ -17914,6 +18136,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem",
   "restPath": "/Invoke/Orion.Nodes/GetListResourcesResult",
   "summaryRaw": "Get the result of List Resources discoveryJob identifier to get status forProvide node id to identify engine running the discovery",
   "accessControl": [
@@ -17945,6 +18168,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem",
   "restPath": "/Invoke/Orion.Nodes/GetListResourcesResultByEngine",
   "summaryRaw": "Get the result of List Resources discoveryJob identifier to get status forEngine id used to execute given discovery job",
   "accessControl": [
@@ -18032,6 +18256,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Orion.Nodes/GetSupportedMetrics",
   "summaryRaw": "Returns list of metrics to poll on Node entityNodeID of a target node",
   "accessControl": [
@@ -18103,6 +18328,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Int32~",
   "restPath": "/Invoke/Orion.Nodes/ImportSelectedListResourcesResult",
   "accessControl": [
    {
@@ -20489,6 +20715,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Orion.PM.DatabaseHelper/GetAccountsList",
   "accessControl": []
  },
@@ -20520,6 +20747,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Orion.PM.DatabaseHelper/GetListOfDatabases",
   "accessControl": []
  },
@@ -21934,6 +22162,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Orion.SEM.Events/GetEventDetails",
   "accessControl": []
  },
@@ -22874,6 +23103,1290 @@
   "returns": "System.Void",
   "restPath": "/Invoke/Orion.SEUM.Transactions/Unmanage",
   "summaryRaw": "Verb to unmanage transactionnetObjectIdstart time when transaction is not managedend time when transaction is not managedindicates whether remanage time is relative to unmanage time",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "AddCredential",
+  "summary": "Adds a new credential for storage array authentication",
+  "parameters": [
+   {
+    "name": "credential",
+    "type": "SolarWinds.Orion.Core.SharedCredentials.Credential",
+    "required": true
+   },
+   {
+    "name": "credType",
+    "type": "SolarWinds.SRM.Common.Enums.CredentialType",
+    "required": true,
+    "enum": [
+     "Unknown",
+     "SNMP",
+     "SnmpV3",
+     "SMIS",
+     "WMI",
+     "Ssh",
+     "VNX",
+     "NetAppFiler",
+     "NetAppDfm",
+     "Responder",
+     "MSA",
+     "IsilonHttp",
+     "XtremIoHttp",
+     "PureStorageHttp",
+     "UnityHttp",
+     "InfinidatHttp",
+     "GenericHttp",
+     "NetAppAIQUM"
+    ]
+   }
+  ],
+  "returns": "number",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/AddCredential",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "AddManualE2EMapping",
+  "summary": "Adds manual end-to-end mapping between storage and virtualization layers",
+  "parameters": [
+   {
+    "name": "volumeId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "netObjectId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "netObjectType",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "number",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/AddManualE2EMapping",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "AddProvider",
+  "summary": "Adds a new storage provider",
+  "parameters": [
+   {
+    "name": "provider",
+    "type": "SolarWinds.SRM.Common.Models.ProviderInfo",
+    "required": true
+   }
+  ],
+  "returns": "number",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/AddProvider",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "CheckIfCredentialNameExists",
+  "summary": "Checks if a credential name already exists",
+  "parameters": [
+   {
+    "name": "displayName",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "boolean",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/CheckIfCredentialNameExists",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "DeleteArrays",
+  "summary": "Deletes one or more storage arrays",
+  "parameters": [
+   {
+    "name": "ids",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/DeleteArrays",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "DeleteCredentials",
+  "summary": "Deletes one or more credentials",
+  "parameters": [
+   {
+    "name": "ids",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/DeleteCredentials",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "DeleteProviders",
+  "summary": "Deletes one or more storage providers",
+  "parameters": [
+   {
+    "name": "providerIds",
+    "type": "System.Collections.Generic.IEnumerable~System.Int32~",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/DeleteProviders",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "DiscoveryImport",
+  "summary": "Imports discovered storage arrays into SRM",
+  "parameters": [
+   {
+    "name": "engineId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "providers",
+    "type": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.ProviderInfo~",
+    "required": true
+   },
+   {
+    "name": "arrays",
+    "type": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.SelectedArrayEntity~",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/DiscoveryImport",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "DiscoveryResponder",
+  "summary": "Handles discovery response operations",
+  "parameters": [
+   {
+    "name": "ipAddress",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "port",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "userName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "password",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "templateId",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "array",
+  "returnsItems": "SolarWinds.SRM.Common.Models.ArraySnapshot",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/DiscoveryResponder",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "DropManualE2EMapping",
+  "summary": "Removes manual end-to-end mapping",
+  "parameters": [
+   {
+    "name": "volumeIds",
+    "type": "System.Collections.Generic.IEnumerable~System.Int32~",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/DropManualE2EMapping",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetAllArrays",
+  "summary": "Gets information about all storage arrays",
+  "parameters": [],
+  "returns": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.ArrayEntity~",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetAllArrays",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetAllEngines",
+  "summary": "Gets information about all polling engines",
+  "parameters": [],
+  "returns": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.PollingEngine~",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetAllEngines",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetArray",
+  "summary": "Gets information about a specific storage array",
+  "parameters": [
+   {
+    "name": "storageArrayID",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.SRM.Common.Models.ArrayEntity",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetArray",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetArrayProvider",
+  "summary": "Gets the provider information for a storage array",
+  "parameters": [
+   {
+    "name": "arrayId",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.SRM.Common.Models.ProviderInfo",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetArrayProvider",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetArraysByVendorId",
+  "summary": "Gets all arrays from a specific vendor",
+  "parameters": [
+   {
+    "name": "storageArrayIds",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "string"
+    }
+   }
+  ],
+  "returns": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.ArrayEntity~",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetArraysByVendorId",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetCredential",
+  "summary": "Retrieves credential information by ID",
+  "parameters": [
+   {
+    "name": "credentialID",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "credType",
+    "type": "SolarWinds.SRM.Common.Enums.CredentialType",
+    "required": true,
+    "enum": [
+     "Unknown",
+     "SNMP",
+     "SnmpV3",
+     "SMIS",
+     "WMI",
+     "Ssh",
+     "VNX",
+     "NetAppFiler",
+     "NetAppDfm",
+     "Responder",
+     "MSA",
+     "IsilonHttp",
+     "XtremIoHttp",
+     "PureStorageHttp",
+     "UnityHttp",
+     "InfinidatHttp",
+     "GenericHttp",
+     "NetAppAIQUM"
+    ]
+   }
+  ],
+  "returns": "SolarWinds.Orion.Core.SharedCredentials.Credential",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetCredential",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetCredentialNames",
+  "summary": "Gets the names of all available credentials",
+  "parameters": [
+   {
+    "name": "credType",
+    "type": "SolarWinds.SRM.Common.Enums.CredentialType",
+    "required": true,
+    "enum": [
+     "Unknown",
+     "SNMP",
+     "SnmpV3",
+     "SMIS",
+     "WMI",
+     "Ssh",
+     "VNX",
+     "NetAppFiler",
+     "NetAppDfm",
+     "Responder",
+     "MSA",
+     "IsilonHttp",
+     "XtremIoHttp",
+     "PureStorageHttp",
+     "UnityHttp",
+     "InfinidatHttp",
+     "GenericHttp",
+     "NetAppAIQUM"
+    ]
+   }
+  ],
+  "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.Int32_System.String~",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetCredentialNames",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetCredentialType",
+  "summary": "Gets the type of a specific credential",
+  "parameters": [
+   {
+    "name": "id",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.SRM.Common.Enums.CredentialType",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetCredentialType",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetDeviceGroup",
+  "summary": "Gets information about a specific device group",
+  "parameters": [
+   {
+    "name": "groupId",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.SRM.Common.Models.DeviceGroup",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetDeviceGroup",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetDiscoveryJobResult",
+  "summary": "Retrieves the result of a discovery job",
+  "parameters": [
+   {
+    "name": "discoveryId",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.SRM.Common.Models.DiscoveryResults",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetDiscoveryJobResult",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetEngine",
+  "summary": "Gets information about a specific polling engine",
+  "parameters": [
+   {
+    "name": "engineId",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.SRM.Common.Models.PollingEngine",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetEngine",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetLicenseInfo",
+  "summary": "Gets current license information for SRM",
+  "parameters": [],
+  "returns": "SolarWinds.SRM.Common.Models.LicenseEntity",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetLicenseInfo",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetLicensedObjects",
+  "summary": "Gets the list of licensed objects in SRM",
+  "parameters": [],
+  "returns": "array",
+  "returnsItems": "string",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetLicensedObjects",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetNetObjectCaption",
+  "summary": "Gets the caption of a network object",
+  "parameters": [
+   {
+    "name": "tableName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "idFieldName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "id",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "string",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetNetObjectCaption",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetPrimaryEngineID",
+  "summary": "Gets the ID of the primary polling engine",
+  "parameters": [],
+  "returns": "number",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetPrimaryEngineID",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetPropertyAvailability",
+  "summary": "Gets availability information for object properties",
+  "parameters": [
+   {
+    "name": "templateString",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "templateProperties",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "SolarWinds.SRM.Common.TemplatePropertyAvailability"
+    }
+   },
+   {
+    "name": "categories",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "string"
+    }
+   }
+  ],
+  "returns": "array",
+  "returnsItems": "SolarWinds.SRM.Common.TemplatePropertyAvailability",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetPropertyAvailability",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetProviderArrays",
+  "summary": "Gets all arrays associated with a specific provider",
+  "parameters": [
+   {
+    "name": "providerId",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.ArrayEntity~",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetProviderArrays",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetProviders",
+  "summary": "Gets all configured storage providers",
+  "parameters": [
+   {
+    "name": "providerIds",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   }
+  ],
+  "returns": "array",
+  "returnsItems": "SolarWinds.SRM.Common.Models.ProviderInfo",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetProviders",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetRestConfiguration",
+  "summary": "Gets REST configuration for API communication",
+  "parameters": [
+   {
+    "name": "groupId",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "string",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetRestConfiguration",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetSetting",
+  "summary": "Gets a specific SRM setting value",
+  "parameters": [
+   {
+    "name": "field",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "string",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetSetting",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetStorageArrayProperty",
+  "summary": "Gets a specific property of a storage array",
+  "parameters": [
+   {
+    "name": "storageArrayId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "propertyName",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "string",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetStorageArrayProperty",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetTestConnectionJobResult",
+  "summary": "Retrieves the result of a test connection job",
+  "parameters": [
+   {
+    "name": "testConnectionJobId",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.SRM.Common.Models.TestConnectionResults",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetTestConnectionJobResult",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "GetVserver",
+  "summary": "Gets information about a specific virtual server",
+  "parameters": [
+   {
+    "name": "vserverId",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.SRM.Common.Models.VServerEntity",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/GetVserver",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "ImportArrays",
+  "summary": "Imports specified storage arrays into monitoring",
+  "parameters": [
+   {
+    "name": "engineId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "deviceGroupId",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "providers",
+    "type": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.ProviderInfo~",
+    "required": true
+   },
+   {
+    "name": "arrays",
+    "type": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.SelectedArrayEntity~",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/ImportArrays",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "LogOIP",
+  "summary": "Logs OIP (Orion Improvement Program) data",
+  "parameters": [
+   {
+    "name": "message",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/LogOIP",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "RefreshLicense",
+  "summary": "Refreshes license information from the license server",
+  "parameters": [],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/RefreshLicense",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "RemanageArrays",
+  "summary": "Sets storage arrays back to managed state",
+  "parameters": [
+   {
+    "name": "ids",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/RemanageArrays",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "ReportJobDuration",
+  "summary": "Reports the duration of completed jobs",
+  "parameters": [
+   {
+    "name": "duration",
+    "type": "System.TimeSpan",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/ReportJobDuration",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "StoreResponderArray",
+  "summary": "Stores array information from discovery responder",
+  "parameters": [
+   {
+    "name": "ipAddress",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "port",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "snapshotId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "storageArrayId",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "arrayName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "vendor",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "isCluster",
+    "type": "boolean",
+    "required": true
+   },
+   {
+    "name": "templateId",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "userName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "password",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/StoreResponderArray",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "SubmitDiscoveryJob",
+  "summary": "Submits a discovery job for storage array discovery",
+  "parameters": [
+   {
+    "name": "connectionInfos",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "SolarWinds.SRM.Common.Models.ConnectionInfo"
+    }
+   },
+   {
+    "name": "groupId",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "string",
+     "format": "uuid"
+    }
+   }
+  ],
+  "returns": "string",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/SubmitDiscoveryJob",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "SubmitTestConnectionJob",
+  "summary": "Submits a test connection job to verify connectivity to storage provider",
+  "parameters": [
+   {
+    "name": "connectionInfos",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "SolarWinds.SRM.Common.Models.ConnectionInfo"
+    }
+   }
+  ],
+  "returns": "string",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/SubmitTestConnectionJob",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "TestCredentials",
+  "summary": "Tests connectivity using specified credentials",
+  "parameters": [
+   {
+    "name": "connectionInfo",
+    "type": "SolarWinds.SRM.Common.Models.ConnectionInfo",
+    "required": true
+   }
+  ],
+  "returns": "SolarWinds.SRM.Common.Exceptions.ErrorState",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/TestCredentials",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UnmanageArrays",
+  "summary": "Sets storage arrays to unmanaged state",
+  "parameters": [
+   {
+    "name": "ids",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   },
+   {
+    "name": "from",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "until",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UnmanageArrays",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateArray",
+  "summary": "Updates storage array information",
+  "parameters": [
+   {
+    "name": "array",
+    "type": "SolarWinds.SRM.Common.Models.ArrayEntity",
+    "required": true
+   }
+  ],
+  "returns": "number",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateArray",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateArrayPollingIntervals",
+  "summary": "Updates polling intervals for storage arrays",
+  "parameters": [
+   {
+    "name": "storageArrayId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "statCollection",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "rediscoveryInterval",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "topologyInterval",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "controllerInterval",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "number",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateArrayPollingIntervals",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateCredential",
+  "summary": "Updates an existing credential",
+  "parameters": [
+   {
+    "name": "credential",
+    "type": "SolarWinds.Orion.Core.SharedCredentials.Credential",
+    "required": true
+   },
+   {
+    "name": "credType",
+    "type": "SolarWinds.SRM.Common.Enums.CredentialType",
+    "required": true,
+    "enum": [
+     "Unknown",
+     "SNMP",
+     "SnmpV3",
+     "SMIS",
+     "WMI",
+     "Ssh",
+     "VNX",
+     "NetAppFiler",
+     "NetAppDfm",
+     "Responder",
+     "MSA",
+     "IsilonHttp",
+     "XtremIoHttp",
+     "PureStorageHttp",
+     "UnityHttp",
+     "InfinidatHttp",
+     "GenericHttp",
+     "NetAppAIQUM"
+    ]
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateCredential",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateEntityCustomProperties",
+  "summary": "Updates custom properties for SRM entities",
+  "parameters": [
+   {
+    "name": "entityUris",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "string"
+    }
+   },
+   {
+    "name": "customProperties",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "System.Collections.Generic.KeyValuePair~System.String_System.Object~"
+    }
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateEntityCustomProperties",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateLicenseInfo",
+  "summary": "Updates license information in the system",
+  "parameters": [],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateLicenseInfo",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateNetObjectCaption",
+  "summary": "Updates the caption of a network object",
+  "parameters": [
+   {
+    "name": "tableName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "idFieldName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "id",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "caption",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "number",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateNetObjectCaption",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdatePollingEngine",
+  "summary": "Updates polling engine configuration",
+  "parameters": [
+   {
+    "name": "objectsTableName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "keyColumnName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "ids",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   },
+   {
+    "name": "engineId",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "number",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdatePollingEngine",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateProvider",
+  "summary": "Updates provider information",
+  "parameters": [
+   {
+    "name": "provider",
+    "type": "SolarWinds.SRM.Common.Models.ProviderInfo",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateProvider",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateProviderArrays",
+  "summary": "Updates arrays associated with a provider",
+  "parameters": [
+   {
+    "name": "arrayIds",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "number"
+    }
+   },
+   {
+    "name": "providerId",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateProviderArrays",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateProviderPollingProperties",
+  "summary": "Updates polling properties for a provider",
+  "parameters": [
+   {
+    "name": "providerIDs",
+    "type": "System.Collections.Generic.IEnumerable~System.Int32~",
+    "required": true
+   },
+   {
+    "name": "pollingInterval",
+    "type": "number",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateProviderPollingProperties",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateStorageArrayProperties",
+  "summary": "Updates multiple properties of a storage array",
+  "parameters": [
+   {
+    "name": "storageArrayId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "properties",
+    "type": "array",
+    "required": true,
+    "items": {
+     "type": "System.Collections.Generic.KeyValuePair~System.String_System.String~"
+    }
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateStorageArrayProperties",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateStorageArrayProperty",
+  "summary": "Updates a specific property of a storage array",
+  "parameters": [
+   {
+    "name": "storageArrayId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "propertyName",
+    "type": "string",
+    "required": true
+   },
+   {
+    "name": "value",
+    "type": "string",
+    "required": true
+   }
+  ],
+  "returns": "System.Void",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateStorageArrayProperty",
+  "sourceOnly": "swagger",
+  "accessControl": []
+ },
+ {
+  "entity": "Orion.SRM.BusinessLayer",
+  "namespace": "Orion",
+  "name": "UpdateStorageControllerPollingFeature",
+  "summary": "Updates polling feature configuration for storage controllers",
+  "parameters": [
+   {
+    "name": "storageArrayId",
+    "type": "number",
+    "required": true
+   },
+   {
+    "name": "isPollingEnabled",
+    "type": "boolean",
+    "required": true
+   }
+  ],
+  "returns": "number",
+  "restPath": "/Invoke/Orion.SRM.BusinessLayer/UpdateStorageControllerPollingFeature",
+  "sourceOnly": "swagger",
   "accessControl": []
  },
  {
@@ -24685,6 +26198,7 @@
   "summary": "Will return list of Storage Array IDs which are licensed.",
   "parameters": [],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Orion.SRM.StorageArrays/GetLicensedArrays",
   "accessControl": []
  },
@@ -26030,6 +27544,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
   "restPath": "/Invoke/Orion.SSO/ValidateUserToken",
   "accessControl": []
  },
@@ -26444,6 +27959,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.TechnologyPollingAssignments/DisableAssignments",
   "accessControl": [
    {
@@ -26475,6 +27991,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.TechnologyPollingAssignments/DisableAssignmentsOnNetObjects",
   "accessControl": [
    {
@@ -26498,6 +28015,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.TechnologyPollingAssignments/EnableAssignments",
   "accessControl": [
    {
@@ -26529,6 +28047,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "number",
   "restPath": "/Invoke/Orion.TechnologyPollingAssignments/EnableAssignmentsOnNetObjects",
   "accessControl": [
    {
@@ -28550,6 +30069,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "string",
   "restPath": "/Invoke/Orion.Volumes/GetSupportedMetrics",
   "summaryRaw": "Returns list of metrics to poll on Volume entityVolumeID of a target Volume",
   "accessControl": [
@@ -29402,6 +30922,7 @@
    }
   ],
   "returns": "array",
+  "returnsItems": "System.Collections.Generic.KeyValuePair~System.Int32_System.String_array~",
   "restPath": "/Invoke/Orion.WirelessHeatMap.Map/StartClientSignalPoll",
   "accessControl": []
  },

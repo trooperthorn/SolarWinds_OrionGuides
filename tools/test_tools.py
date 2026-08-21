@@ -583,6 +583,73 @@ class TestCountClaims(unittest.TestCase):
 
 
 @requires_data
+class TestReturnTypes(unittest.TestCase):
+    """The shape of what a verb returns, extracted from the Swagger contract.
+
+    The entity pages give only a type name, so before this existed "what do I get back"
+    had no answer short of reading SolarWinds' Swagger by hand, and a page could assert a
+    return shape that nothing checked.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(DATA, "types.json"), encoding="utf-8") as fh:
+            cls.types = json.load(fh)
+        with open(os.path.join(DATA, "verbs.json"), encoding="utf-8") as fh:
+            cls.verbs = json.load(fh)
+
+    def test_a_useful_number_of_returns_resolve(self):
+        known = [v for v in self.verbs if v.get("returns") in self.types]
+        self.assertGreater(len(known), 400)
+
+    def test_the_alert_import_result_has_five_members(self):
+        # SolarWinds' own page describes three. The two extra booleans are what turn a
+        # silent partial import into a diagnosable one.
+        record = self.types["SolarWinds.Orion.Core.Common.Alerting.AlertImportResult"]
+        names = [m["name"] for m in record["members"]]
+        self.assertEqual(names, ["AlertId", "Name", "MigrationMessage",
+                                 "IncorrectPasswordForDecryptSensitiveData",
+                                 "AlertDefinitionIsNotSupported"])
+
+    def test_an_array_return_keeps_its_element_type(self):
+        # 65 verbs return a bare "array". Recording only that loses the whole answer.
+        verb = next(v for v in self.verbs
+                    if v["entity"] == "Orion.AlertSuppression"
+                    and v["name"] == "GetAlertSuppressionState")
+        self.assertEqual(verb["returns"], "array")
+        self.assertIn(verb["returnsItems"], self.types)
+        members = self.types[verb["returnsItems"]]["members"]
+        self.assertIn("SuppressionMode", [m["name"] for m in members])
+
+    def test_member_types_are_collected_transitively(self):
+        # A return shape whose member is an enum is only half an answer without the enum.
+        mode = self.types["SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionMode"]
+        self.assertEqual(mode["kind"], "string")
+        self.assertIn("SuppressedByParent", mode["enum"])
+
+    def test_the_suppression_enum_is_strings_not_integers(self):
+        # Worth pinning: a page once tabulated these as 0 to 4, which the contract does
+        # not say. The values on the wire are the names.
+        mode = self.types["SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionMode"]
+        self.assertTrue(all(isinstance(v, str) for v in mode["enum"]))
+
+    def test_every_recorded_return_type_is_actually_referenced(self):
+        referenced = set()
+        for v in self.verbs:
+            referenced.add(v.get("returns"))
+            referenced.add(v.get("returnsItems"))
+            for p in v.get("parameters") or []:
+                referenced.add(p.get("type"))
+                if isinstance(p.get("items"), dict):
+                    referenced.add(p["items"].get("type"))
+        # Everything else got in by being a member type of something referenced.
+        member_types = {m.get("type") for r in self.types.values() for m in r.get("members", [])}
+        member_types |= {m.get("items") for r in self.types.values() for m in r.get("members", [])}
+        for name in self.types:
+            self.assertTrue(name in referenced or name in member_types, name)
+
+
+@requires_data
 class TestNetObjectIdContract(unittest.TestCase):
     """The argument name `netObjectId` is not the argument's contract.
 
@@ -607,14 +674,16 @@ class TestNetObjectIdContract(unittest.TestCase):
         self.assertEqual(kinds, {"string", "number"})
 
     def test_the_number_typed_verbs_are_the_real_time_polling_family(self):
-        # These are the ones a blanket "always send N:42" rule gets wrong.
+        # These are the ones a blanket "always send N:42" rule gets wrong. Nine are the
+        # real-time polling family; the tenth arrived with the contract-only verbs, on an
+        # entity that has no rendered schema page.
         numbers = {f"{e}.{v}" for e, v, t in self.taking if t == "number"}
-        expected = {
+        polling = {
             f"{entity}.{verb}"
             for entity in ("Orion.Nodes", "Orion.NPM.Interfaces", "Orion.Volumes")
             for verb in ("GetSupportedMetrics", "StartRealTimePolling", "StopRealTimePolling")
         }
-        self.assertEqual(numbers, expected)
+        self.assertEqual(numbers, polling | {"Orion.SRM.BusinessLayer.AddManualE2EMapping"})
 
     def test_unmanage_still_wants_the_string_form(self):
         by_key = {f"{e}.{v}": t for e, v, t in self.taking}

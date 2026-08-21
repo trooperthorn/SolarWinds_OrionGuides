@@ -22,6 +22,7 @@ data/
     entities/<NS>.json   full entity records, split by namespace
     verbs.json           every verb with typed, ordered parameters
     relationships.json   navigation edges between entities
+    types.json           the shape of every type a verb returns or takes
     manifest.json        counts, provenance, and the REST API surface
   reference/
     swql-functions.json  function signatures joined to worked examples
@@ -50,8 +51,12 @@ jq '.counts, .apiSurface' data/schema/2026.2/manifest.json
   "entities": 2067,
   "namespaces": 16,
   "properties": 19328,
-  "verbs": 958,
-  "verbsWithTypedParameters": 794,
+  "verbs": 1021,
+  "verbsWithTypedParameters": 848,
+  "verbsFromSwaggerOnly": 63,
+  "entitiesWithoutSchemaPage": 5,
+  "types": 309,
+  "verbsWithKnownReturnShape": 542,
   "relationshipEdges": 2992,
   "creatableEntities": 250,
   "skippedPages": 0
@@ -153,8 +158,8 @@ is `Metadata.Property.IsKey`; see [entity-model.md](entity-model.md).
 
 ### verbs.json
 
-Every verb in the schema flattened into one array of 958 records, so you never have to know
-which entity a verb is on to search for it. 794 of them carry typed, named, ordered
+Every verb in the schema flattened into one array of 1021 records, so you never have to know
+which entity a verb is on to search for it. 848 of them carry typed, named, ordered
 parameters recovered from the Swagger contract.
 
 ```bash
@@ -210,11 +215,13 @@ jq '.[] | select(.entity=="Orion.Volumes" and .name=="Unmanage")' data/schema/20
 **The order of the `parameters` array is the contract.** Invoke arguments travel positionally
 and the names never appear on the wire, so a generated client that reorders them still
 type-checks and still sends the wrong values into the wrong slots. One optional field
-actually shows up in this build: `summaryRaw`, on 245 of the 958 records, preserving the
+actually shows up in this build: `summaryRaw`, on 245 of the 1021 records, preserving the
 original run-on prose from the HTML page where the Swagger description replaced it. The
-builder can also emit `sourceOnly: "swagger"` to mark a verb that exists in the contract but
-has no section on the rendered page — in 2026.2 no verb carries it, every one of the 958
-having been found on a rendered page, so do not write a consumer that expects the field.
+builder also emits `sourceOnly: "swagger"` on a verb the contract publishes for an entity
+with no rendered schema page at all. 63 verbs across five entities carry it in 2026.2. They
+are invokable and fully typed, so they belong in the verb list, but there is no entity
+record for them and `schema_query.py show` cannot reach them. Filter the field out if you
+are joining verbs to entities and want the join to stay total.
 
 ### relationships.json
 

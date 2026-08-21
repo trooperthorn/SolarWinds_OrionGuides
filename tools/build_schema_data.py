@@ -22,6 +22,7 @@ Outputs (under data/):
     schema/<version>/index.json                 compact entity index (name -> counts, summary)
     schema/<version>/verbs.json                 every verb with typed parameters
     schema/<version>/relationships.json         entity-to-entity edge list
+    schema/<version>/types.json                 the shape of every type a verb returns or takes
     schema/<version>/manifest.json              provenance and counts
 """
 
@@ -322,8 +323,96 @@ def resolve_schema(node, defs, depth=0, seen=None):
     return out
 
 
-def parse_swagger(path: str) -> tuple[dict, dict, dict]:
-    """Return (verbs_by_entity, crud_by_entity, api_surface) from a SWIS swagger.json."""
+REF_RE = re.compile(r"#/definitions/(?P<name>.+)$")
+
+
+def definition_members(node: dict, defs: dict) -> list[dict]:
+    """Flatten one Swagger definition into an ordered member list.
+
+    Only one level deep. A member whose own type is another definition records that type's
+    name rather than inlining it, which keeps the file readable and lets a reader follow
+    the reference themselves.
+    """
+    members: list[dict] = []
+    required = set(node.get("required") or [])
+    for name, child in (node.get("properties") or {}).items():
+        entry: dict = {"name": name}
+        ref = child.get("$ref")
+        if ref:
+            m = REF_RE.match(ref)
+            entry["type"] = m.group("name") if m else ref
+        elif child.get("type") == "array":
+            item = child.get("items") or {}
+            iref = REF_RE.match(item.get("$ref", "") or "")
+            entry["type"] = "array"
+            entry["items"] = iref.group("name") if iref else item.get("type", "object")
+        else:
+            entry["type"] = child.get("type", "object")
+        if child.get("enum"):
+            entry["enum"] = child["enum"]
+        if child.get("description"):
+            entry["description"] = child["description"].strip()
+        if name in required:
+            entry["required"] = True
+        members.append(entry)
+    return members
+
+
+def collect_types(verbs_by_entity: dict, defs: dict) -> dict:
+    """Definitions for every type a verb returns or takes, keyed by type name.
+
+    The schema pages give a verb's return as a bare type name, and the extracted data used
+    to stop there, so "what does this verb give me back" had no answer short of reading
+    SolarWinds' Swagger by hand. 501 verbs return a type that is defined in that contract.
+    """
+    wanted: set[str] = set()
+
+    def note(type_name):
+        if isinstance(type_name, str) and type_name in defs:
+            wanted.add(type_name)
+
+    for entity_verbs in verbs_by_entity.values():
+        for verb in entity_verbs.values():
+            note(verb.get("returns"))
+            note(verb.get("returnsItems"))
+            for p in verb.get("parameters") or []:
+                note(p.get("type"))
+                items = p.get("items")
+                if isinstance(items, dict):
+                    note(items.get("type"))
+                    ref = REF_RE.match(items.get("$ref", "") or "")
+                    if ref:
+                        note(ref.group("name"))
+
+    # Follow member types too. A return shape whose member is itself a defined type, very
+    # often an enum, is only half an answer without the type that member names: the
+    # suppression state's SuppressionMode is where the five mode values live.
+    seen: set[str] = set()
+    while True:
+        fresh = wanted - seen
+        if not fresh:
+            break
+        seen |= fresh
+        for name in list(fresh):
+            for member in definition_members(defs[name], defs):
+                note(member.get("type"))
+                note(member.get("items"))
+
+    types: dict[str, dict] = {}
+    for name in sorted(wanted):
+        node = defs[name]
+        record = {"name": name, "kind": node.get("type", "object")}
+        if node.get("enum"):
+            record["enum"] = node["enum"]
+        members = definition_members(node, defs)
+        if members:
+            record["members"] = members
+        types[name] = record
+    return types
+
+
+def parse_swagger(path: str) -> tuple[dict, dict, dict, dict]:
+    """Return (verbs_by_entity, crud_by_entity, api_surface, types) from a swagger.json."""
     with open(path, encoding="utf-8") as fh:
         spec = json.load(fh)
 
@@ -364,9 +453,19 @@ def parse_swagger(path: str) -> tuple[dict, dict, dict]:
                     params.append(entry)
 
             returns = "System.Void"
+            returns_items = None
             resp = (op.get("responses", {}).get("200") or {}).get("schema")
             if isinstance(resp, dict):
                 returns = resolve_schema(resp, defs).get("type", "System.Void")
+                # An array response carries the interesting type one level down. Recording
+                # only "array" loses it, and 65 verbs return one, so "what comes back" is
+                # unanswerable for them without this.
+                if resp.get("type") == "array":
+                    ref = REF_RE.match((resp.get("items") or {}).get("$ref", "") or "")
+                    if ref:
+                        returns_items = ref.group("name")
+                    elif (resp.get("items") or {}).get("type"):
+                        returns_items = resp["items"]["type"]
 
             # "ToDo" is docfx's placeholder for an unwritten summary. Carrying it through
             # would fill reference tables with a word that means nothing to a reader.
@@ -382,6 +481,7 @@ def parse_swagger(path: str) -> tuple[dict, dict, dict]:
                 "parameters": params,
                 "requiredParameters": required,
                 "returns": returns,
+                "returnsItems": returns_items,
                 "restPath": route,
             }
         elif route.startswith("/Create/"):
@@ -395,7 +495,9 @@ def parse_swagger(path: str) -> tuple[dict, dict, dict]:
         "serviceVersion": (spec.get("info") or {}).get("version", ""),
         "genericPaths": sorted(k for k in spec.get("paths", {}) if not k.startswith(("/Invoke/", "/Create/"))),
     }
-    return dict(verbs), {k: sorted(v) for k, v in crud.items()}, api_surface
+    verbs_out = dict(verbs)
+    return (verbs_out, {k: sorted(v) for k, v in crud.items()}, api_surface,
+            collect_types(verbs_out, defs))
 
 
 # --------------------------------------------------------------------------------------
@@ -409,8 +511,8 @@ def build(source: str, version: str, out_root: str) -> dict:
     if not os.path.isdir(schema_dir):
         sys.exit(f"error: no schema directory at {schema_dir}")
 
-    verbs_by_entity, crud_by_entity, api_surface = (
-        parse_swagger(swagger_path) if os.path.isfile(swagger_path) else ({}, {}, {})
+    verbs_by_entity, crud_by_entity, api_surface, swagger_types = (
+        parse_swagger(swagger_path) if os.path.isfile(swagger_path) else ({}, {}, {}, {})
     )
 
     entities: list[dict] = []
@@ -430,6 +532,8 @@ def build(source: str, version: str, out_root: str) -> dict:
             if sv:
                 verb["parameters"] = sv["parameters"]
                 verb["returns"] = sv["returns"]
+                if sv.get("returnsItems"):
+                    verb["returnsItems"] = sv["returnsItems"]
                 verb["restPath"] = sv["restPath"]
                 # docfx concatenates the verb summary and every parameter summary into
                 # one run-on paragraph ("Starts realtime polling on Node entityNodeID of
@@ -502,7 +606,39 @@ def build(source: str, version: str, out_root: str) -> dict:
         ),
         key=lambda v: (v["entity"], v["name"]),
     )
+
+    # Verbs the contract publishes on an entity that has no rendered schema page at all.
+    # The join above can only reach an entity it parsed a page for, so these were dropped
+    # silently: 63 invokable verbs across five entities, several of them verb facades of
+    # exactly the kind IPAM uses. The entity count stays page-derived, which is the
+    # defensible reading of "how many entities does the schema document", but a verb you
+    # can invoke belongs in the verb list whichever source names it.
+    documented = {r["entity"] for r in entities}
+    orphan_verbs = []
+    for entity, entity_verbs in sorted(verbs_by_entity.items()):
+        if entity in documented:
+            continue
+        for vname, sv in sorted(entity_verbs.items()):
+            orphan_verbs.append(
+                {
+                    "entity": entity,
+                    "namespace": entity.split(".")[0],
+                    "name": vname,
+                    "summary": sv["description"],
+                    "parameters": sv["parameters"],
+                    "returns": sv["returns"],
+                    **({"returnsItems": sv["returnsItems"]} if sv.get("returnsItems") else {}),
+                    "restPath": sv["restPath"],
+                    "sourceOnly": "swagger",
+                    "accessControl": [],
+                }
+            )
+    all_verbs = sorted(all_verbs + orphan_verbs, key=lambda v: (v["entity"], v["name"]))
     write_json(os.path.join(ver_root, "verbs.json"), all_verbs)
+
+    # The shape of what a verb returns. The entity pages give only a type name, so without
+    # this "what do I get back" has no answer short of reading the Swagger by hand.
+    write_json(os.path.join(ver_root, "types.json"), swagger_types)
 
     edges = []
     for r in entities:
@@ -541,6 +677,15 @@ def build(source: str, version: str, out_root: str) -> dict:
             "properties": sum(r["counts"]["properties"] for r in entities),
             "verbs": len(all_verbs),
             "verbsWithTypedParameters": sum(1 for v in all_verbs if v.get("parameters")),
+            "verbsFromSwaggerOnly": sum(1 for v in all_verbs if v.get("sourceOnly") == "swagger"),
+            "entitiesWithoutSchemaPage": len(
+                {v["entity"] for v in all_verbs if v.get("sourceOnly") == "swagger"}
+                - {r["entity"] for r in entities}
+            ),
+            "types": len(swagger_types),
+            "verbsWithKnownReturnShape": sum(
+                1 for v in all_verbs if v.get("returns") in swagger_types
+            ),
             "relationshipEdges": len(edges),
             "creatableEntities": sum(1 for r in entities if r["canCreate"]),
             "skippedPages": skipped,

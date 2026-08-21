@@ -215,6 +215,7 @@
     "accessControl": [],
     "parameters": [],
     "returns": "array",
+    "returnsItems": "SolarWinds.NCM.Contracts.InformationService.NCMApprovalUser",
     "restPath": "/Invoke/Cirrus.ApproveQueue/GetApprovalUsers",
     "summaryRaw": "Gets users who should review operations. For valid Orion user with at least Engineer NCM role.The data about reviewers. Full type: Array of SolarWinds.NCM.Contracts.InformationService.NCMApprovalUser"
    },
@@ -1872,6 +1873,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/GetPermissionsByRole",
     "summaryRaw": "Gets all permissions for specified role. Valid for Orion manage node users with at least WebViewer NCM role.Role name.Array of permissions. Full type: array of System.String"
    },
@@ -1959,6 +1961,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/ExecuteScript",
     "summaryRaw": "Executes script on the particular node. Valid for Orion manage node users with at least WebUploader NCM role.Array of NCM node IDs.Script to execute.Should a device be rebooted after script execution(true/false).Array of transfer IDs. Full type: array of System.Guid"
    },
@@ -1984,6 +1987,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/ExecuteScriptPerNode",
     "summaryRaw": "Executes scripts per nodes. Valid for Orion manage node users with at least WebUploader NCM role.Array of scripts and nodes.Should a device be rebooted after script execution(true/false).Array of transfer IDs. Full type: array of System.Guid"
    },
@@ -2004,6 +2008,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/ReExecute",
     "summaryRaw": "Re-executes script Valid for Orion manage node users with at least WebDownloader NCM role.Array of ticket ID.Array of transfer IDs. Full type: array of System.Guid"
    },
@@ -2042,6 +2047,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/UploadConfig",
     "summaryRaw": "Uploads config. Valid for Orion manage node users with at least WebUploader NCM role.NCM node ID.Config type.Config.Device should be rebooted after upload(true/false).Array of transfer IDs. Full type: array of System.Guid"
    },
@@ -2073,6 +2079,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/UploadConfigPerNode",
     "summaryRaw": "Uploads config. Valid for Orion manage node users with at least WebUploader NCM role.Array of script and node.Config type.Device should be rebooted after upload(true/false).Array of transfer IDs. Full type: array of System.Guid"
    },
@@ -2099,6 +2106,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/DownloadConfig",
     "summaryRaw": "Downloads config file for the particular node. Valid for Orion manage node users with at least WebDownloader NCM role.Array of NCM node IDs.Config type.Array of transfer IDs. Full type: array of System.Guid"
    },
@@ -2130,6 +2138,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/ExecuteScriptOnNodes",
     "summaryRaw": "Executes script on the particular nodes. Valid for Orion manage node users with at least WebUploader NCM role.The list of nodes.Device template.Script to execute.Array of transfer IDs. Full type: array of System.Guid"
    },
@@ -2161,6 +2170,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/DownloadConfigOnNodes",
     "summaryRaw": "Downloads config file for the particular nodes. Valid for Orion manage node users with at least WebDownloader NCM role. The list of nodes.Device template.Config type.Array of transfer IDs. Full type: array of System.Guid"
    },
@@ -2206,6 +2216,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/ConfigSearch",
     "summaryRaw": "Searches for the config (Verb ConfigSearch will be removed. Please use the ConfigSearch2 verb instead). Valid for Orion manage node users with at least WebViewer NCM role.Config search term.Array of config IDs. Full type: Array of System.Guid"
    },
@@ -2221,6 +2232,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/ConfigSearch2",
     "summaryRaw": "Searches for the config. Valid for Orion manage node users with at least WebViewer NCM role.Config search term.Array of config IDs. Full type: Array of System.Guid"
    },
@@ -2452,6 +2464,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigArchive/GetInterfaceConfigSnippets",
     "summaryRaw": "Gets interface config snippets. Valid for Orion manage node users with at least WebViewer NCM role.The ID of the core node.Array of config snippets. Full type: array of System.String"
    }
@@ -2632,6 +2645,7 @@
     "accessControl": [],
     "parameters": [],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigSnippets/GetTagsList",
     "summaryRaw": "Gets tag list. Valid for Orion manage node users with at least WebUploader NCM role.Tag list. Full type: System.Collections.Generic.List"
    },
@@ -2651,6 +2665,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/Cirrus.ConfigSnippets/GetTagsListForSnippets",
     "summaryRaw": "Gets tag list for snippet. Valid for Orion manage node users with at least WebUploader NCM role.Array of snippet IDs.Tag list. Full type: System.Collections.Generic.List"
    },
@@ -5297,6 +5312,7 @@
     "accessControl": [],
     "parameters": [],
     "returns": "array",
+    "returnsItems": "SolarWinds.NCM.Contracts.InformationService.ConnectionProfile",
     "restPath": "/Invoke/Cirrus.Nodes/GetAllConnectionProfiles",
     "summaryRaw": "Retrieve list of all connection profiles created in NCM. User needs Orion node management rights with NCM role WebViewer or higher to call this verb.List of all ConnectionProfile objects. Full type: array of SolarWinds.NCM.Contracts.InformationService.ConnectionProfile"
    },
@@ -6779,6 +6795,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.NCM.Contracts.InformationService.NetworkNode",
     "restPath": "/Invoke/Cirrus.PolicyReports/GenerateRemediationScriptForNodes",
     "summaryRaw": "Generates remediation scripts. If compliance only for administrators option enabled then it's valid only for Orion admins. If not then valid for Orion users with at least WebViewer NCM role.NCM node IDs.Compliance policy report ID.Compliance policy ID.Compliance policy rule ID.Script template.Array of scripts and nodes data. Full type: SolarWinds.NCM.Contracts.InformationService.NetworkNode"
    }
@@ -7819,6 +7836,7 @@
     "accessControl": [],
     "parameters": [],
     "returns": "array",
+    "returnsItems": "SolarWinds.NCM.Contracts.ConfigComparison.RegEx",
     "restPath": "/Invoke/Cirrus.Settings/GetRegExes",
     "summaryRaw": "Gets all RegExes. For valid Orion user with at least WebViewer NCM role.All available RegExes. Full type: SolarWinds.NCM.Contracts.ConfigComparison.Regex[]."
    },
@@ -8051,6 +8069,7 @@
     ],
     "parameters": [],
     "returns": "array",
+    "returnsItems": "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestHostResults",
     "restPath": "/Invoke/Cirrus.Settings/NetworkingSelfTest",
     "summaryRaw": "Cross tests connection between all pollers. Only for Orion administrators.Test results. Full type: Array of SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestHostResults,"
    }

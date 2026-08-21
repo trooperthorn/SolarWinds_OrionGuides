@@ -908,13 +908,15 @@ server.
 ## Lite interface discovery
 
 The simplest of the three flows, and synchronous. Two verbs, both on `Orion.NPM.Interfaces`,
-both requiring `manageNodes`:
+both requiring `manageNodes`. That entity declares ten verbs in 2026.2, most of them nothing
+to do with discovery, so narrow the listing to the two that belong to this flow:
 
 ```bash
-python3 tools/schema_query.py verbs --entity Orion.NPM.Interfaces
+python3 tools/schema_query.py verbs --entity Orion.NPM.Interfaces --grep InterfacesOnNode
 ```
 
 ```text
+2 verb(s)
   Orion.NPM.Interfaces.AddInterfacesOnNode(nodeId, interfacesToAdd, pollers) -> SolarWinds.Interfaces.Common.Models.Discovery.LiteDiscoveryResult
       Add provided interface to node.
   Orion.NPM.Interfaces.DiscoverInterfacesOnNode(nodeId) -> SolarWinds.Interfaces.Common.Models.Discovery.LiteDiscoveryResult

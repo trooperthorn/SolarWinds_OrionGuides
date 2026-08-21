@@ -37,7 +37,7 @@ python3 tools/schema_query.py show Orion.Nodes
 # Does this property exist? Inherited members are included by default.
 python3 tools/schema_query.py props Orion.Nodes --grep unmanage
 
-# What can I invoke, and what does it take?
+# What can I invoke, what does it take, and what comes back?
 python3 tools/schema_query.py verbs --entity Orion.Nodes
 python3 tools/schema_query.py verb Orion.Nodes Unmanage
 
@@ -92,8 +92,9 @@ Regenerate with `make data`; see `docs/schema/using-the-data.md`.
 | --- | --- |
 | `data/schema/2026.2/index.json` | Compact entity index: 2067 entities, one line each |
 | `data/schema/2026.2/entities/<NS>.json` | Full records: properties, relationships, verbs, access control |
-| `data/schema/2026.2/verbs.json` | 958 verbs; 794 carry typed, named, ordered parameters |
+| `data/schema/2026.2/verbs.json` | 1021 verbs; 848 carry typed, named, ordered parameters |
 | `data/schema/2026.2/relationships.json` | 2992 navigation edges between entities |
+| `data/schema/2026.2/types.json` | 309 types a verb returns or takes, with their members |
 | `data/schema/2026.2/manifest.json` | Counts, provenance, and the REST API surface |
 | `data/reference/swql-functions.json` | Function signatures joined to worked examples |
 | `data/reference/status-codes.json` | Status id to name, rank, and meaning |
@@ -132,6 +133,13 @@ sixteen distinct names. Look before
 you infer what a status integer means, because a guessed enumeration reads exactly like a
 real one. Node and interface status is the separate, well-known case: it is an integer
 resolved through `Orion.StatusInfo`, tabulated in `docs/reference/status-codes.md`.
+
+**What a verb returns is now in the data too.** `verb` prints the shape, not just the type
+name, for the 542 verbs whose return type the contract defines, and expands any member
+whose type is an enum. That answers "what do I get back" without guessing at it, and the
+answer is frequently more than SolarWinds' own page describes: `Orion.AlertConfigurations.Import`
+returns five members where their page documents three, and the two extra ones are what turn
+a silent partial import into a diagnosable one.
 
 Two smaller gaps worth knowing:
 
@@ -203,10 +211,11 @@ to check their own server over guessing on their behalf.
 
 - Verify the verb signature first: `python3 tools/schema_query.py verb <Entity> <Verb>`.
 - **A `netObjectId` argument does not always want a NetObject string.** Read its declared
-  type. Of the 21 verbs taking one in 2026.2, 12 declare it `string` and want `N:42`;
-  nine declare it `number` and want the bare integer key. The nine are
+  type. Of the 22 verbs taking one in 2026.2, 12 declare it `string` and want `N:42`;
+  10 declare it `number` and want the bare integer key. Nine of those 10 are
   `GetSupportedMetrics`, `StartRealTimePolling` and `StopRealTimePolling` on each of
-  `Orion.Nodes`, `Orion.NPM.Interfaces` and `Orion.Volumes`. The shared argument name is
+  `Orion.Nodes`, `Orion.NPM.Interfaces` and `Orion.Volumes`; the tenth is
+  `Orion.SRM.BusinessLayer.AddManualE2EMapping`. The shared argument name is
   not a shared format, and this is the kind of thing you will otherwise get wrong from
   memory. Prefixes for the string form are in `data/reference/netobject-types.json`.
 - Verbs declare the right they require (`manageNodes`, `allowUnmanage`,
@@ -224,10 +233,13 @@ guessing around them:
 
 - `Orion.APM.Application.Unmanage` names its first parameter `netObjetId`, missing the
   `c`. Positional callers are unaffected; generated clients are not.
-- The extractor can mark a verb that exists in the Swagger contract but has no section on
-  the rendered schema page, by emitting `"sourceOnly": "swagger"` on the record. **In
-  2026.2 no verb carries it**, all 958 having been found on a rendered page, so do not
-  write a consumer that expects the field to be present.
+- **63 verbs carry `"sourceOnly": "swagger"`.** They are invokable and fully typed, but
+  SolarWinds publishes no rendered schema page for the entity they sit on, so they appear
+  in `verbs.json` and not in the entity index. The five entities are
+  `NCM.SwisEntityTemplate`, `Orion.AIIM.AiOpsMetricStatus`,
+  `Orion.Netflow.IPAddressGroupsManagement`, `Orion.Netflow.IPGroupExternalRelation` and
+  `Orion.SRM.BusinessLayer`. `schema_query.py verb` finds them; `show` cannot, because
+  there is no entity record to show.
 - `SplitStringToArray` is documented as splitting on commas, but the community workbook
   shows a different delimiter. Verify on your version before relying on it.
 

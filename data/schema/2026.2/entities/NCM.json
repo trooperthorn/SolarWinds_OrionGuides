@@ -7068,6 +7068,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "string",
     "restPath": "/Invoke/NCM.SecurityPolicy/GetSecurityPolicyAppIds",
     "summaryRaw": "Gets list of security policy IDs for the node.ID of the node.Policy name.List of security policy ids for the node. Full type: System.Collections.Generic.List ."
    }

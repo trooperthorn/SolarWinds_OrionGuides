@@ -29,8 +29,9 @@ Everything below works offline. No server, no network, no credentials.
 
 - [data/schema/2026.2/index.json](data/schema/2026.2/index.json): 2067 entities, one compact record each
 - [data/schema/2026.2/entities/](data/schema/2026.2/entities/): full records with 19,328 properties
-- [data/schema/2026.2/verbs.json](data/schema/2026.2/verbs.json): 958 verbs, 794 with typed ordered parameters
+- [data/schema/2026.2/verbs.json](data/schema/2026.2/verbs.json): 1021 verbs, 848 with typed ordered parameters
 - [data/schema/2026.2/relationships.json](data/schema/2026.2/relationships.json): 2992 navigation edges
+- [data/schema/2026.2/types.json](data/schema/2026.2/types.json): the shape of what 542 verbs return, and the enums their members use
 - [data/reference/swql-functions.json](data/reference/swql-functions.json): function signatures and examples
 - [data/reference/status-codes.json](data/reference/status-codes.json): status id to name, rank, meaning
 - [data/reference/netobject-types.json](data/reference/netobject-types.json): NetObject prefixes and key properties

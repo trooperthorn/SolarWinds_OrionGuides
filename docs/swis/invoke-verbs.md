@@ -5,7 +5,7 @@ one entity instance at a time. Neither of those can express "poll this node righ
 "acknowledge these twelve alerts with a note", "deploy an agent to this host" or "create a
 custom property definition". Those are **verbs**, and `Invoke` is how you call them.
 
-In SWIS schema 2026.2 there are **958 verbs**, of which **794 publish typed, named, ordered
+In SWIS schema 2026.2 there are **1021 verbs**, of which **848 publish typed, named, ordered
 parameters**. This page is the complete guide to calling them. The per-task shortlist is in
 [verb-catalog.md](verb-catalog.md); the exhaustive machine-generated table is in
 [../reference/verb-index.md](../reference/verb-index.md).
@@ -97,8 +97,8 @@ and `allowOverlapping` are JSON booleans, not the strings `"false"`.
 
 ### Optional trailing arguments may be omitted
 
-The 794 verbs with typed parameters mark each parameter required or optional, and across all
-958 records in `data/schema/2026.2/verbs.json` there is not a single verb where a required
+The 848 verbs with typed parameters mark each parameter required or optional, and across all
+1021 records in `data/schema/2026.2/verbs.json` there is not a single verb where a required
 parameter follows an optional one. Optional parameters are always at the end of the list, so
 you can truncate the array after the last argument you want to supply. The official
 [Managing Custom Properties](https://solarwinds.github.io/OrionSDK/docs/managing-custom-properties/)
@@ -387,7 +387,7 @@ jq '.paths["/Invoke/Orion.Nodes/Unmanage"], .definitions.OrionNodesUnmanageReque
 
 The contract is not perfectly aligned with the rendered schema pages, and both are published
 by SolarWinds. In 2026.2 the Swagger contract declares **937** `/Invoke/` paths while the
-schema pages document **958** verbs; **84** verbs appear only in the schema pages (70 of them
+schema pages document **1021** verbs; **84** verbs appear only in the schema pages (70 of them
 in the `Cortex` namespace) and **63** Invoke paths appear only in the contract. When they
 disagree, your own server is the tiebreaker, which is the next method.
 
@@ -474,7 +474,7 @@ reading: on `Orion.Nodes`, `read` is granted to `everyone` and separately to `ma
 an AND interpretation would mean nobody could read a node. It is also why
 `Orion.Nodes.StartRealTimePolling` lists both `allowRealTimePolling` and `admin`.
 
-329 of the 958 verbs in 2026.2 declare at least one right, in 366 entries between them
+329 of the 1021 verbs in 2026.2 declare at least one right, in 366 entries between them
 because a verb can list alternatives. Counting verbs per right:
 
 | Right | Verbs |
@@ -501,7 +501,7 @@ because a verb can list alternatives. Counting verbs per right:
 
 A verb with an empty `accessControl` array does not mean "anybody can call it". Rights are
 declared on the verb **and** on the entity, and when the verb declares nothing the entity's
-`invoke` entry is what applies. **629 of the 958 verbs declare no right of their own, and 363
+`invoke` entry is what applies. **629 of the 1021 verbs declare no right of their own, and 363
 of those belong to an entity that does declare an `invoke` right.**
 
 That is not a technicality. It is the difference between reading the table and knowing what
@@ -1059,7 +1059,7 @@ without needing XML at all: `ScheduleListResources(nodeId)` returns a job id,
 ## Where to go next
 
 - [verb-catalog.md](verb-catalog.md) groups the most useful verbs by task and shows how to
-  query the full set of 958.
+  query the full set of 1021.
 - [metadata-introspection.md](metadata-introspection.md) is the authoritative way to answer
   schema questions against your own server.
 - [../reference/verb-index.md](../reference/verb-index.md) lists every verb with its

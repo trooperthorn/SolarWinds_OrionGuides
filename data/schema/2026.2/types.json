@@ -1,0 +1,7836 @@
+{
+ "Microsoft.Win32.SafeHandles.SafeWaitHandle": {
+  "name": "Microsoft.Win32.SafeHandles.SafeWaitHandle",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsInvalid",
+    "type": "boolean"
+   },
+   {
+    "name": "IsClosed",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.APM.Common.Models.Status": {
+  "name": "SolarWinds.APM.Common.Models.Status",
+  "kind": "string",
+  "enum": [
+   "Undefined",
+   "Available",
+   "NotAvailable",
+   "PartlyAvailable",
+   "NotLicensed",
+   "Warning",
+   "Critical",
+   "IsDisabled",
+   "Unmanaged",
+   "Unplugged",
+   "NotRunning",
+   "Unreachable"
+  ]
+ },
+ "SolarWinds.APM.Common.Models.TestComponentResult": {
+  "name": "SolarWinds.APM.Common.Models.TestComponentResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ComponentId",
+    "type": "number"
+   },
+   {
+    "name": "JobId",
+    "type": "string"
+   },
+   {
+    "name": "Status",
+    "type": "SolarWinds.APM.Common.Models.Status"
+   },
+   {
+    "name": "Message",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.APM.Common.Models.Threshold": {
+  "name": "SolarWinds.APM.Common.Models.Threshold",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "WarnLevel",
+    "type": "number"
+   },
+   {
+    "name": "CriticalLevel",
+    "type": "number"
+   },
+   {
+    "name": "IsWarnLevelSet",
+    "type": "boolean"
+   },
+   {
+    "name": "IsCriticalLevelSet",
+    "type": "boolean"
+   },
+   {
+    "name": "IsForTemplate",
+    "type": "boolean"
+   },
+   {
+    "name": "IsForParentComponent",
+    "type": "boolean"
+   },
+   {
+    "name": "ThresholdOperator",
+    "type": "SolarWinds.APM.Common.Models.ThresholdOperator"
+   },
+   {
+    "name": "Empty",
+    "type": "SolarWinds.APM.Common.Models.Threshold"
+   },
+   {
+    "name": "ComputeBaseline",
+    "type": "boolean"
+   },
+   {
+    "name": "UseBaseline",
+    "type": "boolean"
+   },
+   {
+    "name": "WarningFormula",
+    "type": "string"
+   },
+   {
+    "name": "CriticalFormula",
+    "type": "string"
+   },
+   {
+    "name": "BaselineFrom",
+    "type": "string"
+   },
+   {
+    "name": "BaselineTo",
+    "type": "string"
+   },
+   {
+    "name": "BaselineApplied",
+    "type": "string"
+   },
+   {
+    "name": "BaselineApplyError",
+    "type": "string"
+   },
+   {
+    "name": "BaselineFromTicks",
+    "type": "number"
+   },
+   {
+    "name": "BaselineToTicks",
+    "type": "number"
+   },
+   {
+    "name": "BaselineAppliedTicks",
+    "type": "number"
+   },
+   {
+    "name": "BaselineAvailableIn",
+    "type": "number"
+   },
+   {
+    "name": "StatsFromTicks",
+    "type": "number"
+   },
+   {
+    "name": "StatsToTicks",
+    "type": "number"
+   },
+   {
+    "name": "StatsMean",
+    "type": "number"
+   },
+   {
+    "name": "StatsStdDev",
+    "type": "number"
+   },
+   {
+    "name": "StatsMin",
+    "type": "number"
+   },
+   {
+    "name": "StatsMax",
+    "type": "number"
+   },
+   {
+    "name": "WarningPolls",
+    "type": "number"
+   },
+   {
+    "name": "WarningPollsInterval",
+    "type": "number"
+   },
+   {
+    "name": "IsWarningFiredAfterSinglePoll",
+    "type": "boolean"
+   },
+   {
+    "name": "IsWarningFiredAfterXPolls",
+    "type": "boolean"
+   },
+   {
+    "name": "IsWarningFiredAfterXofYPolls",
+    "type": "boolean"
+   },
+   {
+    "name": "CriticalPolls",
+    "type": "number"
+   },
+   {
+    "name": "CriticalPollsInterval",
+    "type": "number"
+   },
+   {
+    "name": "IsCriticalFiredAfterSinglePoll",
+    "type": "boolean"
+   },
+   {
+    "name": "IsCriticalFiredAfterXPolls",
+    "type": "boolean"
+   },
+   {
+    "name": "IsCriticalFiredAfterXofYPolls",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.APM.Common.Models.ThresholdOperator": {
+  "name": "SolarWinds.APM.Common.Models.ThresholdOperator",
+  "kind": "string",
+  "enum": [
+   "Greater",
+   "GreaterOrEqual",
+   "Equal",
+   "LessOrEqual",
+   "Less",
+   "NotEqual"
+  ]
+ },
+ "SolarWinds.AddNode.Contract.Models.Discovery.DiscoveryJobResult": {
+  "name": "SolarWinds.AddNode.Contract.Models.Discovery.DiscoveryJobResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Vendor",
+    "type": "string"
+   },
+   {
+    "name": "VendorIcon",
+    "type": "string"
+   },
+   {
+    "name": "SubType",
+    "type": "SolarWinds.Orion.Core.Models.Enums.DiscoveredNodeSubType"
+   },
+   {
+    "name": "Properties",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.Object~"
+   }
+  ]
+ },
+ "SolarWinds.AgentManagement.Common.Models.AgentPingResult": {
+  "name": "SolarWinds.AgentManagement.Common.Models.AgentPingResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Success",
+    "type": "boolean"
+   },
+   {
+    "name": "ResponseTime",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "Agent",
+    "type": "SolarWinds.AgentManagement.Contract.Models.AgentRecord"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "RebootPending",
+    "type": "boolean"
+   },
+   {
+    "name": "NetFrameworkRelease",
+    "type": "string"
+   },
+   {
+    "name": "PkgOsDistro",
+    "type": "string"
+   },
+   {
+    "name": "PkgOsVersion",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.AgentManagement.Common.Models.ProxySetting": {
+  "name": "SolarWinds.AgentManagement.Common.Models.ProxySetting",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ProxyId",
+    "type": "number"
+   },
+   {
+    "name": "ProxyUrl",
+    "type": "string"
+   },
+   {
+    "name": "UseProxyAuthentication",
+    "type": "boolean"
+   },
+   {
+    "name": "ProxyCredentialId",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.AgentManagement.Contract.AgentMode": {
+  "name": "SolarWinds.AgentManagement.Contract.AgentMode",
+  "kind": "string",
+  "enum": [
+   "Auto",
+   "Active",
+   "Passive"
+  ]
+ },
+ "SolarWinds.AgentManagement.Contract.AgentStatus": {
+  "name": "SolarWinds.AgentManagement.Contract.AgentStatus",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Ok",
+   "UpdateAvailable",
+   "UpdateInProgress",
+   "RebootRequired",
+   "RebootInProgress",
+   "RebootFailed",
+   "PluginUpdatePending",
+   "UninstallInProgress",
+   "AgentUninstalled",
+   "PluginErrorOccurred",
+   "AgentRestartInProgress",
+   "AgentRestartFailed"
+  ]
+ },
+ "SolarWinds.AgentManagement.Contract.AgentType": {
+  "name": "SolarWinds.AgentManagement.Contract.AgentType",
+  "kind": "string",
+  "enum": [
+   "FullFeaturedAgent",
+   "LinuxDPIProbe",
+   "RemoteCollector"
+  ]
+ },
+ "SolarWinds.AgentManagement.Contract.ConnectionStatus": {
+  "name": "SolarWinds.AgentManagement.Contract.ConnectionStatus",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Ok",
+   "ServiceNotResponding",
+   "DeploymentPending",
+   "DeploymentInProgress",
+   "DeploymentFailed",
+   "InvalidResponse",
+   "WaitingForConnection",
+   "Connecting"
+  ]
+ },
+ "SolarWinds.AgentManagement.Contract.Models.AgentRecord": {
+  "name": "SolarWinds.AgentManagement.Contract.Models.AgentRecord",
+  "kind": "object",
+  "members": [
+   {
+    "name": "AgentId",
+    "type": "number"
+   },
+   {
+    "name": "NodeId",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Hostname",
+    "type": "string"
+   },
+   {
+    "name": "DNSName",
+    "type": "string"
+   },
+   {
+    "name": "IP",
+    "type": "string"
+   },
+   {
+    "name": "OSVersion",
+    "type": "string"
+   },
+   {
+    "name": "PollingEngineId",
+    "type": "number"
+   },
+   {
+    "name": "PollingEngineName",
+    "type": "string"
+   },
+   {
+    "name": "PollingEngineIP",
+    "type": "string"
+   },
+   {
+    "name": "PollingEnginePort",
+    "type": "number"
+   },
+   {
+    "name": "ConnectionStatus",
+    "type": "SolarWinds.AgentManagement.Contract.ConnectionStatus"
+   },
+   {
+    "name": "ConnectionStatusMessage",
+    "type": "string"
+   },
+   {
+    "name": "ConnectionStatusTimeStamp",
+    "type": "string"
+   },
+   {
+    "name": "AgentStatus",
+    "type": "SolarWinds.AgentManagement.Contract.AgentStatus"
+   },
+   {
+    "name": "AgentStatusMessage",
+    "type": "string"
+   },
+   {
+    "name": "AgentStatusData",
+    "type": "string"
+   },
+   {
+    "name": "AgentStatusTimeStamp",
+    "type": "string"
+   },
+   {
+    "name": "LogLevel",
+    "type": "string"
+   },
+   {
+    "name": "Mode",
+    "type": "SolarWinds.AgentManagement.Contract.AgentMode"
+   },
+   {
+    "name": "AgentGuid",
+    "type": "string"
+   },
+   {
+    "name": "AgentVersion",
+    "type": "System.Version"
+   },
+   {
+    "name": "CPUArch",
+    "type": "SolarWinds.AgentManagement.Contract.Models.CpuType"
+   },
+   {
+    "name": "OSArch",
+    "type": "SolarWinds.AgentManagement.Contract.Models.CpuType"
+   },
+   {
+    "name": "OSType",
+    "type": "SolarWinds.AgentManagement.Contract.Models.OsType"
+   },
+   {
+    "name": "OSDistro",
+    "type": "string"
+   },
+   {
+    "name": "PkgOsDistro",
+    "type": "string"
+   },
+   {
+    "name": "AutoUpdateEnabled",
+    "type": "boolean"
+   },
+   {
+    "name": "PassiveAgentHostname",
+    "type": "string"
+   },
+   {
+    "name": "PassiveAgentPort",
+    "type": "number"
+   },
+   {
+    "name": "ProxyId",
+    "type": "number"
+   },
+   {
+    "name": "RegisteredOn",
+    "type": "string"
+   },
+   {
+    "name": "SID",
+    "type": "string"
+   },
+   {
+    "name": "ResponseTime",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "Type",
+    "type": "SolarWinds.AgentManagement.Contract.AgentType"
+   },
+   {
+    "name": "Password",
+    "type": "string"
+   },
+   {
+    "name": "RuntimeOSDistro",
+    "type": "string"
+   },
+   {
+    "name": "PkgOsVersion",
+    "type": "string"
+   },
+   {
+    "name": "RuntimeOSVersion",
+    "type": "string"
+   },
+   {
+    "name": "NetFrameworkRelease",
+    "type": "string"
+   },
+   {
+    "name": "JobTimeout",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "JobFrequency",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "DetailsUrl",
+    "type": "string"
+   },
+   {
+    "name": "OrionStatus",
+    "type": "number"
+   },
+   {
+    "name": "AgentEndpointId",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.AgentManagement.Contract.Models.CpuType": {
+  "name": "SolarWinds.AgentManagement.Contract.Models.CpuType",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Any",
+   "x86",
+   "x64",
+   "ppc64",
+   "ppc32",
+   "armv6",
+   "armv6l",
+   "armv7l"
+  ]
+ },
+ "SolarWinds.AgentManagement.Contract.Models.OsType": {
+  "name": "SolarWinds.AgentManagement.Contract.Models.OsType",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Any",
+   "Windows",
+   "Linux",
+   "AIX",
+   "All"
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.NodeInfo": {
+  "name": "SolarWinds.AppStack.Contract.Models.NodeInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "number"
+   },
+   {
+    "name": "Uri",
+    "type": "string"
+   },
+   {
+    "name": "EntityType",
+    "type": "string"
+   },
+   {
+    "name": "Relation",
+    "type": "SolarWinds.AppStack.Contract.Models.RelianceInfo"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.RelianceData": {
+  "name": "SolarWinds.AppStack.Contract.Models.RelianceData",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Nodes",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Models.NodeInfo"
+   },
+   {
+    "name": "Reliances",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Models.RelianceInfo"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.RelianceInfo": {
+  "name": "SolarWinds.AppStack.Contract.Models.RelianceInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "number"
+   },
+   {
+    "name": "Neighbors",
+    "type": "array",
+    "items": "number"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.UiCategory": {
+  "name": "SolarWinds.AppStack.Contract.Models.UiCategory",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "string"
+   },
+   {
+    "name": "Icons",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Models.UiIcon"
+   },
+   {
+    "name": "Counts",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Models.UiCount"
+   },
+   {
+    "name": "SelectionCounts",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Models.UiCount"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.UiCount": {
+  "name": "SolarWinds.AppStack.Contract.Models.UiCount",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "number"
+   },
+   {
+    "name": "N",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.UiIcon": {
+  "name": "SolarWinds.AppStack.Contract.Models.UiIcon",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "string"
+   },
+   {
+    "name": "Status",
+    "type": "number"
+   },
+   {
+    "name": "ChildStatus",
+    "type": "number"
+   },
+   {
+    "name": "UiOrder",
+    "type": "number"
+   },
+   {
+    "name": "Severity",
+    "type": "number"
+   },
+   {
+    "name": "DisplayName",
+    "type": "string"
+   },
+   {
+    "name": "DetailsUrl",
+    "type": "string"
+   },
+   {
+    "name": "IsSelected",
+    "type": "boolean"
+   },
+   {
+    "name": "IsSelectionRelation",
+    "type": "boolean"
+   },
+   {
+    "name": "IsFilterMatch",
+    "type": "boolean"
+   },
+   {
+    "name": "IsForcedMembership",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.UiQueryCategory": {
+  "name": "SolarWinds.AppStack.Contract.Models.UiQueryCategory",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "string"
+   },
+   {
+    "name": "IssueLimit",
+    "type": "number"
+   },
+   {
+    "name": "NonIssueLimit",
+    "type": "number"
+   },
+   {
+    "name": "UiOrder",
+    "type": "number"
+   },
+   {
+    "name": "CategoryDisplayToken",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.UiQueryFilterItem": {
+  "name": "SolarWinds.AppStack.Contract.Models.UiQueryFilterItem",
+  "kind": "object",
+  "members": [
+   {
+    "name": "CorrelationId",
+    "type": "string"
+   },
+   {
+    "name": "Join",
+    "type": "string"
+   },
+   {
+    "name": "Query",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.UiQueryItem": {
+  "name": "SolarWinds.AppStack.Contract.Models.UiQueryItem",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Entity",
+    "type": "string"
+   },
+   {
+    "name": "CategoryId",
+    "type": "string"
+   },
+   {
+    "name": "MembershipJoins",
+    "type": "string"
+   },
+   {
+    "name": "MembershipQuery",
+    "type": "string"
+   },
+   {
+    "name": "ForceNoMatches",
+    "type": "boolean"
+   },
+   {
+    "name": "PropertyQueries",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Models.UiQueryFilterItem"
+   },
+   {
+    "name": "EntityRequirements",
+    "type": "System.Collections.Generic.IEnumerable~System.String~"
+   },
+   {
+    "name": "QueryMode",
+    "type": "SolarWinds.AppStack.Contract.Models.UiQueryItemMode"
+   },
+   {
+    "name": "AnyPropertyQueries",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.UiQueryItemMode": {
+  "name": "SolarWinds.AppStack.Contract.Models.UiQueryItemMode",
+  "kind": "string",
+  "enum": [
+   "ForceAll",
+   "Query",
+   "ForceNone"
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.UiRequest": {
+  "name": "SolarWinds.AppStack.Contract.Models.UiRequest",
+  "kind": "object",
+  "members": [
+   {
+    "name": "SpotlightEnabled",
+    "type": "boolean"
+   },
+   {
+    "name": "ViewLimitationId",
+    "type": "number"
+   },
+   {
+    "name": "Categories",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Models.UiQueryCategory"
+   },
+   {
+    "name": "Selections",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "Queries",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Models.UiQueryItem"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Models.UiResponse": {
+  "name": "SolarWinds.AppStack.Contract.Models.UiResponse",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Categories",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Models.UiCategory"
+   },
+   {
+    "name": "Traces",
+    "type": "array",
+    "items": "SolarWinds.AppStack.Contract.Tracing.TraceEntry"
+   },
+   {
+    "name": "SwisErrorMessages",
+    "type": "array",
+    "items": "SolarWinds.InformationService.Contract2.ErrorMessage"
+   }
+  ]
+ },
+ "SolarWinds.AppStack.Contract.Tracing.TraceEntry": {
+  "name": "SolarWinds.AppStack.Contract.Tracing.TraceEntry",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Timestamp",
+    "type": "string"
+   },
+   {
+    "name": "DurationMs",
+    "type": "number"
+   },
+   {
+    "name": "Message",
+    "type": "string"
+   },
+   {
+    "name": "Details",
+    "type": "string"
+   },
+   {
+    "name": "TraceLevel",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Arm.Common.Models.WebApiSettings": {
+  "name": "SolarWinds.Arm.Common.Models.WebApiSettings",
+  "kind": "object",
+  "members": [
+   {
+    "name": "BaseUrl",
+    "type": "string"
+   },
+   {
+    "name": "Username",
+    "type": "string"
+   },
+   {
+    "name": "Password",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.CloudMonitoring.Contract.Enums.CloudProvider": {
+  "name": "SolarWinds.CloudMonitoring.Contract.Enums.CloudProvider",
+  "kind": "string",
+  "enum": [
+   "Aws",
+   "Azure",
+   "Gcp"
+  ]
+ },
+ "SolarWinds.CloudMonitoring.Contract.Models.RegionsResult": {
+  "name": "SolarWinds.CloudMonitoring.Contract.Models.RegionsResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Regions",
+    "type": "array",
+    "items": "SolarWinds.CloudMonitoring.Contract.Regions.Region"
+   },
+   {
+    "name": "Success",
+    "type": "boolean"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.CloudMonitoring.Contract.Regions.Region": {
+  "name": "SolarWinds.CloudMonitoring.Contract.Regions.Region",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "number"
+   },
+   {
+    "name": "SystemName",
+    "type": "string"
+   },
+   {
+    "name": "DisplayName",
+    "type": "string"
+   },
+   {
+    "name": "AlternativeServiceUrl",
+    "type": "string"
+   },
+   {
+    "name": "Enabled",
+    "type": "boolean"
+   },
+   {
+    "name": "CloudProvider",
+    "type": "SolarWinds.CloudMonitoring.Contract.Enums.CloudProvider"
+   },
+   {
+    "name": "Zones",
+    "type": "array",
+    "items": "string"
+   }
+  ]
+ },
+ "SolarWinds.DPI.Common.Models.HardwareInfo": {
+  "name": "SolarWinds.DPI.Common.Models.HardwareInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "CpuCores",
+    "type": "number"
+   },
+   {
+    "name": "PhysicalMemoryMb",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.DPI.Common.Models.InterfaceConfig": {
+  "name": "SolarWinds.DPI.Common.Models.InterfaceConfig",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IpAddresses",
+    "type": "array",
+    "items": "string"
+   }
+  ]
+ },
+ "SolarWinds.DPI.Common.Models.ProbeCapabilities": {
+  "name": "SolarWinds.DPI.Common.Models.ProbeCapabilities",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Hardware",
+    "type": "SolarWinds.DPI.Common.Models.HardwareInfo"
+   },
+   {
+    "name": "Interfaces",
+    "type": "array",
+    "items": "SolarWinds.DPI.Common.Models.InterfaceConfig"
+   }
+  ]
+ },
+ "SolarWinds.DPI.Common.Models.ProbeDeploymentResult": {
+  "name": "SolarWinds.DPI.Common.Models.ProbeDeploymentResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ProbeId",
+    "type": "number"
+   },
+   {
+    "name": "DeploymentError",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.APM.Verbs.ApplicationConfigurationResult": {
+  "name": "SolarWinds.Data.Providers.APM.Verbs.ApplicationConfigurationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsFinished",
+    "type": "boolean"
+   },
+   {
+    "name": "ExitCode",
+    "type": "number"
+   },
+   {
+    "name": "ErrorDescription",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.APM.Verbs.ApplicationTemplateSetting": {
+  "name": "SolarWinds.Data.Providers.APM.Verbs.ApplicationTemplateSetting",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "Frequency",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "Timeout",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "DebugLoggingEnabled",
+    "type": "boolean"
+   },
+   {
+    "name": "NumberOfLogFilesToKeep",
+    "type": "number"
+   },
+   {
+    "name": "Use64Bit",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Interfaces.Verbs.Interfaces-Expression": {
+  "name": "SolarWinds.Data.Providers.Interfaces.Verbs.Interfaces-Expression",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Prop",
+    "type": "string"
+   },
+   {
+    "name": "Op",
+    "type": "string"
+   },
+   {
+    "name": "Val",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Interfaces.Verbs.Interfaces-InterfacesDiscoveryPluginContext": {
+  "name": "SolarWinds.Data.Providers.Interfaces.Verbs.Interfaces-InterfacesDiscoveryPluginContext",
+  "kind": "object",
+  "members": [
+   {
+    "name": "UseDefaults",
+    "type": "boolean"
+   },
+   {
+    "name": "AutoImportStatus",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "AutoImportVlanPortTypes",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "AutoImportVirtualTypes",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "AutoImportExpressionFilter",
+    "type": "array",
+    "items": "SolarWinds.Data.Providers.Interfaces.Verbs.Interfaces-Expression"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Containers.DataProvider.MemberDefinitionInfo": {
+  "name": "SolarWinds.Data.Providers.Orion.Containers.DataProvider.MemberDefinitionInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Definition",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Models.ProxySettings": {
+  "name": "SolarWinds.Data.Providers.Orion.Models.ProxySettings",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsValid",
+    "type": "boolean"
+   },
+   {
+    "name": "IsDisabled",
+    "type": "boolean"
+   },
+   {
+    "name": "UseSystemDefaultProxy",
+    "type": "boolean"
+   },
+   {
+    "name": "Uri",
+    "type": "string"
+   },
+   {
+    "name": "BypassOnLocal",
+    "type": "boolean"
+   },
+   {
+    "name": "BypassOnLocalExceptions",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "HasCredentials",
+    "type": "boolean"
+   },
+   {
+    "name": "UserName",
+    "type": "string"
+   },
+   {
+    "name": "EncryptedPassword",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.AccountsVerbs.AccountType": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.AccountsVerbs.AccountType",
+  "kind": "string",
+  "enum": [
+   "System",
+   "User"
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-ActiveDirectory": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-ActiveDirectory",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ADName",
+    "type": "string"
+   },
+   {
+    "name": "OrganizationalUnits",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "Credentials",
+    "type": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-SharedCredentialInfo"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-AddressSubnet": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-AddressSubnet",
+  "kind": "object",
+  "members": [
+   {
+    "name": "SubnetIP",
+    "type": "string"
+   },
+   {
+    "name": "SubnetMask",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-CorePluginConfigurationContext": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-CorePluginConfigurationContext",
+  "kind": "object",
+  "members": [
+   {
+    "name": "BulkList",
+    "type": "array",
+    "items": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-IpAddress"
+   },
+   {
+    "name": "IpRanges",
+    "type": "array",
+    "items": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-IpAddressRange"
+   },
+   {
+    "name": "Subnets",
+    "type": "array",
+    "items": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-AddressSubnet"
+   },
+   {
+    "name": "ActiveDirectories",
+    "type": "array",
+    "items": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-ActiveDirectory"
+   },
+   {
+    "name": "Credentials",
+    "type": "array",
+    "items": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-SharedCredentialInfo"
+   },
+   {
+    "name": "WmiRetriesCount",
+    "type": "number"
+   },
+   {
+    "name": "WmiRetryIntervalMiliseconds",
+    "type": "number"
+   },
+   {
+    "name": "PreferredPollingMethod",
+    "type": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-PreferredPollingMethod"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-IpAddress": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-IpAddress",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Address",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-IpAddressRange": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-IpAddressRange",
+  "kind": "object",
+  "members": [
+   {
+    "name": "StartAddress",
+    "type": "string"
+   },
+   {
+    "name": "EndAddress",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-PluginConfiguration": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-PluginConfiguration",
+  "kind": "object",
+  "members": [
+   {
+    "name": "PluginConfigurationItem",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-PreferredPollingMethod": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-PreferredPollingMethod",
+  "kind": "string",
+  "enum": [
+   "SNMP",
+   "WMI"
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-SharedCredentialInfo": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-SharedCredentialInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "CredentialID",
+    "type": "number"
+   },
+   {
+    "name": "Order",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-SnmpVersion": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-SnmpVersion",
+  "kind": "string",
+  "enum": [
+   "None",
+   "SNMP1",
+   "SNMP2c",
+   "SNMP3"
+  ]
+ },
+ "SolarWinds.Data.Providers.Orion.Verbs.Discovery-StartDiscoveryContext": {
+  "name": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-StartDiscoveryContext",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "EngineId",
+    "type": "number"
+   },
+   {
+    "name": "JobTimeoutSeconds",
+    "type": "number"
+   },
+   {
+    "name": "SearchTimeoutMiliseconds",
+    "type": "number"
+   },
+   {
+    "name": "SnmpTimeoutMiliseconds",
+    "type": "number"
+   },
+   {
+    "name": "SnmpRetries",
+    "type": "number"
+   },
+   {
+    "name": "RepeatIntervalMiliseconds",
+    "type": "number"
+   },
+   {
+    "name": "SnmpPort",
+    "type": "number"
+   },
+   {
+    "name": "HopCount",
+    "type": "number"
+   },
+   {
+    "name": "PreferredSnmpVersion",
+    "type": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-SnmpVersion"
+   },
+   {
+    "name": "DisableIcmp",
+    "type": "boolean"
+   },
+   {
+    "name": "AllowDuplicateNodes",
+    "type": "boolean"
+   },
+   {
+    "name": "IsAutoImport",
+    "type": "boolean"
+   },
+   {
+    "name": "IsHidden",
+    "type": "boolean"
+   },
+   {
+    "name": "PluginConfigurations",
+    "type": "array",
+    "items": "SolarWinds.Data.Providers.Orion.Verbs.Discovery-PluginConfiguration"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.VIM.Verbs.Discovery-SharedCredentialInfo": {
+  "name": "SolarWinds.Data.Providers.VIM.Verbs.Discovery-SharedCredentialInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "CredentialID",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.VIM.Verbs.Discovery-VimPluginConfigurationContext": {
+  "name": "SolarWinds.Data.Providers.VIM.Verbs.Discovery-VimPluginConfigurationContext",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Enabled",
+    "type": "boolean"
+   },
+   {
+    "name": "Credentials",
+    "type": "array",
+    "items": "SolarWinds.Data.Providers.VIM.Verbs.Discovery-SharedCredentialInfo"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.VIM.v3.Models.AddNodeResult": {
+  "name": "SolarWinds.Data.Providers.VIM.v3.Models.AddNodeResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Success",
+    "type": "boolean"
+   },
+   {
+    "name": "FailureReason",
+    "type": "number"
+   },
+   {
+    "name": "Uri",
+    "type": "string"
+   },
+   {
+    "name": "Uris",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "NodeID",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.VIM.v3.Models.VerifyCredentialsResult": {
+  "name": "SolarWinds.Data.Providers.VIM.v3.Models.VerifyCredentialsResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsValid",
+    "type": "boolean"
+   },
+   {
+    "name": "FailureReason",
+    "type": "number"
+   },
+   {
+    "name": "EntityType",
+    "type": "SolarWinds.Data.Providers.VIM.v3.Models.VimProbeEntityType"
+   }
+  ]
+ },
+ "SolarWinds.Data.Providers.VIM.v3.Models.VimProbeEntityType": {
+  "name": "SolarWinds.Data.Providers.VIM.v3.Models.VimProbeEntityType",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "VCenter",
+   "ESXiHost",
+   "HyperV",
+   "NutanixPrismElement",
+   "NutanixPrismCentral",
+   "ProxmoxVE"
+  ]
+ },
+ "SolarWinds.Data.Providers.WirelessHeatmaps.Verbs.MapStore-MapPointInstance": {
+  "name": "SolarWinds.Data.Providers.WirelessHeatmaps.Verbs.MapStore-MapPointInstance",
+  "kind": "object",
+  "members": [
+   {
+    "name": "InstanceId",
+    "type": "number"
+   },
+   {
+    "name": "EntityType",
+    "type": "string"
+   },
+   {
+    "name": "X",
+    "type": "number"
+   },
+   {
+    "name": "Y",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.F5.Common.Models.API.F5ApiTestConnectionResult": {
+  "name": "SolarWinds.F5.Common.Models.API.F5ApiTestConnectionResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsSuccessful",
+    "type": "boolean"
+   },
+   {
+    "name": "Error",
+    "type": "SolarWinds.F5.Contract.Models.API.F5ApiError"
+   },
+   {
+    "name": "SslCertificateIdentity",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.F5.Contract.Models.API.F5ApiError": {
+  "name": "SolarWinds.F5.Contract.Models.API.F5ApiError",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "CertificateIsIncorrect",
+   "CredentialsAreIncorrect",
+   "ServerIsUnavailable",
+   "ApiIsUnavailable",
+   "IncorrectApiResponse",
+   "CredentialsAreMissing",
+   "ApiIgnoredRequest"
+  ]
+ },
+ "SolarWinds.IPAM.Contract.APtrRecordsPair": {
+  "name": "SolarWinds.IPAM.Contract.APtrRecordsPair",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ARecordName",
+    "type": "string"
+   },
+   {
+    "name": "ARecordData",
+    "type": "string"
+   },
+   {
+    "name": "PtrRecordName",
+    "type": "string"
+   },
+   {
+    "name": "PtrRecordData",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.IPAM.Contract.GetGroupNodeDto": {
+  "name": "SolarWinds.IPAM.Contract.GetGroupNodeDto",
+  "kind": "object",
+  "members": [
+   {
+    "name": "GroupId",
+    "type": "number"
+   },
+   {
+    "name": "ParentId",
+    "type": "number"
+   },
+   {
+    "name": "GroupType",
+    "type": "number"
+   },
+   {
+    "name": "Address",
+    "type": "string"
+   },
+   {
+    "name": "CIDR",
+    "type": "number"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "VLAN",
+    "type": "string"
+   },
+   {
+    "name": "Location",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.InformationService.Contract2.ErrorMessage": {
+  "name": "SolarWinds.InformationService.Contract2.ErrorMessage",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ErrorType",
+    "type": "string"
+   },
+   {
+    "name": "Context",
+    "type": "string"
+   },
+   {
+    "name": "Message",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Interfaces.Common.Models.Discovery.AddPollers": {
+  "name": "SolarWinds.Interfaces.Common.Models.Discovery.AddPollers",
+  "kind": "string",
+  "enum": [
+   "AddDefaultPollers",
+   "AddNoPollers"
+  ]
+ },
+ "SolarWinds.Interfaces.Common.Models.Discovery.DiscoveredLiteInterface": {
+  "name": "SolarWinds.Interfaces.Common.Models.Discovery.DiscoveredLiteInterface",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ifIndex",
+    "type": "number"
+   },
+   {
+    "name": "Caption",
+    "type": "string"
+   },
+   {
+    "name": "ifType",
+    "type": "number"
+   },
+   {
+    "name": "ifSubType",
+    "type": "number"
+   },
+   {
+    "name": "InterfaceID",
+    "type": "number"
+   },
+   {
+    "name": "Manageable",
+    "type": "boolean"
+   },
+   {
+    "name": "ifSpeed",
+    "type": "number"
+   },
+   {
+    "name": "ifAdminStatus",
+    "type": "number"
+   },
+   {
+    "name": "ifOperStatus",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Interfaces.Common.Models.Discovery.LiteDiscoveryResult": {
+  "name": "SolarWinds.Interfaces.Common.Models.Discovery.LiteDiscoveryResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "DiscoveredInterfaces",
+    "type": "array",
+    "items": "SolarWinds.Interfaces.Common.Models.Discovery.DiscoveredLiteInterface"
+   },
+   {
+    "name": "Result",
+    "type": "SolarWinds.Interfaces.Common.Models.Discovery.LiteDiscoveryResultCode"
+   }
+  ]
+ },
+ "SolarWinds.Interfaces.Common.Models.Discovery.LiteDiscoveryResultCode": {
+  "name": "SolarWinds.Interfaces.Common.Models.Discovery.LiteDiscoveryResultCode",
+  "kind": "string",
+  "enum": [
+   "Succeed",
+   "InvalidNode",
+   "GenericError"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Compliance.MultiLineRulePattern": {
+  "name": "SolarWinds.NCM.Contracts.Compliance.MultiLineRulePattern",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EndBracket",
+    "type": "string"
+   },
+   {
+    "name": "PatternType",
+    "type": "string"
+   },
+   {
+    "name": "Condition",
+    "type": "string"
+   },
+   {
+    "name": "Pattern",
+    "type": "string"
+   },
+   {
+    "name": "Criteria",
+    "type": "boolean"
+   },
+   {
+    "name": "BeginBracket",
+    "type": "string"
+   },
+   {
+    "name": "RuleId",
+    "type": "string"
+   },
+   {
+    "name": "PatternId",
+    "type": "string"
+   },
+   {
+    "name": "IsRegEx",
+    "type": "boolean"
+   },
+   {
+    "name": "FoundMatch",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Compliance.Policy": {
+  "name": "SolarWinds.NCM.Contracts.Compliance.Policy",
+  "kind": "object",
+  "members": [
+   {
+    "name": "NodeSelectionCriterias",
+    "type": "SolarWinds.NCM.Contracts.InformationService.SelectionCriterias"
+   },
+   {
+    "name": "NodeSelectionString",
+    "type": "string"
+   },
+   {
+    "name": "PolicyId",
+    "type": "string"
+   },
+   {
+    "name": "ConfigTypes",
+    "type": "string"
+   },
+   {
+    "name": "AssignedRulesList",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "AssignedPolicyRules",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.Compliance.PolicyRule"
+   },
+   {
+    "name": "Grouping",
+    "type": "string"
+   },
+   {
+    "name": "Comments",
+    "type": "string"
+   },
+   {
+    "name": "PolicyName",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Compliance.PolicyReport": {
+  "name": "SolarWinds.NCM.Contracts.Compliance.PolicyReport",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ID",
+    "type": "string"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Comments",
+    "type": "string"
+   },
+   {
+    "name": "Group",
+    "type": "string"
+   },
+   {
+    "name": "ShowSummaryFlag",
+    "type": "boolean"
+   },
+   {
+    "name": "ShowRulesWithoutViolationFlag",
+    "type": "boolean"
+   },
+   {
+    "name": "AssignedPoliciesList",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "AssignedPolicies",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.Compliance.Policy"
+   },
+   {
+    "name": "ReportStatus",
+    "type": "SolarWinds.NCM.Contracts.Compliance.ReportStatus"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Compliance.PolicyRule": {
+  "name": "SolarWinds.NCM.Contracts.Compliance.PolicyRule",
+  "kind": "object",
+  "members": [
+   {
+    "name": "MultiLineRulePatterns",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.Compliance.MultiLineRulePattern"
+   },
+   {
+    "name": "RuleId",
+    "type": "string"
+   },
+   {
+    "name": "RuleName",
+    "type": "string"
+   },
+   {
+    "name": "Comments",
+    "type": "string"
+   },
+   {
+    "name": "Grouping",
+    "type": "string"
+   },
+   {
+    "name": "RemediateScript",
+    "type": "string"
+   },
+   {
+    "name": "ConfigBlockStart",
+    "type": "string"
+   },
+   {
+    "name": "ConfigBlockEnd",
+    "type": "string"
+   },
+   {
+    "name": "ConfigBlockPatternType",
+    "type": "string"
+   },
+   {
+    "name": "ConfigBlockMustExist",
+    "type": "boolean"
+   },
+   {
+    "name": "PatternType",
+    "type": "string"
+   },
+   {
+    "name": "PatternMustExist",
+    "type": "boolean"
+   },
+   {
+    "name": "AdvancedMode",
+    "type": "boolean"
+   },
+   {
+    "name": "ErrorLevel",
+    "type": "number"
+   },
+   {
+    "name": "SimplePatternText",
+    "type": "string"
+   },
+   {
+    "name": "ExecuteScriptAutomatically",
+    "type": "boolean"
+   },
+   {
+    "name": "Owner",
+    "type": "string"
+   },
+   {
+    "name": "RemediateScriptType",
+    "type": "string"
+   },
+   {
+    "name": "IsConfigBlockPatternRegEx",
+    "type": "boolean"
+   },
+   {
+    "name": "ExecuteRemediationScriptPerBlock",
+    "type": "boolean"
+   },
+   {
+    "name": "ExecuteScriptInConfigMode",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Compliance.ReportStatus": {
+  "name": "SolarWinds.NCM.Contracts.Compliance.ReportStatus",
+  "kind": "string",
+  "enum": [
+   "Disabled",
+   "Enabled"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.ConfigComparison.ComparisonType": {
+  "name": "SolarWinds.NCM.Contracts.ConfigComparison.ComparisonType",
+  "kind": "string",
+  "enum": [
+   "RunningToStartup",
+   "RunningToLastBaseline",
+   "MostRecentToLastOfAnyType",
+   "MostRecentToLastOfTheSameType"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.ConfigComparison.RegEx": {
+  "name": "SolarWinds.NCM.Contracts.ConfigComparison.RegEx",
+  "kind": "object",
+  "members": [
+   {
+    "name": "RegExId",
+    "type": "string"
+   },
+   {
+    "name": "Title",
+    "type": "string"
+   },
+   {
+    "name": "Comment",
+    "type": "string"
+   },
+   {
+    "name": "RegExText",
+    "type": "string"
+   },
+   {
+    "name": "Enabled",
+    "type": "boolean"
+   },
+   {
+    "name": "IsBlock",
+    "type": "boolean"
+   },
+   {
+    "name": "BlockEndRegEx",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.ConfigTypes.ConfigType": {
+  "name": "SolarWinds.NCM.Contracts.ConfigTypes.ConfigType",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "IsCustom",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestHostResults": {
+  "name": "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestHostResults",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Host",
+    "type": "SolarWinds.NCM.Contracts.Diagnostics.TestHost"
+   },
+   {
+    "name": "Results",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestResults"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestResult": {
+  "name": "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "TargetHost",
+    "type": "SolarWinds.NCM.Contracts.Diagnostics.TestHost"
+   },
+   {
+    "name": "IsSuccess",
+    "type": "boolean"
+   },
+   {
+    "name": "Error",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestResults": {
+  "name": "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestResults",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Results",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.Diagnostics.ConnectionTestResult"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Diagnostics.TestHost": {
+  "name": "SolarWinds.NCM.Contracts.Diagnostics.TestHost",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Ip",
+    "type": "string"
+   },
+   {
+    "name": "Id",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.ConfigSearchTerm": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.ConfigSearchTerm",
+  "kind": "object",
+  "members": [
+   {
+    "name": "UseMostRecentConfigOption",
+    "type": "boolean"
+   },
+   {
+    "name": "StartDate",
+    "type": "string"
+   },
+   {
+    "name": "EndDate",
+    "type": "string"
+   },
+   {
+    "name": "ConfigType",
+    "type": "string"
+   },
+   {
+    "name": "CoreNodeIds",
+    "type": "array",
+    "items": "number"
+   },
+   {
+    "name": "OriginalSearchString",
+    "type": "string"
+   },
+   {
+    "name": "MatchWholeWord",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.ConfigSnippet": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.ConfigSnippet",
+  "kind": "object",
+  "members": [
+   {
+    "name": "LastModified",
+    "type": "string"
+   },
+   {
+    "name": "Created",
+    "type": "string"
+   },
+   {
+    "name": "Id",
+    "type": "number"
+   },
+   {
+    "name": "Tags",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "Script",
+    "type": "string"
+   },
+   {
+    "name": "PreserveWhiteSpace",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.ConnectionProfile": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.ConnectionProfile",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ID",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "ConnectionData",
+    "type": "SolarWinds.NCM.Contracts.Transfer.TransferConnectionData"
+   },
+   {
+    "name": "UserName",
+    "type": "string"
+   },
+   {
+    "name": "Password",
+    "type": "string"
+   },
+   {
+    "name": "EnableLevel",
+    "type": "string"
+   },
+   {
+    "name": "EnablePassword",
+    "type": "string"
+   },
+   {
+    "name": "ExecuteScriptProtocol",
+    "type": "string"
+   },
+   {
+    "name": "RequestConfigProtocol",
+    "type": "string"
+   },
+   {
+    "name": "TransferConfigProtocol",
+    "type": "string"
+   },
+   {
+    "name": "TelnetPort",
+    "type": "number"
+   },
+   {
+    "name": "SSHPort",
+    "type": "number"
+   },
+   {
+    "name": "UseForAutoDetect",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.EmailSettings": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.EmailSettings",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EmailResults",
+    "type": "boolean"
+   },
+   {
+    "name": "EmailRecipient",
+    "type": "string"
+   },
+   {
+    "name": "EmailCC",
+    "type": "string"
+   },
+   {
+    "name": "EmailBCC",
+    "type": "string"
+   },
+   {
+    "name": "EmailSubject",
+    "type": "string"
+   },
+   {
+    "name": "EmailFrom",
+    "type": "string"
+   },
+   {
+    "name": "EmailReplyAddress",
+    "type": "string"
+   },
+   {
+    "name": "MessageBody",
+    "type": "string"
+   },
+   {
+    "name": "IsHtmlMessage",
+    "type": "boolean"
+   },
+   {
+    "name": "AttachmentFileName",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.FilePath": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.FilePath",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EngineID",
+    "type": "number"
+   },
+   {
+    "name": "File_Path",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.FirmwareDefinition": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.FirmwareDefinition",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ID",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "LastModified",
+    "type": "string"
+   },
+   {
+    "name": "Author",
+    "type": "string"
+   },
+   {
+    "name": "Canned",
+    "type": "boolean"
+   },
+   {
+    "name": "FirmwareImageID",
+    "type": "number"
+   },
+   {
+    "name": "FirmwareImages",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.FirmwareImage"
+   },
+   {
+    "name": "UpgradeFirmwareImageCommand",
+    "type": "string"
+   },
+   {
+    "name": "TransferProtocol",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eCommandProtocol"
+   },
+   {
+    "name": "SaveConfigToNVRAM",
+    "type": "boolean"
+   },
+   {
+    "name": "BackupRunningAndStartupConfigsBeforeUpgrade",
+    "type": "boolean"
+   },
+   {
+    "name": "BackupRunningAndStartupConfigsAfterUpgrade",
+    "type": "boolean"
+   },
+   {
+    "name": "UpdateBootVariable",
+    "type": "boolean"
+   },
+   {
+    "name": "Reboot",
+    "type": "boolean"
+   },
+   {
+    "name": "RebootRequired",
+    "type": "boolean"
+   },
+   {
+    "name": "NodeUpCheckDelayAfterReboot",
+    "type": "number"
+   },
+   {
+    "name": "Unmanage",
+    "type": "boolean"
+   },
+   {
+    "name": "VerifyUploadedImageIntegrity",
+    "type": "boolean"
+   },
+   {
+    "name": "VerifyBackedUpImageIntegrity",
+    "type": "boolean"
+   },
+   {
+    "name": "VerifyUpgrade",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.FirmwareImage": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.FirmwareImage",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ImageType",
+    "type": "string"
+   },
+   {
+    "name": "ImageId",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.FlashDevice": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.FlashDevice",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Index",
+    "type": "string"
+   },
+   {
+    "name": "DeviceName",
+    "type": "string"
+   },
+   {
+    "name": "FreeSpaceInBytes",
+    "type": "number"
+   },
+   {
+    "name": "DeviceFiles",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.FlashFile"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.FlashFile": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.FlashFile",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Index",
+    "type": "string"
+   },
+   {
+    "name": "FileName",
+    "type": "string"
+   },
+   {
+    "name": "SizeInBytes",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.JobNotifications": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.JobNotifications",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EmailOnlyOnError",
+    "type": "boolean"
+   },
+   {
+    "name": "EmailResults",
+    "type": "boolean"
+   },
+   {
+    "name": "EmailCC",
+    "type": "string"
+   },
+   {
+    "name": "EmailRecipient",
+    "type": "string"
+   },
+   {
+    "name": "EmailBCC",
+    "type": "string"
+   },
+   {
+    "name": "EmailSubject",
+    "type": "string"
+   },
+   {
+    "name": "EmailFrom",
+    "type": "string"
+   },
+   {
+    "name": "EmailReplyAddress",
+    "type": "string"
+   },
+   {
+    "name": "EmailAttachment",
+    "type": "boolean"
+   },
+   {
+    "name": "AttachmentFileName",
+    "type": "string"
+   },
+   {
+    "name": "LogSteps",
+    "type": "boolean"
+   },
+   {
+    "name": "SMTPServer",
+    "type": "string"
+   },
+   {
+    "name": "SMTPPort",
+    "type": "number"
+   },
+   {
+    "name": "SMTPUseAuthentication",
+    "type": "boolean"
+   },
+   {
+    "name": "SMTPAuthUserName",
+    "type": "string"
+   },
+   {
+    "name": "SMTPAuthPassword",
+    "type": "string"
+   },
+   {
+    "name": "SMTPUseSSL",
+    "type": "boolean"
+   },
+   {
+    "name": "SMTPSSLPortNumber",
+    "type": "number"
+   },
+   {
+    "name": "SaveToFileName",
+    "type": "string"
+   },
+   {
+    "name": "SaveResultsToFile",
+    "type": "boolean"
+   },
+   {
+    "name": "SaveToFileOnError",
+    "type": "boolean"
+   },
+   {
+    "name": "ShouldSaveResults",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.JobParameters": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.JobParameters",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Script",
+    "type": "string"
+   },
+   {
+    "name": "ScriptFilterPattern",
+    "type": "string"
+   },
+   {
+    "name": "ExecuteFilterResults",
+    "type": "boolean"
+   },
+   {
+    "name": "ExecuteShowCommands",
+    "type": "boolean"
+   },
+   {
+    "name": "WriteToNVRAM",
+    "type": "boolean"
+   },
+   {
+    "name": "Reboot",
+    "type": "boolean"
+   },
+   {
+    "name": "ConfigText",
+    "type": "string"
+   },
+   {
+    "name": "ChangeReportType",
+    "type": "SolarWinds.NCM.Contracts.Jobs.ConfigChangeReportType"
+   },
+   {
+    "name": "ChangeReportDetails",
+    "type": "boolean"
+   },
+   {
+    "name": "ChangeReportTargetDate",
+    "type": "string"
+   },
+   {
+    "name": "ChangeReportPastXXDays",
+    "type": "number"
+   },
+   {
+    "name": "ChangeReportStartDate",
+    "type": "string"
+   },
+   {
+    "name": "ChangeReportEndDate",
+    "type": "string"
+   },
+   {
+    "name": "CompareLastDownloaded",
+    "type": "number"
+   },
+   {
+    "name": "LastConfigType",
+    "type": "string"
+   },
+   {
+    "name": "OnConfigType",
+    "type": "string"
+   },
+   {
+    "name": "GenerateOnConfigType",
+    "type": "boolean"
+   },
+   {
+    "name": "OnlySendDevicesThatHadChanges",
+    "type": "boolean"
+   },
+   {
+    "name": "Report",
+    "type": "string"
+   },
+   {
+    "name": "ReportTitle",
+    "type": "string"
+   },
+   {
+    "name": "LimitNumberOfRecords",
+    "type": "boolean"
+   },
+   {
+    "name": "NumberOfRecords",
+    "type": "number"
+   },
+   {
+    "name": "Path",
+    "type": "string"
+   },
+   {
+    "name": "AllConfigs",
+    "type": "boolean"
+   },
+   {
+    "name": "ConfigTemplate",
+    "type": "string"
+   },
+   {
+    "name": "ConfigTypes",
+    "type": "string"
+   },
+   {
+    "name": "OnlySaveChangedConfigs",
+    "type": "boolean"
+   },
+   {
+    "name": "NotifyChangedLast",
+    "type": "boolean"
+   },
+   {
+    "name": "NotifyChangedBaseline",
+    "type": "boolean"
+   },
+   {
+    "name": "NotifyChangedStartup",
+    "type": "boolean"
+   },
+   {
+    "name": "NotifySeparateTextEmail",
+    "type": "boolean"
+   },
+   {
+    "name": "NotifySeparateHtmlEmail",
+    "type": "boolean"
+   },
+   {
+    "name": "CacheDiffResults",
+    "type": "boolean"
+   },
+   {
+    "name": "ObjectID",
+    "type": "string"
+   },
+   {
+    "name": "GroupingPolicyReports",
+    "type": "boolean"
+   },
+   {
+    "name": "NotifyOnlyOnPolicyViolations",
+    "type": "boolean"
+   },
+   {
+    "name": "InventorySettings",
+    "type": "string"
+   },
+   {
+    "name": "PurgeConfigByDate",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeConfigIncludeTime",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeConfigBaseline",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeConfigDate",
+    "type": "string"
+   },
+   {
+    "name": "PurgeConfigCount",
+    "type": "number"
+   },
+   {
+    "name": "PurgeConfigByTimeRange",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeConfigTimeRange",
+    "type": "string"
+   },
+   {
+    "name": "PurgeConfigArchive",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeConfigArchiveTimeRange",
+    "type": "string"
+   },
+   {
+    "name": "PurgeConfigCache",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeConfigCacheTimeRange",
+    "type": "string"
+   },
+   {
+    "name": "PurgeApprovalRequests",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeApprovalRequestsTimeRange",
+    "type": "string"
+   },
+   {
+    "name": "PurgeTransferRequests",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeTransferRequestsTimeRange",
+    "type": "string"
+   },
+   {
+    "name": "PurgeJobLog",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeJobLogType",
+    "type": "string"
+   },
+   {
+    "name": "PurgeJobLogTypeValue",
+    "type": "string"
+   },
+   {
+    "name": "BaselineNetworkType",
+    "type": "string"
+   },
+   {
+    "name": "BaselineNetworkTargetDate",
+    "type": "string"
+   },
+   {
+    "name": "FilePathList",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.FilePath"
+   },
+   {
+    "name": "PurgeOneTimeInventoryJobs",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeOneTimeInventoryJobsTimeRange",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "PurgeAudit",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeAuditToFile",
+    "type": "boolean"
+   },
+   {
+    "name": "PurgeAuditTimeRange",
+    "type": "string"
+   },
+   {
+    "name": "DisableConfigParsing",
+    "type": "boolean"
+   },
+   {
+    "name": "DisableShadowRuleDetection",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.LoginValidationResults": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.LoginValidationResults",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ValidationResult",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eLoginResults"
+   },
+   {
+    "name": "DeviceOutput",
+    "type": "string"
+   },
+   {
+    "name": "LoginMessage",
+    "type": "string"
+   },
+   {
+    "name": "ConnectionProfileId",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMApprovalTicket": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMApprovalTicket",
+  "kind": "object",
+  "members": [
+   {
+    "name": "RequestID",
+    "type": "string"
+   },
+   {
+    "name": "RequestType",
+    "type": "string"
+   },
+   {
+    "name": "RequestStatus",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eApprovalStatus"
+   },
+   {
+    "name": "SubmittedBy",
+    "type": "string"
+   },
+   {
+    "name": "ApprovedBy",
+    "type": "string"
+   },
+   {
+    "name": "ConfigType",
+    "type": "string"
+   },
+   {
+    "name": "Reboot",
+    "type": "boolean"
+   },
+   {
+    "name": "Script",
+    "type": "string"
+   },
+   {
+    "name": "NetworkNodes",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.NetworkNode"
+   },
+   {
+    "name": "Comments",
+    "type": "string"
+   },
+   {
+    "name": "RunAt",
+    "type": "string"
+   },
+   {
+    "name": "NCMJobID",
+    "type": "number"
+   },
+   {
+    "name": "RequestTime",
+    "type": "string"
+   },
+   {
+    "name": "StatusChangeTime",
+    "type": "string"
+   },
+   {
+    "name": "ExecutionType",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eExecutionType"
+   },
+   {
+    "name": "RequestorEmail",
+    "type": "string"
+   },
+   {
+    "name": "UseScriptPerNode",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMApprovalUser": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMApprovalUser",
+  "kind": "object",
+  "members": [
+   {
+    "name": "GroupID",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eApprovalGroup"
+   },
+   {
+    "name": "GroupName",
+    "type": "string"
+   },
+   {
+    "name": "UserId",
+    "type": "string"
+   },
+   {
+    "name": "EmailAddress",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMJob": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMJob",
+  "kind": "object",
+  "members": [
+   {
+    "name": "JobID",
+    "type": "number"
+   },
+   {
+    "name": "JobName",
+    "type": "string"
+   },
+   {
+    "name": "JobType",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eJobType"
+   },
+   {
+    "name": "JobDefinition",
+    "type": "SolarWinds.NCM.Contracts.InformationService.NCMJobDefinition"
+   },
+   {
+    "name": "JobSchedule",
+    "type": "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule"
+   },
+   {
+    "name": "Enabled",
+    "type": "boolean"
+   },
+   {
+    "name": "JobStatus",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eJobStatus"
+   },
+   {
+    "name": "CreationDate",
+    "type": "string"
+   },
+   {
+    "name": "Author",
+    "type": "string"
+   },
+   {
+    "name": "IsHidden",
+    "type": "boolean"
+   },
+   {
+    "name": "IsPrePolulated",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMJobDefinition": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMJobDefinition",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "OwnerSID",
+    "type": "string"
+   },
+   {
+    "name": "LastModification",
+    "type": "string"
+   },
+   {
+    "name": "Comments",
+    "type": "string"
+   },
+   {
+    "name": "JobType",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eJobType"
+   },
+   {
+    "name": "Nodes",
+    "type": "SolarWinds.NCM.Contracts.InformationService.SelectedNodes"
+   },
+   {
+    "name": "Parameters",
+    "type": "SolarWinds.NCM.Contracts.InformationService.JobParameters"
+   },
+   {
+    "name": "Notifications",
+    "type": "SolarWinds.NCM.Contracts.InformationService.JobNotifications"
+   },
+   {
+    "name": "NcmRunOnce",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule",
+  "kind": "object",
+  "members": [
+   {
+    "name": "TriggerType",
+    "type": "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule-eTriggerType"
+   },
+   {
+    "name": "StartTime",
+    "type": "string"
+   },
+   {
+    "name": "StartDate",
+    "type": "string"
+   },
+   {
+    "name": "Day",
+    "type": "number"
+   },
+   {
+    "name": "DaysOfTheWeek",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule-eTriggerDays"
+   },
+   {
+    "name": "Months",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule-eTriggerMonths"
+   },
+   {
+    "name": "Weeks",
+    "type": "number"
+   },
+   {
+    "name": "AdvancedCRONExpression",
+    "type": "string"
+   },
+   {
+    "name": "StartingOn",
+    "type": "string"
+   },
+   {
+    "name": "EndingOn",
+    "type": "string"
+   },
+   {
+    "name": "ExecuteImmediately",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule-eTriggerDays": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule-eTriggerDays",
+  "kind": "string",
+  "enum": [
+   "Sunday",
+   "Monday",
+   "Tuesday",
+   "Wednesday",
+   "Thursday",
+   "Friday",
+   "Saturday"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule-eTriggerMonths": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule-eTriggerMonths",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "January",
+   "February",
+   "March",
+   "April",
+   "May",
+   "June",
+   "July",
+   "August",
+   "September",
+   "October",
+   "November",
+   "December"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule-eTriggerType": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMJobSchedule-eTriggerType",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Daily",
+   "Weekly",
+   "Monthly",
+   "Once",
+   "Advanced"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMNode": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMNode",
+  "kind": "object",
+  "members": [
+   {
+    "name": "NodeID",
+    "type": "string"
+   },
+   {
+    "name": "CoreNodeID",
+    "type": "number"
+   },
+   {
+    "name": "NodeGroup",
+    "type": "string"
+   },
+   {
+    "name": "NodeComments",
+    "type": "string"
+   },
+   {
+    "name": "UseUserDeviceCredentials",
+    "type": "boolean"
+   },
+   {
+    "name": "Username",
+    "type": "string"
+   },
+   {
+    "name": "Password",
+    "type": "string"
+   },
+   {
+    "name": "EnableLevel",
+    "type": "string"
+   },
+   {
+    "name": "EnablePassword",
+    "type": "string"
+   },
+   {
+    "name": "ExecProtocol",
+    "type": "string"
+   },
+   {
+    "name": "CommandProtocol",
+    "type": "string"
+   },
+   {
+    "name": "TransferProtocol",
+    "type": "string"
+   },
+   {
+    "name": "EncryptionAlgorithm",
+    "type": "SolarWinds.NCM.Contracts.InformationService.SSHEncryption"
+   },
+   {
+    "name": "LoginStatus",
+    "type": "string"
+   },
+   {
+    "name": "UseHTTPS",
+    "type": "boolean"
+   },
+   {
+    "name": "LastInventory",
+    "type": "string"
+   },
+   {
+    "name": "TelnetPort",
+    "type": "string"
+   },
+   {
+    "name": "SSHPort",
+    "type": "string"
+   },
+   {
+    "name": "AllowIntermediary",
+    "type": "boolean"
+   },
+   {
+    "name": "UseKeybInteractiveAuth",
+    "type": "boolean"
+   },
+   {
+    "name": "ConnectionProfile",
+    "type": "number"
+   },
+   {
+    "name": "EndOfSupport",
+    "type": "string"
+   },
+   {
+    "name": "EndOfSales",
+    "type": "string"
+   },
+   {
+    "name": "EndOfSoftware",
+    "type": "string"
+   },
+   {
+    "name": "EosEntryID",
+    "type": "string"
+   },
+   {
+    "name": "EosType",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eEoSType"
+   },
+   {
+    "name": "EosMatchDate",
+    "type": "string"
+   },
+   {
+    "name": "EosVersion",
+    "type": "number"
+   },
+   {
+    "name": "EosLink",
+    "type": "string"
+   },
+   {
+    "name": "EosComments",
+    "type": "string"
+   },
+   {
+    "name": "PartNumber",
+    "type": "string"
+   },
+   {
+    "name": "ReplacementPartNumber",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NCMNodeScript": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NCMNodeScript",
+  "kind": "object",
+  "members": [
+   {
+    "name": "NodeId",
+    "type": "string"
+   },
+   {
+    "name": "Script",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.NetworkNode": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.NetworkNode",
+  "kind": "object",
+  "members": [
+   {
+    "name": "NodeCaption",
+    "type": "string"
+   },
+   {
+    "name": "NodeID",
+    "type": "string"
+   },
+   {
+    "name": "Script",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.OneTimeOperationApprovalStatus": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.OneTimeOperationApprovalStatus",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Approved",
+   "Pending",
+   "Rejected"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.PollingEngineInfo": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.PollingEngineInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "PollingEngineName",
+    "type": "string"
+   },
+   {
+    "name": "PollingEngineId",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.SSHEncryption": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.SSHEncryption",
+  "kind": "string",
+  "enum": [
+   "encAny",
+   "encDES",
+   "enc3DES",
+   "encAES",
+   "encBLOWFISH",
+   "encAES128",
+   "encAES192",
+   "encAES256",
+   "ChaCha20Poly1305"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.SelectedNodes": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.SelectedNodes",
+  "kind": "object",
+  "members": [
+   {
+    "name": "SelectedCriteriaType",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eCriteriaType"
+   },
+   {
+    "name": "WebNodesSelectionCriterias",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.WebSelectionCriteria"
+   },
+   {
+    "name": "NetworkNodes",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.NetworkNode"
+   },
+   {
+    "name": "QueryString",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.SelectionCriterias": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.SelectionCriterias",
+  "kind": "object",
+  "members": [
+   {
+    "name": "WebSelectionCriterias",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.WebSelectionCriteria"
+   },
+   {
+    "name": "AssignedNodesList",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "AssignedNodesDesktopSQL",
+    "type": "string"
+   },
+   {
+    "name": "SelectionCriteriaType",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eCriteriaType"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.Settings": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.Settings",
+  "kind": "string",
+  "enum": [
+   "HideCommunityStrings",
+   "HideUsernames",
+   "ConnectivityLevel",
+   "IncludeInInventory",
+   "ConcurrentNodes",
+   "ExtendedVLANsInventory",
+   "DisableInventoryLookup",
+   "SMTPServer",
+   "SMTPPort",
+   "SMTPSSLPort",
+   "SMTPUseAuth",
+   "SMTPAuthPassword",
+   "SMTPAuthUserName",
+   "SMTPUseSSL",
+   "SMTPTimeout",
+   "ConfigTypes",
+   "ConcurrentDownloads",
+   "SNMPConfigTransferTimeout",
+   "MinimumConfigLength",
+   "ComparisonOutputWidth",
+   "FullSideBySideComparison",
+   "NumberOfLinesComparison",
+   "NumberOfLines",
+   "EnableConfigMirror",
+   "KeepMultipleRevisions",
+   "ConfigArchiveDirectory",
+   "ConfigMirrorTemplate",
+   "DefaultEmailFromName",
+   "DefaultEmailReplyAddress",
+   "DefaultEmailSubject",
+   "DefaultEmailTo",
+   "DefaultEmailCC",
+   "DefaultEmailBCC",
+   "ICMPTimeout",
+   "ICMPData",
+   "SNMPTimeout",
+   "SNMPRetries",
+   "TFTPAutoRetriveIP",
+   "TFTPServerAddress",
+   "TFTPRootDir",
+   "UseThirdPartyTftpServer",
+   "SCPAutoRetriveIP",
+   "UseThirdPartySCPServer",
+   "SCPServerAddress",
+   "SCPRootDir",
+   "SCPUserName",
+   "SCPPassword",
+   "GlobalUsername",
+   "GlobalPassword",
+   "GlobalEnableLevel",
+   "GlobalEnablePassword",
+   "GlobalTelnetPort",
+   "GlobalSSHPort",
+   "GlobalExecProtocol",
+   "GlobalConfigRequestProtocol",
+   "GlobalConfigTransferProtocol",
+   "SortOnAllColumns",
+   "SortOnSingleColumn",
+   "EnableCache",
+   "CachingTime",
+   "RTNEnabled",
+   "RTNUseUserDevice",
+   "RTNIncludeNotification",
+   "RTNLimitDownloadOperations",
+   "RTNUserName",
+   "RTNPassword",
+   "RTNUserLevelName",
+   "RTNUserLevelPassword",
+   "RTNUserLevelEnableLevel",
+   "RTNUserLevelEnablePassword",
+   "RTNConfigType",
+   "RTNLastConfig",
+   "RTNBaselineConfig",
+   "DisableRTNEmail",
+   "RTNInHTMLFormat",
+   "RTNWithDiffs",
+   "RTNEmailFromName",
+   "RTNEmailReplyAddress",
+   "RTNEmailSubject",
+   "RTNEmailTo",
+   "RTNEmailCC",
+   "RTNEmailBCC",
+   "FTSIndexStatus",
+   "FTSConfigScanPeriod",
+   "FTSIndexingDelay",
+   "FTSIsEnabled",
+   "FTSIndexCatalogPath",
+   "JobNotification",
+   "IsFallBackEnabled",
+   "NCMEosSchedulingEnabled",
+   "NCMEosStartTime",
+   "ComplianceMgmtOnlyForAdmins",
+   "NodesSyncID",
+   "NodesSyncID71",
+   "NetworkShareUserName",
+   "NetworkShareUserPassword",
+   "NetworkShareUseImpersonation",
+   "NetworkShareUseImpersonationPerEngine",
+   "VulnAlertScoreThreshold",
+   "BypassApprovalForAutoRemediationScript",
+   "PolicyViolationLevel1",
+   "PolicyViolationLevel2",
+   "PolicyViolationLevel3",
+   "NCMJobHangTimeout",
+   "NCMJobSchedulingTimeout",
+   "NCMJobRunJobTimeout",
+   "FirmwareStorageLocation",
+   "FirmwareNetworkShareUserName",
+   "FirmwareNetworkShareUserPassword",
+   "MaxNumberOfFirmwareOperations",
+   "BinaryConfigStorageFolder",
+   "BinaryConfigStorageUserName",
+   "BinaryConfigStoragePassword",
+   "SkipAddingNodes",
+   "AclDataCollectorCompleted",
+   "AclNexusDataCollectorCompleted",
+   "DeviceTemplatesMigrationCompleted",
+   "IsLegacyBaselineMigrated",
+   "IsBinaryConfigHashUpdated",
+   "PaloAltoXmlTemplateMigrationTimeStamp",
+   "PaloAltoXmlTemplateMigrationProcessed",
+   "PaloAltoDataCollectorCompleted",
+   "EnableNewNcmConfigSummary",
+   "ConfigChangeApprovalEnabled",
+   "ApprovalMode",
+   "DbMaintJobOneTimeInventoryJobsMigrated",
+   "DbMaintJobAuditMigrated"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.UpgradeNodeOptions": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.UpgradeNodeOptions",
+  "kind": "object",
+  "members": [
+   {
+    "name": "CoreNodeId",
+    "type": "number"
+   },
+   {
+    "name": "FirmwareOperationID",
+    "type": "number"
+   },
+   {
+    "name": "UserID",
+    "type": "string"
+   },
+   {
+    "name": "Definition",
+    "type": "SolarWinds.NCM.Contracts.InformationService.FirmwareDefinition"
+   },
+   {
+    "name": "BackupExistingImagePaths",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "DeleteExistingImagePaths",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "UploadImagePath",
+    "type": "string"
+   },
+   {
+    "name": "BackupExisingFirmwareImage",
+    "type": "boolean"
+   },
+   {
+    "name": "DeleteExisingFirmwareImage",
+    "type": "boolean"
+   },
+   {
+    "name": "UpdateConfigRegister",
+    "type": "boolean"
+   },
+   {
+    "name": "ExpandUpgradeOptions",
+    "type": "boolean"
+   },
+   {
+    "name": "State",
+    "type": "SolarWinds.NCM.Contracts.InformationService.eNodeUpgradeOperStatus"
+   },
+   {
+    "name": "Order",
+    "type": "number"
+   },
+   {
+    "name": "Confirmed",
+    "type": "boolean"
+   },
+   {
+    "name": "BackupImages",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.Int32~"
+   },
+   {
+    "name": "RunningConfigIDBeforeUpgrade",
+    "type": "string"
+   },
+   {
+    "name": "StartupConfigIDBeforeUpgrade",
+    "type": "string"
+   },
+   {
+    "name": "RunningConfigIDAfterUpgrade",
+    "type": "string"
+   },
+   {
+    "name": "StartupConfigIDAfterUpgrade",
+    "type": "string"
+   },
+   {
+    "name": "IsRollBack",
+    "type": "boolean"
+   },
+   {
+    "name": "IsReExecute",
+    "type": "boolean"
+   },
+   {
+    "name": "RestoreConfigs",
+    "type": "boolean"
+   },
+   {
+    "name": "StorageDevices",
+    "type": "array",
+    "items": "SolarWinds.NCM.Contracts.InformationService.FlashDevice"
+   },
+   {
+    "name": "IsError",
+    "type": "boolean"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "IsComplete",
+    "type": "boolean"
+   },
+   {
+    "name": "BootPathList",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "IsLegacyUpgrade",
+    "type": "boolean"
+   },
+   {
+    "name": "TicketID",
+    "type": "string"
+   },
+   {
+    "name": "IsValidateLogin",
+    "type": "boolean"
+   },
+   {
+    "name": "Caption",
+    "type": "string"
+   },
+   {
+    "name": "IPAddress",
+    "type": "string"
+   },
+   {
+    "name": "MachineType",
+    "type": "string"
+   },
+   {
+    "name": "RebootStartTime",
+    "type": "string"
+   },
+   {
+    "name": "Script",
+    "type": "string"
+   },
+   {
+    "name": "EngineInfo",
+    "type": "SolarWinds.NCM.Contracts.InformationService.PollingEngineInfo"
+   },
+   {
+    "name": "SyncTransferEvent",
+    "type": "System.Threading.ManualResetEvent"
+   },
+   {
+    "name": "ServerSubFolder",
+    "type": "string"
+   },
+   {
+    "name": "UnableToDetectFreeSpace",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.ValidationResults": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.ValidationResults",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsValid",
+    "type": "boolean"
+   },
+   {
+    "name": "Message",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.WebSelectionCriteria": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.WebSelectionCriteria",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "string"
+   },
+   {
+    "name": "LogicalCondition",
+    "type": "string"
+   },
+   {
+    "name": "SelectedColumn",
+    "type": "string"
+   },
+   {
+    "name": "MatchType",
+    "type": "string"
+   },
+   {
+    "name": "SelectedValue",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eApprovalGroup": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eApprovalGroup",
+  "kind": "string",
+  "enum": [
+   "Group1",
+   "Group2"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eApprovalMode": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eApprovalMode",
+  "kind": "string",
+  "enum": [
+   "ApprovalDisabled",
+   "OneLevel",
+   "TwoLevelWebUploader",
+   "TwoLevelAll"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eApprovalStatus": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eApprovalStatus",
+  "kind": "string",
+  "enum": [
+   "PendingApproval",
+   "Declined",
+   "WaitingForExecution",
+   "Scheduled",
+   "Complete",
+   "Executing",
+   "NeedConfirmation"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eCommandProtocol": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eCommandProtocol",
+  "kind": "string",
+  "enum": [
+   "CommandProtocol_Telnet",
+   "CommandProtocol_SSH1",
+   "CommandProtocol_SNMP",
+   "CommandProtocol_SSH2",
+   "CommandProtocol_SSHAuto",
+   "CommandProtocol_TFTP",
+   "CommandProtocol_SCP"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eCriteriaType": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eCriteriaType",
+  "kind": "string",
+  "enum": [
+   "AllNodes",
+   "SelectedNodes",
+   "WebCriteria",
+   "DesktopCriteria"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eEoSType": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eEoSType",
+  "kind": "string",
+  "enum": [
+   "NotAssigned",
+   "User",
+   "Manual",
+   "Auto",
+   "Awaiting",
+   "Ignored"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eExecutionType": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eExecutionType",
+  "kind": "string",
+  "enum": [
+   "Immediate",
+   "ReturnToRequestor",
+   "SpecifiedTime"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eJobStatus": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eJobStatus",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Running",
+   "Disabled",
+   "Scheduled",
+   "NotSceduled",
+   "Waiting",
+   "Starting",
+   "Complete"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eJobType": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eJobType",
+  "kind": "string",
+  "enum": [
+   "CommandScript",
+   "ExecuteProgram",
+   "Upload",
+   "Report",
+   "Reboot",
+   "ExportConfigs",
+   "DatabaseMaintenance",
+   "Inventory",
+   "ConfigChangeReport",
+   "PolicyReport",
+   "PurgeConfigs",
+   "DownloadConfigs",
+   "RealTimeNotification",
+   "OrionImport",
+   "BaselineEntireNetwork",
+   "ConfigChangeTemplate",
+   "Error"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eLoginResults": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eLoginResults",
+  "kind": "string",
+  "enum": [
+   "Success",
+   "Fail"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eNodeUpgradeOperStatus": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eNodeUpgradeOperStatus",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "CollectCurrentImageData",
+   "CollectConfigRegisterData",
+   "CollectFreeSpaceData",
+   "CollectOtherData",
+   "CompleteDataCollect",
+   "StartUpgrade",
+   "SaveConfigToNvRamBeforeUpgrade",
+   "BackupRunningConfigBeforeUpgrade",
+   "BackupStartupConfigBeforeUpgrade",
+   "RestoreRunningConfigBeforeUpgrade",
+   "RestoreStartupConfigBeforeUpgrade",
+   "BackupExisitngFirmwareImage",
+   "VerifyExistingFirmwareImage",
+   "DeleteExisitngFirmwareImage",
+   "UploadNewImage",
+   "VerifyNewImage",
+   "UpdateConfigRegister",
+   "UpdateBootVariable",
+   "Reboot",
+   "RestoreRunningConfigAfterUpgrade",
+   "RestoreStartupConfigAfterUpgrade",
+   "BackupRunningConfigAfterUpgrade",
+   "BackupStartupConfigAfterUpgrade",
+   "CompareConfigsAfterUpgrade",
+   "UpgradeComplete",
+   "CollectBootPathListData",
+   "VerifyUpgrade"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.InformationService.eUserApproveRole": {
+  "name": "SolarWinds.NCM.Contracts.InformationService.eUserApproveRole",
+  "kind": "string",
+  "enum": [
+   "None",
+   "Requestor",
+   "SingleApprover",
+   "ApproverGroup1",
+   "ApproverGroup2",
+   "RequestorAndApproverGroup1",
+   "RequestorAndApproverGroup2"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Jobs.ConfigChangeReportType": {
+  "name": "SolarWinds.NCM.Contracts.Jobs.ConfigChangeReportType",
+  "kind": "string",
+  "enum": [
+   "Running",
+   "Startup",
+   "Baseline",
+   "Last",
+   "TargetDate",
+   "PastXXDays",
+   "DateRange"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Jobs.DeleteNcmJobsResult": {
+  "name": "SolarWinds.NCM.Contracts.Jobs.DeleteNcmJobsResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "AffectedNcmJobs",
+    "type": "number"
+   },
+   {
+    "name": "AffectedJobEngineNcmJobs",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Security.NcmRole": {
+  "name": "SolarWinds.NCM.Contracts.Security.NcmRole",
+  "kind": "string",
+  "enum": [
+   "None",
+   "WebViewer",
+   "WebDownloader",
+   "WebUploader",
+   "Engineer",
+   "Administrator"
+  ]
+ },
+ "SolarWinds.NCM.Contracts.Transfer.TransferConnectionData": {
+  "name": "SolarWinds.NCM.Contracts.Transfer.TransferConnectionData",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Username",
+    "type": "string"
+   },
+   {
+    "name": "Password",
+    "type": "string"
+   },
+   {
+    "name": "EnableLevel",
+    "type": "string"
+   },
+   {
+    "name": "EnablePassword",
+    "type": "string"
+   },
+   {
+    "name": "TelnetPort",
+    "type": "number"
+   },
+   {
+    "name": "SshPort",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Netflow.Contracts.Applications.ApplicationProperties-ApplicationProtocol": {
+  "name": "SolarWinds.Netflow.Contracts.Applications.ApplicationProperties-ApplicationProtocol",
+  "kind": "string",
+  "enum": [
+   "None",
+   "TCP",
+   "UDP",
+   "Both"
+  ]
+ },
+ "SolarWinds.Netflow.Contracts.Applications.ApplicationProperties-ConditionDirection": {
+  "name": "SolarWinds.Netflow.Contracts.Applications.ApplicationProperties-ConditionDirection",
+  "kind": "string",
+  "enum": [
+   "None",
+   "Source",
+   "Destination",
+   "Both"
+  ]
+ },
+ "SolarWinds.Netflow.Contracts.IPGroups.ApplicationCollision": {
+  "name": "SolarWinds.Netflow.Contracts.IPGroups.ApplicationCollision",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ApplicationId",
+    "type": "number"
+   },
+   {
+    "name": "ApplicationName",
+    "type": "string"
+   },
+   {
+    "name": "ApplicationProtocol",
+    "type": "SolarWinds.Netflow.Contracts.Applications.ApplicationProperties-ApplicationProtocol"
+   },
+   {
+    "name": "ApplicationDirection",
+    "type": "SolarWinds.Netflow.Contracts.Applications.ApplicationProperties-ConditionDirection"
+   },
+   {
+    "name": "ApplicationPort",
+    "type": "number"
+   },
+   {
+    "name": "IpGroupId",
+    "type": "number"
+   },
+   {
+    "name": "IpGroupName",
+    "type": "string"
+   },
+   {
+    "name": "IsAutoResolveVictim",
+    "type": "boolean"
+   },
+   {
+    "name": "HasChangedIpGroup",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Netflow.Contracts.IPGroups.IPRange": {
+  "name": "SolarWinds.Netflow.Contracts.IPGroups.IPRange",
+  "kind": "object",
+  "members": [
+   {
+    "name": "StartIP",
+    "type": "string"
+   },
+   {
+    "name": "EndIP",
+    "type": "string"
+   },
+   {
+    "name": "CIDR",
+    "type": "string"
+   },
+   {
+    "name": "CIDRBased",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Netflow.Contracts.IPGroups.ManageIpGroupsResult": {
+  "name": "SolarWinds.Netflow.Contracts.IPGroups.ManageIpGroupsResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "SuccessResult",
+    "type": "SolarWinds.Netflow.Contracts.IPGroups.ManageIpGroupsResult"
+   },
+   {
+    "name": "Result",
+    "type": "SolarWinds.Netflow.Contracts.IPGroups.ManageIpGroupsResultCode"
+   },
+   {
+    "name": "ApplicationCollisions",
+    "type": "array",
+    "items": "SolarWinds.Netflow.Contracts.IPGroups.ApplicationCollision"
+   },
+   {
+    "name": "Message",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Netflow.Contracts.IPGroups.ManageIpGroupsResultCode": {
+  "name": "SolarWinds.Netflow.Contracts.IPGroups.ManageIpGroupsResultCode",
+  "kind": "string",
+  "enum": [
+   "Succeed",
+   "ApplicationCollision",
+   "InvalidIpGroupId",
+   "GenericError"
+  ]
+ },
+ "SolarWinds.Netflow.Contracts.InterfaceSources.FlowExporterConfiguration": {
+  "name": "SolarWinds.Netflow.Contracts.InterfaceSources.FlowExporterConfiguration",
+  "kind": "object"
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.CliAuthentications": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.CliAuthentications",
+  "kind": "string",
+  "enum": [
+   "None",
+   "Password",
+   "PublicKey",
+   "Both",
+   "KeyboardInteractive"
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.CliConnectionData": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.CliConnectionData",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Authentication",
+    "type": "SolarWinds.Orion.Cli.Contracts.DataModel.CliAuthentications"
+   },
+   {
+    "name": "LoginCredentials",
+    "type": "SolarWinds.Orion.Cli.Contracts.DataModel.CliCredentials"
+   },
+   {
+    "name": "EncryptionMethod",
+    "type": "SolarWinds.Orion.Cli.Contracts.DataModel.CliEncryption"
+   },
+   {
+    "name": "Protocol",
+    "type": "SolarWinds.Orion.Cli.Contracts.DataModel.CliProtocol"
+   },
+   {
+    "name": "ProxyType",
+    "type": "SolarWinds.Orion.Cli.Contracts.DataModel.CliProxyTypes"
+   },
+   {
+    "name": "Fips",
+    "type": "boolean"
+   },
+   {
+    "name": "KeyForwarding",
+    "type": "boolean"
+   },
+   {
+    "name": "ShowStdErrorMessages",
+    "type": "boolean"
+   },
+   {
+    "name": "StripAnsi",
+    "type": "boolean"
+   },
+   {
+    "name": "ForwardPort",
+    "type": "number"
+   },
+   {
+    "name": "Port",
+    "type": "number"
+   },
+   {
+    "name": "ProxyPort",
+    "type": "number"
+   },
+   {
+    "name": "Timeout",
+    "type": "number"
+   },
+   {
+    "name": "EncryptionList",
+    "type": "string"
+   },
+   {
+    "name": "ExitSignal",
+    "type": "string"
+   },
+   {
+    "name": "ForwardHost",
+    "type": "string"
+   },
+   {
+    "name": "HMacList",
+    "type": "string"
+   },
+   {
+    "name": "Hostname",
+    "type": "string"
+   },
+   {
+    "name": "KeyExchangeList",
+    "type": "string"
+   },
+   {
+    "name": "KeySignatureList",
+    "type": "string"
+   },
+   {
+    "name": "ProxyHostname",
+    "type": "string"
+   },
+   {
+    "name": "ProxyLogin",
+    "type": "string"
+   },
+   {
+    "name": "TerminalType",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.CliCredentials": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.CliCredentials",
+  "kind": "object",
+  "members": [
+   {
+    "name": "UserName",
+    "type": "string"
+   },
+   {
+    "name": "Password",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.CliEncryption": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.CliEncryption",
+  "kind": "string",
+  "enum": [
+   "encAny",
+   "encDES",
+   "enc3DES",
+   "encAES",
+   "encBLOWFISH",
+   "encAES128",
+   "encAES192",
+   "encAES256",
+   "ChaCha20Poly1305"
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.CliProtocol": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.CliProtocol",
+  "kind": "string",
+  "enum": [
+   "Raw",
+   "Telnet",
+   "Ssh1",
+   "Ssh2",
+   "SshAuto",
+   "Rlogin"
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.CliProxyTypes": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.CliProxyTypes",
+  "kind": "string",
+  "enum": [
+   "ProxyNone",
+   "ProxySocks4",
+   "ProxySocks5",
+   "ProxyWEBStandard",
+   "ProxyRelay",
+   "ProxySocks4a",
+   "ProxyWEBNtlmAuth"
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.CliTestConnectionData": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.CliTestConnectionData",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EngineId",
+    "type": "number"
+   },
+   {
+    "name": "IsWeOnlyDo",
+    "type": "boolean"
+   },
+   {
+    "name": "CliConnectionData",
+    "type": "SolarWinds.Orion.Cli.Contracts.DataModel.CliConnectionData"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.CliTestResult": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.CliTestResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "TestId",
+    "type": "string"
+   },
+   {
+    "name": "Engine",
+    "type": "SolarWinds.Orion.Cli.Contracts.DataModel.TestEngineInfo"
+   },
+   {
+    "name": "RemoteHost",
+    "type": "string"
+   },
+   {
+    "name": "TestLog",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "TestProperties",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.String~"
+   },
+   {
+    "name": "IsError",
+    "type": "boolean"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.DeviceTemplate": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.DeviceTemplate",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Author",
+    "type": "string"
+   },
+   {
+    "name": "SystemOID",
+    "type": "string"
+   },
+   {
+    "name": "SystemDescriptionRegex",
+    "type": "string"
+   },
+   {
+    "name": "TemplateXml",
+    "type": "string"
+   },
+   {
+    "name": "Comments",
+    "type": "string"
+   },
+   {
+    "name": "UseForAutoDetect",
+    "type": "boolean"
+   },
+   {
+    "name": "AutoDetectType",
+    "type": "SolarWinds.Orion.Cli.Contracts.DataModel.eAutoDetectType"
+   },
+   {
+    "name": "IsDefault",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.OperationResult": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.OperationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "OperationName",
+    "type": "string"
+   },
+   {
+    "name": "Data",
+    "type": "string"
+   },
+   {
+    "name": "IsError",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.TestEngineInfo": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.TestEngineInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EngineId",
+    "type": "number"
+   },
+   {
+    "name": "EngineName",
+    "type": "string"
+   },
+   {
+    "name": "EngineIpAddress",
+    "type": "System.Net.IPAddress"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Cli.Contracts.DataModel.eAutoDetectType": {
+  "name": "SolarWinds.Orion.Cli.Contracts.DataModel.eAutoDetectType",
+  "kind": "string",
+  "enum": [
+   "BySystemOid",
+   "BySystemDescription"
+  ]
+ },
+ "SolarWinds.Orion.Common.Models.CredentialsValidationResult": {
+  "name": "SolarWinds.Orion.Common.Models.CredentialsValidationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "State",
+    "type": "SolarWinds.Orion.Common.Models.ValidationResultState"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "SslCertificateIdentity",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Common.Models.ValidationResultState": {
+  "name": "SolarWinds.Orion.Common.Models.ValidationResultState",
+  "kind": "string",
+  "enum": [
+   "Ok",
+   "Warning",
+   "Error"
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Alerting.AlertImportResult": {
+  "name": "SolarWinds.Orion.Core.Common.Alerting.AlertImportResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "AlertId",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "MigrationMessage",
+    "type": "string"
+   },
+   {
+    "name": "IncorrectPasswordForDecryptSensitiveData",
+    "type": "boolean"
+   },
+   {
+    "name": "AlertDefinitionIsNotSupported",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Alerting.NetObjectData": {
+  "name": "SolarWinds.Orion.Core.Common.Alerting.NetObjectData",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ActiveObject",
+    "type": "string"
+   },
+   {
+    "name": "CompositeId",
+    "type": "string"
+   },
+   {
+    "name": "ObjectType",
+    "type": "string"
+   },
+   {
+    "name": "ObjectName",
+    "type": "string"
+   },
+   {
+    "name": "NodeID",
+    "type": "number"
+   },
+   {
+    "name": "NodeName",
+    "type": "string"
+   },
+   {
+    "name": "ActiveObjectPrefix",
+    "type": "string"
+   },
+   {
+    "name": "NetObjectId",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Enums.NodeCategory": {
+  "name": "SolarWinds.Orion.Core.Common.Enums.NodeCategory",
+  "kind": "string",
+  "enum": [
+   "Other",
+   "Network",
+   "Server"
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionMode": {
+  "name": "SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionMode",
+  "kind": "string",
+  "enum": [
+   "NotSuppressed",
+   "SuppressedByItself",
+   "SuppressedByParent",
+   "SuppressionScheduledForItself",
+   "SuppressionScheduledForParent"
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionState": {
+  "name": "SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionState",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EntityUri",
+    "type": "string"
+   },
+   {
+    "name": "SuppressedParentUri",
+    "type": "string"
+   },
+   {
+    "name": "SuppressionMode",
+    "type": "SolarWinds.Orion.Core.Common.Models.Alerts.EntityAlertSuppressionMode"
+   },
+   {
+    "name": "SuppressedFrom",
+    "type": "string"
+   },
+   {
+    "name": "SuppressedUntil",
+    "type": "string"
+   },
+   {
+    "name": "Reason",
+    "type": "string"
+   },
+   {
+    "name": "ScheduleName",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Models.CustomPropertyValidationResult": {
+  "name": "SolarWinds.Orion.Core.Common.Models.CustomPropertyValidationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Status",
+    "type": "SolarWinds.Orion.Core.Common.Models.CustomPropertyValidationStatus"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Models.CustomPropertyValidationStatus": {
+  "name": "SolarWinds.Orion.Core.Common.Models.CustomPropertyValidationStatus",
+  "kind": "string",
+  "enum": [
+   "Valid",
+   "IsSystem",
+   "IsReserved",
+   "Exists",
+   "Error"
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Models.DatabaseAccessCredential": {
+  "name": "SolarWinds.Orion.Core.Common.Models.DatabaseAccessCredential",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Login",
+    "type": "string"
+   },
+   {
+    "name": "EncryptedPassword",
+    "type": "string"
+   },
+   {
+    "name": "CredentialType",
+    "type": "SolarWinds.Orion.Core.Common.Models.DatabaseAccessCredentialType"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Models.DatabaseAccessCredentialType": {
+  "name": "SolarWinds.Orion.Core.Common.Models.DatabaseAccessCredentialType",
+  "kind": "string",
+  "enum": [
+   "WindowsAccount",
+   "SqlServerAccount",
+   "AzureActiveDirectoryAccount"
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Models.DiscoveryImportConfiguration": {
+  "name": "SolarWinds.Orion.Core.Common.Models.DiscoveryImportConfiguration",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ProfileID",
+    "type": "number"
+   },
+   {
+    "name": "NodeIDs",
+    "type": "array",
+    "items": "number"
+   },
+   {
+    "name": "DeleteProfileAfterImport",
+    "type": "boolean"
+   },
+   {
+    "name": "NewNodesCustomCategory",
+    "type": "SolarWinds.Orion.Core.Common.Enums.NodeCategory"
+   },
+   {
+    "name": "SelectedDiscoveredResources",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.Int32_SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem~"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Common.Models.ReportSchedule": {
+  "name": "SolarWinds.Orion.Core.Common.Models.ReportSchedule",
+  "kind": "object",
+  "members": [
+   {
+    "name": "CronExpressionTimeZoneInfo",
+    "type": "System.TimeZoneInfo"
+   },
+   {
+    "name": "FrequencyId",
+    "type": "number"
+   },
+   {
+    "name": "StartTime",
+    "type": "string"
+   },
+   {
+    "name": "EndTime",
+    "type": "string"
+   },
+   {
+    "name": "CronExpression",
+    "type": "string"
+   },
+   {
+    "name": "DisplayName",
+    "type": "string"
+   },
+   {
+    "name": "CronExpressionTimeZoneInfoId",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Actions.ActionDefinition": {
+  "name": "SolarWinds.Orion.Core.Models.Actions.ActionDefinition",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ID",
+    "type": "number"
+   },
+   {
+    "name": "ActionTypeID",
+    "type": "string"
+   },
+   {
+    "name": "Title",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "Enabled",
+    "type": "boolean"
+   },
+   {
+    "name": "Approved",
+    "type": "boolean"
+   },
+   {
+    "name": "Order",
+    "type": "number"
+   },
+   {
+    "name": "IconPath",
+    "type": "string"
+   },
+   {
+    "name": "IsShared",
+    "type": "boolean"
+   },
+   {
+    "name": "Properties",
+    "type": "array",
+    "items": "SolarWinds.Orion.Core.Models.Actions.ActionProperty"
+   },
+   {
+    "name": "TimePeriods",
+    "type": "array",
+    "items": "SolarWinds.Orion.Core.Models.Schedules.TimePeriodSchedule"
+   },
+   {
+    "name": "TransitiveID",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Actions.ActionEnviromentType": {
+  "name": "SolarWinds.Orion.Core.Models.Actions.ActionEnviromentType",
+  "kind": "string",
+  "enum": [
+   "Alerting",
+   "Reporting",
+   "WorldMap",
+   "Federation",
+   "ScheduledTask"
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Actions.ActionExecutionModeType": {
+  "name": "SolarWinds.Orion.Core.Models.Actions.ActionExecutionModeType",
+  "kind": "string",
+  "enum": [
+   "Trigger",
+   "Reset",
+   "Test"
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Actions.ActionProperty": {
+  "name": "SolarWinds.Orion.Core.Models.Actions.ActionProperty",
+  "kind": "object",
+  "members": [
+   {
+    "name": "PropertyName",
+    "type": "string"
+   },
+   {
+    "name": "PropertyValue",
+    "type": "string"
+   },
+   {
+    "name": "IsShared",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Actions.ActionResult": {
+  "name": "SolarWinds.Orion.Core.Models.Actions.ActionResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Status",
+    "type": "SolarWinds.Orion.Core.Models.Actions.ActionStatus"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "ActionTitle",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Actions.ActionStatus": {
+  "name": "SolarWinds.Orion.Core.Models.Actions.ActionStatus",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Success",
+   "Failed",
+   "Canceled",
+   "NotApproved"
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Actions.Contexts.AlertContext": {
+  "name": "SolarWinds.Orion.Core.Models.Actions.Contexts.AlertContext",
+  "kind": "object",
+  "members": [
+   {
+    "name": "AlertName",
+    "type": "string"
+   },
+   {
+    "name": "CreatedBy",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Actions.Contexts.AlertingActionContext": {
+  "name": "SolarWinds.Orion.Core.Models.Actions.Contexts.AlertingActionContext",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ExecutionMode",
+    "type": "SolarWinds.Orion.Core.Models.Actions.ActionExecutionModeType"
+   },
+   {
+    "name": "EnviromentType",
+    "type": "SolarWinds.Orion.Core.Models.Actions.ActionEnviromentType"
+   },
+   {
+    "name": "EntityType",
+    "type": "string"
+   },
+   {
+    "name": "EntityUri",
+    "type": "string"
+   },
+   {
+    "name": "EntityUris",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "IsGlobalAlert",
+    "type": "boolean"
+   },
+   {
+    "name": "AlertContext",
+    "type": "SolarWinds.Orion.Core.Models.Actions.Contexts.AlertContext"
+   },
+   {
+    "name": "AlertActiveId",
+    "type": "number"
+   },
+   {
+    "name": "AlertObjectId",
+    "type": "number"
+   },
+   {
+    "name": "NetObjectData",
+    "type": "SolarWinds.Orion.Core.Common.Alerting.NetObjectData"
+   },
+   {
+    "name": "ObjectDataExists",
+    "type": "boolean"
+   },
+   {
+    "name": "MacroContext",
+    "type": "SolarWinds.Orion.Core.Models.MacroParsing.MacroContext"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Actions.Contexts.ReportingActionContext": {
+  "name": "SolarWinds.Orion.Core.Models.Actions.Contexts.ReportingActionContext",
+  "kind": "object",
+  "members": [
+   {
+    "name": "UrlsGroupedByLeftPart",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.Collections.Generic.List~System.String~~"
+   },
+   {
+    "name": "AccountID",
+    "type": "string"
+   },
+   {
+    "name": "WebsiteID",
+    "type": "number"
+   },
+   {
+    "name": "EnviromentType",
+    "type": "SolarWinds.Orion.Core.Models.Actions.ActionEnviromentType"
+   },
+   {
+    "name": "MacroContext",
+    "type": "SolarWinds.Orion.Core.Models.MacroParsing.MacroContext"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Credentials.SNMPVersion": {
+  "name": "SolarWinds.Orion.Core.Models.Credentials.SNMPVersion",
+  "kind": "string",
+  "enum": [
+   "None",
+   "SNMP1",
+   "SNMP2c",
+   "SNMP3"
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Discovery.DiscoveryImportProgressInfo": {
+  "name": "SolarWinds.Orion.Core.Models.Discovery.DiscoveryImportProgressInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Finished",
+    "type": "boolean"
+   },
+   {
+    "name": "OverallProgress",
+    "type": "number"
+   },
+   {
+    "name": "PhaseProgress",
+    "type": "number"
+   },
+   {
+    "name": "PhaseName",
+    "type": "string"
+   },
+   {
+    "name": "NewLogText",
+    "type": "string"
+   },
+   {
+    "name": "LogBuilder",
+    "type": "System.Text.StringBuilder"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Enums.DiscoveredNodeSubType": {
+  "name": "SolarWinds.Orion.Core.Models.Enums.DiscoveredNodeSubType",
+  "kind": "string",
+  "enum": [
+   "None",
+   "SNMP",
+   "ICMP",
+   "WMI",
+   "Agent"
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Licensing.CountOfElementsItem": {
+  "name": "SolarWinds.Orion.Core.Models.Licensing.CountOfElementsItem",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EngineId",
+    "type": "number"
+   },
+   {
+    "name": "Count",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Licensing.CountOfElementsResult": {
+  "name": "SolarWinds.Orion.Core.Models.Licensing.CountOfElementsResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ValidationKey",
+    "type": "string"
+   },
+   {
+    "name": "CountOfElements",
+    "type": "array",
+    "items": "SolarWinds.Orion.Core.Models.Licensing.CountOfElementsItem"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.MacroParsing.ContextBase": {
+  "name": "SolarWinds.Orion.Core.Models.MacroParsing.ContextBase",
+  "kind": "object"
+ },
+ "SolarWinds.Orion.Core.Models.MacroParsing.MacroContext": {
+  "name": "SolarWinds.Orion.Core.Models.MacroParsing.MacroContext",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Contexts",
+    "type": "array",
+    "items": "SolarWinds.Orion.Core.Models.MacroParsing.ContextBase"
+   },
+   {
+    "name": "AvaibleDefinitions",
+    "type": "System.Collections.Generic.IEnumerable~SolarWinds.Orion.Core.Models.MacroParsing.MacroDefinition~"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.Schedules.TimePeriodSchedule": {
+  "name": "SolarWinds.Orion.Core.Models.Schedules.TimePeriodSchedule",
+  "kind": "object",
+  "members": [
+   {
+    "name": "CronExpressionTimeZoneInfo",
+    "type": "System.TimeZoneInfo"
+   },
+   {
+    "name": "FrequencyId",
+    "type": "number"
+   },
+   {
+    "name": "StartTime",
+    "type": "string"
+   },
+   {
+    "name": "EndTime",
+    "type": "string"
+   },
+   {
+    "name": "CronExpression",
+    "type": "string"
+   },
+   {
+    "name": "DisplayName",
+    "type": "string"
+   },
+   {
+    "name": "Duration",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "EnabledDuringTimePeriod",
+    "type": "boolean"
+   },
+   {
+    "name": "CronExpressionTimeZoneInfoId",
+    "type": "string"
+   },
+   {
+    "name": "ScheduleCondition",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem": {
+  "name": "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem",
+  "kind": "object",
+  "members": [
+   {
+    "name": "DisplayName",
+    "type": "string"
+   },
+   {
+    "name": "TypeName",
+    "type": "string"
+   },
+   {
+    "name": "IsSelected",
+    "type": "boolean"
+   },
+   {
+    "name": "Children",
+    "type": "array",
+    "items": "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem"
+   },
+   {
+    "name": "Metadata",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.String~"
+   },
+   {
+    "name": "IsImported",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.SharedCredentials.Credential": {
+  "name": "SolarWinds.Orion.Core.SharedCredentials.Credential",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ID",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "Owner",
+    "type": "string"
+   },
+   {
+    "name": "IsBroken",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.SharedCredentials.Credentials.GcpCredential": {
+  "name": "SolarWinds.Orion.Core.SharedCredentials.Credentials.GcpCredential",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Issuer",
+    "type": "string"
+   },
+   {
+    "name": "KeyId",
+    "type": "string"
+   },
+   {
+    "name": "PrivateKey",
+    "type": "string"
+   },
+   {
+    "name": "Scopes",
+    "type": "string"
+   },
+   {
+    "name": "Url",
+    "type": "string"
+   },
+   {
+    "name": "ID",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "Owner",
+    "type": "string"
+   },
+   {
+    "name": "IsBroken",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.SharedCredentials.Provider.Credentials.AwsCredentials": {
+  "name": "SolarWinds.Orion.Core.SharedCredentials.Provider.Credentials.AwsCredentials",
+  "kind": "object",
+  "members": [
+   {
+    "name": "AccessKeyId",
+    "type": "string"
+   },
+   {
+    "name": "SecretAccessKey",
+    "type": "string"
+   },
+   {
+    "name": "SecretAccessKeyChanged",
+    "type": "boolean"
+   },
+   {
+    "name": "CredentialsId",
+    "type": "number"
+   },
+   {
+    "name": "ID",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "Owner",
+    "type": "string"
+   },
+   {
+    "name": "IsBroken",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Core.SharedCredentials.Provider.Credentials.AzureCredentials": {
+  "name": "SolarWinds.Orion.Core.SharedCredentials.Provider.Credentials.AzureCredentials",
+  "kind": "object",
+  "members": [
+   {
+    "name": "SubscriptionId",
+    "type": "string"
+   },
+   {
+    "name": "TenantId",
+    "type": "string"
+   },
+   {
+    "name": "ClientId",
+    "type": "string"
+   },
+   {
+    "name": "ApplicationSecretKey",
+    "type": "string"
+   },
+   {
+    "name": "ApplicationSecretKeyChanged",
+    "type": "boolean"
+   },
+   {
+    "name": "CredentialsId",
+    "type": "number"
+   },
+   {
+    "name": "ID",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "Owner",
+    "type": "string"
+   },
+   {
+    "name": "IsBroken",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Declarative.Contract.Models.CacheStorageScope": {
+  "name": "SolarWinds.Orion.Declarative.Contract.Models.CacheStorageScope",
+  "kind": "string",
+  "enum": [
+   "SingleProcess",
+   "MultiProcess"
+  ]
+ },
+ "SolarWinds.Orion.Declarative.Contract.Models.DeclarativeClientSettings": {
+  "name": "SolarWinds.Orion.Declarative.Contract.Models.DeclarativeClientSettings",
+  "kind": "object",
+  "members": [
+   {
+    "name": "BaseEndpoint",
+    "type": "string"
+   },
+   {
+    "name": "VerifySslCertificate",
+    "type": "boolean"
+   },
+   {
+    "name": "CertificateThumbprint",
+    "type": "string"
+   },
+   {
+    "name": "UseProxy",
+    "type": "boolean"
+   },
+   {
+    "name": "PageSize",
+    "type": "number"
+   },
+   {
+    "name": "PollingInterval",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "CredentialID",
+    "type": "number"
+   },
+   {
+    "name": "RequestsLimitationPeriod",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "RequestsLimit",
+    "type": "number"
+   },
+   {
+    "name": "RequestRetries",
+    "type": "number"
+   },
+   {
+    "name": "RequestMaxWait",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "PollingRequestsCacheTimeToLive",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "CacheTimeToLiveToleranceAdjustment",
+    "type": "number"
+   },
+   {
+    "name": "ClientSessionCacheTimeToLive",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "SettingsAsMacros",
+    "type": "array",
+    "items": "SolarWinds.Orion.Declarative.Contract.Models.MacroValue"
+   },
+   {
+    "name": "EnableEntityTypeCheck",
+    "type": "boolean"
+   },
+   {
+    "name": "LogSensitiveDetails",
+    "type": "SolarWinds.Orion.Declarative.Contract.Models.LogSensitiveDetailsSettings"
+   },
+   {
+    "name": "HttpTimeout",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "SessionManagerCacheStorageScope",
+    "type": "SolarWinds.Orion.Declarative.Contract.Models.CacheStorageScope"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Declarative.Contract.Models.DeclarativeJobResult": {
+  "name": "SolarWinds.Orion.Declarative.Contract.Models.DeclarativeJobResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsSuccess",
+    "type": "boolean"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "ErrorCode",
+    "type": "number"
+   },
+   {
+    "name": "Entities",
+    "type": "array",
+    "items": "array"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Declarative.Contract.Models.LogSensitiveDetailsSettings": {
+  "name": "SolarWinds.Orion.Declarative.Contract.Models.LogSensitiveDetailsSettings",
+  "kind": "object",
+  "members": [
+   {
+    "name": "LogRequestParameters",
+    "type": "boolean"
+   },
+   {
+    "name": "LogRequestBody",
+    "type": "boolean"
+   },
+   {
+    "name": "LogResponseUri",
+    "type": "boolean"
+   },
+   {
+    "name": "LogResponseStatus",
+    "type": "boolean"
+   },
+   {
+    "name": "LogResponseHeaders",
+    "type": "boolean"
+   },
+   {
+    "name": "LogResponseContent",
+    "type": "boolean"
+   },
+   {
+    "name": "LogResponseRequestParameters",
+    "type": "boolean"
+   },
+   {
+    "name": "LogFailureResponseDetails",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Declarative.Contract.Models.MacroValue": {
+  "name": "SolarWinds.Orion.Declarative.Contract.Models.MacroValue",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Values",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "Key",
+    "type": "string"
+   },
+   {
+    "name": "Value",
+    "type": "string"
+   },
+   {
+    "name": "IsExpandable",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.DiffEngine.Contract.Models.Hunk": {
+  "name": "SolarWinds.Orion.DiffEngine.Contract.Models.Hunk",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Lines",
+    "type": "System.Collections.Generic.IEnumerable~SolarWinds.Orion.DiffEngine.Contract.Models.LinesDiff~"
+   },
+   {
+    "name": "StartIndex",
+    "type": "number"
+   },
+   {
+    "name": "Size",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Orion.DiffEngine.Contract.Models.IgnoreLinesPattern": {
+  "name": "SolarWinds.Orion.DiffEngine.Contract.Models.IgnoreLinesPattern",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Regexs",
+    "type": "System.Collections.Generic.IEnumerable~System.String~"
+   },
+   {
+    "name": "Blocks",
+    "type": "System.Collections.Generic.IEnumerable~SolarWinds.Orion.DiffEngine.Contract.Models.IgnoredTextBlock~"
+   },
+   {
+    "name": "RegexTimeout",
+    "type": "System.TimeSpan"
+   }
+  ]
+ },
+ "SolarWinds.Orion.DiffEngine.Contract.Models.TextDiffEngineSettings": {
+  "name": "SolarWinds.Orion.DiffEngine.Contract.Models.TextDiffEngineSettings",
+  "kind": "object",
+  "members": [
+   {
+    "name": "OnlyChangedLines",
+    "type": "boolean"
+   },
+   {
+    "name": "SizeOfContext",
+    "type": "number"
+   },
+   {
+    "name": "StartIndex",
+    "type": "number"
+   },
+   {
+    "name": "Size",
+    "type": "number"
+   },
+   {
+    "name": "NoCache",
+    "type": "boolean"
+   },
+   {
+    "name": "IgnoreLinesPattern",
+    "type": "SolarWinds.Orion.DiffEngine.Contract.Models.IgnoreLinesPattern"
+   },
+   {
+    "name": "NumberOfChangesToShow",
+    "type": "number"
+   },
+   {
+    "name": "MaxMemoryAllocationInMegabytes",
+    "type": "number"
+   },
+   {
+    "name": "IgnoreWhiteSpace",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.DiffEngine.Contract.Models.TextDocumentDiff": {
+  "name": "SolarWinds.Orion.DiffEngine.Contract.Models.TextDocumentDiff",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Hunks",
+    "type": "array",
+    "items": "SolarWinds.Orion.DiffEngine.Contract.Models.Hunk"
+   },
+   {
+    "name": "NumberOfLines",
+    "type": "number"
+   },
+   {
+    "name": "RemainingChangesCount",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.Orion.EOC.Models.SwisCredentialType": {
+  "name": "SolarWinds.Orion.EOC.Models.SwisCredentialType",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "System",
+   "Admin",
+   "DefaultImpersonate",
+   "Impersonate",
+   "DefaultPassThrough"
+  ]
+ },
+ "SolarWinds.Orion.HardwareHealth.BMC.Common.Models.BMCConnectionTestResult": {
+  "name": "SolarWinds.Orion.HardwareHealth.BMC.Common.Models.BMCConnectionTestResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Success",
+    "type": "boolean"
+   },
+   {
+    "name": "PollerType",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.HighAvailability.Common.Model.OperationResult": {
+  "name": "SolarWinds.Orion.HighAvailability.Common.Model.OperationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsError",
+    "type": "boolean"
+   },
+   {
+    "name": "Code",
+    "type": "number"
+   },
+   {
+    "name": "Message",
+    "type": "string"
+   },
+   {
+    "name": "Result",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.LogMgmt.RuleProcessing.Models.ErrorDetail": {
+  "name": "SolarWinds.Orion.LogMgmt.RuleProcessing.Models.ErrorDetail",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "string"
+   },
+   {
+    "name": "Arguments",
+    "type": "array",
+    "items": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.LogMgmt.RuleProcessing.Models.ImportRuleSummary": {
+  "name": "SolarWinds.Orion.LogMgmt.RuleProcessing.Models.ImportRuleSummary",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Total",
+    "type": "number"
+   },
+   {
+    "name": "Imported",
+    "type": "number"
+   },
+   {
+    "name": "Failed",
+    "type": "number"
+   },
+   {
+    "name": "Skipped",
+    "type": "number"
+   },
+   {
+    "name": "Errors",
+    "type": "System.Collections.Generic.IEnumerable~System.ValueTuple~System.Guid_System.Collections.Generic.IEnumerable~System.String~~~"
+   },
+   {
+    "name": "ErrorDetail",
+    "type": "SolarWinds.Orion.LogMgmt.RuleProcessing.Models.ErrorDetail"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Maps.Models.WLHM.WirelessHeatMapPoint": {
+  "name": "SolarWinds.Orion.Maps.Models.WLHM.WirelessHeatMapPoint",
+  "kind": "object",
+  "members": [
+   {
+    "name": "PointID",
+    "type": "number"
+   },
+   {
+    "name": "MapID",
+    "type": "number"
+   },
+   {
+    "name": "InstanceID",
+    "type": "number"
+   },
+   {
+    "name": "X",
+    "type": "number"
+   },
+   {
+    "name": "Y",
+    "type": "number"
+   },
+   {
+    "name": "EntityType",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Mibs.Management.Common.MibVersioning.Models.DatabaseState": {
+  "name": "SolarWinds.Orion.Mibs.Management.Common.MibVersioning.Models.DatabaseState",
+  "kind": "object",
+  "members": [
+   {
+    "name": "AreListedEnginesUpToDate",
+    "type": "boolean"
+   },
+   {
+    "name": "DownloadLink",
+    "type": "string"
+   },
+   {
+    "name": "AvailableVersion",
+    "type": "System.Version"
+   },
+   {
+    "name": "EnginesDatabaseStates",
+    "type": "array",
+    "items": "SolarWinds.Orion.Mibs.Management.Common.MibVersioning.Models.EngineDatabaseState"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Mibs.Management.Common.MibVersioning.Models.EngineDatabaseState": {
+  "name": "SolarWinds.Orion.Mibs.Management.Common.MibVersioning.Models.EngineDatabaseState",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EngineId",
+    "type": "number"
+   },
+   {
+    "name": "HostOrIp",
+    "type": "string"
+   },
+   {
+    "name": "ServerType",
+    "type": "SolarWinds.Orion.Models.EngineServerType"
+   },
+   {
+    "name": "InstalledVersion",
+    "type": "System.Version"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Models.EngineServerType": {
+  "name": "SolarWinds.Orion.Models.EngineServerType",
+  "kind": "string",
+  "enum": [
+   "Primary",
+   "Additional",
+   "RemoteCollector"
+  ]
+ },
+ "SolarWinds.Orion.NetMan.Firewalls.Common.Models.Actions.FavoriteActionErrorCodes": {
+  "name": "SolarWinds.Orion.NetMan.Firewalls.Common.Models.Actions.FavoriteActionErrorCodes",
+  "kind": "string",
+  "enum": [
+   "None",
+   "EntityNotFound",
+   "MaxCountExceeded",
+   "AccessToVerbDenied"
+  ]
+ },
+ "SolarWinds.Orion.NetMan.Firewalls.Common.Models.Actions.FavoriteActionResult": {
+  "name": "SolarWinds.Orion.NetMan.Firewalls.Common.Models.Actions.FavoriteActionResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ErrorCode",
+    "type": "SolarWinds.Orion.NetMan.Firewalls.Common.Models.Actions.FavoriteActionErrorCodes"
+   },
+   {
+    "name": "MaxFavoritesCount",
+    "type": "number"
+   },
+   {
+    "name": "IsSuccess",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.AristaWM.Common.Enums.AristaWMAuthenticationStatus": {
+  "name": "SolarWinds.Orion.Orchestrators.AristaWM.Common.Enums.AristaWMAuthenticationStatus",
+  "kind": "string",
+  "enum": [
+   "Success",
+   "LoginFailed",
+   "LocationsFailed",
+   "Unknown"
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.AristaWM.Common.Models.AristaWMAuthenticationResult": {
+  "name": "SolarWinds.Orion.Orchestrators.AristaWM.Common.Models.AristaWMAuthenticationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "AuthenticationStatus",
+    "type": "SolarWinds.Orion.Orchestrators.AristaWM.Common.Enums.AristaWMAuthenticationStatus"
+   },
+   {
+    "name": "Locations",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.String~"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.ArubaCentral.Common.Enums.ArubaCentralAuthenticationStatus": {
+  "name": "SolarWinds.Orion.Orchestrators.ArubaCentral.Common.Enums.ArubaCentralAuthenticationStatus",
+  "kind": "string",
+  "enum": [
+   "Success",
+   "LoginFailed",
+   "LoginFailed_RateLimit",
+   "AuthCodeFailed",
+   "AuthCodeFailed_RateLimit",
+   "AccessTokenFailed",
+   "AccessTokenFailed_RateLimit",
+   "GroupListFailed",
+   "GroupListFailed_RateLimit",
+   "Unknown"
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.ArubaCentral.Common.Models.ArubaCentralAuthenticationResult": {
+  "name": "SolarWinds.Orion.Orchestrators.ArubaCentral.Common.Models.ArubaCentralAuthenticationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Status",
+    "type": "SolarWinds.Orion.Orchestrators.ArubaCentral.Common.Enums.ArubaCentralAuthenticationStatus"
+   },
+   {
+    "name": "Groups",
+    "type": "array",
+    "items": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.Common.Models.LoginResult": {
+  "name": "SolarWinds.Orion.Orchestrators.Common.Models.LoginResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "LoginSucceeded",
+    "type": "boolean"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "OrganizationId",
+    "type": "string"
+   },
+   {
+    "name": "OrganizationName",
+    "type": "string"
+   },
+   {
+    "name": "CertificateThumbprint",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.FortiEdgeCloud.Common.Enums.FortiEdgeCloudAuthenticationStatus": {
+  "name": "SolarWinds.Orion.Orchestrators.FortiEdgeCloud.Common.Enums.FortiEdgeCloudAuthenticationStatus",
+  "kind": "string",
+  "enum": [
+   "Success",
+   "LoginFailed",
+   "AuthCodeFailed",
+   "AccessTokenFailed",
+   "NetworkListFailed",
+   "Unknown"
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.FortiEdgeCloud.Common.Models.FortiEdgeCloudAuthenticationResult": {
+  "name": "SolarWinds.Orion.Orchestrators.FortiEdgeCloud.Common.Models.FortiEdgeCloudAuthenticationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Status",
+    "type": "SolarWinds.Orion.Orchestrators.FortiEdgeCloud.Common.Enums.FortiEdgeCloudAuthenticationStatus"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.JuniperMist.Common.Enums.JuniperMistAuthenticationStatus": {
+  "name": "SolarWinds.Orion.Orchestrators.JuniperMist.Common.Enums.JuniperMistAuthenticationStatus",
+  "kind": "string",
+  "enum": [
+   "Success",
+   "LoginFailed",
+   "SitesListFailed",
+   "BadConnectionInfo",
+   "Unknown"
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.JuniperMist.Common.Models.JuniperMistAuthenticationResult": {
+  "name": "SolarWinds.Orion.Orchestrators.JuniperMist.Common.Models.JuniperMistAuthenticationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Status",
+    "type": "SolarWinds.Orion.Orchestrators.JuniperMist.Common.Enums.JuniperMistAuthenticationStatus"
+   },
+   {
+    "name": "Sites",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.String~"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.Meraki.Common.Models.GetOrganizationsErrorState": {
+  "name": "SolarWinds.Orion.Orchestrators.Meraki.Common.Models.GetOrganizationsErrorState",
+  "kind": "string",
+  "enum": [
+   "None",
+   "ApiKeyEmpty",
+   "NoResponse",
+   "ApiProxyError"
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.Meraki.Common.Models.Organization": {
+  "name": "SolarWinds.Orion.Orchestrators.Meraki.Common.Models.Organization",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "string"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.Meraki.Common.Models.OrganizationsResult": {
+  "name": "SolarWinds.Orion.Orchestrators.Meraki.Common.Models.OrganizationsResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Success",
+    "type": "boolean"
+   },
+   {
+    "name": "ErrorState",
+    "type": "SolarWinds.Orion.Orchestrators.Meraki.Common.Models.GetOrganizationsErrorState"
+   },
+   {
+    "name": "Organizations",
+    "type": "array",
+    "items": "SolarWinds.Orion.Orchestrators.Meraki.Common.Models.Organization"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.RuckusOne.Common.Enums.RuckusOneAuthenticationStatus": {
+  "name": "SolarWinds.Orion.Orchestrators.RuckusOne.Common.Enums.RuckusOneAuthenticationStatus",
+  "kind": "string",
+  "enum": [
+   "Success",
+   "LoginFailed",
+   "AccessTokenFailed",
+   "VenuesFailed",
+   "Unknown"
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.RuckusOne.Common.Models.RuckusOneAuthenticationResult": {
+  "name": "SolarWinds.Orion.Orchestrators.RuckusOne.Common.Models.RuckusOneAuthenticationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "AuthenticationStatus",
+    "type": "SolarWinds.Orion.Orchestrators.RuckusOne.Common.Enums.RuckusOneAuthenticationStatus"
+   },
+   {
+    "name": "Venues",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.String~"
+   }
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.RuckusSZ.Common.Enums.RuckusSZAuthenticationStatus": {
+  "name": "SolarWinds.Orion.Orchestrators.RuckusSZ.Common.Enums.RuckusSZAuthenticationStatus",
+  "kind": "string",
+  "enum": [
+   "Success",
+   "LoginFailed",
+   "ServiceTicketFailed",
+   "ZonesFailed",
+   "ApiVersionFailed",
+   "SslFailed",
+   "Unknown"
+  ]
+ },
+ "SolarWinds.Orion.Orchestrators.RuckusSZ.Common.Models.RuckusSZAuthenticationResult": {
+  "name": "SolarWinds.Orion.Orchestrators.RuckusSZ.Common.Models.RuckusSZAuthenticationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "AuthenticationStatus",
+    "type": "SolarWinds.Orion.Orchestrators.RuckusSZ.Common.Enums.RuckusSZAuthenticationStatus"
+   },
+   {
+    "name": "Zones",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.String~"
+   },
+   {
+    "name": "ApiVersion",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.PM.Common.Enums.TaskOutcome": {
+  "name": "SolarWinds.PM.Common.Enums.TaskOutcome",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Success",
+   "PartialSuccess",
+   "Pending",
+   "Unreachable",
+   "UnreachableAll",
+   "Unauthorized",
+   "Unavailable",
+   "Error"
+  ]
+ },
+ "SolarWinds.PM.Common.Enums.TaskType": {
+  "name": "SolarWinds.PM.Common.Enums.TaskType",
+  "kind": "string",
+  "enum": [
+   "Undefined",
+   "Report",
+   "WsusServers",
+   "WsusUpdates",
+   "WsusDetails",
+   "WsusNodeUpdates",
+   "WsusNodes",
+   "WsusUpdateNodes",
+   "WsusGroups"
+  ]
+ },
+ "SolarWinds.PM.Common.Model.EWDataGridEntity": {
+  "name": "SolarWinds.PM.Common.Model.EWDataGridEntity",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsAvailable",
+    "type": "boolean"
+   },
+   {
+    "name": "Message",
+    "type": "string"
+   },
+   {
+    "name": "State",
+    "type": "SolarWinds.PM.Common.Enums.TaskOutcome"
+   }
+  ]
+ },
+ "SolarWinds.PM.Common.Model.SharedNetworkCredential": {
+  "name": "SolarWinds.PM.Common.Model.SharedNetworkCredential",
+  "kind": "object",
+  "members": [
+   {
+    "name": "UserName",
+    "type": "string"
+   },
+   {
+    "name": "Password",
+    "type": "string"
+   },
+   {
+    "name": "Domain",
+    "type": "string"
+   },
+   {
+    "name": "ID",
+    "type": "number"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "Owner",
+    "type": "string"
+   },
+   {
+    "name": "IsBroken",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.PM.Common.Model.SpmWebApiHostSettings": {
+  "name": "SolarWinds.PM.Common.Model.SpmWebApiHostSettings",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Address",
+    "type": "string"
+   },
+   {
+    "name": "Port",
+    "type": "number"
+   },
+   {
+    "name": "UseHttps",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.PM.Common.Model.TaskInfo": {
+  "name": "SolarWinds.PM.Common.Model.TaskInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "TaskId",
+    "type": "string"
+   },
+   {
+    "name": "TaskTypeInfo",
+    "type": "SolarWinds.PM.Common.Enums.TaskType"
+   },
+   {
+    "name": "ServerId",
+    "type": "string"
+   },
+   {
+    "name": "Where",
+    "type": "string"
+   },
+   {
+    "name": "ItemId",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.PM.Common.Model.TaskResult": {
+  "name": "SolarWinds.PM.Common.Model.TaskResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Outcome",
+    "type": "SolarWinds.PM.Common.Enums.TaskOutcome"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "Data",
+    "type": "System.Data.DataTable"
+   }
+  ]
+ },
+ "SolarWinds.SEUM.Common.Models.RecordingFileContent": {
+  "name": "SolarWinds.SEUM.Common.Models.RecordingFileContent",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Content",
+    "type": "string"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.SEUM.Verbs.v3.VersionCompatibility": {
+  "name": "SolarWinds.SEUM.Verbs.v3.VersionCompatibility",
+  "kind": "string",
+  "enum": [
+   "NotCompatible",
+   "Compatible",
+   "NewerCompatibleVersionExist"
+  ]
+ },
+ "SolarWinds.SRM.Common.BL.MigrationResults.MigrationEntity": {
+  "name": "SolarWinds.SRM.Common.BL.MigrationResults.MigrationEntity",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Status",
+    "type": "SolarWinds.SRM.Common.Enums.SRMDeviceMigrationStatus"
+   },
+   {
+    "name": "Message",
+    "type": "string"
+   },
+   {
+    "name": "ObjectID",
+    "type": "number"
+   },
+   {
+    "name": "MigrationObject",
+    "type": "SolarWinds.SRM.Common.Enums.MigrationObject"
+   },
+   {
+    "name": "MigrationType",
+    "type": "SolarWinds.SRM.Common.Enums.MigrationType"
+   },
+   {
+    "name": "DiscoveryResults",
+    "type": "SolarWinds.SRM.Common.Models.DiscoveryResults"
+   },
+   {
+    "name": "TestConnectionResults",
+    "type": "SolarWinds.SRM.Common.Models.TestConnectionResults"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Discovery.SRMDiscoveryJobResultCode": {
+  "name": "SolarWinds.SRM.Common.Discovery.SRMDiscoveryJobResultCode",
+  "kind": "string",
+  "enum": [
+   "Success",
+   "UnableToConnect",
+   "NotAppllicable",
+   "Unknown",
+   "MissingTemplate",
+   "ProviderBusy",
+   "UnsupportedVersion"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.ArrayType": {
+  "name": "SolarWinds.SRM.Common.Enums.ArrayType",
+  "kind": "string",
+  "enum": [
+   "Block",
+   "File",
+   "Unified"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.CredentialType": {
+  "name": "SolarWinds.SRM.Common.Enums.CredentialType",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "SNMP",
+   "SnmpV3",
+   "SMIS",
+   "WMI",
+   "Ssh",
+   "VNX",
+   "NetAppFiler",
+   "NetAppDfm",
+   "Responder",
+   "MSA",
+   "IsilonHttp",
+   "XtremIoHttp",
+   "PureStorageHttp",
+   "UnityHttp",
+   "InfinidatHttp",
+   "GenericHttp",
+   "NetAppAIQUM"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.FlowType": {
+  "name": "SolarWinds.SRM.Common.Enums.FlowType",
+  "kind": "string",
+  "enum": [
+   "Responder",
+   "Smis",
+   "SmisVnx",
+   "GenericSnmp",
+   "NetAppDfm",
+   "NetAppFiler",
+   "SmisEmcUnified",
+   "SmisMsa",
+   "SnmpRestIsilon",
+   "SmisPureStorage",
+   "XtremIO",
+   "EmcUnity",
+   "InfiniBox",
+   "GenericRest",
+   "SmisAndGenericHttpExternal",
+   "HPEPrimera",
+   "NetAppAIQUM",
+   "Swordfish",
+   "ChoosePollingMethod"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.MigrationObject": {
+  "name": "SolarWinds.SRM.Common.Enums.MigrationObject",
+  "kind": "string",
+  "enum": [
+   "Provider",
+   "StorageArray",
+   "Unknown"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.MigrationType": {
+  "name": "SolarWinds.SRM.Common.Enums.MigrationType",
+  "kind": "string",
+  "enum": [
+   "NetAppZapiToOntapRestApi",
+   "NetAppDFMToAiqumRestApi",
+   "NetAppOntapRestApiToZapi",
+   "NetAppAiqumToDfm",
+   "Unknown"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.ProviderLocation": {
+  "name": "SolarWinds.SRM.Common.Enums.ProviderLocation",
+  "kind": "string",
+  "enum": [
+   "External",
+   "Onboard"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.ProviderTypeEnum": {
+  "name": "SolarWinds.SRM.Common.Enums.ProviderTypeEnum",
+  "kind": "string",
+  "enum": [
+   "Block",
+   "File",
+   "Unified"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.SRMDeviceMigrationStatus": {
+  "name": "SolarWinds.SRM.Common.Enums.SRMDeviceMigrationStatus",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "ReadyForMigration",
+   "NotCompatible",
+   "InProgress",
+   "FinishedSuccessfully",
+   "FinishedFailed"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.SrmTestConnectionJobResultCode": {
+  "name": "SolarWinds.SRM.Common.Enums.SrmTestConnectionJobResultCode",
+  "kind": "string",
+  "enum": [
+   "Success",
+   "UnableToConnect",
+   "NotAppllicable",
+   "Unknown"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.StorageArrayStatus": {
+  "name": "SolarWinds.SRM.Common.Enums.StorageArrayStatus",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Up",
+   "Down",
+   "Warning",
+   "Unmanaged",
+   "Unreachable",
+   "Critical"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.StorageControllerPollingFeature": {
+  "name": "SolarWinds.SRM.Common.Enums.StorageControllerPollingFeature",
+  "kind": "string",
+  "enum": [
+   "NotSupported",
+   "Enabled",
+   "Disabled"
+  ]
+ },
+ "SolarWinds.SRM.Common.Enums.VServerStatus": {
+  "name": "SolarWinds.SRM.Common.Enums.VServerStatus",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "Up",
+   "Down",
+   "Warning",
+   "Unmanaged",
+   "Unreachable",
+   "Critical"
+  ]
+ },
+ "SolarWinds.SRM.Common.Exceptions.ErrorState": {
+  "name": "SolarWinds.SRM.Common.Exceptions.ErrorState",
+  "kind": "string",
+  "enum": [
+   "Unknown",
+   "CannotConnect",
+   "AlreadyConnected",
+   "CannotCreateSocket",
+   "InvalidLocator",
+   "AccessDenied",
+   "FIPSRestricted",
+   "NamespaceDoesNotExists",
+   "NotSupported"
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.ArrayEntity": {
+  "name": "SolarWinds.SRM.Common.Models.ArrayEntity",
+  "kind": "object",
+  "members": [
+   {
+    "name": "UniqueArrayId",
+    "type": "string"
+   },
+   {
+    "name": "FlowType",
+    "type": "SolarWinds.SRM.Common.Enums.FlowType"
+   },
+   {
+    "name": "StorageArrayId",
+    "type": "number"
+   },
+   {
+    "name": "LastSync",
+    "type": "string"
+   },
+   {
+    "name": "CapacityRunout",
+    "type": "string"
+   },
+   {
+    "name": "CapacityRawUsed",
+    "type": "number"
+   },
+   {
+    "name": "CapacityRawFree",
+    "type": "number"
+   },
+   {
+    "name": "CapacityRawSpare",
+    "type": "number"
+   },
+   {
+    "name": "CapacityUserTotal",
+    "type": "number"
+   },
+   {
+    "name": "CapacityUserUsed",
+    "type": "number"
+   },
+   {
+    "name": "CapacityUserFree",
+    "type": "number"
+   },
+   {
+    "name": "Unmanaged",
+    "type": "boolean"
+   },
+   {
+    "name": "Status",
+    "type": "SolarWinds.SRM.Common.Enums.StorageArrayStatus"
+   },
+   {
+    "name": "ControllersPollingFeature",
+    "type": "SolarWinds.SRM.Common.Enums.StorageControllerPollingFeature"
+   },
+   {
+    "name": "Caption",
+    "type": "string"
+   },
+   {
+    "name": "DisplayName",
+    "type": "string"
+   },
+   {
+    "name": "StatCollection",
+    "type": "number"
+   },
+   {
+    "name": "RediscoveryInterval",
+    "type": "number"
+   },
+   {
+    "name": "TopologyInterval",
+    "type": "number"
+   },
+   {
+    "name": "ControllerInterval",
+    "type": "number"
+   },
+   {
+    "name": "EngineID",
+    "type": "number"
+   },
+   {
+    "name": "Enabled",
+    "type": "boolean"
+   },
+   {
+    "name": "VendorStatus",
+    "type": "number"
+   },
+   {
+    "name": "VendorStatusDescription",
+    "type": "string"
+   },
+   {
+    "name": "CapacitySubscribed",
+    "type": "number"
+   },
+   {
+    "name": "CapacityAllocated",
+    "type": "number"
+   },
+   {
+    "name": "IOPSTotal",
+    "type": "number"
+   },
+   {
+    "name": "IOPSRead",
+    "type": "number"
+   },
+   {
+    "name": "IOPSWrite",
+    "type": "number"
+   },
+   {
+    "name": "IOPSOther",
+    "type": "number"
+   },
+   {
+    "name": "BytesPSTotal",
+    "type": "number"
+   },
+   {
+    "name": "BytesPSRead",
+    "type": "number"
+   },
+   {
+    "name": "BytesPSWrite",
+    "type": "number"
+   },
+   {
+    "name": "IOSizeTotal",
+    "type": "number"
+   },
+   {
+    "name": "IOSizeRead",
+    "type": "number"
+   },
+   {
+    "name": "IOSizeWrite",
+    "type": "number"
+   },
+   {
+    "name": "LastCapacityPollTime",
+    "type": "string"
+   },
+   {
+    "name": "LastPerformancePollTime",
+    "type": "string"
+   },
+   {
+    "name": "LastTopologyPollTime",
+    "type": "string"
+   },
+   {
+    "name": "LastControllerPollTime",
+    "type": "string"
+   },
+   {
+    "name": "Created",
+    "type": "string"
+   },
+   {
+    "name": "TemplateId",
+    "type": "string"
+   },
+   {
+    "name": "ID",
+    "type": "string"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "IPAddresses",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "Manufacturer",
+    "type": "string"
+   },
+   {
+    "name": "Model",
+    "type": "string"
+   },
+   {
+    "name": "Firmware",
+    "type": "string"
+   },
+   {
+    "name": "SerialNumber",
+    "type": "string"
+   },
+   {
+    "name": "StatusDescription",
+    "type": "string"
+   },
+   {
+    "name": "DeviceSyncInterval",
+    "type": "number"
+   },
+   {
+    "name": "DeviceLastSync",
+    "type": "string"
+   },
+   {
+    "name": "CapacityRawTotal",
+    "type": "number"
+   },
+   {
+    "name": "Vendor",
+    "type": "string"
+   },
+   {
+    "name": "Type",
+    "type": "SolarWinds.SRM.Common.Enums.ArrayType"
+   },
+   {
+    "name": "CapacityTotal",
+    "type": "number"
+   },
+   {
+    "name": "Disks",
+    "type": "number"
+   },
+   {
+    "name": "IsCluster",
+    "type": "boolean"
+   },
+   {
+    "name": "Target",
+    "type": "string"
+   },
+   {
+    "name": "PollerType",
+    "type": "string"
+   },
+   {
+    "name": "DataReduction",
+    "type": "number"
+   },
+   {
+    "name": "TotalReduction",
+    "type": "number"
+   },
+   {
+    "name": "SupportsHardwareHealth",
+    "type": "boolean"
+   },
+   {
+    "name": "Properties",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.Object~"
+   },
+   {
+    "name": "OriginInstanceName",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.ArraySnapshot": {
+  "name": "SolarWinds.SRM.Common.Models.ArraySnapshot",
+  "kind": "object",
+  "members": [
+   {
+    "name": "SnaphotID",
+    "type": "number"
+   },
+   {
+    "name": "PollInterval",
+    "type": "number"
+   },
+   {
+    "name": "Created",
+    "type": "string"
+   },
+   {
+    "name": "IPAddress",
+    "type": "string"
+   },
+   {
+    "name": "ArrayName",
+    "type": "string"
+   },
+   {
+    "name": "ArrayDeviceID",
+    "type": "string"
+   },
+   {
+    "name": "ArrayModel",
+    "type": "string"
+   },
+   {
+    "name": "ArrayManufacturer",
+    "type": "string"
+   },
+   {
+    "name": "ArraySerrialNumber",
+    "type": "string"
+   },
+   {
+    "name": "ArrayVendor",
+    "type": "string"
+   },
+   {
+    "name": "ArrayIsCluster",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.ConnectionInfo": {
+  "name": "SolarWinds.SRM.Common.Models.ConnectionInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "RetryCount",
+    "type": "number"
+   },
+   {
+    "name": "QueryTimeout",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "ConnectionTimeout",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "IPAddress",
+    "type": "string"
+   },
+   {
+    "name": "HostName",
+    "type": "string"
+   },
+   {
+    "name": "UsingHostName",
+    "type": "boolean"
+   },
+   {
+    "name": "ProviderType",
+    "type": "SolarWinds.SRM.Common.Enums.ProviderTypeEnum"
+   },
+   {
+    "name": "Credential",
+    "type": "SolarWinds.Orion.Core.SharedCredentials.Credential"
+   },
+   {
+    "name": "CredentialType",
+    "type": "SolarWinds.SRM.Common.Enums.CredentialType"
+   },
+   {
+    "name": "PropertyBag",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.Object~"
+   },
+   {
+    "name": "PollingAddress",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.DeviceGroup": {
+  "name": "SolarWinds.SRM.Common.Models.DeviceGroup",
+  "kind": "object",
+  "members": [
+   {
+    "name": "GroupId",
+    "type": "string"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "FlowType",
+    "type": "SolarWinds.SRM.Common.Enums.FlowType"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "TipPicture",
+    "type": "string"
+   },
+   {
+    "name": "LinkName",
+    "type": "string"
+   },
+   {
+    "name": "LinkURL",
+    "type": "string"
+   },
+   {
+    "name": "Properties",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.String~"
+   },
+   {
+    "name": "ProviderLocationOrOnboard",
+    "type": "SolarWinds.SRM.Common.Enums.ProviderLocation"
+   },
+   {
+    "name": "ProviderTypeOrBlock",
+    "type": "SolarWinds.SRM.Common.Enums.ProviderTypeEnum"
+   },
+   {
+    "name": "IsHttpsOnly",
+    "type": "boolean"
+   },
+   {
+    "name": "ApiHttpPort",
+    "type": "number"
+   },
+   {
+    "name": "ApiHttpsPort",
+    "type": "number"
+   },
+   {
+    "name": "SmisHttpPort",
+    "type": "number"
+   },
+   {
+    "name": "SmisHttpsPort",
+    "type": "number"
+   },
+   {
+    "name": "InteropNamespace",
+    "type": "string"
+   },
+   {
+    "name": "DefaultNamespace",
+    "type": "string"
+   },
+   {
+    "name": "PollingMethod",
+    "type": "string"
+   },
+   {
+    "name": "PollingMethodDescription",
+    "type": "string"
+   },
+   {
+    "name": "PollingMethodOptions",
+    "type": "string"
+   },
+   {
+    "name": "PollerType",
+    "type": "string"
+   },
+   {
+    "name": "EnableV3",
+    "type": "boolean"
+   },
+   {
+    "name": "IsHiddenInEnrollmentWizard",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.DiscoveryResults": {
+  "name": "SolarWinds.SRM.Common.Models.DiscoveryResults",
+  "kind": "object",
+  "members": [
+   {
+    "name": "StorageArrays",
+    "type": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.UnifiedResult.StorageArray~"
+   },
+   {
+    "name": "Results",
+    "type": "array",
+    "items": "System.Tuple~System.String_System.String_SolarWinds.SRM.Common.Discovery.SRMDiscoveryJobResultCode~"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.LicenseEntity": {
+  "name": "SolarWinds.SRM.Common.Models.LicenseEntity",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsEval",
+    "type": "boolean"
+   },
+   {
+    "name": "IsExpired",
+    "type": "boolean"
+   },
+   {
+    "name": "AllowedDiskCount",
+    "type": "number"
+   },
+   {
+    "name": "IsStandaloneModel",
+    "type": "boolean"
+   },
+   {
+    "name": "UsedBySRMCount",
+    "type": "number"
+   },
+   {
+    "name": "FreeCount",
+    "type": "number"
+   },
+   {
+    "name": "CurrentDiskCount",
+    "type": "number"
+   },
+   {
+    "name": "EvalDaysLeft",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.PollingEngine": {
+  "name": "SolarWinds.SRM.Common.Models.PollingEngine",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EngineID",
+    "type": "number"
+   },
+   {
+    "name": "ServerName",
+    "type": "string"
+   },
+   {
+    "name": "IP",
+    "type": "string"
+   },
+   {
+    "name": "ServerType",
+    "type": "string"
+   },
+   {
+    "name": "BusinessLayerPort",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.ProviderInfo": {
+  "name": "SolarWinds.SRM.Common.Models.ProviderInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ID",
+    "type": "number"
+   },
+   {
+    "name": "EngineID",
+    "type": "number"
+   },
+   {
+    "name": "TemplateID",
+    "type": "string"
+   },
+   {
+    "name": "PollingInterval",
+    "type": "number"
+   },
+   {
+    "name": "DeviceGroupID",
+    "type": "string"
+   },
+   {
+    "name": "ProviderLocation",
+    "type": "SolarWinds.SRM.Common.Enums.ProviderLocation"
+   },
+   {
+    "name": "ProviderGroupID",
+    "type": "string"
+   },
+   {
+    "name": "PollerType",
+    "type": "string"
+   },
+   {
+    "name": "RetryCount",
+    "type": "number"
+   },
+   {
+    "name": "QueryTimeout",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "ConnectionTimeout",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "IPAddress",
+    "type": "string"
+   },
+   {
+    "name": "HostName",
+    "type": "string"
+   },
+   {
+    "name": "UsingHostName",
+    "type": "boolean"
+   },
+   {
+    "name": "ProviderType",
+    "type": "SolarWinds.SRM.Common.Enums.ProviderTypeEnum"
+   },
+   {
+    "name": "Credential",
+    "type": "SolarWinds.Orion.Core.SharedCredentials.Credential"
+   },
+   {
+    "name": "CredentialType",
+    "type": "SolarWinds.SRM.Common.Enums.CredentialType"
+   },
+   {
+    "name": "PropertyBag",
+    "type": "array",
+    "items": "System.Collections.Generic.KeyValuePair~System.String_System.Object~"
+   },
+   {
+    "name": "PollingAddress",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.TestConnectionResults": {
+  "name": "SolarWinds.SRM.Common.Models.TestConnectionResults",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Results",
+    "type": "array",
+    "items": "System.Tuple~System.String_System.String_SolarWinds.SRM.Common.Enums.SrmTestConnectionJobResultCode~"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.Models.VServerEntity": {
+  "name": "SolarWinds.SRM.Common.Models.VServerEntity",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ID",
+    "type": "string"
+   },
+   {
+    "name": "VServerID",
+    "type": "number"
+   },
+   {
+    "name": "StorageArrayID",
+    "type": "number"
+   },
+   {
+    "name": "RootVolumeID",
+    "type": "number"
+   },
+   {
+    "name": "Status",
+    "type": "SolarWinds.SRM.Common.Enums.VServerStatus"
+   },
+   {
+    "name": "IPAddress",
+    "type": "string"
+   },
+   {
+    "name": "Name",
+    "type": "string"
+   },
+   {
+    "name": "Caption",
+    "type": "string"
+   },
+   {
+    "name": "DisplayName",
+    "type": "string"
+   },
+   {
+    "name": "Description",
+    "type": "string"
+   },
+   {
+    "name": "DetailsUrl",
+    "type": "string"
+   },
+   {
+    "name": "VendorStatus",
+    "type": "number"
+   },
+   {
+    "name": "VendorStatusDescription",
+    "type": "string"
+   },
+   {
+    "name": "CapacitySubscribed",
+    "type": "number"
+   },
+   {
+    "name": "CapacityAllocated",
+    "type": "number"
+   },
+   {
+    "name": "IOPSTotal",
+    "type": "number"
+   },
+   {
+    "name": "IOPSRead",
+    "type": "number"
+   },
+   {
+    "name": "IOPSWrite",
+    "type": "number"
+   },
+   {
+    "name": "IOPSOther",
+    "type": "number"
+   },
+   {
+    "name": "BytesPSTotal",
+    "type": "number"
+   },
+   {
+    "name": "BytesPSRead",
+    "type": "number"
+   },
+   {
+    "name": "BytesPSWrite",
+    "type": "number"
+   },
+   {
+    "name": "IOSizeTotal",
+    "type": "number"
+   },
+   {
+    "name": "IOSizeRead",
+    "type": "number"
+   },
+   {
+    "name": "IOSizeWrite",
+    "type": "number"
+   },
+   {
+    "name": "LastSync",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.SRM.Common.TemplatePropertyAvailability": {
+  "name": "SolarWinds.SRM.Common.TemplatePropertyAvailability",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EntityName",
+    "type": "string"
+   },
+   {
+    "name": "PropertyName",
+    "type": "string"
+   },
+   {
+    "name": "Availability",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.CveSourcesValidationResult": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.CveSourcesValidationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "InvalidSources",
+    "type": "array",
+    "items": "number"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "IsSuccess",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.ImportRunInfo": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.ImportRunInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "RunBy",
+    "type": "string"
+   },
+   {
+    "name": "StartTime",
+    "type": "string"
+   },
+   {
+    "name": "EndTime",
+    "type": "string"
+   },
+   {
+    "name": "Status",
+    "type": "SolarWinds.SecObs.Common.Models.Vulnerability.ImportRunStatus"
+   },
+   {
+    "name": "NewCount",
+    "type": "number"
+   },
+   {
+    "name": "UpdateCount",
+    "type": "number"
+   },
+   {
+    "name": "ErrorCount",
+    "type": "number"
+   },
+   {
+    "name": "Message",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.ImportRunStatus": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.ImportRunStatus",
+  "kind": "string",
+  "enum": [
+   "None",
+   "Pending",
+   "Running",
+   "Finished",
+   "Error"
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.NodeCveId": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.NodeCveId",
+  "kind": "object",
+  "members": [
+   {
+    "name": "NodeId",
+    "type": "number"
+   },
+   {
+    "name": "CveId",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.NodeCveState": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.NodeCveState",
+  "kind": "string",
+  "enum": [
+   "PotentialVulnerability",
+   "ConfirmedVulnerability",
+   "Remediated",
+   "NotApplicable",
+   "RemediationPlanned",
+   "Waiver"
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.SetImportSettingsResult": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.SetImportSettingsResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "SourceValidation",
+    "type": "SolarWinds.SecObs.Common.Models.Vulnerability.SourcesValidationResult"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "IsSuccess",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.SetMatchSettingsResult": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.SetMatchSettingsResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "IsSucceed",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.SourcesModel": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.SourcesModel",
+  "kind": "object",
+  "members": [
+   {
+    "name": "VulnerabilitySources",
+    "type": "array",
+    "items": "string"
+   },
+   {
+    "name": "PlatformsSource",
+    "type": "string"
+   },
+   {
+    "name": "EpssSource",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.SourcesValidationResult": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.SourcesValidationResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "VulnerabilitySourcesValidationResult",
+    "type": "SolarWinds.SecObs.Common.Models.Vulnerability.CveSourcesValidationResult"
+   },
+   {
+    "name": "PlatformsSourceValidationMessage",
+    "type": "string"
+   },
+   {
+    "name": "EpssSourceValidationMessage",
+    "type": "string"
+   },
+   {
+    "name": "IsSuccess",
+    "type": "boolean"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.TryRunResult": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.TryRunResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsSucceed",
+    "type": "boolean"
+   },
+   {
+    "name": "CurrentProcessType",
+    "type": "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilityProcesses"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilitiesDatabaseInfo": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilitiesDatabaseInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "CveCount",
+    "type": "number"
+   },
+   {
+    "name": "FullDbSizeInKb",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilityImportSettings": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilityImportSettings",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EnableScheduler",
+    "type": "boolean"
+   },
+   {
+    "name": "SchedulerDailyTimeOffset",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "CpeMatchFeedFile",
+    "type": "string"
+   },
+   {
+    "name": "EpssFile",
+    "type": "string"
+   },
+   {
+    "name": "Sources",
+    "type": "System.Collections.Generic.IEnumerable~System.String~"
+   },
+   {
+    "name": "BatchSize",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilityMatchSettingsModel": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilityMatchSettingsModel",
+  "kind": "object",
+  "members": [
+   {
+    "name": "EnableScheduler",
+    "type": "boolean"
+   },
+   {
+    "name": "SchedulerDailyTimeOffset",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "UseEpssData",
+    "type": "boolean"
+   },
+   {
+    "name": "EnableHistoryRetentionPeriod",
+    "type": "boolean"
+   },
+   {
+    "name": "HistoryRetentionPeriod",
+    "type": "number"
+   }
+  ]
+ },
+ "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilityProcesses": {
+  "name": "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilityProcesses",
+  "kind": "string",
+  "enum": [
+   "Import",
+   "Matching",
+   "DeleteAllVulnerabilities",
+   "DeleteMatches",
+   "StopImport",
+   "StopMatching"
+  ]
+ },
+ "SolarWinds.Sem.Common.Models.SemTrackedTag": {
+  "name": "SolarWinds.Sem.Common.Models.SemTrackedTag",
+  "kind": "object",
+  "members": [
+   {
+    "name": "ConnectionId",
+    "type": "number"
+   },
+   {
+    "name": "CategoryName",
+    "type": "string"
+   },
+   {
+    "name": "TagId",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.Sem.Common.Models.TestResult": {
+  "name": "SolarWinds.Sem.Common.Models.TestResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "IsSucceed",
+    "type": "boolean"
+   },
+   {
+    "name": "Error",
+    "type": "string"
+   },
+   {
+    "name": "Success",
+    "type": "SolarWinds.Sem.Common.Models.TestResult"
+   }
+  ]
+ },
+ "SolarWinds.VIM.CloudMonitoring.Common.Models.ManagementActionResult": {
+  "name": "SolarWinds.VIM.CloudMonitoring.Common.Models.ManagementActionResult",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Success",
+    "type": "boolean"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "string"
+   },
+   {
+    "name": "CurrentState",
+    "type": "SolarWinds.VIM.CloudMonitoring.Contract.Models.Instances.CloudInstanceState"
+   },
+   {
+    "name": "PreviousState",
+    "type": "SolarWinds.VIM.CloudMonitoring.Contract.Models.Instances.CloudInstanceState"
+   },
+   {
+    "name": "InstanceId",
+    "type": "string"
+   }
+  ]
+ },
+ "SolarWinds.VIM.CloudMonitoring.Contract.Models.Instances.CloudInstanceState": {
+  "name": "SolarWinds.VIM.CloudMonitoring.Contract.Models.Instances.CloudInstanceState",
+  "kind": "string",
+  "enum": [
+   "Pending",
+   "Running",
+   "ShuttingDown",
+   "Terminated",
+   "Stopping",
+   "Stopped",
+   "Unknown"
+  ]
+ },
+ "System.Char": {
+  "name": "System.Char",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~SolarWinds.HardwareHealth.Common.Models.HardwareHealth.HardwareHealthItemKey~": {
+  "name": "System.Collections.Generic.IEnumerable~SolarWinds.HardwareHealth.Common.Models.HardwareHealth.HardwareHealthItemKey~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~SolarWinds.Orion.Core.Models.MacroParsing.MacroDefinition~": {
+  "name": "System.Collections.Generic.IEnumerable~SolarWinds.Orion.Core.Models.MacroParsing.MacroDefinition~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~SolarWinds.Orion.DiffEngine.Contract.Models.IgnoredTextBlock~": {
+  "name": "System.Collections.Generic.IEnumerable~SolarWinds.Orion.DiffEngine.Contract.Models.IgnoredTextBlock~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~SolarWinds.Orion.DiffEngine.Contract.Models.LinesDiff~": {
+  "name": "System.Collections.Generic.IEnumerable~SolarWinds.Orion.DiffEngine.Contract.Models.LinesDiff~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.ArrayEntity~": {
+  "name": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.ArrayEntity~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.PollingEngine~": {
+  "name": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.PollingEngine~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.ProviderInfo~": {
+  "name": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.ProviderInfo~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.SelectedArrayEntity~": {
+  "name": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.Models.SelectedArrayEntity~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.UnifiedResult.StorageArray~": {
+  "name": "System.Collections.Generic.IEnumerable~SolarWinds.SRM.Common.UnifiedResult.StorageArray~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~System.Guid~": {
+  "name": "System.Collections.Generic.IEnumerable~System.Guid~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~System.Int32~": {
+  "name": "System.Collections.Generic.IEnumerable~System.Int32~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~System.String~": {
+  "name": "System.Collections.Generic.IEnumerable~System.String~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.IEnumerable~System.ValueTuple~System.Guid_System.Collections.Generic.IEnumerable~System.String~~~": {
+  "name": "System.Collections.Generic.IEnumerable~System.ValueTuple~System.Guid_System.Collections.Generic.IEnumerable~System.String~~~",
+  "kind": "object"
+ },
+ "System.Collections.Generic.KeyValuePair~System.Int32_SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.Int32_SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "number"
+   },
+   {
+    "name": "Value",
+    "type": "SolarWinds.Orion.Core.Models.V1.DiscoveredObjects.DiscoveryResultExportItem"
+   }
+  ]
+ },
+ "System.Collections.Generic.KeyValuePair~System.Int32_System.String_array~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.Int32_System.String_array~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "number"
+   },
+   {
+    "name": "Value",
+    "type": "array",
+    "items": "string"
+   }
+  ]
+ },
+ "System.Collections.Generic.KeyValuePair~System.Int32_System.String~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.Int32_System.String~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "number"
+   },
+   {
+    "name": "Value",
+    "type": "string"
+   }
+  ]
+ },
+ "System.Collections.Generic.KeyValuePair~System.Int64_System.Int32~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.Int64_System.Int32~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "number"
+   },
+   {
+    "name": "Value",
+    "type": "number"
+   }
+  ]
+ },
+ "System.Collections.Generic.KeyValuePair~System.Nullable~System.Int32~_System.String~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.Nullable~System.Int32~_System.String~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "number"
+   },
+   {
+    "name": "Value",
+    "type": "string"
+   }
+  ]
+ },
+ "System.Collections.Generic.KeyValuePair~System.String_System.Boolean~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.String_System.Boolean~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "string"
+   },
+   {
+    "name": "Value",
+    "type": "boolean"
+   }
+  ]
+ },
+ "System.Collections.Generic.KeyValuePair~System.String_System.Collections.Generic.List~System.String~~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.String_System.Collections.Generic.List~System.String~~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "string"
+   },
+   {
+    "name": "Value",
+    "type": "array",
+    "items": "string"
+   }
+  ]
+ },
+ "System.Collections.Generic.KeyValuePair~System.String_System.Int32~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.String_System.Int32~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "string"
+   },
+   {
+    "name": "Value",
+    "type": "number"
+   }
+  ]
+ },
+ "System.Collections.Generic.KeyValuePair~System.String_System.Object~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.String_System.Object~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "string"
+   },
+   {
+    "name": "Value",
+    "type": "System.Object"
+   }
+  ]
+ },
+ "System.Collections.Generic.KeyValuePair~System.String_System.String~": {
+  "name": "System.Collections.Generic.KeyValuePair~System.String_System.String~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Key",
+    "type": "string"
+   },
+   {
+    "name": "Value",
+    "type": "string"
+   }
+  ]
+ },
+ "System.Data.DataTable": {
+  "name": "System.Data.DataTable",
+  "kind": "array"
+ },
+ "System.IntPtr": {
+  "name": "System.IntPtr",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Size",
+    "type": "number"
+   }
+  ]
+ },
+ "System.Net.IPAddress": {
+  "name": "System.Net.IPAddress",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Address",
+    "type": "number"
+   },
+   {
+    "name": "AddressFamily",
+    "type": "System.Net.Sockets.AddressFamily"
+   },
+   {
+    "name": "ScopeId",
+    "type": "number"
+   },
+   {
+    "name": "IsIPv6Multicast",
+    "type": "boolean"
+   },
+   {
+    "name": "IsIPv6LinkLocal",
+    "type": "boolean"
+   },
+   {
+    "name": "IsIPv6SiteLocal",
+    "type": "boolean"
+   },
+   {
+    "name": "IsIPv6Teredo",
+    "type": "boolean"
+   },
+   {
+    "name": "IsIPv4MappedToIPv6",
+    "type": "boolean"
+   }
+  ]
+ },
+ "System.Net.Sockets.AddressFamily": {
+  "name": "System.Net.Sockets.AddressFamily",
+  "kind": "string",
+  "enum": [
+   "Unspecified",
+   "Unix",
+   "InterNetwork",
+   "ImpLink",
+   "Pup",
+   "Chaos",
+   "Ipx",
+   "NS",
+   "Iso",
+   "Osi",
+   "Ecma",
+   "DataKit",
+   "Ccitt",
+   "Sna",
+   "DecNet",
+   "DataLink",
+   "Lat",
+   "HyperChannel",
+   "AppleTalk",
+   "NetBios",
+   "VoiceView",
+   "FireFox",
+   "Banyan",
+   "Atm",
+   "InterNetworkV6",
+   "Cluster",
+   "Ieee12844",
+   "Irda",
+   "NetworkDesigners",
+   "Max",
+   "Unknown"
+  ]
+ },
+ "System.Object": {
+  "name": "System.Object",
+  "kind": "object"
+ },
+ "System.Text.StringBuilder": {
+  "name": "System.Text.StringBuilder",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Capacity",
+    "type": "number"
+   },
+   {
+    "name": "MaxCapacity",
+    "type": "number"
+   },
+   {
+    "name": "Length",
+    "type": "number"
+   },
+   {
+    "name": "Chars",
+    "type": "System.Char"
+   }
+  ]
+ },
+ "System.Threading.ManualResetEvent": {
+  "name": "System.Threading.ManualResetEvent",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Handle",
+    "type": "System.IntPtr"
+   },
+   {
+    "name": "SafeWaitHandle",
+    "type": "Microsoft.Win32.SafeHandles.SafeWaitHandle"
+   }
+  ]
+ },
+ "System.TimeSpan": {
+  "name": "System.TimeSpan",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Ticks",
+    "type": "number"
+   },
+   {
+    "name": "Days",
+    "type": "number"
+   },
+   {
+    "name": "Hours",
+    "type": "number"
+   },
+   {
+    "name": "Milliseconds",
+    "type": "number"
+   },
+   {
+    "name": "Minutes",
+    "type": "number"
+   },
+   {
+    "name": "Seconds",
+    "type": "number"
+   },
+   {
+    "name": "TotalDays",
+    "type": "number"
+   },
+   {
+    "name": "TotalHours",
+    "type": "number"
+   },
+   {
+    "name": "TotalMilliseconds",
+    "type": "number"
+   },
+   {
+    "name": "TotalMinutes",
+    "type": "number"
+   },
+   {
+    "name": "TotalSeconds",
+    "type": "number"
+   }
+  ]
+ },
+ "System.TimeZoneInfo": {
+  "name": "System.TimeZoneInfo",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Id",
+    "type": "string"
+   },
+   {
+    "name": "DisplayName",
+    "type": "string"
+   },
+   {
+    "name": "StandardName",
+    "type": "string"
+   },
+   {
+    "name": "DaylightName",
+    "type": "string"
+   },
+   {
+    "name": "BaseUtcOffset",
+    "type": "System.TimeSpan"
+   },
+   {
+    "name": "SupportsDaylightSavingTime",
+    "type": "boolean"
+   },
+   {
+    "name": "Local",
+    "type": "System.TimeZoneInfo"
+   },
+   {
+    "name": "Utc",
+    "type": "System.TimeZoneInfo"
+   }
+  ]
+ },
+ "System.Tuple~System.Boolean_System.String_System.Int32_System.Int32~": {
+  "name": "System.Tuple~System.Boolean_System.String_System.Int32_System.Int32~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Item1",
+    "type": "boolean"
+   },
+   {
+    "name": "Item2",
+    "type": "string"
+   },
+   {
+    "name": "Item3",
+    "type": "number"
+   },
+   {
+    "name": "Item4",
+    "type": "number"
+   }
+  ]
+ },
+ "System.Tuple~System.String_System.String_SolarWinds.SRM.Common.Discovery.SRMDiscoveryJobResultCode~": {
+  "name": "System.Tuple~System.String_System.String_SolarWinds.SRM.Common.Discovery.SRMDiscoveryJobResultCode~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Item1",
+    "type": "string"
+   },
+   {
+    "name": "Item2",
+    "type": "string"
+   },
+   {
+    "name": "Item3",
+    "type": "SolarWinds.SRM.Common.Discovery.SRMDiscoveryJobResultCode"
+   }
+  ]
+ },
+ "System.Tuple~System.String_System.String_SolarWinds.SRM.Common.Enums.SrmTestConnectionJobResultCode~": {
+  "name": "System.Tuple~System.String_System.String_SolarWinds.SRM.Common.Enums.SrmTestConnectionJobResultCode~",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Item1",
+    "type": "string"
+   },
+   {
+    "name": "Item2",
+    "type": "string"
+   },
+   {
+    "name": "Item3",
+    "type": "SolarWinds.SRM.Common.Enums.SrmTestConnectionJobResultCode"
+   }
+  ]
+ },
+ "System.Version": {
+  "name": "System.Version",
+  "kind": "object",
+  "members": [
+   {
+    "name": "Major",
+    "type": "number"
+   },
+   {
+    "name": "Minor",
+    "type": "number"
+   },
+   {
+    "name": "Build",
+    "type": "number"
+   },
+   {
+    "name": "Revision",
+    "type": "number"
+   },
+   {
+    "name": "MajorRevision",
+    "type": "number"
+   },
+   {
+    "name": "MinorRevision",
+    "type": "number"
+   }
+  ]
+ },
+ "System.Void": {
+  "name": "System.Void",
+  "kind": "object"
+ }
+}

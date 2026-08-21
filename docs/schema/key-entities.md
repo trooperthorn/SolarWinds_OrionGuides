@@ -1360,6 +1360,6 @@ it in a saved report.
   does to your row count.
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) before calling any verb on this page.
 - [../reference/entity-index.md](../reference/entity-index.md) for all 2067 entities, and
-  [../reference/verb-index.md](../reference/verb-index.md) for all 958 verbs.
+  [../reference/verb-index.md](../reference/verb-index.md) for all 1021 verbs.
 - [../modules/README.md](../modules/README.md) for the module-specific entities this page
   does not cover.

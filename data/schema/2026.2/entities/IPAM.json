@@ -1673,6 +1673,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.IPAM.Contract.APtrRecordsPair",
     "restPath": "/Invoke/IPAM.DhcpDnsManagement/GetAandPTRrecordsForDnsZone"
    },
    {
@@ -4554,6 +4555,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.IPAM.Contract.GetGroupNodeDto",
     "restPath": "/Invoke/IPAM.GroupManagement/GetGroupsByName"
    },
    {
@@ -4568,6 +4570,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.IPAM.Contract.GetGroupNodeDto",
     "restPath": "/Invoke/IPAM.GroupManagement/GetAllGroupNodesByName"
    },
    {
@@ -10501,6 +10504,7 @@
      }
     ],
     "returns": "array",
+    "returnsItems": "SolarWinds.IPAM.Contract.GetGroupNodeDto",
     "restPath": "/Invoke/IPAM.SupernetManagement/GetSupernetsByName"
    },
    {

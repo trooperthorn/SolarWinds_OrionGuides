@@ -30,11 +30,33 @@ SWIS schema 2026.2  (source: https://github.com/solarwinds/OrionSDK (gh-pages br
   entities                   2067
   namespaces                 16
   properties                 19328
-  verbs                      958
-  verbsWithTypedParameters   794
+  verbs                      1021
+  verbsWithTypedParameters   848
+  verbsFromSwaggerOnly       63
+  entitiesWithoutSchemaPage  5
+  types                      309
+  verbsWithKnownReturnShape  542
   relationshipEdges          2992
   creatableEntities          250
   skippedPages               0
+
+  entities per namespace
+    Orion              1705
+    IPAM               77
+    NCM                72
+    Cortex             69
+    Cirrus             57
+    System             29
+    DPA                18
+    Metadata           11
+    ContentModel       8
+    Cli                5
+    UamsClient         5
+    PlatformConnect    3
+    SWISf              3
+    SOC                2
+    Vdc                2
+    PlatformBridge     1
 ```
 
 Those counts are the whole of the published 2026.2 schema, not a sample. The published
@@ -280,4 +302,4 @@ too. Every `sql` block in this documentation is re-validated on every build.
 - [joins-and-navigation.md](../swql/joins-and-navigation.md) for the SWQL side of the same
   material: what a navigation does to your row count, and how to filter a base-entity query.
 - [entity-index.md](../reference/entity-index.md) for all 2067 entities in one table, and
-  [verb-index.md](../reference/verb-index.md) for all 958 verbs with their signatures.
+  [verb-index.md](../reference/verb-index.md) for all 1021 verbs with their signatures.

@@ -165,9 +165,11 @@ matters, because none of the `Orion.VIM.*` entities publishes an unmanage verb o
 
 ## Virtual machines
 
-`Orion.VIM.VirtualMachines` is the widest entity in the module: 76 declared properties on top
-of eight inherited from `Orion.Virtualization.Instance` and the usual `System.ManagedEntity`
-set. It is also the only VIM entity with meaningful verbs.
+`Orion.VIM.VirtualMachines` is the widest of the module's monitored objects: 76 declared
+properties on top of eight inherited from `Orion.Virtualization.Instance` and the usual
+`System.ManagedEntity` set. Only its own statistics table `Orion.VIM.VMStatistics`, at 80
+declared, is wider. It is also the only one of the six monitored object types that publishes
+verbs of its own.
 
 Its inheritance chain is worth knowing, because several of the columns people reach for most
 are inherited rather than declared: `VirtualMachineID` (the key), `Name`, `CpuLoad`,
@@ -347,7 +349,9 @@ produces a confusing report.
 
 Seven statistics entities hold the rolled-up history. All inherit `System.StatisticsEntity`
 and therefore carry `ObservationTimestamp`, `ObservationFrequency` and `Weight`, but four of
-them **also declare a `DateTime` column**, and that is the one to filter on for those four.
+them **also carry a `DateTime` column**, and that is the one to filter on for those four.
+Three of the four declare it themselves; `Orion.VIM.VMStatistics` inherits it from
+`Orion.Virtualization.Statistics`, so `show` will not list it there.
 
 | Entity | Rows about | Time column to filter |
 |---|---|---|
@@ -400,8 +404,10 @@ list is in [../reference/netobject-types.md](../reference/netobject-types.md).
 ## Alarms
 
 Virtualization Manager surfaces the hypervisor's own alarms, which are separate from the
-platform's `Orion.Alerts` machinery. Two entities, both restricted to `admin` for anything
-other than reading:
+platform's own alerting. There is no `Orion.Alerts` entity to confuse them with: the
+platform side lives in `Orion.AlertConfigurations` and `Orion.AlertActive`, covered in
+[../automation/alerts.md](../automation/alerts.md). Two entities, both restricted to `admin`
+for anything other than reading:
 
 `Orion.VIM.Alarm` is the definition as it exists in vCenter: `Id`, `ManagedObjectId`, `Name`,
 `Description`, `SystemName`, `IsEnabled`, `IsDeleted`, `LastSeenTimestamp`,
@@ -419,10 +425,13 @@ navigation of its own and needs an explicit join to `Orion.VIM.VCenters`.
 documents it inline: 0 unknown, 1 green (success), 2 yellow (warning), 3 red. Do not join
 `Orion.StatusInfo` to it.
 
-`Timestamp`, `AcknowledgedTime` and `LastSeenTimestamp` are all documented as UTC, unlike
-most platform datetime columns which are local server time. Compare them against
-`GetUtcDate()`, not `GetDate()`; see [../swql/date-and-time.md](../swql/date-and-time.md)
-for why mixing the two produces off-by-hours results.
+`Timestamp` and `LastSeenTimestamp` say so in their own schema summaries: both are
+documented as UTC, unlike most platform datetime columns which are local server time.
+Compare them against `GetUtcDate()`, not `GetDate()`; see
+[../swql/date-and-time.md](../swql/date-and-time.md) for why mixing the two produces
+off-by-hours results. **Unverified:** `AcknowledgedTime` sits beside them but its summary
+names no zone, so do not assume it matches; acknowledge an alarm at a known wall-clock time
+on your own server and read the column back before comparing it to either function.
 
 A monitored object also carries a `TriggeredAlarmDescription` string, denormalised onto
 `Orion.VIM.VirtualMachines`, `Hosts`, `Clusters`, `DataCenters`, `Datastores` and `VCenters`,
@@ -997,8 +1006,10 @@ is four inner joins. Hosts outside a cluster have no `ClusterID`, so their VMs d
 
 **Four statistics entities filter on `DateTime`, not `ObservationTimestamp`.**
 `Orion.VIM.VMStatistics`, `HostStatistics`, `ClusterStatistics` and `DatastoreStatistics`
-declare their own `DateTime` column while also inheriting `ObservationTimestamp`. The storage
-statistics entities use `ObservationTimestamp`. Run `props` before writing the filter.
+all carry a `DateTime` column while also inheriting `ObservationTimestamp`; the last three
+declare it, and `Orion.VIM.VMStatistics` inherits it from `Orion.Virtualization.Statistics`.
+The storage statistics entities use `ObservationTimestamp`. Run `props` before writing the
+filter.
 
 **`Orion.VIM.Snapshots` cannot reach its virtual machine.** It has one relationship,
 `DiskFiles`. Join on `VirtualMachineID` explicitly, and remember `s.PowerState` is the state
@@ -1019,8 +1030,9 @@ denormalised `DataStoreName` column already on the virtual disk row, or by joini
 unknown, 1 green, 2 yellow, 3 red. Joining `Orion.StatusInfo` to it produces plausible
 nonsense.
 
-**Alarm timestamps are UTC.** `Timestamp`, `AcknowledgedTime` and `LastSeenTimestamp` on
+**Alarm timestamps are UTC.** `Timestamp` and `LastSeenTimestamp` on
 `Orion.VIM.TriggeredAlarmState` are documented as UTC, unlike most platform datetime columns.
+`AcknowledgedTime` is documented neither way, so confirm it rather than assuming it matches.
 Compare against `GetUtcDate()`, and read
 [../swql/date-and-time.md](../swql/date-and-time.md) before combining `GetUtcDate()` with the
 `Add*` functions.
