@@ -259,6 +259,14 @@ navigable from an operation, though the navigation property names are not consis
 `Orion.IpSla.Operations.RpmTimestampOperationStats` all exist, but `Orion.IpSla.OperationStats`
 is reached as `Orion.IpSla.Operations.Stats`.
 
+Because they inherit `System.StatisticsEntity`, every one of them also has
+`ObservationTimestamp`, `ObservationFrequency` and `Weight` without declaring them.
+`Weight` is the number of raw samples a rolled-up row stands for, which is what makes
+`SUM(metric * Weight) / SUM(Weight)` the correct way to aggregate across intervals of
+different lengths. The declared `RecordTime` column and the inherited `ObservationTimestamp`
+are two separate columns, so check which one your data actually populates before writing a
+predicate against it.
+
 **`Orion.IpSla.OperationStats` is new in 2026.2.** It appears in the new-entity list of
 [../reference/schema-changes-2026.1-to-2026.2.md](../reference/schema-changes-2026.1-to-2026.2.md),
 and it is the consolidated table: 47 columns covering every metric family in one place. If

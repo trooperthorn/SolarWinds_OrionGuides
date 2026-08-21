@@ -253,12 +253,21 @@ and has no min or max. The other four carry `MinDuration`, `AvgDuration` and `Ma
 over an interval. All six carry `Timestamp`, `PercentAvailability`, and all six inherit from
 `System.StatisticsEntity`, so all six need a time bound in every query.
 
-`Weight` appears on `Orion.SEUM.ResponseTime`, `Orion.SEUM.ResponseTimeReport`,
-`Orion.SEUM.StepResponseTime`, `Orion.SEUM.StepResponseTimeReport`,
-`Orion.SEUM.AgentStatus` and `Orion.SEUM.AgentStatusReport`. It is how many raw samples a
-rolled-up row represents, and it is what makes an availability number correct when you
-aggregate across rows: `AVG(PercentAvailability)` weights a five-minute bucket the same as an
-hour-long one, while `SUM(PercentAvailability * Weight) / SUM(Weight)` does not.
+`Weight` is queryable on all six, and on both agent status entities, and it is what makes an
+availability number correct when you aggregate across rows: `AVG(PercentAvailability)`
+weights a five-minute bucket the same as an hour-long one, while
+`SUM(PercentAvailability * Weight) / SUM(Weight)` does not.
+
+Where `Weight` comes from is worth knowing, because it explains a type difference that will
+otherwise look like a bug. `System.StatisticsEntity` declares `ObservationTimestamp`,
+`ObservationFrequency` and `Weight` for every descendant, and its `Weight` is a
+`System.Double` documented as the collection interval in seconds. Four of the WPM statistics
+entities, `Orion.SEUM.ResponseTimeReport`, `Orion.SEUM.StepResponseTime`,
+`Orion.SEUM.StepResponseTimeReport` and `Orion.SEUM.AgentStatus`, redeclare `Weight`
+themselves as a `System.Int32`, as does `Orion.SEUM.AgentStatusReport`. The two `Detail`
+entities and `Orion.SEUM.ResponseTime` do not redeclare it and so expose the inherited
+`System.Double`. The column resolves in a query either way; a typed client binding it to an
+`int` does not.
 
 The step timings navigate both up to their step and sideways to the transaction's timing row
 for the same interval:
