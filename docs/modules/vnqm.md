@@ -115,8 +115,12 @@ starts deleting things.
 `DateChangedUtc`, `OperationResultID` and `OperationResultRecordTime`, plus `Deleted`, which
 is a soft-delete marker rather than a row that has gone away.
 
-Five navigation properties lead away from an operation, and two of them go to the same
-entity:
+An operation declares seventeen navigation properties in total. Twelve lead down to things it
+owns: ten statistics entities, covered in
+[where the numbers actually live](#where-the-numbers-actually-live), plus
+`Orion.IpSla.Operations.WebUri` for the console link and
+`Orion.IpSla.Operations.ParameterInfo` for its VoIP parameters. The other five lead out to
+objects the operation refers to, and two of those five go to the same entity:
 
 | Navigation | Target | Kind |
 |---|---|---|
@@ -229,10 +233,10 @@ operation only writes to the entity that matches its type.
 | `Orion.IpSla.OperationCurrentHttpMetrics`, `Orion.IpSla.OperationCurrentOneWayDelay`, `Orion.IpSla.OperationCurrentPathJitterLatencyPacketLoss` | the narrow per-family versions | not navigable |
 
 `Orion.IpSla.OperationCurrentStats` is the one to reach for by default: it is the widest, and
-it is the only one of the six with a `System.Hosting` relationship back to
-`Orion.IpSla.Operations`, so `cs.Operation.OperationName` works without a join. The other
-five are narrow views built for particular console resources and give you bare
-`OperationInstanceID` values.
+it is the only one of the seven `Orion.IpSla.OperationCurrent*` entities with a
+`System.Hosting` relationship back to `Orion.IpSla.Operations`, so
+`cs.Operation.OperationName` works without a join. The other six are narrow views built for
+particular console resources and give you bare `OperationInstanceID` values.
 
 **History, several rows per operation.**
 
@@ -241,12 +245,12 @@ five are narrow views built for particular console resources and give you bare
 | `Orion.IpSla.OperationStats` | every operation family | 47 columns: min/avg/max of round trip time, jitter (plain, SD and DS), latency, packet loss (plain, SD and DS), MOS, HTTP, DNS, TCP connect, transaction, one-way delay |
 | `Orion.IpSla.UdpJitterOperationStats` | UDP jitter operations that produce MOS | round trip time, MOS, jitter, latency, packet loss |
 | `Orion.IpSla.NonMOSUdpJitterOperationStats` | UDP jitter operations that do not | the same minus MOS |
-| `Orion.IpSla.IcmpPathJitterOperationStats` | ICMP path jitter | the same minus MOS, plus `Weight` |
+| `Orion.IpSla.IcmpPathJitterOperationStats` | ICMP path jitter | the same minus MOS, but with the three round trip time columns declared as `System.Double` rather than `System.Int32` |
 | `Orion.IpSla.NonPathOperationStats` | everything else | round trip time only |
 | `Orion.IpSla.RpmOperationStats`, `Orion.IpSla.RpmTimestampOperationStats` | Juniper RPM operations | round trip time, jitter, packet loss |
 
-All six inherit from `System.StatisticsEntity` and all six are navigable from an operation,
-though the navigation property names are not consistent:
+All seven of those entities inherit from `System.StatisticsEntity` and all seven are
+navigable from an operation, though the navigation property names are not consistent:
 `Orion.IpSla.Operations.UdpJitterOperationStats`,
 `Orion.IpSla.Operations.NonMOSUdpJitterOperationStats`,
 `Orion.IpSla.Operations.IcmpPathJitterOperationStats`,
@@ -393,8 +397,10 @@ measurements.
 `ProductType`, `RegionID`, `Status`, `LastStatusUpdatedUTC`, `LastRegisteredUTC`,
 `DetailsUrl` and the `UnManaged` trio. Unlike phones it **does** carry a
 `Orion.IpSla.CCMGateways.Region` navigation property, so region names come for free here and
-have to be joined by hand one entity over. `Orion.IpSla.CCMH323Devices` is the same shape for
-H.323 endpoints, with an extra `StatusReason`.
+have to be joined by hand one entity over. `Orion.IpSla.CCMH323Devices` is nearly the same shape for
+H.323 endpoints. It adds `StatusReason`, drops `DetailsUrl` and the `UnManaged` trio, and
+declares `ProductType` as a `System.Int32` where `Orion.IpSla.CCMGateways` declares it as a
+`System.String`, so the two do not interchange in a union.
 
 `Orion.IpSla.ConnectedCCMGateways` and `Orion.IpSla.ConnectedPhonesReport` are flattened
 report views over the same data, with the call manager name and region already resolved to

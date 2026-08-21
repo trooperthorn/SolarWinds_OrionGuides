@@ -51,6 +51,13 @@ vocabulary apply where.
 | 29 | **Other Category** | 1000 | Never to be placed on an object. CategoryStatusMap allows joining back to StatusInfo to place statues into one of several buckets. This status value is the result of a status that is not "relevant" from an "issue" perspective and deserves to be in the "other" bucket. |
 | 30 | **Not Running** | 498 | For SAM processes and IIS Application Pools that are not running. This status is not issue (it is expected state) so it is ignored in final application status roll up. |
 
+**Where this comes from.** The ids, names, ranks and descriptions are extracted from a
+community reference workbook, not from SolarWinds' published schema, which documents the
+`Status` property but not the values it takes. The workbook predates 2026.2, so treat this
+table as a reliable starting vocabulary and `Orion.StatusInfo` on your own server as the
+authority. See [`data/reference/status-codes.json`](../../data/reference/status-codes.json)
+and [using-the-data.md](using-the-data.md).
+
 The wording in the Meaning column is the source's own, typos included, so that it can be
 matched against the original. Six rows have no description at all in the source
 (16, 17, 19, 22, 24, 25, 27), and the ids 13, 18, 20, 21 and 23 are absent entirely. A
