@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**38 statements across 21 pages.**
+**51 statements across 23 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -19,7 +19,43 @@ Read this before relying on this repository for something load-bearing. If you h
 - They are created per installation, they are not in the published schema, and so this repository cannot verify them.
 **[CreateCustomProperty](../automation/custom-properties.md#createcustomproperty)**
 
-- They are not recorded in the schema data.
+- The allowed `ValueType` values and which parameters are ignored are not recorded in the schema data, so that page is where to check them.
+- How that serialises over REST is not recorded in the published schema and cannot be verified here, so the safe value is null.
+**[ValidateCustomProperty](../automation/custom-properties.md#validatecustomproperty)**
+
+- The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it is unverified here.
+
+## [node-management.md](../automation/node-management.md)
+
+**[The properties to set on create](../automation/node-management.md#the-properties-to-set-on-create)**
+
+- Which properties are required on create is **not recorded in the published schema**, and the Swagger contract does not mark them either, so the honest statement is: the set below is what SolarWinds' own [`CRUD.AddNode.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/CRUD.AddNode.ps1) sample sets, and every name in it is a real `Orion.Nodes` property in 2026.2.
+**[SNMPv3](../automation/node-management.md#snmpv3)**
+
+- The accepted values for `AuthenticationMethod` and `PrivacyMethod` are not recorded in the published schema; the sample script names `None`, `MD5` and `SHA1` for authentication and `None`, `DES56`, `AES128`, `AES192` and `AES256` for privacy, which is worth treating as indicative rather than authoritative for your release.
+- It cannot be verified here for `SNMPv3Credentials` specifically, so treat this URI form as unverified.
+**[There is no node-level AssignToEngine verb in 2026.2](../automation/node-management.md#there-is-no-node-level-assigntoengine-verb-in-20262)**
+
+- Searching the verb data for `AssignToEngine` returns `Orion.AgentManagement.Agent.AssignToEngine(agentId, pollerId)`, which moves an *agent*, and a set of `Core.AssignToEngine` verbs on `Cortex.*` entities including `Cortex.Orion.Node`, whose parameter lists are **not recorded in the published schema** and which require the `admin` right.
+- Because their signatures cannot be verified here, do not call them from a script on the strength of this page; if you want to know what your server exposes, ask it:
+**[Deleting a node](../automation/node-management.md#deleting-a-node)**
+
+- This page does not enumerate exactly which child rows go: that is runtime behaviour and it cannot be verified from the schema.
+
+## [cloud.md](../modules/cloud.md)
+
+**[Tag filters and resource tags are different entities](../modules/cloud.md#tag-filters-and-resource-tags-are-different-entities)**
+
+- For an EC2 instance the obvious candidate is `Orion.Cloud.Instances.InstanceId`, which is also a `System.String`, but the schema does not declare that correspondence and the exact format of `ResourceId` per provider is **unverified here**.
+**[The `Local.` entities in the CRUD surface](../modules/cloud.md#the-local-entities-in-the-crud-surface)**
+
+- That reading is unverified.
+**[Adding AWS accounts in bulk](../modules/cloud.md#adding-aws-accounts-in-bulk)**
+
+- It appears neither in the rendered schema for 2026.2 nor in the Swagger contract for 2026.2, both of which this repository extracts from, so it is **not verified here**.
+**[What is not verified here](../modules/cloud.md#what-is-not-verified-here)**
+
+- ## What is not verified here
 
 ## [dpa.md](../modules/dpa.md)
 
@@ -103,6 +139,9 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [vnqm.md](../modules/vnqm.md)
 
+**[IP SLA operations](../modules/vnqm.md#ip-sla-operations)**
+
+- None of the three carries a description in the schema, so the readings of `LifeTimeUtc` and `IsAutoConfigured` given here are inferences and are listed in [what is not verified here](#what-is-not-verified-here).
 **[MOS, jitter and the other quality metrics](../modules/vnqm.md#mos-jitter-and-the-other-quality-metrics)**
 
 - They are listed in [what is not verified here](#what-is-not-verified-here) with a query that shows you the observed range on your own server.
