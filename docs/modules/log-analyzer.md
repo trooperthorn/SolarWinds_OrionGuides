@@ -656,10 +656,12 @@ nodes all day will be refused almost everywhere in this module.
 an event published to alerting, not a table. If you want the messages behind an alert, query
 `Orion.OLM.LogEntry` for the node and window the alert covers.
 
-**Six entities declare no operations at all.** `Orion.OLM.Tags`,
-`Orion.OLM.LogEntryTagAssignment`, `Orion.OLM.LogEntryLevel`,
-`Orion.OLM.LogEntrySecondarySources`, `Orion.OLM.LogEntrySecondarySourceAssignment` and the
-indications. They are readable through navigation but are not part of the CRUD surface.
+**Ten of the 21 entities declare no operations at all.** Five are table-shaped:
+`Orion.OLM.Tags`, `Orion.OLM.LogEntryTagAssignment`, `Orion.OLM.LogEntryLevel`,
+`Orion.OLM.LogEntrySecondarySources` and
+`Orion.OLM.LogEntrySecondarySourceAssignment`. They are readable through navigation but are
+not part of the CRUD surface. The other five are the indications, which are not tables at
+all.
 
 **`AgentId` and `LogProfileID` are cased differently on the same entity.**
 `Orion.OLM.LogProfileAgentAssignment` declares `LogProfileID` and `AgentId`. SWQL is not

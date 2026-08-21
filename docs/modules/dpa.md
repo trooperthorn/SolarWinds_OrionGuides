@@ -38,9 +38,9 @@ WHERE FullName LIKE 'DPA.%' OR FullName LIKE 'Orion.DPA.%'
 ORDER BY FullName
 ```
 
-An empty result means DPA is not integrated with this installation. Note that a third
-entity, `Orion.Web.DPA.MenuBarChanges`, matches a keyword search for "DPA" and belongs to
-the web layer rather than to the module; it is not counted in the 27.
+An empty result means DPA is not integrated with this installation. One further entity,
+`Orion.Web.DPA.MenuBarChanges`, matches a keyword search for "DPA" but belongs to the web
+layer rather than to the module, so it is not counted in the 27.
 
 ### What the schema says about where the data lives
 
@@ -213,13 +213,12 @@ giveaway is a property that is obviously an input rather than data.
 
 | Entity | What the schema says |
 |---|---|
-| `DPA.ResourceData` | "It has single parameter that is required (`DatabaseId`) and two more that specifies what data will be returned". If both `ResourceName` and `CategoryName` are given you get one metric over a time frame; if either is missing you get the last data point for every metric |
+| `DPA.ResourceData` | "It has single parameter that is required (`DatabaseId`) and two more that specifies what data will be returned". If both `ResourceName` and `CategoryName` are given you get one metric over a time frame; if either is missing you get the last data point for every metric. Its `TimeUnit` "will be ignored" when both bounds of `Time` are supplied |
 | `DPA.SQLQueryInfo` | "`DatabaseId` and Hash are mandatory in where condition" |
 | `DPA.SqlServerQueryHash` | "Both `DatabaseId` and Handle are mandatory in where condition" |
 | `DPA.DetailDataDimension` | `TopN` "Limits the maximal number of categories to be retrieved", `IntervalUnit` and `TimesliceUnit` are enumerated granularity codes |
 | `DPA.TrendDataDimension` | `MaxInstances` "Serves only to limit the maximal number of monitored database instances to be retrieved (top 5, 10, etc.)", `TimeUnit` restricted to hours (3) or days (4) |
 | `DPA.BlockingOverview`, `DPA.BlockingChain` | `Time` is "Beginning and end of the interval ... End defaults to now" |
-| `DPA.ResourceData` | `TimeUnit` "will be ignored" when both bounds of `Time` are supplied |
 
 Three consequences follow.
 
