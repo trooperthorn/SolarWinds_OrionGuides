@@ -22,6 +22,7 @@ was arrived at by getting it wrong first:
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 import sys
@@ -35,9 +36,8 @@ import validate_swql
 from schema_query import Schema
 
 VERSION = "2026.2"
-DATA = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "schema", VERSION
-)
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA = os.path.join(ROOT, "data", "schema", VERSION)
 HAVE_DATA = os.path.isdir(DATA)
 requires_data = unittest.skipUnless(HAVE_DATA, f"no extracted schema at {DATA}; run make data")
 
@@ -565,6 +565,36 @@ class TestNetObjectPrefixes(unittest.TestCase):
 
     def test_bare_prefix_form_is_recognised(self):
         self.assertEqual(self.cer.netobject_claims("The prefix is `TSR:`.", self.prefixes), [])
+
+
+class TestGeneratedFileDetection(unittest.TestCase):
+    """Generated pages are skipped by their banner, not by their directory.
+
+    docs/reference/ is mostly generated, and checking an enumeration of the same data it
+    was generated from proves nothing. Skipping the whole directory would also skip a
+    hand-written page that lives there, such as a glossary, which is exactly the kind of
+    page that needs checking.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_counts
+        import check_signatures
+
+        cls.mods = (check_counts, check_signatures)
+
+    def test_every_generated_reference_page_is_detected(self):
+        pages = glob.glob(os.path.join(ROOT, "docs", "reference", "*.md"))
+        self.assertGreater(len(pages), 4)
+        for mod in self.mods:
+            for page in pages:
+                if "GENERATED FILE" in open(page, encoding="utf-8").read(400):
+                    self.assertTrue(mod.is_generated(page), page)
+
+    def test_a_hand_written_page_is_not_skipped(self):
+        for mod in self.mods:
+            self.assertFalse(mod.is_generated(os.path.join(ROOT, "docs", "README.md")))
+            self.assertFalse(mod.is_generated(os.path.join(ROOT, "CONTRIBUTING.md")))
 
 
 class TestUnverifiedIndex(unittest.TestCase):

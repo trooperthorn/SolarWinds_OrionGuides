@@ -94,6 +94,13 @@ SUBSET_RE = re.compile(
     re.I)
 
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+GENERATED_MARKER = "GENERATED FILE"
+
+
+def is_generated(path: str) -> bool:
+    """True when the file carries the banner the generators write."""
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        return GENERATED_MARKER in fh.read(400)
 
 
 def to_int(token: str) -> int | None:
@@ -188,9 +195,12 @@ def main() -> None:
 
     files: list[str] = []
     for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, "docs")):
-        # docs/reference is generated from the same data, so checking it proves nothing.
-        dirnames[:] = [d for d in dirnames if d not in {"reference", ".git"}]
+        dirnames[:] = [d for d in dirnames if d != ".git"]
         files += [os.path.join(dirpath, f) for f in filenames if f.endswith(".md")]
+    # A generated page is an enumeration of the same data, so checking it proves nothing.
+    # Skipping by banner rather than by directory keeps a hand-written page under
+    # docs/reference/, such as a glossary, inside the check.
+    files = [f for f in files if not is_generated(f)]
 
     confirmed = 0
     failures: list[str] = []
