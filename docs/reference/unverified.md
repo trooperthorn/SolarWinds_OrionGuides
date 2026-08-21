@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**138 statements across 43 pages.**
+**139 statements across 44 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -220,6 +220,12 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The report inventory itself](../automation/reporting.md#the-report-inventory-itself)**
 
 - The schema types it `System.String` rather than a number or an interval, and what that string contains is not recorded and is unverified here, so read a few values before you sort on it and expect lexicographic order rather than numeric if you do.
+
+## [scheduling.md](../automation/scheduling.md)
+
+**[A cron expression without its timezone is ambiguous](../automation/scheduling.md#a-cron-expression-without-its-timezone-is-ambiguous)**
+
+- What `ScheduleCondition` may contain is **not recorded in the published schema** and is unverified here.
 
 ## [building-integrations.md](../guides/building-integrations.md)
 
