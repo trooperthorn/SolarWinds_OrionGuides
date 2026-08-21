@@ -34,8 +34,8 @@ ten of twenty-one.
 | [check_signatures.py](check_signatures.py) | A verb signature with its arguments wrong or out of order, or a function call with the wrong number |
 | [check_examples.py](check_examples.py) | A documented command whose shown output is not what it prints |
 | [check_data.py](check_data.py) | Extraction that degraded quietly, and reference pages that fell behind |
-| [check_links.py](check_links.py) | A relative link to a file that no longer exists |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 108 tests |
+| [check_links.py](check_links.py) | A relative link or #anchor that no longer resolves |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 111 tests |
 
 Beyond names and links, `check_data.py` also holds the documentation to its own claims:
 the entity count each module page quotes for its namespace, the status tables written by

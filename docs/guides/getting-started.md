@@ -407,9 +407,9 @@ FROM Orion.Nodes n
 WHERE n.Caption = @caption
 ```
 
-`UnManaged`, `UnManageFrom` and `UnManageUntil` are inherited from `System.ManagedEntity`, so
-`Orion.Nodes` does not declare them and they are queryable anyway. Write down what this
-returns. It is your "before".
+`UnManaged`, `UnManageFrom` and `UnManageUntil` are inherited from `System.ManagedEntity`.
+`Orion.Nodes` does not declare them, and they are queryable on it regardless, which is true
+of every managed object type. Write down what this query returns. It is your "before".
 
 ### Make the change
 
@@ -496,7 +496,7 @@ started.
 | A type error on one of the arguments | The arguments are in the wrong order | Re-read the signature with `schema_query.py verb`; order is the whole contract |
 | The window opens hours off | Local time sent as UTC | Convert explicitly at the boundary |
 | An error about an overlapping window | A window is already scheduled on that node | Remanage first, or pass `true` for `allowOverlapping` deliberately |
-| The node is unmanaged and will not come back | `UnManageUntil` has passed but the flag is stuck | Call `Remanage` explicitly. The query in [cookbook.md](cookbook.md#48-what-is-still-unmanaged-after-its-window-closed) finds all of them |
+| The node is unmanaged and will not come back | `UnManageUntil` has passed but the flag is stuck | Call `Remanage` explicitly. The query in [cookbook.md](cookbook.md#58-what-is-still-unmanaged-after-its-window-closed) finds all of them |
 
 ### Leave a trail you can read later
 

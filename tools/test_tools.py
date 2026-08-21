@@ -658,6 +658,27 @@ class TestUnverifiedIndex(unittest.TestCase):
         para = "One sentence here. A second one follows it."
         self.assertEqual(len(self.mod.statements(para)), 2)
 
+    def test_same_page_anchor_is_requalified_to_its_source(self):
+        # A lifted sentence lands in docs/reference/, so a bare "#anchor" would point at a
+        # heading of the index rather than of the page the sentence came from.
+        out = self.mod.requalify_links(
+            "listed in [what is not verified here](#what-is-not-verified-here).",
+            "docs/modules/vnqm.md",
+        )
+        self.assertIn("(../modules/vnqm.md#what-is-not-verified-here)", out)
+
+    def test_relative_path_is_rebased(self):
+        # Written relative to docs/swql/, it has to resolve from docs/reference/.
+        out = self.mod.requalify_links(
+            "see [joins](joins-and-navigation.md#querying-a-base-entity).",
+            "docs/swql/gotchas.md",
+        )
+        self.assertIn("(../swql/joins-and-navigation.md#querying-a-base-entity)", out)
+
+    def test_external_links_are_left_alone(self):
+        text = "see [the reference](https://solarwinds.github.io/OrionSDK/docs/)."
+        self.assertEqual(self.mod.requalify_links(text, "docs/swql/functions.md"), text)
+
 
 class TestRightsClaims(unittest.TestCase):
     """A right named in prose has to be one the schema declares.

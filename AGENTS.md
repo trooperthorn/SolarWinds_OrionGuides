@@ -118,6 +118,21 @@ their published contract disagree.
 asks about one of those things, say it is unverified here and give them the `Metadata.*`
 query that settles it, rather than filling the gap with a plausible answer.
 
+One thing that is *not* a gap, and is easy to miss: **the meaning of an integer column's
+values is often written into the schema itself.** SolarWinds documents many enumerations in
+the property summary, and `props` prints it:
+
+```bash
+python3 tools/schema_query.py props Cirrus.ApproveQueue --grep requeststatus
+```
+
+That returns "Values: * 0 - Pending Approval requests * 1 - Request which had been declined
+..." and so on through 6. Twenty-five properties carry an enumeration like that, under
+sixteen distinct names. Look before
+you infer what a status integer means, because a guessed enumeration reads exactly like a
+real one. Node and interface status is the separate, well-known case: it is an integer
+resolved through `Orion.StatusInfo`, tabulated in `docs/reference/status-codes.md`.
+
 Two smaller gaps worth knowing:
 
 - The rendered schema does not mark key properties. 79 entities carry a `keyHints` field

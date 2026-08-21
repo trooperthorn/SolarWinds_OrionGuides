@@ -81,6 +81,37 @@ def statements(paragraph: str) -> list[str]:
     return SENT_SPLIT_RE.split(" ".join(paragraph.split()))
 
 
+MD_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
+REFERENCE_DIR = os.path.join(ROOT, "docs", "reference")
+
+
+def requalify_links(sentence: str, source_path: str) -> str:
+    """Rewrite links in a lifted sentence so they still resolve from docs/reference/.
+
+    A sentence is lifted out of its page and into this index, which sits in a different
+    directory. Two kinds of link break in the move: a bare same-page anchor, which would
+    now point at a heading of the index rather than of the page it came from, and a
+    relative path, which was written relative to the source page's directory.
+    """
+    source_dir = os.path.dirname(source_path)
+
+    def fix(m: re.Match) -> str:
+        text, target = m.group(1), m.group(2)
+        if target.startswith(("http://", "https://", "mailto:", "#")):
+            if target.startswith("#"):
+                rel = os.path.relpath(source_path, REFERENCE_DIR)
+                return f"[{text}]({rel}{target})"
+            return m.group(0)
+        path_part, _, fragment = target.partition("#")
+        if not path_part:
+            return m.group(0)
+        absolute = os.path.normpath(os.path.join(source_dir, path_part))
+        rel = os.path.relpath(absolute, REFERENCE_DIR)
+        return f"[{text}]({rel}{'#' + fragment if fragment else ''})"
+
+    return MD_LINK_RE.sub(fix, sentence)
+
+
 def slug(heading: str) -> str:
     text = re.sub(r"`([^`]*)`", r"\1", heading)
     text = re.sub(r"[*_~]", "", text).strip().lower()
@@ -133,6 +164,7 @@ def collect(docs_root: str) -> dict[str, list[tuple[str, str]]]:
                             s = s.replace("**", "")
                         if len(s) > 400:
                             s = s[:397].rstrip() + "..."
+                        s = requalify_links(s, path)
                         if s and s not in seen:
                             seen.add(s)
                             entries.append((heading, s))

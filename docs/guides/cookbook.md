@@ -57,10 +57,17 @@ Each of these prevents a specific failure rather than being a house style:
 - **`UnManaged = FALSE`** when the question is "what is actually broken" rather than "what
   is in a maintenance window". `UnManaged` is inherited from `System.ManagedEntity` and is
   queryable on every managed object even though those entities do not declare it.
-- **UTC compared against UTC.** `TimeLoggedUtc` and `TriggeredDateTime` are UTC and belong
-  next to `GetUtcDate()`; `EventTime` and `DownloadTime` are local and belong next to
-  `GetDate()`. Getting this backwards silently shifts a window by your offset. See
-  [../swql/date-and-time.md](../swql/date-and-time.md#which-columns-are-utc-and-which-are-local).
+- **The right clock on each side of a time comparison.** A column whose name ends in `Utc`,
+  such as `Orion.AuditingEvents.TimeLoggedUtc`, belongs next to `GetUtcDate()`.
+  `Orion.Events.EventTime` documents itself as local time and belongs next to `GetDate()`.
+  Most other date columns, including `Orion.AlertActive.TriggeredDateTime`,
+  `Orion.AlertHistory.TimeStamp` and `Cirrus.ConfigArchive.DownloadTime`, carry **no
+  documented timezone in the schema and are unverified here**: measure them once on your own
+  server with the `MinuteDiff` probe in
+  [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before
+  writing a narrow window against them. Getting it backwards shifts the window by your
+  offset, which returns nothing on a tight filter and the wrong hours on a loose one. The
+  wide windows used below, seven days and thirty, are deliberately tolerant of that.
 
 ## Inventory and audit
 
@@ -524,11 +531,15 @@ SELECT TOP 25
     ds.DepletionDate
 FROM Orion.VIM.Datastores ds
 WHERE ds.SpaceUtilization > 80
+  AND ds.Accessible = TRUE
+  AND ds.UnManaged = FALSE
 ORDER BY ds.SpaceUtilization DESC
 ```
 
 `ProvisionedSpaceAllocation` above 100 means thin provisioning has promised more than the
-datastore holds, which is normal until it is not.
+datastore holds, which is normal until it is not. Inaccessible datastores are excluded
+because they report stale capacity, and a datastore that has gone inaccessible deserves its
+own alert rather than a line in a capacity report.
 
 ### 23. Where is peak traffic against provisioned speed?
 
@@ -723,7 +734,9 @@ alert verb takes. `Orion.AlertActive.Acknowledge` wants `AlertObjectID` values a
 
 ### 31. What is unacknowledged and old?
 
-The triage list. `TriggeredDateTime` is UTC, so it belongs next to `GetUtcDate()`.
+The triage list, with the age computed both ways because
+`Orion.AlertActive.TriggeredDateTime` carries no documented timezone in the schema and is
+therefore unverified here.
 
 ```sql
 SELECT
@@ -731,13 +744,18 @@ SELECT
     ao.EntityCaption AS TriggeringObject,
     ao.RelatedNodeCaption AS NodeName,
     aa.TriggeredDateTime,
-    HourDiff(aa.TriggeredDateTime, GetUtcDate()) AS AgeHours
+    HourDiff(aa.TriggeredDateTime, GetUtcDate()) AS AgeHoursIfUtc,
+    HourDiff(aa.TriggeredDateTime, GetDate()) AS AgeHoursIfLocal
 FROM Orion.AlertActive aa
 JOIN Orion.AlertObjects ao ON aa.AlertObjectID = ao.AlertObjectID
 WHERE aa.Acknowledged = FALSE
-  AND aa.TriggeredDateTime < AddDay(-1, GetUtcDate())
 ORDER BY aa.TriggeredDateTime
 ```
+
+Look at a row you know the age of. Whichever of the two age columns is plausible identifies
+the clock the column is stored on, and the other is off by your UTC offset. Once you know,
+add the filter with the matching function, `AND aa.TriggeredDateTime < AddDay(-1,
+GetUtcDate())` or the `GetDate()` form, and drop the column you do not need.
 
 ### 32. Which alert definitions produce the most noise?
 
@@ -757,6 +775,10 @@ ORDER BY COUNT(ah.AlertHistoryID) DESC
 History records triggers, acknowledgements, resets and notes together, so a high count is
 "this alert generates work" rather than strictly "this alert fires often". Split it by
 `ah.EventType` when you need the distinction.
+
+`Orion.AlertHistory.TimeStamp` has the same undocumented timezone as `TriggeredDateTime`
+above, which a seven-day window absorbs. Narrow the window and you need to know which clock
+it is on first.
 
 ### 33. Which definitions never fire?
 
@@ -1026,8 +1048,10 @@ WHERE us.Timestamp > AddDay(-30, GetDate())
 ORDER BY us.Timestamp DESC
 ```
 
-Both entities restrict `read` to `admin`, so a service account will see nothing here even
-though the query is correct.
+`Orion.Licensing.UtilizationSummary` restricts `read` to `admin`, so a service account gets
+an empty result from that second query even though the query is correct.
+`Orion.LicenseSaturation` declares no entity-level access control at all, which is why the
+first one is the more portable of the two.
 
 ### 44. When do the licences and maintenance expire?
 
@@ -1044,8 +1068,9 @@ FROM Orion.Licensing.Licenses l
 ORDER BY l.MaintenanceExpiresOn
 ```
 
-`Orion.Licensing.Licenses` also carries a `LicenseKey` column. Leave it out of anything you
-export or paste.
+`Orion.Licensing.Licenses` restricts both `read` and `invoke` to `admin`, so this is one of
+the few recipes here that a read-only service account cannot run. It also carries a
+`LicenseKey` column. Leave that out of anything you export or paste.
 
 Evaluation licences and their remaining days sit on the engines instead:
 

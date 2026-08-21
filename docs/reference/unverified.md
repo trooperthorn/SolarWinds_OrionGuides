@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**111 statements across 36 pages.**
+**117 statements across 38 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -157,6 +157,28 @@ Read this before relying on this repository for something load-bearing. If you h
 **[`Orion.Reporting.ExecuteSQL`](../automation/reporting.md#orionreportingexecutesql)**
 
 - Whether account limitations are applied to its results is not recorded in the schema and is unverified here, which is another reason to prefer SWQL: with SWQL you know limitations apply, and can reason about it.
+
+## [building-integrations.md](../guides/building-integrations.md)
+
+**[3. Authentication and secret handling](../guides/building-integrations.md#3-authentication-and-secret-handling)**
+
+- What it is valid for and for how long is not recorded in the published schema and is unverified here; confirm the behaviour on your own server before building anything on it.
+**[Which operations survive being repeated](../guides/building-integrations.md#which-operations-survive-being-repeated)**
+
+- CRUD delete, `BulkDelete` — Unverified — Whether a second delete of an already-deleted URI errors or succeeds quietly is not recorded in the published schema. Test it on your own server before relying on either
+- `Orion.AlertActive.Acknowledge(alertObjectIds, notes)` — Unverified — Whether re-acknowledging an acknowledged alert is a no-op or an error is not recorded in the published schema; confirm on your own server
+**[Ask the schema the question you actually have](../guides/building-integrations.md#ask-the-schema-the-question-you-actually-have)**
+
+- The row values themselves are installation data: which row corresponds to the platform core, and how its `Version` string relates to the release number, are not recorded in the published schema and are unverified here.
+
+## [cookbook.md](../guides/cookbook.md)
+
+**[Rules these queries follow](../guides/cookbook.md#rules-these-queries-follow)**
+
+- Most other date columns, including `Orion.AlertActive.TriggeredDateTime`, `Orion.AlertHistory.TimeStamp` and `Cirrus.ConfigArchive.DownloadTime`, carry **no documented timezone in the schema and are unverified here**: measure them once on your own server with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before writing a narrow windo...
+**[31. What is unacknowledged and old?](../guides/cookbook.md#31-what-is-unacknowledged-and-old)**
+
+- The triage list, with the age computed both ways because `Orion.AlertActive.TriggeredDateTime` carries no documented timezone in the schema and is therefore unverified here.
 
 ## [agents.md](../modules/agents.md)
 
@@ -320,10 +342,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[IP SLA operations](../modules/vnqm.md#ip-sla-operations)**
 
-- None of the three carries a description in the schema, so the readings of `LifeTimeUtc` and `IsAutoConfigured` given here are inferences and are listed in [what is not verified here](#what-is-not-verified-here).
+- None of the three carries a description in the schema, so the readings of `LifeTimeUtc` and `IsAutoConfigured` given here are inferences and are listed in [what is not verified here](../modules/vnqm.md#what-is-not-verified-here).
 **[MOS, jitter and the other quality metrics](../modules/vnqm.md#mos-jitter-and-the-other-quality-metrics)**
 
-- They are listed in [what is not verified here](#what-is-not-verified-here) with a query that shows you the observed range on your own server.
+- They are listed in [what is not verified here](../modules/vnqm.md#what-is-not-verified-here) with a query that shows you the observed range on your own server.
 **[What is not verified here](../modules/vnqm.md#what-is-not-verified-here)**
 
 - ## What is not verified here
