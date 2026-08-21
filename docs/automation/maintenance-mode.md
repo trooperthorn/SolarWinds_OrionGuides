@@ -384,10 +384,13 @@ WHERE a.Node.NodeID IN @nodeIds
 ORDER BY a.Node.Caption, a.Name
 ```
 
-Unmanaging a node does **not** automatically unmanage its interfaces, volumes and
-applications as separate objects; it stops the node being polled, which is what stops
-collection. If you specifically need those child objects to show as unmanaged in their own
-right, unmanage them explicitly with their own verbs.
+Whether unmanaging a node also flags its interfaces, volumes and applications as unmanaged in
+their own right is runtime behaviour, not something the schema records, so it is **unverified
+here**. What the verb is documented to do is stop the node being polled, and that is what
+stops collection for everything hanging off it. Confirm the child behaviour on one test node
+before relying on either answer: unmanage it, then run the per-type queries below against its
+children and see whether `UnManaged` moved. If it did not and you need those objects to read
+as unmanaged, unmanage them explicitly with their own verbs.
 
 ## Finding what is currently unmanaged
 

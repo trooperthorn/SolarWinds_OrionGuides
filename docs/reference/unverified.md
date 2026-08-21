@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**130 statements across 41 pages.**
+**131 statements across 42 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -116,6 +116,12 @@ Read this before relying on this repository for something load-bearing. If you h
 - Which one the server accepts cannot be verified here; find out with `ValidateEditPool` before running the real call.
 - SolarWinds' sample joins `Orion.StatusInfo` on member `Status`, which is suggestive but is unverified here.
 - **`SelectiveSwitchover` and `RepairPool` have no schema descriptions**, so their exact behaviour is not documented in the published schema and is not verified here.
+
+## [maintenance-mode.md](../automation/maintenance-mode.md)
+
+**[Recipe: bulk unmanage driven by a query](../automation/maintenance-mode.md#recipe-bulk-unmanage-driven-by-a-query)**
+
+- Whether unmanaging a node also flags its interfaces, volumes and applications as unmanaged in their own right is runtime behaviour, not something the schema records, so it is **unverified here**.
 
 ## [node-management.md](../automation/node-management.md)
 
