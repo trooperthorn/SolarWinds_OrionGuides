@@ -12,14 +12,14 @@ throughout is VMware-flavoured for historical reasons, and reading `Orion.VIM.VC
 `Orion.VIM.VMwareNodes` as "VMware only" is a mistake that gets made regularly.
 
 Start with the name. **The module is Virtualization Manager and the namespace is
-`Orion.VIM.`**, from an old internal name. There is no `Orion.VMAN.` namespace and no
-`Orion.Virtualization.Manager.` namespace, and deriving one from the product name is the
-usual first failure.
+`Orion.VIM.`**, an engineering prefix that predates the product name. There is no
+`Orion.VMAN.` namespace and no `Orion.Virtualization.Manager.` namespace, and deriving one
+from the product name is the usual first failure.
 
 ## Namespace and size
 
-There are 90 entities under `Orion.VIM.`, and Virtualization Manager contributes three more
-families beyond that prefix.
+There are 90 entities under `Orion.VIM.`, and three more namespaces carry virtualization data
+alongside it.
 
 | Group | Entities | What is in it |
 |---|---|---|
@@ -62,7 +62,7 @@ Older references, including the community SWQL workbook, spell the LUN entity
 [../reference/netobject-types.md](../reference/netobject-types.md) marks the workbook row as
 superseded.
 
-The capitalisation is worth dwelling on because the module is inconsistent about it and
+The capitalisation is worth dwelling on because the platform is inconsistent about it and
 there is no rule to fall back on. `Orion.VIM.Luns` is mixed case, but the *SRM* LUN entity
 `Orion.SRM.LUNs` is capitalised, and inside `Orion.VIM.Luns` the key is `LunID` while inside
 `Orion.SRM.LUNs` the key is `LUNID`. All four spellings are correct in their own place. Look
@@ -169,7 +169,7 @@ matters, because none of the `Orion.VIM.*` entities publishes an unmanage verb o
 of eight inherited from `Orion.Virtualization.Instance` and the usual `System.ManagedEntity`
 set. It is also the only VIM entity with meaningful verbs.
 
-Its inheritance chain is worth knowing, because three of the columns people reach for most
+Its inheritance chain is worth knowing, because several of the columns people reach for most
 are inherited rather than declared: `VirtualMachineID` (the key), `Name`, `CpuLoad`,
 `PlatformID`, `NodeID`, `NetworkUsageRate`, `NetworkTransmitRate` and `NetworkReceiveRate`
 all come from `Orion.Virtualization.Instance`. `show` will not list them; `props` will, and
@@ -241,7 +241,7 @@ it but not modify it.
 `HaAdmissionControlStatus`, `HaFailoverLevel`, `DrsStatus`, `DrsBehaviour`,
 `DrsVmotionRate`. Its vSAN state is `VsanEnabled` and `VsanUuid`.
 
-The four capacity planning columns on a cluster are the ones to reach for in a budget
+The five capacity planning columns on a cluster are the ones to reach for in a budget
 conversation, because they are forecasts rather than snapshots: `VmCapacityCount` (how many
 more VMs the cluster can take), `VmCapacityConstraint` (which resource runs out first),
 `CpuUtilizationDepletionDate`, `MemoryUtilizationDepletionDate` and
