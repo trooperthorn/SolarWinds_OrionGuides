@@ -206,8 +206,10 @@ GENERATED_MARKER = "GENERATED FILE"
 # exists to catch, still gets reported.
 # Before the name: "there is no Orion.QoE namespace", "use X rather than Orion.SAM".
 NEGATION_BEFORE_RE = re.compile(
-    r"\b(?:no|not|never|isn't|aren't|doesn't|don't|nothing|absent|missing|"
-    r"removed|renamed|wrong|mistake)\b|\b(?:instead of|rather than)\b",
+    r"\b(?:no|none|neither|not|never|isn't|aren't|doesn't|don't|nothing|absent|missing|"
+    r"removed|renamed|wrong|mistake|obsolete|deprecated|stale|former|formerly|"
+    r"previously|superseded|legacy)\b"
+    r"|\b(?:instead of|rather than|used to|no longer)\b",
     re.I,
 )
 # After the name: "Orion.APM.Component.Node does not exist". This one has to be tighter,
