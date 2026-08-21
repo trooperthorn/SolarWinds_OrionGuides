@@ -39,14 +39,14 @@ vocabulary apply where.
 | 12 | **Unreachable** | 150 | Object status cannot be determined because it is dependent on another node that is currently down. See the doc. |
 | 14 | **Critical** | 210 | Nodes - Monitored Metric exceedes Critical threshold. For Applications - monitored metric exceeds the Critical threshold |
 | 15 | **Partly Available** | 230 | Not used for individual objects. |
-| 16 | **Misconfigured** | 240 | &mdash; |
-| 17 | **Could Not Poll** | 250 | &mdash; |
-| 19 | **Unconfirmed** | 270 | &mdash; |
-| 22 | **Active** | 540 | &mdash; |
-| 24 | **Inactive** | 570 | &mdash; |
-| 25 | **Expired** | 580 | &mdash; |
-| 26 | **Monitoring Disabled** | 450 | &mdash; |
-| 27 | **Disabled** | 460 | &mdash; |
+| 16 | **Misconfigured** | 240 | - |
+| 17 | **Could Not Poll** | 250 | - |
+| 19 | **Unconfirmed** | 270 | - |
+| 22 | **Active** | 540 | - |
+| 24 | **Inactive** | 570 | - |
+| 25 | **Expired** | 580 | - |
+| 26 | **Monitoring Disabled** | 450 | - |
+| 27 | **Disabled** | 460 | - |
 | 28 | **Not Licensed** | 490 | SAM: For Applications - there are more component monitors assigned than there are licenses available. |
 | 29 | **Other Category** | 1000 | Never to be placed on an object. CategoryStatusMap allows joining back to StatusInfo to place statues into one of several buckets. This status value is the result of a status that is not "relevant" from an "issue" perspective and deserves to be in the "other" bucket. |
 | 30 | **Not Running** | 498 | For SAM processes and IIS Application Pools that are not running. This status is not issue (it is expected state) so it is ignored in final application status roll up. |

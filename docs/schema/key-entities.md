@@ -61,8 +61,8 @@ are writing your first query against a new server, write it here.
 
 **Key.** `NodeID` (`System.Int32`). NetObject prefix `N`, so node 42 is `N:42`.
 
-**Inheritance.** `System.Entity` &rarr; `System.DashboardEntity` &rarr;
-`System.ManagedEntity` &rarr; `Orion.Nodes`.
+**Inheritance.** `System.Entity` -> `System.DashboardEntity` ->
+`System.ManagedEntity` -> `Orion.Nodes`.
 
 **Access control.** `read` requires `everyone`; `read,invoke` requires
 `allowRealTimePolling`; `create,read,update,delete,invoke` requires `manageNodes`.
@@ -188,8 +188,8 @@ entity on most installations, so it is also where careless queries hurt most.
 **Key.** `InterfaceID` (`System.Int32`), stated in the schema's own property prose:
 "Interface ID. Primary key." NetObject prefix `I`, so interface 7 is `I:7`.
 
-**Inheritance.** `System.Entity` &rarr; `System.DashboardEntity` &rarr;
-`System.ManagedEntity` &rarr; `Orion.NPM.Interfaces`.
+**Inheritance.** `System.Entity` -> `System.DashboardEntity` ->
+`System.ManagedEntity` -> `Orion.NPM.Interfaces`.
 
 **Access control.** `read` requires `everyone`; `read,invoke` requires
 `allowRealTimePolling`; `create,read,update,delete,invoke` requires `manageNodes`.
@@ -305,8 +305,8 @@ capacity reports live on.
 
 **Key.** `VolumeID` (`System.Int32`). NetObject prefix `V`.
 
-**Inheritance.** `System.Entity` &rarr; `System.DashboardEntity` &rarr;
-`System.ManagedEntity` &rarr; `Orion.Volumes`.
+**Inheritance.** `System.Entity` -> `System.DashboardEntity` ->
+`System.ManagedEntity` -> `Orion.Volumes`.
 
 **Access control.** Same three rules as `Orion.Nodes`: `everyone` to read,
 `allowRealTimePolling` for real-time invoke, `manageNodes` for everything.
@@ -386,7 +386,7 @@ up" and you write to `Orion.Nodes.EngineID` to change the answer.
 
 **Key.** `EngineID` (`System.Int32`). No NetObject prefix.
 
-**Inheritance.** `System.Entity` &rarr; `Orion.Engines`. Note that it is **not** a
+**Inheritance.** `System.Entity` -> `Orion.Engines`. Note that it is **not** a
 `System.ManagedEntity`, so there is no `UnManaged` and no `Status` on it.
 
 **Access control.** `read` requires `everyone`; `create,update,delete` requires `system`.
@@ -472,8 +472,8 @@ under it do the actual measuring.
 description, "The unique integer representation of application". NetObject prefix `AA`, so
 application 91 is `AA:91`.
 
-**Inheritance.** `System.Entity` &rarr; `System.DashboardEntity` &rarr;
-`System.ManagedEntity` &rarr; `Orion.APM.Application`.
+**Inheritance.** `System.Entity` -> `System.DashboardEntity` ->
+`System.ManagedEntity` -> `Orion.APM.Application`.
 
 **Access control.** `read` requires `everyone`; `read,update,invoke` requires `manageNodes`;
 `invoke` requires `allowUnmanage`. Note there is no `create` or `delete` right listed:
@@ -566,8 +566,8 @@ status is what rolls up into application status.
 **Key.** `ComponentID` (`System.Int64`). Note the 64-bit width, which matters when you carry
 the value into client code. NetObject prefix `AM`.
 
-**Inheritance.** `System.Entity` &rarr; `System.DashboardEntity` &rarr;
-`System.ManagedEntity` &rarr; `Orion.APM.Component`.
+**Inheritance.** `System.Entity` -> `System.DashboardEntity` ->
+`System.ManagedEntity` -> `Orion.APM.Component`.
 
 **Access control.** `read` requires `everyone`; `read,update,delete,invoke` requires
 `manageNodes`. There is no `create`: components come from the template.
@@ -766,7 +766,7 @@ notifications".
 
 **Key.** `EventID` (`System.Int32`). No NetObject prefix; events are addressed by key.
 
-**Inheritance.** `System.Entity` &rarr; `Orion.MixedObjectType` &rarr; `Orion.Events`.
+**Inheritance.** `System.Entity` -> `Orion.MixedObjectType` -> `Orion.Events`.
 `Orion.MixedObjectType` is described as the "Base class for SWIS entities that contains
 records from multiple netobject types. E.g. Orion.Events", and it contributes
 `NetworkNode`, `NetObjectID` and `NetObjectType`.
@@ -843,7 +843,7 @@ entity from `Orion.Events` with a different shape and a different time base.
 
 **Key.** `AuditEventID` (`System.Int32`).
 
-**Inheritance.** `System.Entity` &rarr; `Orion.LogEntity` &rarr; `Orion.AuditingEvents`.
+**Inheritance.** `System.Entity` -> `Orion.LogEntity` -> `Orion.AuditingEvents`.
 
 **Size.** 10 declared properties, 1 source relationship, 2 target relationships, no verbs.
 
@@ -1030,8 +1030,8 @@ List them all with `python3 tools/schema_query.py children System.CustomProperti
 
 ### Orion.NodesCustomProperties
 
-**Inheritance.** `System.Entity` &rarr; `System.ExtensionEntity` &rarr;
-`System.CustomPropertiesEntity` &rarr; `Orion.NodesCustomProperties`.
+**Inheritance.** `System.Entity` -> `System.ExtensionEntity` ->
+`System.CustomPropertiesEntity` -> `Orion.NodesCustomProperties`.
 
 **Access control.** `read` requires `everyone`; `read,update` requires `manageNodes`;
 `read,update,invoke` requires `admin`. Creating or deleting a custom property definition is
@@ -1118,7 +1118,7 @@ the usual explanation for an NCM query returning zero rows.
 in the schema as "Unique identifier and primary key of the NCM node". The Orion node id is
 a separate property, `CoreNodeID` (`System.Int32`), documented as "Orion node ID".
 
-**Inheritance.** `System.Entity` &rarr; `Cirrus.Nodes`. Not a managed entity, so no
+**Inheritance.** `System.Entity` -> `Cirrus.Nodes`. Not a managed entity, so no
 `UnManaged` and no inherited `Status` from `System.DashboardEntity`. It declares its own
 `Status` as a `System.Byte`.
 
@@ -1230,8 +1230,8 @@ Machine". NetObject prefix `VVM`.
 `Orion.Virtualization.Instance`, not from `Orion.VIM.VirtualMachines` itself. `HostID` and
 `NodeID` are the two id columns you join on.
 
-**Inheritance.** `System.Entity` &rarr; `System.DashboardEntity` &rarr;
-`System.ManagedEntity` &rarr; `Orion.Virtualization.Instance` &rarr;
+**Inheritance.** `System.Entity` -> `System.DashboardEntity` ->
+`System.ManagedEntity` -> `Orion.Virtualization.Instance` ->
 `Orion.VIM.VirtualMachines`. That extra level matters: `VirtualMachineID`, `Name`,
 `CpuLoad`, `NodeID`, `PlatformID`, `NetworkUsageRate`, `NetworkTransmitRate` and
 `NetworkReceiveRate` are all declared on `Orion.Virtualization.Instance` and inherited here.
