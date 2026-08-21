@@ -986,9 +986,9 @@ done for active alerts such as Alert reset, Alert triggered and so on".
 `WorkingState`, `ObjectName`, `AlertMessage`, `TriggerTimeStamp`, `TriggerCount`,
 `ResetTimeStamp`, `Acknowledged`, `AcknowledgedBy`, `AlertNotes` and `AlertObjectID`. It
 declares three verbs, `Acknowledge`, `AcknowledgeAlert` and `AddNote`, and the published
-contract records **no parameters and no return type** for any of them, so treat their
-signatures as unverified and confirm on your own server with `Metadata.VerbArgument` before
-calling them.
+contract records **no parameters and no return type** for any of them. Their signatures are
+therefore **unverified**; confirm them on your own server with `Metadata.VerbArgument`
+before calling them.
 
 ### Example
 

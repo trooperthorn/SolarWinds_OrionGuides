@@ -1,7 +1,7 @@
 # Tools
 
 No dependencies beyond the Python standard library, except `openpyxl` for reading the
-source workbook. Three tools build the data, two consume it, five guard it.
+source workbook. Four tools build, two consume, six guard.
 
 **Build**
 
@@ -10,6 +10,7 @@ source workbook. Three tools build the data, two consume it, five guard it.
 | [build_schema_data.py](build_schema_data.py) | Extract the SWIS schema from the OrionSDK sources into JSON |
 | [build_reference_data.py](build_reference_data.py) | Merge the SWQL function reference with the examples workbook |
 | [build_reference_docs.py](build_reference_docs.py) | Generate the enumerated tables in `docs/reference/` |
+| [build_unverified_index.py](build_unverified_index.py) | Collect every statement the guides decline to assert into one page |
 
 **Use**
 
@@ -31,6 +32,11 @@ was written after a specific mistake got through.
 | [check_data.py](check_data.py) | Extraction that degraded quietly, and reference pages that fell behind |
 | [check_links.py](check_links.py) | A relative link to a file that no longer exists |
 | [test_tools.py](test_tools.py) | Regressions in the judgement above: 50 tests |
+
+Beyond names and links, `check_data.py` also holds the documentation to its own claims:
+the entity count each module page quotes for its namespace, the status tables written by
+hand, the completeness of the function reference, and the PowerShell cmdlet names, which
+are easy to invent because a plausible eighth reads exactly like the seven real ones.
 
 Everything runs through the [Makefile](../Makefile):
 

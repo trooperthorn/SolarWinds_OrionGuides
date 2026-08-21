@@ -213,7 +213,7 @@ readable by `everyone`:
 | `DisplayProperties` | `System.String` |
 
 The published 2026.2 schema gives no summary text for any of these twelve, so the names and
-types above are verified but their semantics beyond the obvious are not. `StatusId`,
+types above are verified but their meanings beyond the obvious are unverified. `StatusId`,
 `StatusName`, `ShortDescription` and `Ranking` line up with the four columns of the table on
 this page, which is the pairing you need in practice. `CategoryStatusMap` is named in the
 description of status 29 as the mechanism for bucketing statuses, and `Color`,
@@ -334,10 +334,10 @@ entities, not a direct one.
 ## `Status` versus `PolledStatus`
 
 `Orion.Nodes` declares both `Status` and `PolledStatus`, both `System.Int32`. That much is
-verified. What is **not** verified is how they differ: the published 2026.2 schema attaches
-no summary text to either property, and neither the OrionSDK documentation nor any
-SolarWinds sample script in this repository's sources explains it. Do not guess, and do not
-let a report guess on your behalf.
+verified. How the two differ is **not verified**: the published 2026.2 schema attaches no
+summary text to either property, and neither the OrionSDK documentation nor any SolarWinds
+sample script in this repository's sources explains it. Do not guess, and do not let a
+report guess on your behalf.
 
 Two things you can rely on without running anything:
 
