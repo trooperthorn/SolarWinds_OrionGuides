@@ -503,3 +503,10 @@ have configured load, achieved load, and liveness for every engine in one pass.
 - [modules.md](modules.md) for which product owns which entities.
 - [versions-and-naming.md](versions-and-naming.md) for why the schema on your server may
   differ from the 2026.2 schema documented here.
+- [../swis/connecting.md](../swis/connecting.md) to authenticate and run these queries.
+- [../swis/crud.md](../swis/crud.md) for the write path used by the node reassignment
+  example above.
+- [../reference/status-codes.md](../reference/status-codes.md) to decode the `Status` and
+  `CurrentStatus` integers returned by the queries on this page.
+- [../../scripts/swql/09-engines-and-health.swql](../../scripts/swql/09-engines-and-health.swql)
+  for the engine and licensing queries as a runnable file.

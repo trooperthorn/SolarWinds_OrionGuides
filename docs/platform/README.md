@@ -22,10 +22,12 @@ way:
 
 Source: [SolarWinds Orion SDK documentation](https://solarwinds.github.io/OrionSDK/).
 
-The key architectural idea is that the suite is one platform plus many modules. You do
-not install "NPM" and "SAM" as separate products with separate databases. You install the
-platform, and each module adds tables, polling logic, web resources, and, importantly for
-this repository, its own entities in the shared data model.
+The key architectural idea is that the suite is one platform plus many modules. You do not
+install "NPM" and "SAM" as separate products with separate databases and separate APIs.
+You install the platform, and each module extends it: new polling logic, new pages in the
+web console, and, the part that matters here, new entities in the one shared data model.
+That is why a single SWQL query can join a node to its interfaces, its applications, and
+its configuration backups even though three different modules supplied those three things.
 
 That shared data model is exposed by the **SolarWinds Information Service (SWIS)**, a
 data access layer with its own SQL-like query language, **SWQL**. SWIS is the API. When
@@ -132,6 +134,20 @@ ORDER BY FullName
 If a name you read here does not come back from `Metadata.Entity` on your server, believe
 your server. [versions-and-naming.md](versions-and-naming.md) explains why the two can
 legitimately disagree.
+
+## Where to go after this section
+
+| Next | Why |
+|---|---|
+| [../swis/connecting.md](../swis/connecting.md) | Get authenticated and run a query for real |
+| [../swis/rest-api.md](../swis/rest-api.md) | The HTTP contract: paths, bodies, status codes |
+| [../swis/crud.md](../swis/crud.md) | Changing data through create, update, and delete |
+| [../swis/uris.md](../swis/uris.md) | The URI format that CRUD addresses entities with |
+| [../reference/entity-index.md](../reference/entity-index.md) | Every entity in 2026.2, generated from the extracted schema |
+| [../reference/verb-index.md](../reference/verb-index.md) | Every verb with its parameters |
+| [../reference/status-codes.md](../reference/status-codes.md) | What the `Status` integers mean |
+| [../reference/netobject-types.md](../reference/netobject-types.md) | Entity to NetObject prefix mapping |
+| [../../scripts/swql/09-engines-and-health.swql](../../scripts/swql/09-engines-and-health.swql) | Runnable versions of the engine health queries in this section |
 
 ## Related official documentation
 

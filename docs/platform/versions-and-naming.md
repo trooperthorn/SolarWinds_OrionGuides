@@ -26,7 +26,7 @@ management products", and the SDK itself is still called the Orion SDK. Both nam
 live in the same documentation set.
 
 The second rename, to SolarWinds Observability Self-Hosted, distinguishes the product you
-install on your own servers from SolarWinds Observability, the SaaS offering. It is a
+install and run on your own servers from SolarWinds' SaaS observability offering. It is a
 product-name change and not a technology change. The SDK documentation set has not been
 renamed to match, so you will not find the phrase in it; that absence is the point. If you
 search SolarWinds' documentation site for a feature and land on a page titled with any of
@@ -55,8 +55,10 @@ it in several distinct places:
   polling engine page at `/Orion/Admin/Details/Engines.aspx`.
 
 The practical rule: **read `Orion.` as "the platform", not as "a product called Orion"**.
-There is no module named Orion and there never was; the prefix marks the shared namespace
-that every module extends. When you are searching for how to do something and the
+There is no module named Orion; the prefix marks the shared namespace that every module
+extends, which is why core entities and module entities sit side by side under it
+(`Orion.Nodes` from the platform, `Orion.NPM.Interfaces` from NPM). When you are searching
+for how to do something and the
 documentation says "SolarWinds Platform" while your code says `Orion.Nodes`, nothing is
 wrong.
 
@@ -82,9 +84,9 @@ A third component appears for patch releases, giving versions such as `2024.4.1`
 the SDK publishes schema for 2024.1, 2024.2, and 2024.4 but no 2024.3, and for 2025.1,
 2025.2, and 2025.4 but no 2025.3.
 
-The year.release scheme predates the schema versions published in the SDK: SolarWinds'
-documentation tree still contains a page titled for IPAM "2019.4 and higher versions",
-so the scheme was in use by 2019.4 at the latest.
+The scheme is older than the oldest schema the SDK publishes. SolarWinds' documentation
+tree contains an IPAM page titled "2019.4 and higher versions", so year.release was in use
+by 2019.4 at the latest, five releases before the earliest published schema.
 
 Before it, individual modules carried their own independent version numbers, and the SDK
 documentation tree preserves the evidence: it holds separate IP Address Manager API pages
@@ -102,10 +104,11 @@ writing the SDK site lists these 15 versions:
 `2026.2`, `2026.1`, `2025.4`, `2025.2.1`, `2025.2`, `2025.1.1`, `2025.1`, `2024.4.1`,
 `2024.4`, `2024.2`, `2024.1`, `2023.4`, `2023.3`, `2023.2`, `2023.1`
 
-Each is browsable at `https://solarwinds.github.io/OrionSDK/<version>/schema/index.html`,
-for example
+The SDK front page links each of them, and the schema index for a version is at
+`https://solarwinds.github.io/OrionSDK/<version>/schema/index.html`, for example
 [2026.2](https://solarwinds.github.io/OrionSDK/2026.2/schema/index.html). Versions older
-than 2023.1 are not published there.
+than 2023.1 are not published there, so if you are running one you will have to rely on
+`Metadata.Entity` against your own server, described below.
 
 **This repository documents 2026.2.** The extraction lives in
 [`data/schema/2026.2/`](../../data/schema/2026.2/) and its provenance is recorded in
@@ -141,9 +144,11 @@ all. Where sources disagree, this repository flags the disagreement rather than 
 winner.
 
 A version difference is also not the only reason a name can fail to resolve. A module you
-have not licensed contributes no entities, so `Orion.SRM.LUNs` is equally absent from a
-2026.2 server without Storage Resource Monitor and from a 2019.4 server that has it. The
-error looks the same; the fix does not.
+have not licensed contributes no entities at all, so `Orion.SRM.LUNs` is missing from a
+current 2026.2 server without Storage Resource Monitor exactly as it would be missing from
+an ancient one. The error text is identical in both cases, but the fixes are opposite:
+upgrade in one, install a module in the other. Distinguish them by checking
+`Orion.InstalledModule` before you conclude anything about versions.
 
 ## Finding out what you actually have
 
@@ -204,9 +209,9 @@ join key is usually the wrong move: check the relationship first with
 
 The `Metadata.*` namespace holds 11 entities describing the schema itself:
 `Metadata.Entity`, `Metadata.Property`, `Metadata.Verb`, `Metadata.VerbArgument`,
-`Metadata.Relationship`, and their companions. It is the only fully version-proof way to
-ask questions about the schema, because it is generated from whatever schema the server is
-actually running.
+`Metadata.Relationship`, and their companions. It is the most reliable way to ask
+questions about the schema, because it is generated from whatever schema the server is
+actually running rather than from documentation that may describe a different version.
 
 Verify the exact property names before writing a `Metadata` query of your own, since these
 entities are as version-dependent as anything else:
@@ -231,10 +236,11 @@ FROM System.SystemIdentifier
 2. **Probe with `Metadata.Entity` at startup** if the code will run against more than one
    deployment, and fail with a clear message naming the missing entity rather than letting
    a SWQL error surface.
-3. **Prefer base entities where the semantics allow it.** `System.ManagedEntity` has
-   outlived many of its descendants. A query for status across everything monitored is
-   more durable written against the base type than against a list of concrete types you
-   maintain by hand.
+3. **Prefer base entities where the semantics allow it.** Concrete entities are the ones
+   that get renamed, split, and retired; the base types they inherit from change far less.
+   A query for status across everything monitored is more durable written against
+   `System.ManagedEntity` than against a hand-maintained list of concrete types, and it
+   picks up entity types added by a module you install later without any code change.
 4. **Select the columns you need, never the equivalent of `SELECT *`.** A query naming six
    properties breaks only if one of those six changes; a query that consumes everything
    breaks whenever anything is added.
@@ -259,3 +265,9 @@ FROM System.SystemIdentifier
 - [README.md](README.md) for the section overview and the API surface summary.
 - [architecture.md](architecture.md) for the deployment roles these versions apply to.
 - [modules.md](modules.md) for the namespace-to-product map and the stale-name table.
+- [../reference/entity-index.md](../reference/entity-index.md) for the 2026.2 entity list
+  this repository was generated from.
+- [../reference/verb-index.md](../reference/verb-index.md) for the verb signatures to
+  compare against your server before an upgrade.
+- [../swis/rest-api.md](../swis/rest-api.md) for the port change between 2022.4.1 and
+  2023.1 in the context of the full REST contract.

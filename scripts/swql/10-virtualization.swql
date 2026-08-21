@@ -1,0 +1,223 @@
+-- Virtualization: Orion.VIM.* (requires Virtualization Manager, or VIM polling in NPM/SAM)
+--
+-- The hierarchy is vCenter, then datacenter, then cluster, then host, then virtual
+-- machine, with datastores and LUNs hanging off to the side. Orion.VIM.Hosts carries a
+-- NodeID, which is the bridge back to Orion.Nodes: a hypervisor host can also be a
+-- monitored node in its own right.
+--
+-- Watch the casing. Older references say Orion.VIM.LUNs; the current entity is
+-- Orion.VIM.Luns.
+
+
+-- Virtual machine inventory with the host that runs it.
+SELECT TOP 100
+    vm.DisplayName AS VMName,
+    vm.GuestName,
+    vm.GuestDnsName,
+    vm.IPAddress,
+    vm.PowerState,
+    vm.ProcessorCount,
+    vm.MemoryConfigured,
+    vm.GuestFamily
+FROM Orion.VIM.VirtualMachines vm
+ORDER BY vm.DisplayName
+
+
+-- Powered-off virtual machines, which quietly consume storage and licences.
+SELECT
+    vm.DisplayName AS VMName,
+    vm.PowerState,
+    vm.LastActivityDate,
+    vm.TotalStorageSize,
+    vm.DateCreated
+FROM Orion.VIM.VirtualMachines vm
+WHERE vm.PowerState <> 'PoweredOn'
+ORDER BY vm.LastActivityDate
+
+
+-- Hosts with their capacity and how many VMs they carry.
+SELECT
+    h.HostName,
+    h.Vendor,
+    h.Model,
+    h.CpuCoreCount,
+    h.CpuMhz,
+    h.MemorySize,
+    h.VmCount,
+    h.VmRunningCount,
+    h.ConnectionState,
+    h.InMaintenanceMode
+FROM Orion.VIM.Hosts h
+ORDER BY h.VmCount DESC
+
+
+-- Hosts under pressure. CpuLoad and MemUsage are percentages.
+SELECT
+    h.HostName,
+    h.CpuLoad,
+    h.MemUsage,
+    h.NetworkUtilization,
+    h.VmRunningCount,
+    h.TotalLatency
+FROM Orion.VIM.Hosts h
+WHERE h.CpuLoad > 80
+   OR h.MemUsage > 90
+ORDER BY h.CpuLoad DESC
+
+
+-- The host each VM runs on, and the Orion node behind that host. This chain is the one
+-- people ask for most: from a virtual machine back to something they can alert on.
+SELECT TOP 100
+    vm.DisplayName AS VMName,
+    vm.PowerState,
+    vm.Host.HostName,
+    vm.Host.NodeID AS HostNodeID
+FROM Orion.VIM.VirtualMachines vm
+ORDER BY vm.Host.HostName, vm.DisplayName
+
+
+-- Hosts that are disconnected or in maintenance mode, which explains why their VMs
+-- stopped reporting.
+SELECT
+    h.HostName,
+    h.ConnectionState,
+    h.InMaintenanceMode,
+    h.VmCount,
+    h.StatusMessage
+FROM Orion.VIM.Hosts h
+WHERE h.ConnectionState <> 'connected'
+   OR h.InMaintenanceMode = TRUE
+ORDER BY h.HostName
+
+
+-- Datastore capacity. SpaceUtilization is the percentage in use, and DepletionDate is
+-- the platform's own forecast of when the datastore runs out, which is more useful in a
+-- capacity conversation than the current percentage alone.
+SELECT
+    ds.Name AS DatastoreName,
+    ds.Type,
+    ds.Capacity,
+    ds.FreeSpace,
+    ds.ProvisionedSpace,
+    ds.SpaceUtilization,
+    ds.DepletionDate
+FROM Orion.VIM.Datastores ds
+ORDER BY ds.SpaceUtilization DESC
+
+
+-- Datastores that are overprovisioned: thin provisioning has promised more space than
+-- the datastore actually has.
+SELECT
+    ds.Name AS DatastoreName,
+    ds.Capacity,
+    ds.ProvisionedSpace,
+    ds.ProvisionedSpaceAllocation,
+    ds.FreeSpace
+FROM Orion.VIM.Datastores ds
+WHERE ds.ProvisionedSpace > ds.Capacity
+ORDER BY ds.ProvisionedSpace DESC
+
+
+-- Datastore latency, the first thing to check when VMs feel slow but CPU looks fine.
+SELECT TOP 30
+    ds.Name AS DatastoreName,
+    ds.LatencyTotal,
+    ds.LatencyRead,
+    ds.LatencyWrite,
+    ds.IOPSTotal,
+    ds.ThroughputTotal
+FROM Orion.VIM.Datastores ds
+ORDER BY ds.LatencyTotal DESC
+
+
+-- Virtual machines with the oldest snapshots. Forgotten snapshots grow without limit and
+-- are a common cause of a datastore filling up unexpectedly.
+SELECT TOP 50
+    vm.DisplayName AS VMName,
+    vm.SnapshotSummaryCount,
+    vm.OldestSnapshotDate,
+    vm.SnapshotStorageSize,
+    DayDiff(vm.OldestSnapshotDate, GetDate()) AS SnapshotAgeDays
+FROM Orion.VIM.VirtualMachines vm
+WHERE vm.SnapshotSummaryCount > 0
+ORDER BY vm.OldestSnapshotDate
+
+
+-- Storage pressure per virtual machine.
+SELECT TOP 50
+    vm.DisplayName AS VMName,
+    vm.TotalStorageSize,
+    vm.TotalStorageSizeUsed,
+    vm.VolumeSummaryFreeSpacePercent,
+    vm.VolumeSummaryCapacityDepletionDate
+FROM Orion.VIM.VirtualMachines vm
+WHERE vm.VolumeSummaryFreeSpacePercent < 15
+ORDER BY vm.VolumeSummaryFreeSpacePercent
+
+
+-- VMware Tools that are missing or out of date, a routine hygiene report.
+SELECT
+    vm.DisplayName AS VMName,
+    vm.GuestVmWareToolsStatus,
+    vm.GuestVmWareToolsVersion,
+    vm.PowerState
+FROM Orion.VIM.VirtualMachines vm
+WHERE vm.PowerState = 'PoweredOn'
+  AND vm.GuestVmWareToolsStatus <> 'toolsOk'
+ORDER BY vm.DisplayName
+
+
+-- I/O pressure per virtual machine, for a noisy-neighbour investigation.
+SELECT TOP 50
+    vm.DisplayName AS VMName,
+    vm.IOPSTotal,
+    vm.LatencyTotal,
+    vm.ThroughputTotal,
+    vm.CpuReady,
+    vm.BalloonMemloadPercent,
+    vm.SwappedMemoryUtilizationPercent
+FROM Orion.VIM.VirtualMachines vm
+WHERE vm.IOPSTotal > 0
+ORDER BY vm.LatencyTotal DESC
+
+
+-- Cluster inventory with its HA and DRS posture.
+SELECT
+    c.Name AS ClusterName,
+    c.CpuCoreCount,
+    c.CpuThreadCount,
+    c.TotalCpu,
+    c.TotalMemory,
+    c.HaStatus,
+    c.HaAdmissionControlStatus,
+    c.HaFailoverLevel,
+    c.DrsStatus,
+    c.DrsBehaviour
+FROM Orion.VIM.Clusters c
+ORDER BY c.Name
+
+
+-- Cluster load and the platform's depletion forecasts, which is the useful shape for
+-- capacity planning: not "how full is it now" but "when does it run out".
+SELECT
+    c.Name AS ClusterName,
+    c.CPULoad,
+    c.MemoryUsage,
+    c.VmCapacityCount,
+    c.VmCapacityConstraint,
+    c.CpuUtilizationDepletionDate,
+    c.MemoryUtilizationDepletionDate,
+    c.DiskUtilizationDepletionDate
+FROM Orion.VIM.Clusters c
+ORDER BY c.CPULoad DESC
+
+
+-- Hosts per cluster, walking the cluster navigation from the host side.
+SELECT
+    h.Cluster.Name AS ClusterName,
+    COUNT(h.HostID) AS HostCount,
+    SUM(h.VmCount) AS TotalVMs,
+    SUM(h.CpuCoreCount) AS TotalCores
+FROM Orion.VIM.Hosts h
+GROUP BY h.Cluster.Name
+ORDER BY COUNT(h.HostID) DESC

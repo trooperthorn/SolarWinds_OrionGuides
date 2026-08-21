@@ -14,8 +14,9 @@ tell in one call whether a module is present and populated.
 The single most confusing thing about this schema is that entity prefixes are historical
 engineering names, not marketing names. Nothing lines up the way you would expect:
 
-- Server and Application Monitor entities are prefixed `Orion.APM.`, from the product's
-  former name.
+- Server and Application Monitor entities are prefixed `Orion.APM.`, not `Orion.SAM.`.
+  Their display names in the netobject reference read "APM: Application" and "APM:
+  Component".
 - Network Configuration Manager entities live under **two** prefixes, `Cirrus.` and
   `NCM.`.
 - Virtualization Manager entities are prefixed `Orion.VIM.`, and there is no `Orion.VMAN.`
@@ -49,7 +50,7 @@ name equals the prefix or begins with the prefix plus a dot.
 | NPM (Network Performance Monitor) | Interfaces, wireless, routing, F5, fibre channel, NetPath | `Orion.NPM.` | 86 |
 | SAM (Server and Application Monitor) | Applications, components, AppInsight for SQL/IIS/Exchange | `Orion.APM.` | 140 |
 | NCM (Network Configuration Manager) | Device configs, compliance, config transfer, inventory | `Cirrus.` and `NCM.` | 57 + 72 |
-| NTA (NetFlow Traffic Analyzer) | Flow records, applications, endpoints, CBQoS | `Orion.Netflow.` | 49 |
+| NTA (NetFlow Traffic Analyzer) | Flow records, applications, protocols, CBQoS | `Orion.Netflow.` | 49 |
 | SRM (Storage Resource Monitor) | Storage arrays, LUNs, pools, file shares, NAS volumes | `Orion.SRM.` | 135 |
 | VMAN / VIM (Virtualization Manager) | vCenters, hosts, clusters, datastores, virtual machines | `Orion.VIM.` | 90 |
 | IPAM (IP Address Manager) | Subnets, IP nodes, DHCP scopes, DNS zones | `IPAM.` | 77 |
@@ -58,9 +59,9 @@ name equals the prefix or begins with the prefix plus a dot.
 | WPM (Web Performance Monitor) | Recorded transactions, steps, playback locations | `Orion.SEUM.` | 31 |
 | DPA (Database Performance Analyzer) | Database instances, waits, blocking, expensive queries | `DPA.` and `Orion.DPA.` | 18 + 9 |
 | Log Analyzer | Syslog, traps, log entries, processing rules | `Orion.OLM.` | 21 |
-| Hardware Health | Fans, PSUs, temperature sensors on nodes | `Orion.HardwareHealth.` | 33 |
+| Hardware Health | Hardware sensors on nodes: fans, power supplies, chassis, blades, racks | `Orion.HardwareHealth.` | 33 |
 | QoE (Quality of Experience) | Deep packet inspection applications and probes | `Orion.DPI.` | 14 |
-| Cortex | Newer polling and metrics pipeline | `Cortex.` | 69 |
+| Cortex | Metrics-shaped mirrors of nodes, interfaces and volumes, plus newer integrations | `Cortex.` | 69 |
 
 Beyond that table the schema also carries namespaces for cloud monitoring
 (`Orion.Cloud.`, 148 entities), agent management (`Orion.AgentManagement.`, 16), asset
@@ -435,17 +436,18 @@ Two prefixes look like products but are not.
 **`Cirrus.`** (57 entities) is NCM's original namespace, described above. The name is
 historical; treat `Cirrus.*` as "NCM, the part with the verbs".
 
-**`Cortex.`** (69 entities) is a newer internal data pipeline rather than a product you
-buy. Almost all of it sits under `Cortex.Orion.`, and it mirrors familiar objects with a
-metrics-oriented shape: `Cortex.Orion.Node`, `Cortex.Orion.Interface`,
-`Cortex.Orion.Volume`, each with companion `.Metrics` and `.Statistics` entities such as
-`Cortex.Orion.Interface.Metrics` (27 properties) and `Cortex.Orion.Node.HealthMetrics`. It
-also carries newer integrations, including `Cortex.Orion.CiscoAci.*` and
-`Cortex.Orion.NetMan.Firewalls.*`.
+**`Cortex.`** (69 entities) is not a product you can buy. Almost all of it sits under
+`Cortex.Orion.`, and what is there mirrors familiar objects in a metrics-oriented shape:
+`Cortex.Orion.Node`, `Cortex.Orion.Interface`, and `Cortex.Orion.Volume`, each with
+companion `.Metrics` and `.Statistics` entities such as `Cortex.Orion.Interface.Metrics`
+(27 properties) and `Cortex.Orion.Node.HealthMetrics`. It also carries newer integrations,
+including `Cortex.Orion.CiscoAci.*` and `Cortex.Orion.NetMan.Firewalls.*`.
 
-Do not reach for `Cortex.*` when a classic `Orion.*` entity will do. The classic entities
-are the documented, stable surface; the Cortex namespace exists to serve newer features
-and its shape is more likely to change between versions.
+Reach for the classic `Orion.*` entity when one exists. Those are the entities SolarWinds
+documents and that the community has years of experience with. The `Cortex.*` entities
+carry no summaries at all in the published schema: all 69 of them have an empty
+description. That is a fair signal about how much documentation support to expect if you
+build on them.
 
 ```bash
 python3 tools/schema_query.py find Cortex
@@ -514,3 +516,9 @@ to write queries that survive it.
 - [architecture.md](architecture.md) for how these modules are polled and by which server.
 - [versions-and-naming.md](versions-and-naming.md) for version numbering and the naming
   history.
+- [../reference/entity-index.md](../reference/entity-index.md) for the complete list of all
+  2067 entities, generated from the extracted schema.
+- [../reference/netobject-types.md](../reference/netobject-types.md) for the entity to
+  module and NetObject prefix mapping this page is built on.
+- [../reference/verb-index.md](../reference/verb-index.md) for every verb each module
+  contributes, with parameters.

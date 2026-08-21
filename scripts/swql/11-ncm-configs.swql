@@ -1,0 +1,199 @@
+-- Network Configuration Manager: Cirrus.* and NCM.*
+--
+-- NCM keeps its own node table. Cirrus.Nodes is NOT Orion.Nodes: it has its own NodeID
+-- (a GUID-like NCM identifier) and carries CoreNodeID as the link back to the platform
+-- node. Joining on the wrong one is the single most common NCM query mistake.
+--
+-- The namespace split is historical. Cirrus.* is the original and still holds most of
+-- the data; NCM.* holds newer features such as baselines and firmware upgrades.
+--
+-- Cirrus.Nodes holds credential columns (Password, EnablePassword, SNMPAuthPass,
+-- SNMPEncryptPass). Never select them into a report or a log.
+
+
+-- NCM node inventory joined back to the platform node.
+SELECT TOP 100
+    cn.NodeCaption,
+    cn.AgentIP,
+    cn.Vendor,
+    cn.MachineType,
+    cn.OSVersion,
+    cn.NodeGroup,
+    cn.LastInventory,
+    n.Caption AS OrionCaption,
+    n.Status AS OrionStatus
+FROM Cirrus.Nodes cn
+JOIN Orion.Nodes n ON cn.CoreNodeID = n.NodeID
+ORDER BY cn.NodeCaption
+
+
+-- Nodes NCM cannot log into. LoginStatus is the first thing to check when config
+-- downloads stop working.
+SELECT
+    cn.NodeCaption,
+    cn.AgentIP,
+    cn.LoginStatus,
+    cn.ResponseError,
+    cn.ConnectionProfile,
+    cn.CommandProtocol,
+    cn.TransferProtocol
+FROM Cirrus.Nodes cn
+WHERE cn.LoginStatus IS NOT NULL
+  AND cn.LoginStatus <> 'Login OK'
+ORDER BY cn.NodeCaption
+
+
+-- Devices that have not been inventoried recently, which means their config data and
+-- their end-of-life information are both going stale.
+SELECT
+    cn.NodeCaption,
+    cn.AgentIP,
+    cn.LastInventory,
+    cn.LastUpdateTime,
+    DayDiff(cn.LastInventory, GetDate()) AS DaysSinceInventory
+FROM Cirrus.Nodes cn
+WHERE cn.LastInventory < AddDay(-7, GetDate())
+ORDER BY cn.LastInventory
+
+
+-- End of life and end of support, the report that justifies a refresh budget.
+SELECT
+    cn.NodeCaption,
+    cn.Vendor,
+    cn.MachineType,
+    cn.OSVersion,
+    cn.EndOfSales,
+    cn.EndOfSupport,
+    cn.EndOfSoftware,
+    cn.ReplacementPartNumber
+FROM Cirrus.Nodes cn
+WHERE cn.EndOfSupport IS NOT NULL
+ORDER BY cn.EndOfSupport
+
+
+-- Devices already past end of support.
+SELECT
+    cn.NodeCaption,
+    cn.Vendor,
+    cn.MachineType,
+    cn.EndOfSupport,
+    cn.EosVersion,
+    cn.EosComments
+FROM Cirrus.Nodes cn
+WHERE cn.EndOfSupport < GetDate()
+ORDER BY cn.EndOfSupport
+
+
+-- Recent config archive entries. This is the record of what was captured and when.
+-- Do not select the Config column in a listing: it holds the entire device
+-- configuration, so a hundred rows is megabytes of text.
+SELECT TOP 100
+    ca.ConfigID,
+    ca.NodeID,
+    ca.ConfigTitle,
+    ca.ConfigType,
+    ca.DownloadTime,
+    ca.AttemptedDownloadTime,
+    ca.Baseline,
+    ca.IsBinary
+FROM Cirrus.ConfigArchive ca
+ORDER BY ca.DownloadTime DESC
+
+
+-- Downloads that were attempted but produced nothing: AttemptedDownloadTime moved on
+-- while DownloadTime did not, which means the transfer failed.
+SELECT TOP 50
+    cn.NodeCaption,
+    ca.ConfigType,
+    ca.DownloadTime,
+    ca.AttemptedDownloadTime
+FROM Cirrus.ConfigArchive ca
+JOIN Cirrus.Nodes cn ON ca.NodeID = cn.NodeID
+WHERE ca.AttemptedDownloadTime > ca.DownloadTime
+ORDER BY ca.AttemptedDownloadTime DESC
+
+
+-- Nodes whose configuration changed most recently, joined to the NCM node so the result
+-- names a device rather than an id.
+SELECT TOP 50
+    cn.NodeCaption,
+    cn.AgentIP,
+    ca.ConfigType,
+    ca.DownloadTime
+FROM Cirrus.ConfigArchive ca
+JOIN Cirrus.Nodes cn ON ca.NodeID = cn.NodeID
+ORDER BY ca.DownloadTime DESC
+
+
+-- Which protocols and transports are in use, and how many devices still use the
+-- unencrypted ones.
+SELECT
+    cn.CommandProtocol,
+    cn.TransferProtocol,
+    cn.ExecProtocol,
+    COUNT(cn.NodeID) AS DeviceCount
+FROM Cirrus.Nodes cn
+GROUP BY cn.CommandProtocol, cn.TransferProtocol, cn.ExecProtocol
+ORDER BY COUNT(cn.NodeID) DESC
+
+
+-- Devices managed over Telnet rather than SSH.
+SELECT
+    cn.NodeCaption,
+    cn.AgentIP,
+    cn.CommandProtocol,
+    cn.TelnetPort,
+    cn.SSHPort,
+    cn.UseHTTPS
+FROM Cirrus.Nodes cn
+WHERE cn.CommandProtocol = 'Telnet'
+ORDER BY cn.NodeCaption
+
+
+-- Compliance policy violations over time. These entities hold violation COUNTS by
+-- severity per report, not one row per violation, so read Error, Warning and Info as
+-- tallies rather than as flags.
+SELECT TOP 100
+    pv.TimeStamp,
+    pv.ReportID,
+    pv.Error,
+    pv.Warning,
+    pv.Info,
+    pv.Granularity
+FROM Cirrus.PolicyReportViolations pv
+WHERE pv.TimeStamp > AddDay(-30, GetDate())
+ORDER BY pv.TimeStamp DESC
+
+
+-- The current compliance position: the latest result for each policy report.
+SELECT
+    lv.ReportID,
+    lv.Error,
+    lv.Warning,
+    lv.Info
+FROM Cirrus.LatestPolicyReportViolations lv
+WHERE lv.Error > 0
+   OR lv.Warning > 0
+ORDER BY lv.Error DESC, lv.Warning DESC
+
+
+-- Device group breakdown, useful for checking that new devices land in the right group.
+SELECT
+    cn.NodeGroup,
+    COUNT(cn.NodeID) AS DeviceCount
+FROM Cirrus.Nodes cn
+GROUP BY cn.NodeGroup
+ORDER BY COUNT(cn.NodeID) DESC
+
+
+-- Platform nodes that are NOT managed by NCM. Coverage gaps hide here: a device nobody
+-- is backing up the configuration of.
+SELECT
+    n.Caption,
+    n.IPAddress,
+    n.Vendor,
+    n.MachineType
+FROM Orion.Nodes n
+WHERE n.NodeID NOT IN (SELECT cn.CoreNodeID FROM Cirrus.Nodes cn WHERE cn.CoreNodeID IS NOT NULL)
+  AND n.Vendor IS NOT NULL
+ORDER BY n.Caption

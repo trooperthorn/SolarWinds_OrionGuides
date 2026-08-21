@@ -1,0 +1,222 @@
+-- User Device Tracker (Orion.UDT.*) and Storage Resource Monitor (Orion.SRM.*)
+--
+-- UDT answers one question better than anything else in the platform: where is this
+-- device physically plugged in. Orion.UDT.AllEndpoints is the denormalized view that
+-- already joins MAC, IP, hostname, switch and port, which saves assembling it yourself.
+--
+-- SRM covers array-side storage. Do not confuse Orion.SRM.Volumes (a NAS volume on an
+-- array) with Orion.Volumes (a filesystem seen by a monitored host). They are different
+-- things at different layers, and mixing them produces nonsense capacity numbers.
+
+
+-- =====================================================================================
+-- User Device Tracker
+-- =====================================================================================
+
+-- Where is this MAC address plugged in. The everyday UDT question.
+SELECT
+    e.MACAddress,
+    e.IPAddress,
+    e.HostName,
+    e.ConnectedTo AS SwitchName,
+    e.PortName,
+    e.VLAN,
+    e.MACVendor,
+    e.ConnectionTypeName
+FROM Orion.UDT.AllEndpoints e
+WHERE e.MACAddress = @macAddress
+
+
+-- The same lookup starting from an IP address.
+SELECT
+    e.IPAddress,
+    e.MACAddress,
+    e.HostName,
+    e.ConnectedTo AS SwitchName,
+    e.PortName,
+    e.VLAN
+FROM Orion.UDT.AllEndpoints e
+WHERE e.IPAddress = @ipAddress
+
+
+-- Everything currently seen on one switch.
+SELECT
+    e.ConnectedTo AS SwitchName,
+    e.PortName,
+    e.MACAddress,
+    e.IPAddress,
+    e.HostName,
+    e.VLAN,
+    e.MACVendor
+FROM Orion.UDT.AllEndpoints e
+WHERE e.ConnectedTo = @switchName
+ORDER BY e.PortName
+
+
+-- Port utilization on a switch: which ports are in use and which are free. This is the
+-- report that decides whether a new switch is needed.
+SELECT
+    p.Node.Caption AS SwitchName,
+    p.Name AS PortName,
+    p.PortDescription,
+    p.OperationalStatus,
+    p.AdministrativeStatus,
+    p.Speed,
+    p.Duplex,
+    p.TrunkMode,
+    p.IsMonitored
+FROM Orion.UDT.Port p
+WHERE p.Node.Caption = @switchName
+ORDER BY p.PortIndex
+
+
+-- Free port count per switch. Operationally down ports that are administratively up are
+-- the ones available to plug something into.
+SELECT
+    p.Node.Caption AS SwitchName,
+    COUNT(p.PortID) AS FreePorts
+FROM Orion.UDT.Port p
+WHERE p.OperationalStatus = 2
+  AND p.AdministrativeStatus = 1
+  AND p.IsMonitored = TRUE
+GROUP BY p.Node.Caption
+ORDER BY COUNT(p.PortID) DESC
+
+
+-- Endpoints flagged as rogue: a MAC that is not on the approved list.
+SELECT
+    ep.MACAddress,
+    ep.Vendor,
+    ep.FirstSeen,
+    ep.LastUpdate,
+    ep.Rogue
+FROM Orion.UDT.Endpoint ep
+WHERE ep.Rogue = TRUE
+ORDER BY ep.LastUpdate DESC
+
+
+-- Newly seen devices in the last day, worth reviewing on a sensitive network.
+SELECT
+    ep.MACAddress,
+    ep.Vendor,
+    ep.FirstSeen,
+    ep.LastUpdate
+FROM Orion.UDT.Endpoint ep
+WHERE ep.FirstSeen > AddDay(-1, GetDate())
+ORDER BY ep.FirstSeen DESC
+
+
+-- Ports carrying more than one MAC address, which usually means an unmanaged switch or
+-- a hypervisor rather than a single workstation.
+SELECT
+    e.ConnectedTo AS SwitchName,
+    e.PortName,
+    COUNT(e.MACAddress) AS MACCount
+FROM Orion.UDT.AllEndpoints e
+GROUP BY e.ConnectedTo, e.PortName
+HAVING COUNT(e.MACAddress) > 1
+ORDER BY COUNT(e.MACAddress) DESC
+
+
+-- =====================================================================================
+-- Storage Resource Monitor
+-- =====================================================================================
+
+-- Storage array inventory and headroom. SRM distinguishes raw capacity from usable
+-- capacity after RAID and reduction, so report the one that answers the question asked.
+SELECT
+    sa.Name AS ArrayName,
+    sa.Manufacturer,
+    sa.Model,
+    sa.Firmware,
+    sa.IPAddress,
+    sa.CapacityRawTotal,
+    sa.CapacityUserTotal,
+    sa.CapacityUserUsed,
+    sa.CapacityUserUsedPercentage,
+    sa.CapacityUserFree,
+    sa.Disks
+FROM Orion.SRM.StorageArrays sa
+ORDER BY sa.CapacityUserUsedPercentage DESC
+
+
+-- Arrays forecast to run out of space. CapacityRunoutDate is the platform's own
+-- projection, which beats extrapolating from a single percentage.
+SELECT
+    sa.Name AS ArrayName,
+    sa.CapacityUserUsedPercentage,
+    sa.CapacityUserFree,
+    sa.CapacityRunoutDate,
+    DayDiff(GetDate(), sa.CapacityRunoutDate) AS DaysUntilFull
+FROM Orion.SRM.StorageArrays sa
+WHERE sa.CapacityRunoutDate IS NOT NULL
+ORDER BY sa.CapacityRunoutDate
+
+
+-- Oversubscribed pools. Thin provisioning has promised more capacity than the pool has,
+-- which is normal until it is not.
+SELECT
+    p.Name AS PoolName,
+    p.StorageArrayID,
+    p.CapacityUserTotal,
+    p.CapacitySubscribed,
+    p.CapacitySubscribedPercentage,
+    p.CapacityOversubscribed,
+    p.CapacityUserFreePercentage,
+    p.Thin
+FROM Orion.SRM.Pools p
+WHERE p.CapacityOversubscribed > 0
+ORDER BY p.CapacitySubscribedPercentage DESC
+
+
+-- LUN performance. Latency is the number that correlates with user complaints.
+SELECT TOP 50
+    l.Name AS LUNName,
+    l.Caption,
+    l.IOLatencyTotal,
+    l.IOLatencyRead,
+    l.IOLatencyWrite,
+    l.IOPSTotal,
+    l.QueueLength,
+    l.Thin
+FROM Orion.SRM.LUNs l
+ORDER BY l.IOLatencyTotal DESC
+
+
+-- LUNs approaching capacity, with the platform's own eighty and ninety percent forecasts.
+SELECT
+    l.Name AS LUNName,
+    l.CapacityTotal,
+    l.CapacityUsedPercentage,
+    l.CapacityFree,
+    l.EightyPercentUsageDate,
+    l.NinetyPercentUsageDate,
+    l.CapacityRunoutDate
+FROM Orion.SRM.LUNs l
+WHERE l.CapacityUsedPercentage > 75
+ORDER BY l.CapacityUsedPercentage DESC
+
+
+-- Pool capacity per array, walking from pool to its array.
+SELECT
+    p.StorageArray.Name AS ArrayName,
+    COUNT(p.PoolID) AS PoolCount,
+    SUM(p.CapacityUserTotal) AS TotalCapacity,
+    SUM(p.CapacityUserUsed) AS UsedCapacity
+FROM Orion.SRM.Pools p
+GROUP BY p.StorageArray.Name
+ORDER BY SUM(p.CapacityUserTotal) DESC
+
+
+-- Arrays that are not reporting cleanly.
+SELECT
+    sa.Name AS ArrayName,
+    sa.OperStatus,
+    sa.OperStatusDescription,
+    sa.Status,
+    sa.LastSync,
+    sa.LastCapacityPollTime,
+    sa.LastPerformancePollTime
+FROM Orion.SRM.StorageArrays sa
+WHERE sa.Status <> 1
+ORDER BY sa.Name
