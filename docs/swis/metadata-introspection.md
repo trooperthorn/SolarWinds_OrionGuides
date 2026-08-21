@@ -71,11 +71,13 @@ scripts.** In 2026.2:
 - `Metadata.EntityAlias`, `Metadata.EntityArgument`, `Metadata.EntityMetadata` and
   `Metadata.PropertyMetadata` all carry a flat `EntityName` as well.
 
-This is worth stressing because SWQL Studio's own source ships the query
-`SELECT Name FROM Metadata.Property WHERE EntityName='Metadata.Entity' AND Name IN (...)`,
-and `EntityName` is not a `Metadata.Property` property in the 2026.2 schema. If you inherit a
-script written that way, rewrite the filter as `Entity.FullName` and confirm it against your
-own server before trusting either form.
+This is worth stressing because the pattern outlives the schema. A query of the form
+`SELECT Name FROM Metadata.Property WHERE EntityName='Metadata.Entity' AND Name IN (...)`
+is reported to ship in SWQL Studio's own source; that provenance is **unverified** here,
+because this repository holds no copy of it. The part that matters is checked: `EntityName`
+is not a `Metadata.Property` property in the 2026.2 schema. If you inherit a script written
+that way, rewrite the filter as `Entity.FullName` and confirm it against your own server
+before trusting either form.
 
 ## Metadata.Entity: what exists and what you can do to it
 

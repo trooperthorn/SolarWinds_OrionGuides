@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**117 statements across 38 pages.**
+**120 statements across 40 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -389,6 +389,18 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - How the two differ is **not verified**: the published 2026.2 schema attaches no summary text to either property, and neither the OrionSDK documentation nor any SolarWinds sample script in this repository's sources explains it.
 
+## [invoke-verbs.md](../swis/invoke-verbs.md)
+
+**[How arguments are serialised](../swis/invoke-verbs.md#how-arguments-are-serialised)**
+
+- That reading is taken from the SDK source rather than from the schema data this repository extracts, so the file path and the "exactly three" are **unverified** here; the three idioms they explain are all visible in SolarWinds' own sample scripts.
+
+## [metadata-introspection.md](../swis/metadata-introspection.md)
+
+**[How they connect](../swis/metadata-introspection.md#how-they-connect)**
+
+- A query of the form `SELECT Name FROM Metadata.Property WHERE EntityName='Metadata.Entity' AND Name IN (...)` is reported to ship in SWQL Studio's own source; that provenance is **unverified** here, because this repository holds no copy of it.
+
 ## [uris.md](../swis/uris.md)
 
 **[The key filter](../swis/uris.md#the-key-filter)**
@@ -397,6 +409,9 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [date-and-time.md](../swql/date-and-time.md)
 
+**[Where the trap does not reach](../swql/date-and-time.md#where-the-trap-does-not-reach)**
+
+- That reading is an inference from the generated T-SQL above and is **unverified** here.
 **[`DateTime` literals and parameters](../swql/date-and-time.md#datetime-literals-and-parameters)**
 
 - If you must use a literal, the ISO 8601 form `'2026-01-01T00:00:00'` is the conventional choice for unambiguity, but its acceptance by SWIS is **unverified** here: no published SolarWinds example uses it.

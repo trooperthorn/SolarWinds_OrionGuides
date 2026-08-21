@@ -22,8 +22,8 @@ Each entry gives the signature, what the function returns, and an example you ca
 SWQL Studio or POST to `/Query`.
 
 - **Result:** lines appear only where the source data records an actual observed result.
-  Those results were captured on 2015-era and 2018-era servers, which is why the timestamps
-  in them look old. The values are real; the dates are simply when the run happened.
+  Every one of those runs was captured on a 2015-era server, which is why the timestamps in
+  them look old. The values are real; the dates are simply when the run happened.
 - Examples without a **Result:** line were constructed from the published signature. They are
   shaped correctly and use real schema names, but nobody recorded their output here.
 - **Since:** quotes the official reference where it states a minimum platform version.
@@ -1165,10 +1165,12 @@ FROM Orion.Engines
 
 **Result:** `teststring`
 
-Useful for comparisons whose case you do not control, though note that string comparison
-behaviour in SWQL comes from the Orion database collation, which is usually already case
-insensitive. Forcing case is about being explicit, not about correctness on a default
-install.
+Useful for comparisons whose case you do not control. String comparison in SWQL is handed to
+SQL Server and behaves according to the collation the Orion database was created with, which
+is chosen at install time and is not consistent across installations: do not assume case
+insensitivity, and do not assume case sensitivity. Folding both sides is what makes a match
+case insensitive regardless of collation, and it costs you the index on the column. See
+[gotchas.md](gotchas.md#10-string-comparison-collation-and-case).
 
 ### `ToUpper(a)`
 
@@ -1240,10 +1242,17 @@ SWIS does to a URI value that has to survive being embedded in another URI.
 
 ## Reconciliation: where the sources disagree
 
-Three discrepancies between the official reference and the community workbook are recorded in
-[`data/reference/reconciliation.json`](../../data/reference/reconciliation.json). None of them
-can be settled from documentation alone, so each one comes with a test you can run on your own
-server.
+Three discrepancies between the official reference and the community workbook show up in the
+function data. Two of them are recorded explicitly in
+[`data/reference/reconciliation.json`](../../data/reference/reconciliation.json): an
+`undocumented-function` record for `ChangeTimeZone` and a `version-mismatch` record for
+`WeekDay`. That file holds 14 records in all, and the other 12 are workbook entity names that
+no longer resolve rather than function disagreements. The third discrepancy, the
+`SplitStringToArray` delimiter, is not in that file at all; it is visible only by reading the
+official description and the workbook's recorded example side by side in
+[`data/reference/swql-functions.json`](../../data/reference/swql-functions.json). None of the
+three can be settled from documentation alone, so each one comes with a test you can run on
+your own server.
 
 ### `ChangeTimeZone` is not in the official reference
 

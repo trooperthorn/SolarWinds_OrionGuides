@@ -250,9 +250,9 @@ stated in the verb summary rather than in `accessControl`, and it is real.
 | `NCM.Eos` | `RefreshNow` | `nodeIds` | not declared | Starts refreshing End of Support data for selected nodes. |
 
 The `nodeId` parameter is not one type across this namespace. `Cirrus.ConfigArchive`
-`ImportConfig` declares it `string`, `DownloadConfig` and `ExecuteScript` declare it `string`,
-and `UploadConfig` declares it **`array`** while still calling it `nodeId`. Check the type,
-not the name.
+`ImportConfig` and `ImportBinaryConfig` declare it `string`, while `DownloadConfig`,
+`ExecuteScript` and `UploadConfig` all declare it **`array`** while still calling it `nodeId`.
+Check the type, not the name.
 
 `Cirrus.Nodes` declares `invoke` at the entity level for `everyone` or `manageNodes`;
 `NCM.FirmwareOperations` declares it for `everyone` or `admin`. `Cirrus.ConfigArchive` and
@@ -372,8 +372,10 @@ call to `UpdateAccount` with a property bag. The rights properties **read** as `
 
 The hardware health verbs are declared on the **base** entities `HardwareInfoBase`,
 `HardwareItemBase` and `HardwareItemThreshold`, not on the vendor-specific descendants. In
-2026.2 those three plus `Orion.HardwareHealth.BMC.Controllers.TestBmcConnection` are the only
-verbs in the `Orion.HardwareHealth.*` family, which is why one call works across vendors.
+2026.2 those three entities, plus `Orion.HardwareHealth.BMC.Controllers` and its single
+`TestBmcConnection` verb, are the only ones in the `Orion.HardwareHealth.*` family that
+declare any verb at all — nine verbs between them — which is why one call works across
+vendors.
 
 Both `Orion.Netflow.NodeSources` and `Orion.Netflow.InterfaceSources` declare `invoke` for
 `manageNodes` at the entity level, so the `not declared` entries above still need that right.
@@ -413,15 +415,18 @@ python3 tools/schema_query.py verbs --grep 'poll'
 # one verb in full: types, required flags, right, and ready-to-paste call syntax
 python3 tools/schema_query.py verb Orion.HA.Pools CreatePool
 
-# machine-readable, for piping into something else
-python3 tools/schema_query.py verb Orion.HA.Pools CreatePool --json
+# machine-readable, for piping into something else.
+# --json is a global flag, so it goes before the subcommand, not after its arguments.
+python3 tools/schema_query.py --json verb Orion.HA.Pools CreatePool
 ```
 
 ### With `jq` against `data/schema/2026.2/verbs.json`
 
 The file is a flat JSON array of 958 records. Each record has `entity`, `namespace`, `name`,
-`summary`, `parameters` (an ordered array of `{name, type, required}`, some with `items` and
-`description`), `returns`, `restPath` and `accessControl`.
+`summary`, `parameters` (an ordered array of `{name, type, required}`, some with `items`,
+`description` or `enum`), `returns`, `restPath` and `accessControl`. 245 records also carry a
+`summaryRaw`, the run-on summary text from the rendered schema page, kept where it differs
+from the Swagger description that `summary` prefers.
 
 ```bash
 cd /path/to/SolarWinds_OrionGuides

@@ -26,6 +26,13 @@ moment a reader runs it and is invisible until then.
 The shipped ``.ps1`` scripts under ``scripts/`` get the same balance check. The Python
 samples go through ``compileall`` in CI and the shell ones through ``bash -n``, which left
 the PowerShell ones as the only shipped code with nothing checking it at all.
+
+Finally, every documented invocation of this repository's own tools is run, whether or not
+an output block follows it. Most are shown as "here is how to look this up" with nothing
+after them, and those outnumber the ones with output about three to one. Asking only that
+they run is a weaker claim than matching output, and it catches a different bug: a flag in
+the wrong position, a renamed subcommand, an option that no longer exists. A reader who
+pastes one of those gets an argparse error and no reason to trust the next example.
 """
 
 from __future__ import annotations
@@ -41,6 +48,7 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GENERATED_MARKER = "GENERATED FILE"
 
 # A bash block, then optional prose-free whitespace, then an output block. The output
 # block is fenced with no language or with text/console, which is how these are written.
@@ -144,6 +152,60 @@ def check_powershell_balance(files: list[str]) -> tuple[int, list[str]]:
                     )
                     break
     return total, problems
+
+
+BASH_FENCE_RE = re.compile(r"```bash\n(.*?)```", re.S)
+CONTINUATION_RE = re.compile(r"\\\n\s*")
+TOOL_INVOCATION_RE = re.compile(r"^\s*python3?\s+tools/[\w./-]+\.py\b")
+# argparse exits 2 and says one of these; a crash prints a traceback. Anything else,
+# including a validator exiting 1 because it found real errors, is the tool working.
+BROKEN_MARKERS = ("unrecognized arguments", "invalid choice", "Traceback (most recent call last)")
+
+
+def check_tool_invocations(files: list[str]) -> tuple[int, list[str]]:
+    """Run every documented invocation of this repository's own tools.
+
+    The output comparison above only covers a command that is followed by an output block,
+    which is a minority of them: most invocations are shown as "here is how to look this
+    up" with no output. Those were unchecked, and a reader who pastes one gets an argparse
+    error. This runs them and asks only that they run, which is a weaker claim than
+    matching output and catches a different bug: a flag in the wrong position, a renamed
+    subcommand, an option that no longer exists.
+    """
+    problems: list[str] = []
+    seen: dict[str, str] = {}
+    for path in files:
+        rel = os.path.relpath(path, ROOT)
+        text = open(path, encoding="utf-8", errors="replace").read()
+        if GENERATED_MARKER in text[:400]:
+            continue
+        for block in BASH_FENCE_RE.findall(text):
+            # A command split over several lines with trailing backslashes is one command.
+            for line in CONTINUATION_RE.sub(" ", block).splitlines():
+                line = line.strip()
+                if not TOOL_INVOCATION_RE.match(line):
+                    continue
+                # A pipeline or redirect is a shell construct, not a single invocation.
+                if any(ch in line for ch in "|><&;$`"):
+                    continue
+                seen.setdefault(line, rel)
+
+    for line, rel in seen.items():
+        try:
+            # comments=True so a trailing "# what this does" is stripped the way a shell
+            # would strip it, rather than being passed along as an argument.
+            proc = subprocess.run(
+                shlex.split(line, comments=True), cwd=ROOT,
+                capture_output=True, text=True, timeout=180,
+            )
+        except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
+            problems.append(f"{rel}: `{line[:90]}` could not be run: {exc}")
+            continue
+        output = proc.stdout + proc.stderr
+        if proc.returncode == 2 or any(marker in output for marker in BROKEN_MARKERS):
+            detail = (output.strip().splitlines() or ["failed"])[-1]
+            problems.append(f"{rel}: `{line[:90]}` does not run\n           {detail[:120]}")
+    return len(seen), problems
 
 
 def check_powershell_scripts() -> tuple[int, list[str]]:
@@ -279,12 +341,15 @@ def main() -> None:
     failures.extend(sh_problems)
     ps_script_total, ps_script_problems = check_powershell_scripts()
     failures.extend(ps_script_problems)
+    invocation_total, invocation_problems = check_tool_invocations(files)
+    failures.extend(invocation_problems)
 
     print(
         f"{checked} documented tool invocation(s) checked, {skipped} skipped as not "
         f"runnable; {ps_total} PowerShell block(s) checked for balance; "
         f"{py_total} Python and {sh_total} shell block(s) parsed; "
-        f"{ps_script_total} shipped PowerShell script(s) checked for balance"
+        f"{ps_script_total} shipped PowerShell script(s) checked for balance; "
+        f"{invocation_total} distinct tool invocation(s) run"
     )
     if failures:
         print(f"\n{len(failures)} mismatch(es):", file=sys.stderr)

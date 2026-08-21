@@ -144,7 +144,9 @@ at all. This is the single most common source of Invoke bugs.
 
 `Invoke-SwisVerb` serialises each element of the array independently before sending it, and
 the cmdlet's source (`Src/SwisPowerShell/InvokeSwisVerb.cs` in the OrionSDK repository) has
-exactly three cases:
+exactly three cases. That reading is taken from the SDK source rather than from the schema
+data this repository extracts, so the file path and the "exactly three" are **unverified**
+here; the three idioms they explain are all visible in SolarWinds' own sample scripts.
 
 | What you pass | How it is serialised |
 |:---|:---|
@@ -351,8 +353,10 @@ Related commands, all offline and all reading `data/schema/2026.2/`:
 python3 tools/schema_query.py verbs --entity Orion.AlertActive   # every verb on one entity
 python3 tools/schema_query.py verbs --grep unmanage              # search verbs by name
 python3 tools/schema_query.py show Orion.Nodes                   # entity, including its verbs
-python3 tools/schema_query.py verb Orion.Nodes Unmanage --json   # machine-readable
+python3 tools/schema_query.py --json verb Orion.Nodes Unmanage   # machine-readable
 ```
+
+`--json` is a global flag rather than a per-subcommand one, so it goes before the subcommand.
 
 ### 2. The Swagger contract
 

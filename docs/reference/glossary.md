@@ -138,8 +138,8 @@ something you map or set. See [../schema/entity-model.md](../schema/entity-model
 A network interface on a node, monitored by NPM and held in `Orion.NPM.Interfaces`. It is
 hosted by its node, so `Orion.Nodes.Interfaces` navigates down and
 `Orion.NPM.Interfaces.Node` navigates back, and its NetObject prefix is `I`, as in `I:7`.
-Interfaces are the highest-cardinality core object on most installations, which is why
-interface traffic queries need time bounds more than most. See
+One node contributes many interfaces, so an installation has far more of them than nodes,
+and the traffic statistics hanging off them are among the largest tables on the system. See
 [../modules/npm.md](../modules/npm.md).
 
 ## Invoke
@@ -153,9 +153,9 @@ Sending an object keyed by parameter name does not work. See
 ## IPAM
 
 IP Address Manager, which manages subnets, IP address assignments, DHCP scopes and DNS
-zones. Its entities are the only major module set outside the `Orion.` namespace entirely:
-they live under `IPAM.`, and it keeps its own per-account role model in
-`IPAM.AccountRoles` rather than using core rights alone. See
+zones. Its entities sit outside the `Orion.` namespace altogether, under `IPAM.`, so there
+is no `Orion.IPAM` namespace to search for. It also keeps its own per-account role model in
+`IPAM.AccountRoles` rather than relying on core rights alone. See
 [../modules/ipam.md](../modules/ipam.md).
 
 ## Key property
@@ -357,9 +357,11 @@ against this module. See [../modules/sam.md](../modules/sam.md).
 
 ## SCM
 
-Server Configuration Monitor, which tracks configuration files, registry entries and
-settings on servers and reports drift. Its entities are prefixed `Orion.SCM.`. See
-[../platform/modules.md](../platform/modules.md).
+Server Configuration Monitor, which polls servers for their configuration and reports when
+it drifts from a baseline. Its entities are prefixed `Orion.SCM.`:
+`Orion.SCM.ServerConfiguration` holds the nodes it monitors, `Orion.SCM.Profiles` and
+`Orion.SCM.ProfileElements` say what to collect from them, and `Orion.SCM.Baseline` is the
+comparison point. See [../platform/modules.md](../platform/modules.md).
 
 ## SolarWinds Observability Self-Hosted
 
@@ -467,9 +469,10 @@ Cisco technology rather than the product. See [../modules/vnqm.md](../modules/vn
 
 ## Volume
 
-A filesystem, disk or memory region on a monitored node, held in `Orion.Volumes` with the
-NetObject prefix `V`. Volumes are hosted by their node, so they are deleted with it, and
-they carry their own status and their own pollers. Do not confuse them with
+A storage object on a monitored node, held in `Orion.Volumes` with the NetObject prefix
+`V`: a fixed disk, a network share, a RAM disk and so on, as `VolumeType` records. Volumes
+are hosted by their node, so they are deleted with it, and they carry their own status and
+their own pollers. Do not confuse them with
 `Orion.SRM.Volumes`, which are array volumes from Storage Resource Monitor. See
 [../schema/key-entities.md](../schema/key-entities.md).
 

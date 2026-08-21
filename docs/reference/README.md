@@ -36,7 +36,7 @@ re-derives from one command when the documented platform version changes.
 | [netobject-types.md](netobject-types.md) | 115 entries grouped by module | 13 KB | `tools/build_reference_docs.py` | What is this entity's NetObject prefix and key property? |
 | [status-codes.md](status-codes.md) | 26 status rows | 4.6 KB | `tools/build_reference_docs.py` | What does status 9 mean, and how does it rank for rollup? |
 | [swql-function-index.md](swql-function-index.md) | 63 functions grouped by category | 12 KB | `tools/build_reference_docs.py` | Does this function exist, what is its signature, and what does a call look like? |
-| [glossary.md](glossary.md) | About sixty terms, alphabetical | 21 KB | **Written by hand** | What does this word mean on this platform? |
+| [glossary.md](glossary.md) | 55 terms, alphabetical | 26 KB | **Written by hand** | What does this word mean on this platform? |
 | [unverified.md](unverified.md) | Every hedged statement, grouped by page | 25 KB | `tools/build_unverified_index.py` | Where does this repository stop being certain? |
 | [schema-changes-2026.1-to-2026.2.md](schema-changes-2026.1-to-2026.2.md) | Change report, risk-classified | 9 KB | `tools/diff_schema.py` | What did this upgrade break? |
 | [schema-changes-2025.4-to-2026.2.md](schema-changes-2025.4-to-2026.2.md) | The same across two releases | 13 KB | `tools/diff_schema.py` | The same question, over a longer jump |

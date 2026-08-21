@@ -43,8 +43,8 @@ product state actually is.
 
 Three rules that matter more for a long-lived integration than for a script:
 
-**If the operation has a name in the web console, it has a verb, and the verb does more
-than the property write.** `Orion.Nodes.Unmanage` sets `UnManaged`, `UnManageFrom` and
+**If the operation has a name in the web console, it probably has a verb, and the verb
+does more than the property write.** `Orion.Nodes.Unmanage` sets `UnManaged`, `UnManageFrom` and
 `UnManageUntil` together and stops collection for the window. A `BulkUpdate` that sets
 `UnManaged` writes one column and leaves the rest of the platform's idea of the node
 inconsistent with it. See [../swis/bulk-operations.md](../swis/bulk-operations.md#when-not-to-use-bulk).
@@ -294,6 +294,12 @@ time", so a time-based watermark inherits every timezone and daylight-saving edg
 them. Persist the watermark only after the batch has been fully processed downstream, so
 a crash re-reads a batch rather than skipping one.
 
+Whether `EventID` values are always allocated in ascending order is not recorded in the
+published schema, so treat any watermarked feed as at-least-once: make the downstream
+write idempotent, and confirm the ordering on your own server by comparing `EventID`
+against `EventTime` over a busy period before you rely on it for anything you cannot
+reconcile later.
+
 ## 7. Retry safely, and know what repeats cleanly
 
 ### Retry by cause, not by status family
@@ -417,10 +423,11 @@ WHERE EntityName = @entity AND VerbName = @verb
 ORDER BY Position
 ```
 
-Assert at startup that the positions and names are the ones you built the call for, and
-refuse to run if they are not. Failing at startup with "Orion.Nodes.Unmanage argument 3 is
-`isRelative` in my code and `X` on this server" is a much better outcome than a call that
-succeeds against the wrong slots.
+Assert at startup that the argument names, in `Position` order, are the ones you built the
+call for, and refuse to run if they are not. Failing at startup with "`Orion.Nodes.Unmanage`
+does not have the argument list this code was written against" is a far better outcome than
+a call that succeeds against the wrong slots. Note that the argument names themselves are
+not sent anywhere: they are your assertion that the order has not moved.
 
 **Does this property exist, and can I write it?**
 

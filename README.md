@@ -113,7 +113,9 @@ docs/
   swis/         the API: connecting, REST, CRUD, URIs, Invoke, introspection
   swql/         the query language: reference, functions, joins, date/time, gotchas
   schema/       the data model: entities, inheritance, relationships, key entities
-  automation/   task guides: node lifecycle, maintenance, custom properties, alerts
+  modules/      one page per module: NPM, SAM, NCM, NTA, IPAM, VMAN and the rest
+  automation/   task guides: node lifecycle, maintenance, alerts, discovery, pollers
+  guides/       start to finish: getting started, cookbook, troubleshooting, integrations
   reference/    generated enumerations: every entity, verb, prefix, status, function
 data/
   schema/2026.2/    entities, verbs, relationships, index, manifest
@@ -192,7 +194,7 @@ checks eight things:
 | `check_entity_references.py` | An invented entity, member, NetObject prefix or right, or a wrong property type |
 | `check_counts.py` | A number in a sentence that the extracted data contradicts |
 | `check_signatures.py` | A verb signature with its arguments wrong or out of order, or a function call with the wrong number |
-| `check_examples.py` | A documented command whose shown output is not what it prints |
+| `check_examples.py` | A documented command that does not run, or whose shown output is not what it prints |
 | `check_links.py` | A relative link or #anchor that does not resolve |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).

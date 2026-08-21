@@ -152,15 +152,29 @@ in the reader's timezone is the client's job.
 ### Where the trap does not reach
 
 If both sides of a comparison stay inside SQL Server, the arithmetic is done on plain
-`datetime` values and the offset labelling never comes into it. So a predicate such as
-`WHERE TimeLoggedUtc >= AddDay(-1, GetUtcDate())` is arithmetically doing what you meant,
-even though selecting that same expression would return a mislabelled value.
+`datetime` values and the offset labelling never comes into it, so a predicate such as
+`WHERE TimeLoggedUtc >= AddDay(-1, GetUtcDate())` should be comparing what you meant even
+though selecting that same expression would return a mislabelled value. That reading is an
+inference from the generated T-SQL above and is **unverified** here.
 
 SolarWinds' worked example demonstrates the corruption in the select list only, and nothing
-in the published material says how the offset is handled inside a predicate. That is exactly
-the kind of gap not worth betting a report on. Use the convert-add-convert-back form
-everywhere: it is correct in both positions, it costs one extra function call, and it means
-you never have to remember which position you are in.
+in the published material says how the offset is handled inside a predicate. To settle it on
+your own server, count the same UTC column twice with the two bounds and compare:
+
+```sql
+SELECT
+    Count(a.AuditEventID) AS ViaGetUtcDate
+FROM Orion.AuditingEvents a
+WHERE a.TimeLoggedUtc >= AddDay(-1, GetUtcDate())
+```
+
+against the same query with `ToUtc(AddDay(-1, GetDate()))` as the bound. Identical counts mean
+the predicate position was never affected on your version; different counts, by roughly your
+UTC offset's worth of rows, mean it was.
+
+Until you have run that, it is exactly the kind of gap not worth betting a report on. Use the
+convert-add-convert-back form everywhere: it is correct in both positions, it costs one extra
+function call, and it means you never have to remember which position you are in.
 
 ## The four functions that read or move the clock
 
@@ -198,9 +212,9 @@ There is no flag in the schema that says "this column is UTC". What there is:
 - **128 of them have `Utc` in the property name.** That naming is the most reliable signal
   you get: `Orion.AuditingEvents.TimeLoggedUtc`, `Orion.Nodes.LastSystemUpTimePollUtc`,
   `Orion.APM.WindowsEvent.TimeGeneratedUtc`, `Orion.CPUMultiLoad.TimeStampUTC`.
-- **Nine properties say UTC in their description** rather than only in their name, for
-  example `Orion.VIM.TriggeredAlarmState.Timestamp`: "The timestamp in UTC indicating when
-  the alarm was fired."
+- **Nine of them say UTC in their description**, and for six of those the name does not, so
+  the description is the only signal you get. `Orion.VIM.TriggeredAlarmState.Timestamp` is
+  one: "The timestamp in UTC indicating when the alarm was fired."
 - **One of the most queried date columns documents itself as local.**
   `Orion.Events.EventTime` is described as "Date and time when the event occurred, displayed
   in local time."
@@ -418,8 +432,11 @@ ORDER BY Bucket
 Choose between the two bucketing functions on granularity: `DateTrunc` gives you fixed
 calendar boundaries at seven granularities, `Downsample` takes an arbitrary period string so
 5 minute, 15 minute and 6 hour buckets are one argument apart. The statistics entities are
-the usual targets, and they all expose a `DateTime` column: `Orion.ResponseTime`,
-`Orion.CPULoad` and `Orion.NPM.InterfaceTraffic` among them.
+the usual targets, but check the timestamp column's name before you write the query rather
+than assuming it is called `DateTime`. 236 entities inherit from `System.StatisticsEntity`
+and only 19 of them declare a `DateTime` column. `Orion.ResponseTime`, `Orion.CPULoad` and
+`Orion.NPM.InterfaceTraffic` are three of the 19; `Orion.CPUMultiLoad` is not, and calls its
+timestamp `TimeStampUTC`.
 
 ## Relative time filtering
 
