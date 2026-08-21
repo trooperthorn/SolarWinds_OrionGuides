@@ -375,7 +375,7 @@ triples come from. The triples worth knowing about are `AvgCpuReady`, `AvgCpuLat
 merely report usage.
 
 `Orion.VIM.HostStorageStatistics` and `Orion.VIM.ClusterStorageStatistics` share a shape and
-add two columns nothing else has: `Congestions` and `OutstandingIO`. Sustained
+add two columns nothing else in the module has: `Congestions` and `OutstandingIO`. Sustained
 `OutstandingIO` on a host is queueing at the adapter, which is a different problem from
 latency at the datastore.
 
@@ -392,9 +392,10 @@ store:
   `ComputationDateStarted`, `ComputationDateFinished`, and `SimulationResult`, which is a
   JSON string. SWQL cannot parse it; select it and parse it in your client.
 
-Note that `EntityNetObjectID` is a NetObject **string** such as `VMC:12`, not an integer, so
-joining it to `ClusterID` requires parsing rather than a direct comparison. The prefixes are
-in [../reference/netobject-types.md](../reference/netobject-types.md).
+Note that `EntityNetObjectID` is typed `System.String` and holds a NetObject reference rather
+than an integer, so joining it to `ClusterID` or `HostID` requires parsing rather than a
+direct comparison. A cluster NetObject uses the `VMC` prefix and a host uses `VH`; the full
+list is in [../reference/netobject-types.md](../reference/netobject-types.md).
 
 ## Alarms
 
@@ -408,10 +409,11 @@ other than reading:
 
 `Orion.VIM.TriggeredAlarmState` is one firing: `Id`, `AlarmStatus`, `Timestamp`,
 `Acknowledged`, `AcknowledgedByUser`, `AcknowledgedTime`, `IsResolved`, `LastSeenTimestamp`,
-and six `Related*` columns naming what the alarm is about: `RelatedAlarm`, `RelatedVCenter`,
-`RelatedCluster`, `RelatedDataCenter`, `RelatedDatastore`, `RelatedHost`,
-`RelatedVirtualMachine`. Each has a matching navigation, so `t.VirtualMachine.Name` and
-`t.Host.HostName` work directly.
+and seven `Related*` columns naming what the alarm is about: `RelatedAlarm`,
+`RelatedVCenter`, `RelatedCluster`, `RelatedDataCenter`, `RelatedDatastore`, `RelatedHost`
+and `RelatedVirtualMachine`. Six of the seven have a matching navigation, so
+`t.VirtualMachine.Name` and `t.Host.HostName` work directly; `RelatedVCenter` has no
+navigation of its own and needs an explicit join to `Orion.VIM.VCenters`.
 
 `AlarmStatus` is its own scale and is **not** the platform `Status` scale. The schema
 documents it inline: 0 unknown, 1 green (success), 2 yellow (warning), 3 red. Do not join
@@ -447,8 +449,9 @@ verbs, one tag verb, and seven on `Orion.VIM.VirtualMachines`.
 
 ### The virtual machine verbs change production state
 
-These seven are the only verbs in the platform that will power off somebody's server. Read
-this section before calling any of them.
+Most of the platform's verbs change monitoring. These seven change the thing being monitored:
+they power machines off, reboot them, move them between hosts, resize them and delete them.
+Read this section before calling any of them.
 
 | Verb | Positional parameters | Returns |
 |---|---|---|

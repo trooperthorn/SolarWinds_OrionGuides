@@ -1,0 +1,63 @@
+# SolarWinds Orion Guides
+
+> Documentation, schema, and automation reference for SolarWinds Orion, now sold as
+> SolarWinds Observability Self-Hosted. The schema is shipped as machine-readable JSON
+> extracted from SolarWinds' own published sources, so an answer can be grounded in a
+> lookup rather than recalled.
+
+Read AGENTS.md first. It states the one rule that matters here: never state a schema fact
+you have not looked up, because entity names, property names and verb parameter order are
+the things models get plausibly but subtly wrong.
+
+Everything below works offline. No server, no network, no credentials.
+
+## Start here
+
+- [AGENTS.md](AGENTS.md): how an AI system should use this repository, and the commands to look things up
+- [README.md](README.md): what the repository is and how it is built
+- [docs/README.md](docs/README.md): the documentation index
+
+## Look something up
+
+- `python3 tools/schema_query.py find <keyword> --properties`: which entity holds this
+- `python3 tools/schema_query.py show <Entity>`: properties, relationships, verbs, access control
+- `python3 tools/schema_query.py verb <Entity> <Verb>`: parameters in order, required right, call syntax
+- `python3 tools/schema_query.py path <From> <To>`: how to join A to B
+- `python3 tools/validate_swql.py -`: check a query against the schema before using it
+
+## Machine-readable data (platform version 2026.2)
+
+- [data/schema/2026.2/index.json](data/schema/2026.2/index.json): 2067 entities, one compact record each
+- [data/schema/2026.2/entities/](data/schema/2026.2/entities/): full records with 19,328 properties
+- [data/schema/2026.2/verbs.json](data/schema/2026.2/verbs.json): 958 verbs, 794 with typed ordered parameters
+- [data/schema/2026.2/relationships.json](data/schema/2026.2/relationships.json): 2992 navigation edges
+- [data/reference/swql-functions.json](data/reference/swql-functions.json): function signatures and examples
+- [data/reference/status-codes.json](data/reference/status-codes.json): status id to name, rank, meaning
+- [data/reference/netobject-types.json](data/reference/netobject-types.json): NetObject prefixes and key properties
+- [data/reference/reconciliation.json](data/reference/reconciliation.json): where sources disagree, and entity renames
+
+## Facts that do not need looking up
+
+- REST base path `/SolarWinds/InformationService/v3/Json`, HTTPS only, port 17774 from
+  platform release 2023.1. Port 17778 was the REST port through 2022.4.1 and is deprecated.
+  Port 17777 is the SOAP endpoint.
+- The query interface is read-only. Changes go through CRUD or through Invoke verbs.
+- Invoke arguments are positional. Names never travel on the wire, so order is the contract.
+- Properties are inherited. `Uri` comes from `System.Entity`, `UnManaged` from
+  `System.ManagedEntity`, and both are queryable on descendants that do not declare them.
+- Both relationship lists on an entity are navigable from it. `Orion.Nodes.Interfaces` and
+  `Orion.NPM.Interfaces.Node` are both valid SWQL.
+
+## When this repository is not the authority
+
+It documents one platform version, and the schema varies with the release and with which
+modules are licensed. For a specific server, ask that server through the `Metadata.*`
+entities: see [scripts/swql/08-schema-introspection.swql](scripts/swql/08-schema-introspection.swql)
+and [docs/swis/metadata-introspection.md](docs/swis/metadata-introspection.md).
+
+## Optional
+
+- [scripts/swql/](scripts/swql/): 207 sample queries, all validated against the schema
+- [docs/reference/entity-index.md](docs/reference/entity-index.md): every entity, generated
+- [docs/reference/verb-index.md](docs/reference/verb-index.md): every verb with its signature, generated
+- [CONTRIBUTING.md](CONTRIBUTING.md): the verification discipline this repository is held to
