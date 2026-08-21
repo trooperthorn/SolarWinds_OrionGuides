@@ -109,9 +109,10 @@ global ids: `di.GlobalDatabaseInstanceID = d.GlobalDatabaseId`. When you are pas
 into a `WHERE` clause that DPA will act on, either works, but the global id is the one you
 already have from a platform-side query.
 
-The property descriptions say things like "Reference to `Orion.DPA.DatabaseInstance.Id`".
-There is no `Id` property on that entity; the column is `DatabaseInstanceID`. Two other
-references in the descriptions point at entities that do not exist here either: there is no
+Several property descriptions point at a property that is not there. They say "Reference to
+`Orion.DPA.DatabaseInstance.Id`", and the column is actually called `DatabaseInstanceID`.
+Two other references in the descriptions point at entities that do not exist here either:
+there is no
 `DPA.MonitorStatus` entity and no `DPA.AlarmLevel` entity in the 2026.2 schema, so
 `MonitorStatus` and the `*AlarmLevel` integers have no lookup table to join to. Select
 `MonitorStatusText` alongside `MonitorStatus` and read the text.

@@ -13,10 +13,10 @@ with this summary:
 
 Two consequences follow. First, `Status` is nearly universal: 290 entities in 2026.2
 declare a `Status` property themselves and another 94 inherit one, so 384 entities in the
-schema answer to it. Second, the interpretation is
-**application-dependent**: the same integer does not mean the same thing on an interface
-as it does on an application. The table below is the shared vocabulary, and the sections
-after it say which parts of that vocabulary apply where.
+schema answer to it. Second, the interpretation is **application-dependent**: the same
+integer does not mean the same thing on an interface as it does on an application. The
+table below is the shared vocabulary, and the sections after it say which parts of that
+vocabulary apply where.
 
 ## The table
 

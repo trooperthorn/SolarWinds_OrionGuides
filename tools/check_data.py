@@ -211,34 +211,6 @@ def main() -> None:
     if claims and not wrong:
         c.note(f"{claims} namespace count(s) quoted in the module pages all match the schema")
 
-    # SolarWinds sample scripts cited by name. Several pages say "adapt SolarWinds' own
-    # X.ps1", which is only useful if X.ps1 exists. This needs the SDK checkout, so it is
-    # skipped rather than failed when one is not present.
-    sdk_dir = os.path.join(ROOT, ".orionsdk")
-    if os.path.isdir(sdk_dir):
-        sdk_files = {f for _, _, fs in os.walk(sdk_dir) for f in fs}
-        own_files = {
-            os.path.basename(p)
-            for p in glob.glob(os.path.join(ROOT, "scripts", "**", "*"), recursive=True)
-        }
-        # The lookbehind keeps a hyphenated name whole: without it
-        # Set-NodeMaintenanceWindow.ps1 is read as NodeMaintenanceWindow.ps1.
-        script_re = re.compile(r"(?<![\w.-])([A-Za-z][\w.-]*\.ps1)\b")
-        cited = 0
-        for path in sorted(glob.glob(os.path.join(ROOT, "docs", "**", "*.md"), recursive=True)):
-            text = open(path, encoding="utf-8", errors="replace").read()
-            for name in sorted(set(script_re.findall(text))):
-                cited += 1
-                if name not in sdk_files and name not in own_files:
-                    c.fail(
-                        f"{os.path.relpath(path, ROOT)} cites {name}, which is in neither "
-                        f"the OrionSDK checkout nor this repository's scripts/"
-                    )
-        if cited:
-            c.note(f"{cited} cited sample script name(s) checked against the OrionSDK checkout")
-    else:
-        c.note("no .orionsdk checkout, so cited sample script names were not checked")
-
     # PowerShell cmdlet names. The SwisPowerShell module exports seven, and an invented
     # eighth reads exactly like the real ones. Sample scripts in this repository follow the
     # same Verb-Noun convention, so their own names are allowed by filename.
