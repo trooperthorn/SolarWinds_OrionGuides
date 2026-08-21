@@ -45,6 +45,7 @@ jobs:
       - name: Check generated reference docs are current
         run: |
           python3 tools/build_reference_docs.py --version 2026.2
+          python3 tools/build_unverified_index.py
           if ! git diff --quiet -- docs/reference/; then
             echo "::error::docs/reference/ is out of date. Run 'make docs-reference' and commit the result."
             git diff --stat -- docs/reference/
@@ -60,6 +61,7 @@ jobs:
           PYTHONHASHSEED: random
         run: |
           python3 tools/build_reference_docs.py --version 2026.2
+          python3 tools/build_unverified_index.py
           if ! git diff --quiet -- docs/reference/; then
             echo "::error::regenerating docs/reference/ produced a different result on a second run"
             git diff --stat -- docs/reference/

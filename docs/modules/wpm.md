@@ -880,7 +880,7 @@ server.
 | What `Orion.SEUM.Websites` is populated from | Six columns (`WebsiteID`, `ServerName`, `IPAddress`, `Port`, `SSLEnabled`, `Type`) with no relationships to anything else in the module | `SELECT TOP 25 w.WebsiteID, w.ServerName, w.IPAddress, w.Port, w.SSLEnabled, w.Type FROM Orion.SEUM.Websites w` |
 | Which `Version` values on `Orion.SEUM.Recordings` a given release supports | The summary says the field "determines if recording is supported" but does not enumerate the supported set | `SELECT r.Version, COUNT(r.RecordingId) AS Recordings FROM Orion.SEUM.Recordings r GROUP BY r.Version` and then `CheckRecorderCompatibility` against your recorder |
 | The full contents of `SolarWinds.SEUM.Common.Models.RecordingFileContent` | The published contract names the type but does not enumerate its fields | Invoke `Export` once and inspect the returned `XmlElement` |
-| The retention windows behind the detail, rolled-up and report tiers | Configured per installation, not in the schema | Compare `SELECT MIN(d.Timestamp) FROM Orion.SEUM.StepResponseTimeDetail d` against the same on `Orion.SEUM.StepResponseTime` and `Orion.SEUM.StepResponseTimeReport` |
+| The retention windows behind the detail, rolled-up and report tiers | Configured per installation, not in the schema | Compare `SELECT MIN(d.Timestamp) AS Oldest FROM Orion.SEUM.StepResponseTimeDetail d` against the same on `Orion.SEUM.StepResponseTime` and `Orion.SEUM.StepResponseTimeReport` |
 
 There is no WPM page in SolarWinds' published OrionSDK documentation and no WPM sample script
 in the SDK samples directory, so the schema, the `Metadata.*` entities and your own data are
