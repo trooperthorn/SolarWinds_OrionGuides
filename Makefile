@@ -21,11 +21,12 @@ FROM ?= 2026.1
 TO ?= $(VERSION)
 DIFF_SCRATCH ?= .schema-versions
 
-.PHONY: all data docs-reference schema-diff validate check clean sdk help
+.PHONY: all data docs-reference schema-diff test validate check clean sdk help
 
 help:
 	@echo "make data            rebuild data/ from the OrionSDK docs (VERSION=$(VERSION))"
 	@echo "make docs-reference  regenerate the generated tables in docs/reference/"
+	@echo "make test            run the toolchain unit tests"
 	@echo "make validate        check sample queries and docs code blocks against the schema"
 	@echo "make check           validate + data consistency + entity references + links"
 	@echo "make schema-diff     compare two versions (FROM=2025.4 TO=2026.2)"
@@ -82,7 +83,10 @@ validate:
 	@$(PYTHON) tools/validate_swql.py scripts/ --quiet
 	@$(PYTHON) tools/validate_swql.py --docs docs --quiet
 
-check: validate
+test:
+	@$(PYTHON) tools/test_tools.py
+
+check: test validate
 	@$(PYTHON) tools/check_data.py --version $(VERSION)
 	@$(PYTHON) tools/check_entity_references.py --version $(VERSION) --strict
 	@$(PYTHON) tools/check_links.py

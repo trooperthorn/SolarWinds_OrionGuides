@@ -24,6 +24,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      # The judgement encoded in the tools: inheritance resolution, both navigation
+      # directions, verb-change classification, rename detection, determinism.
+      - name: Run toolchain tests
+        run: python3 tools/test_tools.py
+
       # Consistency of the checked-in data: count floors, required core entities, and
       # hand-verified verb signatures. Catches extraction that degraded quietly.
       - name: Check extracted data

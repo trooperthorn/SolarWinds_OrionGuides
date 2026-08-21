@@ -71,9 +71,11 @@ scripts.** In 2026.2:
 - `Metadata.EntityAlias`, `Metadata.EntityArgument`, `Metadata.EntityMetadata` and
   `Metadata.PropertyMetadata` all carry a flat `EntityName` as well.
 
-SWQL Studio's own source contains `WHERE ... EntityName = '...'` against `Metadata.Property`,
-which worked on older schema versions. If you inherit a script doing that against 2026.2,
-change it to `Entity.FullName`.
+This is worth stressing because SWQL Studio's own source ships the query
+`SELECT Name FROM Metadata.Property WHERE EntityName='Metadata.Entity' AND Name IN (...)`,
+and `EntityName` is not a `Metadata.Property` property in the 2026.2 schema. If you inherit a
+script written that way, rewrite the filter as `Entity.FullName` and confirm it against your
+own server before trusting either form.
 
 ## Metadata.Entity: what exists and what you can do to it
 
@@ -419,9 +421,11 @@ WHERE ea.EntityName LIKE 'Orion.%'
 ORDER BY ea.EntityName
 ```
 
-`Metadata.EntityArgument` lists arguments an entity type itself accepts, as opposed to
-arguments a verb accepts. Its three properties are `EntityName`, `ArgumentName` and
-`ArgumentType`:
+`Metadata.EntityArgument` holds arguments attached to an entity type rather than to a verb.
+The schema publishes no summary for it, so take the three property names as the description:
+`EntityName`, `ArgumentName` and `ArgumentType`. `Metadata.Entity` reaches it through the
+`Arguments` navigation property. Run the query on your own server to see what it actually
+contains there:
 
 ```sql
 SELECT EntityName, ArgumentName, ArgumentType

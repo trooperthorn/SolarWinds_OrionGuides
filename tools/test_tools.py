@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+"""Tests for the parts of the toolchain where being wrong is expensive.
+
+Run with the standard library only:
+
+    python3 tools/test_tools.py
+    python3 -m unittest discover -s tools -p 'test_*.py'
+
+The tools are mostly straightforward parsing, and straightforward parsing does not need
+tests. What is tested here is the judgement encoded in them, because each of these rules
+was arrived at by getting it wrong first:
+
+  - inheritance resolution, which is what lets Orion.Nodes.Uri validate
+  - navigation in both relationship directions, which is what lets
+    Orion.NPM.Interfaces.Node resolve as one hop
+  - the difference between a breaking verb change and a cosmetic one, which turns on
+    Invoke arguments being positional
+  - rename detection, which has to pair Orion.NPM.UCSBlades with Orion.UCS.Blades
+    without pairing Firewall.Statistics with GkePodStatistics
+  - determinism, since a non-reproducible build makes "regenerate and commit" useless
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import build_reference_data
+import diff_schema
+import validate_swql
+from schema_query import Schema
+
+VERSION = "2026.2"
+DATA = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "schema", VERSION
+)
+HAVE_DATA = os.path.isdir(DATA)
+requires_data = unittest.skipUnless(HAVE_DATA, f"no extracted schema at {DATA}; run make data")
+
+
+@requires_data
+class TestSchemaResolution(unittest.TestCase):
+    """Members must resolve through the inheritance chain and both relationship lists."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.schema = validate_swql.SchemaIndex(VERSION)
+
+    def test_declared_property_resolves(self):
+        props, _ = self.schema.members("Orion.Nodes")
+        self.assertIn("caption", props)
+        self.assertIn("nodeid", props)
+
+    def test_inherited_property_resolves(self):
+        # Uri is declared on System.Entity, UnManaged on System.ManagedEntity. Both are
+        # queryable on Orion.Nodes, and a validator that only reads the entity's own page
+        # would reject them.
+        props, _ = self.schema.members("Orion.Nodes")
+        for inherited in ("uri", "instancetype", "unmanaged", "unmanagefrom"):
+            self.assertIn(inherited, props, f"{inherited} should resolve through inheritance")
+
+    def test_property_is_not_declared_on_the_entity_itself(self):
+        # Guards the reason the previous test exists: if extraction ever starts inlining
+        # inherited members, the inheritance walk becomes untested rather than unnecessary.
+        rec = self.schema.entities["Orion.Nodes"]
+        self.assertNotIn("Uri", {p["name"] for p in rec["properties"]})
+
+    def test_navigation_from_source_relationship(self):
+        _, navs = self.schema.members("Orion.Nodes")
+        self.assertEqual(navs.get("interfaces"), "Orion.NPM.Interfaces")
+
+    def test_navigation_from_target_relationship(self):
+        # Orion.NPM.Interfaces is the target end of the relationship, and Node is still a
+        # navigation property usable from it. Treating only source relationships as
+        # navigable is the bug this catches.
+        _, navs = self.schema.members("Orion.NPM.Interfaces")
+        self.assertEqual(navs.get("node"), "Orion.Nodes")
+
+
+@requires_data
+class TestValidator(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.schema = validate_swql.SchemaIndex(VERSION)
+
+    def errors(self, query):
+        return [f for f in validate_swql.validate(query, self.schema) if f.level == "ERROR"]
+
+    def warnings(self, query):
+        return [f for f in validate_swql.validate(query, self.schema) if f.level == "WARN"]
+
+    def test_valid_query_passes(self):
+        self.assertEqual(self.errors("SELECT TOP 5 n.Caption FROM Orion.Nodes n"), [])
+
+    def test_inherited_property_passes(self):
+        self.assertEqual(self.errors("SELECT n.Uri, n.UnManaged FROM Orion.Nodes n"), [])
+
+    def test_single_hop_navigation_passes(self):
+        self.assertEqual(
+            self.errors("SELECT i.Node.Caption FROM Orion.NPM.Interfaces i"), []
+        )
+
+    def test_deep_navigation_passes(self):
+        self.assertEqual(
+            self.errors("SELECT c.Application.Node.Caption FROM Orion.APM.Component c"), []
+        )
+
+    def test_unknown_entity_is_an_error(self):
+        errs = self.errors("SELECT x.Caption FROM Orion.NodesX x")
+        self.assertTrue(errs)
+        self.assertIn("unknown entity", errs[0].message)
+
+    def test_unknown_property_is_an_error(self):
+        errs = self.errors("SELECT n.Captionn FROM Orion.Nodes n")
+        self.assertTrue(errs)
+        self.assertIn("Captionn", errs[0].message)
+
+    def test_navigating_through_a_scalar_is_an_error(self):
+        errs = self.errors("SELECT n.Caption.Length FROM Orion.Nodes n")
+        self.assertTrue(errs)
+        self.assertIn("cannot be navigated", errs[0].message)
+
+    def test_real_function_is_not_warned_about(self):
+        self.assertEqual(self.warnings("SELECT ToUpper(n.Caption) FROM Orion.Nodes n"), [])
+
+    def test_unknown_function_warns(self):
+        self.assertTrue(self.warnings("SELECT Frobnicate(n.Caption) FROM Orion.Nodes n"))
+
+    def test_string_literals_are_not_parsed_as_identifiers(self):
+        # 'Orion.Nope.Nope' inside quotes is data, not an entity reference.
+        self.assertEqual(
+            self.errors("SELECT n.Caption FROM Orion.Nodes n WHERE n.Caption = 'Orion.Nope.Nope'"),
+            [],
+        )
+
+    def test_comments_are_ignored(self):
+        query = "-- n.Bogus is not real\nSELECT n.Caption FROM Orion.Nodes n"
+        self.assertEqual(self.errors(query), [])
+
+
+class TestEmbeddedExtraction(unittest.TestCase):
+    """SWQL inside client scripts has to be found without swallowing surrounding prose."""
+
+    def extract(self, text, suffix):
+        import tempfile
+
+        with tempfile.NamedTemporaryFile("w", suffix=suffix, delete=False, encoding="utf-8") as fh:
+            fh.write(text)
+            path = fh.name
+        try:
+            return [q for _, q in validate_swql.queries_from_source(path)]
+        finally:
+            os.unlink(path)
+
+    def test_powershell_herestring(self):
+        found = self.extract("$q = @'\nSELECT Caption FROM Orion.Nodes\n'@\n", ".ps1")
+        self.assertEqual(found, ["SELECT Caption FROM Orion.Nodes"])
+
+    def test_docstring_is_not_treated_as_one_query(self):
+        # A module docstring that quotes an example must not be swallowed whole; only the
+        # quoted query inside it counts. Getting this wrong parsed prose as SQL.
+        text = '"""Run it like this:\n\n    query "SELECT Caption FROM Orion.Nodes"\n"""\n'
+        found = self.extract(text, ".py")
+        self.assertEqual(found, ["SELECT Caption FROM Orion.Nodes"])
+
+    def test_templated_query_is_skipped(self):
+        # The query the script sends is not the text on the page, so checking it would be
+        # checking a string that never runs.
+        found = self.extract('q = f"SELECT {col} FROM Orion.Nodes"\n', ".py")
+        self.assertEqual(found, [])
+
+
+@requires_data
+class TestRenameDetection(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(DATA, "index.json"), encoding="utf-8") as fh:
+            cls.known = {rec["entity"] for rec in json.load(fh)}
+
+    def suggest(self, name):
+        return build_reference_data.suggest_rename(name, self.known)
+
+    def test_case_only_rename(self):
+        self.assertEqual(self.suggest("Orion.VIM.LUNs"), ["Orion.VIM.Luns"])
+
+    def test_typo_in_source_material(self):
+        self.assertEqual(
+            self.suggest("Orion.SRM.FIleServerIdentification"),
+            ["Orion.SRM.FileServerIdentification"],
+        )
+
+    def test_namespace_move_keeping_the_leaf(self):
+        self.assertIn("Orion.UCS.Blades", self.suggest("Orion.NPM.UCSBlades"))
+
+    def test_deeper_namespace_wins_over_a_shallow_leaf_match(self):
+        self.assertEqual(self.suggest("Orion.F5.Device"), ["Orion.F5.System.Device"])
+
+    def test_generic_leaf_does_not_produce_a_guess(self):
+        # "Nodes" matches dozens of entities. A suggestion here would be worse than none,
+        # because it looks authoritative.
+        self.assertEqual(self.suggest("Orion.F5.Nodes"), [])
+
+    def test_existing_entity_is_not_reported_as_renamed(self):
+        self.assertEqual(self.suggest("Orion.Nodes"), ["Orion.Nodes"])
+
+
+class TestVerbChangeClassification(unittest.TestCase):
+    """Invoke sends a positional array, and the classification follows from that."""
+
+    def diff_one_verb(self, old_params, new_params, required=()):
+        def entity(params):
+            return {
+                "Test.Entity": {
+                    "entity": "Test.Entity",
+                    "properties": [],
+                    "sourceRelationships": [],
+                    "targetRelationships": [],
+                    "inheritance": [],
+                    "supportedOperations": ["read"],
+                    "verbs": [
+                        {
+                            "name": "DoThing",
+                            "parameters": [
+                                {"name": p, "required": p in required} for p in params
+                            ],
+                        }
+                    ],
+                }
+            }
+
+        result = diff_schema.diff(entity(old_params), entity(new_params))
+        return result["verbChanges"][0] if result["verbChanges"] else None
+
+    def test_identical_signature_is_not_reported(self):
+        self.assertIsNone(self.diff_one_verb(["a", "b"], ["a", "b"]))
+
+    def test_recasing_is_cosmetic(self):
+        # Names never travel on the wire, so a positional caller cannot notice this.
+        # Reporting it as breaking buried the one real finding in the 2025.4 comparison.
+        change = self.diff_one_verb(["NodeId", "Type"], ["nodeId", "type"])
+        self.assertEqual(change["severity"], "cosmetic")
+
+    def test_appending_an_optional_argument_is_additive(self):
+        change = self.diff_one_verb(["a", "b"], ["a", "b", "c"])
+        self.assertEqual(change["severity"], "additive")
+
+    def test_appending_a_required_argument_is_behavioural(self):
+        change = self.diff_one_verb(["a", "b"], ["a", "b", "c"], required=("c",))
+        self.assertEqual(change["severity"], "behavioural")
+
+    def test_inserting_an_argument_mid_signature_is_breaking(self):
+        # The caller still passes the right number of arguments and they land in the
+        # wrong slots, which is the failure mode worth shouting about.
+        change = self.diff_one_verb(["a", "b", "c"], ["a", "x", "b", "c"])
+        self.assertEqual(change["severity"], "breaking")
+        self.assertIn("order changed", change["reason"])
+
+    def test_removing_an_argument_is_breaking(self):
+        change = self.diff_one_verb(["a", "b"], ["a"])
+        self.assertEqual(change["severity"], "breaking")
+
+
+@requires_data
+class TestDeterminism(unittest.TestCase):
+    def test_rename_suggestions_are_stable(self):
+        # Ties used to be broken by set iteration order, and Python randomizes string
+        # hashing per process, so repeated builds disagreed. Sorting on (length, name)
+        # is what makes "regenerate and commit" produce an empty diff.
+        with open(os.path.join(DATA, "index.json"), encoding="utf-8") as fh:
+            known = {rec["entity"] for rec in json.load(fh)}
+        first = build_reference_data.suggest_rename("Orion.F5.Pools", known)
+        for _ in range(20):
+            self.assertEqual(build_reference_data.suggest_rename("Orion.F5.Pools", set(known)), first)
+
+
+@requires_data
+class TestPathFinding(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.schema = Schema(VERSION)
+
+    def adjacency(self, entity):
+        rec = self.schema.get(entity)
+        return {r["name"]: r["type"] for r in rec["sourceRelationships"] + rec["targetRelationships"]}
+
+    def test_interfaces_reach_nodes_in_one_hop(self):
+        self.assertEqual(self.adjacency("Orion.NPM.Interfaces").get("Node"), "Orion.Nodes")
+
+    def test_components_reach_applications_in_one_hop(self):
+        self.assertEqual(
+            self.adjacency("Orion.APM.Component").get("Application"), "Orion.APM.Application"
+        )
+
+    def test_components_do_not_reach_nodes_directly(self):
+        # The route is Component.Application.Node. Documenting a direct Component.Node
+        # would be wrong, and this is the assertion that keeps that honest.
+        self.assertNotIn("Node", self.adjacency("Orion.APM.Component"))
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

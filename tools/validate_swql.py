@@ -266,8 +266,11 @@ def queries_from_swql(path: str) -> list[tuple[str, str]]:
 # a query: PowerShell here-strings, Python triple-quoted strings, and shell heredocs.
 PS_HERESTRING_RE = re.compile(r"@[\"']\r?\n(.*?)\r?\n[\"']@", re.S)
 PY_TRIPLE_RE = re.compile(r'"""(.*?)"""|\'\'\'(.*?)\'\'\'', re.S)
+# Requiring a FROM is what keeps this from matching prose; the gap between SELECT and
+# FROM only has to be non-empty. An earlier minimum of ten characters silently skipped
+# short but perfectly ordinary queries such as "SELECT Caption FROM Orion.Nodes".
 QUOTED_QUERY_RE = re.compile(
-    r"""["'](\s*SELECT\b[^"']{10,}?\bFROM\b[^"']*?)["']""", re.I | re.S
+    r"""["'](\s*SELECT\b[^"']+?\bFROM\b[^"']*?)["']""", re.I | re.S
 )
 
 

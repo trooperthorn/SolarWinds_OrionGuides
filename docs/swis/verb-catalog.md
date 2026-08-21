@@ -156,11 +156,12 @@ variants. The table below shows the node set in full plus the two that break the
 | `IPAM.AttrDefine` | `UpdateCustomProperty` | `propertyName, description, maxStringLength, linkTitle, addToIpAddress, addToGroups` | not declared | Updates an IPAM custom property definition. |
 | `IPAM.AttrDefine` | `DeleteCustomProperty` | `propertyName` | not declared | Deletes an IPAM custom property definition. |
 
-None of these verbs declares a right of its own, but the entities do.
-`Orion.NodesCustomProperties` and `Orion.APM.ApplicationCustomProperties` both declare
-`invoke` for `admin`, so creating or changing a custom property definition is an
-administrator operation even though setting a custom property **value** only needs
-`manageNodes` update rights on the object.
+None of these verbs declares a right of its own. `Orion.NodesCustomProperties` and
+`Orion.APM.ApplicationCustomProperties` both declare `invoke` for `admin` at the entity level,
+so creating or changing a custom property definition is an administrator operation even though
+setting a custom property **value** only needs `manageNodes` update rights on the object.
+`IPAM.AttrDefine` declares nothing at either level, so IPAM's own role model is what governs
+there.
 
 `ValidateCustomProperty` exists on only 14 of the 26 entities, so do not assume it is there.
 Check with:
@@ -344,8 +345,9 @@ dynamic group definition, because it answers "what would this actually match" wi
 creating anything.
 
 The `Orion.Container` verbs declare no right individually, but the entity declares `invoke`
-for `manageNodes` or `allowOrionMapsManagement`. The `Orion.Accounts` verbs each declare
-`admin` directly, and the official
+for `manageNodes` or `allowOrionMapsManagement`. `Orion.ContainerMemberDefinition` declares
+nothing at either level. The `Orion.Accounts` verbs each declare `admin` directly, and the
+official
 [Account Management](https://solarwinds.github.io/OrionSDK/docs/account-management/) page
 confirms that every operation except querying accounts requires it.
 
@@ -375,6 +377,8 @@ verbs in the `Orion.HardwareHealth.*` family, which is why one call works across
 
 Both `Orion.Netflow.NodeSources` and `Orion.Netflow.InterfaceSources` declare `invoke` for
 `manageNodes` at the entity level, so the `not declared` entries above still need that right.
+`Orion.HardwareHealth.HardwareInfoBase` declares nothing at the entity level, which leaves
+`IsHardwareHealthEnabled` the only ungated row here. It is a read, which is consistent.
 
 ## Schema and service verbs
 
