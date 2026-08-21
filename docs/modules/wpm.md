@@ -27,10 +27,13 @@ diverges from what the console shows you:
 "Location" to "agent" is the one that costs real time, because the platform already has a
 completely different thing called an agent, `Orion.AgentManagement.Agent`, which is the
 deployed polling agent used by [SAM](sam.md) and others. **`Orion.SEUM.Agents` is not
-that.** The two are unrelated in the schema: there is no relationship edge between
-`Orion.SEUM.Agents` and `Orion.AgentManagement.Agent`, they have different key columns, and a
-WPM playback location is a machine running the WPM player, not a machine running the Orion
-agent. When a document says "the location is offline" and the schema says
+that.** No relationship edge joins the two directly; the only route the schema offers is the
+two-hop detour `Orion.SEUM.Agents.Engine.Agents`, which establishes nothing more than that
+both are served by the same polling engine. What makes the confusion worse is that the two
+look alike on paper: both key on a column called `AgentId`, and both carry `AgentGuid`,
+`Hostname`, `DNSName`, `IP` and `OSVersion`. An id from one does not resolve in the other,
+and a WPM playback location is a machine running the WPM player, not a machine running the
+Orion agent. When a document says "the location is offline" and the schema says
 `Orion.SEUM.Agents.ConnectionStatus`, those are the same sentence.
 
 [../platform/modules.md](../platform/modules.md) explains why prefixes and product names
@@ -261,11 +264,12 @@ weights a five-minute bucket the same as an hour-long one, while
 Where `Weight` comes from is worth knowing, because it explains a type difference that will
 otherwise look like a bug. `System.StatisticsEntity` declares `ObservationTimestamp`,
 `ObservationFrequency` and `Weight` for every descendant, and its `Weight` is a
-`System.Double` documented as the collection interval in seconds. Four of the WPM statistics
-entities, `Orion.SEUM.ResponseTimeReport`, `Orion.SEUM.StepResponseTime`,
-`Orion.SEUM.StepResponseTimeReport` and `Orion.SEUM.AgentStatus`, redeclare `Weight`
-themselves as a `System.Int32`, as does `Orion.SEUM.AgentStatusReport`. The two `Detail`
-entities and `Orion.SEUM.ResponseTime` do not redeclare it and so expose the inherited
+`System.Double` documented as the collection interval in seconds. Five of the eight WPM
+statistics entities redeclare `Weight` themselves as a `System.Int32`:
+`Orion.SEUM.ResponseTimeReport`, `Orion.SEUM.StepResponseTime`,
+`Orion.SEUM.StepResponseTimeReport`, `Orion.SEUM.AgentStatus` and
+`Orion.SEUM.AgentStatusReport`. The remaining three, the two `Detail` entities and
+`Orion.SEUM.ResponseTime`, do not redeclare it and so expose the inherited
 `System.Double`. The column resolves in a query either way; a typed client binding it to an
 `int` does not.
 
@@ -456,8 +460,15 @@ $exported = Invoke-SwisVerb $swis 'Orion.SEUM.Recordings' 'Export' @($rec.Record
 
 `Invoke-SwisVerb` returns an `XmlElement` rather than a typed object, so read the fields off
 the response rather than assuming a shape. The declared return type is
-`SolarWinds.SEUM.Common.Models.RecordingFileContent`; what it contains beyond the file bytes
-is not enumerated in the published contract, so inspect one before building on it.
+`SolarWinds.SEUM.Common.Models.RecordingFileContent`, and the contract does enumerate it: two
+`string` members, `Content` and `Name`. What encoding `Content` uses is not stated, so inspect
+one before building on it:
+
+```bash
+python3 tools/schema_query.py verb Orion.SEUM.Recordings Export
+```
+
+which prints the return shape alongside the parameters.
 
 ### Recorder compatibility
 
@@ -833,7 +844,8 @@ monitoring. Search for `SEUM`, or for `transaction`, or for `recording`.
 
 **`Orion.SEUM.Agents` is a playback location, not a monitoring agent.** The platform's
 deployed agent is `Orion.AgentManagement.Agent`, a different entity in a different namespace
-with no relationship to this one. The NetObject reference calls `Orion.SEUM.Agents`
+with no direct relationship to this one, though both key on a column called `AgentId` and
+share several column names besides. The NetObject reference calls `Orion.SEUM.Agents`
 "Location", which is the console's word for it.
 
 **A step exists twice.** `Orion.SEUM.RecordingSteps` has the name, URL and order;
@@ -906,7 +918,7 @@ server.
 | The valid names in `Orion.SEUM.Settings` and `Orion.SEUM.WebSettings` | Two separate name/value bags with no enumerated keys and no stated difference between them | `SELECT s.Name, s.Value FROM Orion.SEUM.Settings s ORDER BY s.Name` and `SELECT w.SettingName, w.SettingValue FROM Orion.SEUM.WebSettings w ORDER BY w.SettingName` |
 | What `Orion.SEUM.Websites` is populated from | Six columns (`WebsiteID`, `ServerName`, `IPAddress`, `Port`, `SSLEnabled`, `Type`) with no relationships to anything else in the module | `SELECT TOP 25 w.WebsiteID, w.ServerName, w.IPAddress, w.Port, w.SSLEnabled, w.Type FROM Orion.SEUM.Websites w` |
 | Which `Version` values on `Orion.SEUM.Recordings` a given release supports | The summary says the field "determines if recording is supported" but does not enumerate the supported set | `SELECT r.Version, COUNT(r.RecordingId) AS Recordings FROM Orion.SEUM.Recordings r GROUP BY r.Version` and then `CheckRecorderCompatibility` against your recorder |
-| The full contents of `SolarWinds.SEUM.Common.Models.RecordingFileContent` | The published contract names the type but does not enumerate its fields | Invoke `Export` once and inspect the returned `XmlElement` |
+| What the `Content` member of `SolarWinds.SEUM.Common.Models.RecordingFileContent` holds | The contract does enumerate the type: two `string` members, `Content` and `Name`. The encoding of the file content itself is not stated | `python3 tools/schema_query.py verb Orion.SEUM.Recordings Export` for the shape, then invoke `Export` once and inspect the returned `XmlElement` |
 | The retention windows behind the detail, rolled-up and report tiers | Configured per installation, not in the schema | Compare `SELECT MIN(d.Timestamp) AS Oldest FROM Orion.SEUM.StepResponseTimeDetail d` against the same on `Orion.SEUM.StepResponseTime` and `Orion.SEUM.StepResponseTimeReport` |
 
 There is no WPM page in SolarWinds' published OrionSDK documentation and no WPM sample script

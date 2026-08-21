@@ -88,9 +88,9 @@ navigation property between them. Full list in
 
 `Orion.IpSla.Operations` is the centre of the synthetic half. One row is one IP SLA
 operation configured on one router. It inherits from `System.ManagedEntity` through
-`System.DashboardEntity`, so it has a `Status`, a `Uri`, an `AlertObject`, and the
-`UnManaged` / `UnManageFrom` / `UnManageUntil` trio, on top of the 26 properties it declares
-itself.
+`System.DashboardEntity`, so it has a `Status`, a `Uri` and an `AlertObject` on top of the 26
+properties it declares itself. The `UnManaged` / `UnManageFrom` / `UnManageUntil` trio is not
+one of the inherited members here: it sits inside those 26, declared by the entity itself.
 
 The declared properties group into four ideas.
 
@@ -188,7 +188,9 @@ There is a family of entities named `Orion.IpSla.OperationsHTTP`,
 names these are **not** per-type configuration tables. Every one of them has a `SummaryDate`
 column and aggregate columns such as `AVERAGEofAvgMOS`, `MAXofMaxJitter` and `TotalFailed`:
 they are pre-built daily summary views for the console's reports. They declare no navigation
-properties, so `OperationId` on them is a bare integer you join yourself.
+properties, so the operation id on them is a bare integer you join yourself, and even that is
+not spelled consistently: eight of the nine call it `OperationId`, while
+`Orion.IpSla.OperationsJitter` calls it `OperationID`.
 `Orion.IpSla.VoipOperationsICMPEcho` and `Orion.IpSla.VoipOperationsUDPEcho` are the same
 idea with underscore-separated column names (`Operation_Name`,
 `MIN_of_Min_Round_Trip_Time`), which is what happens when a report designer's output becomes
@@ -263,7 +265,12 @@ navigable from an operation, though the navigation property names are not consis
 is reached as `Orion.IpSla.Operations.Stats`.
 
 Because they inherit `System.StatisticsEntity`, every one of them also has
-`ObservationTimestamp`, `ObservationFrequency` and `Weight` without declaring them.
+`ObservationTimestamp`, `ObservationFrequency` and `Weight` without declaring them. One
+redeclares anyway: `Orion.IpSla.IcmpPathJitterOperationStats` declares its own `Weight`, and
+the extracted type on that redeclaration is a bare `int` rather than the inherited
+`System.Double`. It is the only `Orion.IpSla.` entity that does this, it makes no difference
+to a SWQL query, and it is the same class of trap for a typed client as the `SipStats*`
+widening further down this page.
 The schema documents `Weight` as how long the row's value was collected over, in seconds, so
 a row covering an hour carries 3600 and a row covering twenty seconds carries 20. That is
 what makes `SUM(metric * Weight) / SUM(Weight)` the correct way to aggregate across intervals
@@ -416,8 +423,8 @@ measurements.
 `CCMMonitoringID`, `GatewayIndex`, `Name`, `Description`, `IpAddress`, `IpAddressRaw`,
 `ProductType`, `RegionID`, `Status`, `LastStatusUpdatedUTC`, `LastRegisteredUTC`,
 `DetailsUrl` and the `UnManaged` trio. Unlike phones it **does** carry a
-`Orion.IpSla.CCMGateways.Region` navigation property, so region names come for free here and
-have to be joined by hand one entity over. `Orion.IpSla.CCMH323Devices` is nearly the same shape for
+`Orion.IpSla.CCMGateways.Region` navigation property, so region names come for free here
+where on phones they have to be joined by hand. `Orion.IpSla.CCMH323Devices` is nearly the same shape for
 H.323 endpoints. It adds `StatusReason`, drops `DetailsUrl` and the `UnManaged` trio, and
 declares `ProductType` as a `System.Int32` where `Orion.IpSla.CCMGateways` declares it as a
 `System.String`, so the two do not interchange in a union.
@@ -434,7 +441,8 @@ comparison.
 `Orion.IpSla.CallManagerCurrentStats` is the current registration snapshot per call manager
 and `Orion.IpSla.CallManagerStats` is the same thing as a time series. Both carry
 `RegisteredPhones`, `UnRegisteredPhones`, `RejectedPhones`, `TotalPhones` and the matching
-four gateway counters, plus percentage versions of each. The difference in type is a real
+four gateway counters, plus percentage versions of all of those except the two totals: there
+is no `TotalPhonesPercentage`. The difference in type is a real
 trap: the percentages are `System.Int32` on `CallManagerCurrentStats` and `System.Double` on
 `CallManagerStats`.
 
@@ -478,7 +486,9 @@ six are `System.Reference` and the last is `System.Hosting`.
 record), the media transport addresses and ports as raw integers, the partition names for
 each number, the `...OnBehalfOf` fields that explain who terminated or redirected the call,
 precedence levels, and the media and video codec capability integers. It joins to the
-analytical view on `CCMMonitoringID` and `CallID`, and it declares no navigation properties.
+analytical view on `CallID` and on the call manager id, which the two entities spell
+differently: `CCMMonitoringID` here against `CcmID` on `Orion.IpSla.VoipCallDetails`. It
+declares no navigation properties.
 
 `Orion.IpSla.VoipSuccessFailedCalls` is the cheap aggregate: `NodeID`, `CcmID`,
 `DateTimeUTC`, `Success` and `Failed`, hosted by `CCMMonitoring`. If the question is "how
@@ -516,9 +526,9 @@ average of `Utilization`, `VoiceIncomingUtilization`, `VoiceOutgoingUtilization`
 voice from data on a PRI is the point: a trunk at 95 percent that is 90 percent data is a
 completely different conversation from one that is 90 percent voice.
 `Orion.IpSla.PRIGatewayUtilization` is a flattened per-gateway view of the same averages with
-a `Node` column that is a `System.String`, not an id, and both it and the two stats entities
-have current-value twins (`Orion.IpSla.VoipGatewayEndpointCurrentStats`,
-`Orion.IpSla.VoipGatewayDetailCurrentStats`).
+a `Node` column that is a `System.String`, not an id. The two stats entities each have a
+current-value twin, `Orion.IpSla.VoipGatewayEndpointCurrentStats` and
+`Orion.IpSla.VoipGatewayDetailCurrentStats`; the flattened view does not.
 
 SIP trunks are split the same way the gateways are, by who reports them:
 
@@ -551,10 +561,12 @@ container features: `SiteID`, `Name`, `IPAddress`, `NodeID`, `RegionID`, `IsHub`
 what makes hub-and-spoke reporting possible, because in a hub-and-spoke WAN the interesting
 call paths all pass through the hub.
 
-Sites connect to measurements through `Orion.IpSla.OperationCurrentStats`, which is the only
-statistics entity carrying `SourceSiteID` and `TargetSiteID`. That is the join that turns
-"operation 41 is degraded" into "the path from the Manchester branch to the London hub is
-degraded".
+Sites connect to measurements through `Orion.IpSla.OperationCurrentStats`, which carries
+`SourceSiteID` and `TargetSiteID` alongside the full metric set. Exactly one other statistics
+entity carries both ids, `Orion.IpSla.OperationCurrentBasicMetrics`, and it has nothing but
+`RoundTripTime` to report against them, so the wide entity is the one to join. That is the
+join that turns "operation 41 is degraded" into "the path from the Manchester branch to the
+London hub is degraded".
 
 Two entities pre-compute the site-to-site view:
 
@@ -1011,7 +1023,7 @@ ORDER BY h.HopIndex
 
 ### 13. Every VoIP object on one node
 
-A single query that walks all five of the node's VNQM edges, useful when somebody asks "what
+A single query that walks all six of the node's VNQM edges, useful when somebody asks "what
 does VNQM know about this router".
 
 ```sql
