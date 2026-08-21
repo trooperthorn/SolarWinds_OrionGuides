@@ -218,8 +218,11 @@ echo "SELECT n.Caption, n.Node.Foo FROM Orion.Nodes n" | python3 tools/validate_
 ```
 
 ```text
-ERROR: Orion.Nodes has no property or navigation property named 'Node'.
-       Closest members: nodeid, asanode, npmnode.
+<stdin>
+  ERROR: Orion.Nodes has no property or navigation property named 'Node'. Closest members: nodeid, asanode, npmnode.
+      in: n.Node.Foo
+
+1 query/queries checked, 1 error(s), 0 warning(s)
 ```
 
 For the server actually in front of you, which may run a different platform version and a
