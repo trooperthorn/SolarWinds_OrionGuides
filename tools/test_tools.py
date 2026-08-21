@@ -278,6 +278,72 @@ class TestDeterminism(unittest.TestCase):
 
 
 @requires_data
+class TestProseReferences(unittest.TestCase):
+    """Entity and member names written in prose are held to the same standard as queries."""
+
+    @classmethod
+    def setUpClass(cls):
+        import check_entity_references as cer
+
+        cls.cer = cer
+        cls.entities, _, _ = cer.load_schema(VERSION)
+        cls.prefixes = cer.namespace_prefixes(cls.entities)
+        index = validate_swql.SchemaIndex(VERSION)
+
+        verbs = {}
+        for name, rec in index.entities.items():
+            chain = (rec.get("inheritance") or []) + [name]
+            verbs[name] = {
+                v["name"].lower()
+                for anc in chain
+                if index.entities.get(anc)
+                for v in index.entities[anc].get("verbs") or []
+            }
+
+        def members(entity):
+            props, navs = index.members(entity)
+            return {**props, **{v: "verb" for v in verbs.get(entity, set())}}, navs
+
+        cls.members = staticmethod(members)
+
+    def ok(self, token):
+        return self.cer.resolves(token, self.entities, self.prefixes, self.members)[0]
+
+    def test_entity_name(self):
+        self.assertTrue(self.ok("Orion.Nodes"))
+
+    def test_namespace_prefix(self):
+        # Pages write "entities prefixed Orion.APM." constantly.
+        self.assertTrue(self.ok("Orion.APM"))
+
+    def test_property_reference(self):
+        self.assertTrue(self.ok("Orion.Nodes.Caption"))
+
+    def test_inherited_property_reference(self):
+        self.assertTrue(self.ok("Orion.Nodes.Uri"))
+
+    def test_navigation_chain(self):
+        self.assertTrue(self.ok("Orion.Nodes.Interfaces.Name"))
+
+    def test_verb_reference(self):
+        # Naming a verb as Entity.Verb is the normal way to write it in prose.
+        self.assertTrue(self.ok("Orion.Nodes.Unmanage"))
+
+    def test_property_on_the_wrong_entity_fails(self):
+        # Orion.Nodes has IPAddress; Orion.Engines does not, and this is the class of
+        # error the prose check exists for.
+        self.assertFalse(self.ok("Orion.Nodes.Frobnicate"))
+
+    def test_navigation_that_does_not_exist_fails(self):
+        # Documented in docs/swql/joins-and-navigation.md precisely because people assume
+        # it works. It is allowlisted in the docs, but resolves() must still reject it.
+        self.assertFalse(self.ok("Orion.APM.Component.Node"))
+
+    def test_invented_entity_fails(self):
+        self.assertFalse(self.ok("Orion.NodesX"))
+
+
+@requires_data
 class TestPathFinding(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
