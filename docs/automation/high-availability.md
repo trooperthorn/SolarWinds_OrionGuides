@@ -826,9 +826,9 @@ only difference and nothing else surfaces it. Select it in every pool query.
 `Orion.OrionServers` row and its pool member. Confirm the value against a query before you pass
 it.
 
-**`SelectiveSwitchover` and `RepairPool` have no schema descriptions.** Their exact behaviour is
-not documented in the published schema and is not verified here. Prefer `Switchover`, and test
-the other two on a lab pool.
+**`SelectiveSwitchover` and `RepairPool` have no schema descriptions**, so their exact behaviour
+is not documented in the published schema and is not verified here. Prefer `Switchover`, and
+test the other two on a lab pool.
 
 **Nothing in this module can be unmanaged.** None of the nine entities is a
 `System.ManagedEntity`, so there is no maintenance window for a pool or a member. Suppressing

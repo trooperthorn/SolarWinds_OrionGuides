@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**89 statements across 32 pages.**
+**93 statements across 33 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -108,7 +108,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Which one the server accepts cannot be verified here; find out with `ValidateEditPool` before running the real call.
 - SolarWinds' sample joins `Orion.StatusInfo` on member `Status`, which is suggestive but is unverified here.
-- `SelectiveSwitchover` and `RepairPool` have no schema descriptions.** Their exact behaviour is not documented in the published schema and is not verified here.
+- `SelectiveSwitchover` and `RepairPool` have no schema descriptions**, so their exact behaviour is not documented in the published schema and is not verified here.
 
 ## [node-management.md](../automation/node-management.md)
 
@@ -138,6 +138,21 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Polling parameters](../automation/pollers.md#polling-parameters)**
 
 - The individual `SettingID` values are installation data rather than schema, and they are **not recorded in the published schema**.
+
+## [reporting.md](../automation/reporting.md)
+
+**[Reports and scheduled exports](../automation/reporting.md#reports-and-scheduled-exports)**
+
+- The report entities are queryable and are worth understanding for inventory and audit, but their `Definition` is an opaque serialisation that this repository cannot verify, so building a report by writing that string is not something to attempt from a script.
+**[The reporting entities](../automation/reporting.md#the-reporting-entities)**
+
+- Its format is **not recorded in the published schema** and is unverified here.
+**[Report schedules are not `Orion.ScheduleTaskDefinition`](../automation/reporting.md#report-schedules-are-not-orionscheduletaskdefinition)**
+
+- Whether a particular release also surfaces report jobs as rows in `Orion.ScheduleTaskDefinition` is unverified here.
+**[`Orion.Reporting.ExecuteSQL`](../automation/reporting.md#orionreportingexecutesql)**
+
+- Whether account limitations are applied to its results is not recorded in the schema and is unverified here, which is another reason to prefer SWQL: with SWQL you know limitations apply, and can reason about it.
 
 ## [agents.md](../modules/agents.md)
 

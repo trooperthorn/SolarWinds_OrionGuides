@@ -17,15 +17,22 @@ Documentation usually shows the first few lines of a long output, so a shown blo
 when its lines appear in order at the start of the real output. Elisions written as
 ``...`` or ``…`` on their own line allow a gap.
 
-PowerShell blocks cannot be executed here, so they get the strongest cheap check instead:
-their brackets have to balance. A block truncated when it was pasted, or one that lost a
-closing brace in an edit, fails the moment a reader runs it and is invisible until then.
+Code blocks that are not runnable here still get the strongest cheap check available.
+Python blocks are parsed, shell blocks go through ``bash -n``, and PowerShell blocks have
+their brackets balanced, since there is no PowerShell in this environment. A block
+truncated when it was pasted, or one that lost a closing brace in an edit, fails the
+moment a reader runs it and is invisible until then.
+
+The shipped ``.ps1`` scripts under ``scripts/`` get the same balance check. The Python
+samples go through ``compileall`` in CI and the shell ones through ``bash -n``, which left
+the PowerShell ones as the only shipped code with nothing checking it at all.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import glob
 import os
 import re
 import shlex
@@ -139,6 +146,31 @@ def check_powershell_balance(files: list[str]) -> tuple[int, list[str]]:
     return total, problems
 
 
+def check_powershell_scripts() -> tuple[int, list[str]]:
+    """Balance-check the shipped .ps1 files, which nothing else parses.
+
+    The Python samples go through compileall and the shell ones through `bash -n`, but
+    there is no PowerShell available here, so these three shipped scripts had no check at
+    all. They are the ones a reader is most likely to run unmodified.
+    """
+    problems: list[str] = []
+    paths = sorted(glob.glob(os.path.join(ROOT, "scripts", "**", "*.ps1"), recursive=True))
+    for path in paths:
+        rel = os.path.relpath(path, ROOT)
+        source = open(path, encoding="utf-8", errors="replace").read()
+        stripped = PS_HERESTRING_RE.sub(" HERESTRING ", source)
+        stripped = PS_STRING_RE.sub("", stripped)
+        stripped = PS_COMMENT_RE.sub("", stripped)
+        for open_ch, close_ch, name in (("{", "}", "brace"), ("(", ")", "paren"), ("[", "]", "bracket")):
+            if stripped.count(open_ch) != stripped.count(close_ch):
+                problems.append(
+                    f"{rel}: {name}s do not balance "
+                    f"({stripped.count(open_ch)} open, {stripped.count(close_ch)} close)"
+                )
+                break
+    return len(paths), problems
+
+
 PY_FENCE_RE = re.compile(r"```python\n(.*?)```", re.S)
 
 
@@ -245,19 +277,24 @@ def main() -> None:
     failures.extend(py_problems)
     sh_total, sh_problems = check_shell_syntax(files)
     failures.extend(sh_problems)
+    ps_script_total, ps_script_problems = check_powershell_scripts()
+    failures.extend(ps_script_problems)
 
     print(
         f"{checked} documented tool invocation(s) checked, {skipped} skipped as not "
         f"runnable; {ps_total} PowerShell block(s) checked for balance; "
-        f"{py_total} Python and {sh_total} shell block(s) parsed"
+        f"{py_total} Python and {sh_total} shell block(s) parsed; "
+        f"{ps_script_total} shipped PowerShell script(s) checked for balance"
     )
     if failures:
         print(f"\n{len(failures)} mismatch(es):", file=sys.stderr)
         for f in failures:
             print(f"  - {f}", file=sys.stderr)
         print(
-            "\nEither the documentation is stale or the tool changed. Re-run the command "
-            "and paste what it actually prints.",
+            "\nFor an output mismatch: either the page is stale or the tool changed, so "
+            "re-run\nthe command and paste what it actually prints. For a block that does "
+            "not parse or\nwhose brackets do not balance: it was truncated or edited into "
+            "an unrunnable state.",
             file=sys.stderr,
         )
         sys.exit(1)
