@@ -22,9 +22,13 @@ who meets it for the first time:
 | `Cirrus.` | 57 | 132 | The original NCM data model. Nodes, the config archive, compliance policies and reports, the approval queue, jobs, config change templates, comparison results, settings |
 | `NCM.` | 72 | 28 | The newer model. A re-presentation of the shared inventory tables with proper identity and navigation, plus every feature added after the split: baselines, firmware upgrades, transfer results, ACL parsing, EoS refresh, config backup status |
 
-`Cirrus` is the engineering codename the product shipped under, and it stayed. Do not read
-anything into it beyond age: `Cirrus.*` is not deprecated, it is where most of the data and
-almost all of the verbs still live.
+Why the prefix is `Cirrus` at all is not recorded in the extracted schema, and the answer does
+not matter. What matters is what people assume from it: that the older prefix must be the
+deprecated one. It is not. Exactly four entities across both namespaces carry a deprecated
+flag in 2026.2, and only one of them (`Cirrus.Options`, described as "obsolete settings, not
+used anymore") is on the `Cirrus.` side. The other three are `NCM.F5GTMVirtualServers`,
+`NCM.VulnerabilitiesAnnouncements` and `NCM.VulnerabilitiesAnnouncementsNodes`. `Cirrus.*` is
+where most of the data and almost all of the verbs still live.
 
 ```bash
 python3 tools/schema_query.py find Cirrus
@@ -75,8 +79,9 @@ NCM:
 **3. The `Cirrus.` copy of a duplicated entity is usually the wider one, and the `NCM.` copy
 sometimes carries columns the original lacks.** `Cirrus.Nodes` has 66 properties and
 `NCM.Nodes` has 48, and `NCM.Nodes` has none that `Cirrus.Nodes` lacks: the extra 18 are the
-connection profile id, the SSH, Telnet and SNMP ports, the end-of-support block and
-`StatusText`. `Cirrus.NodeProperties` has 40 against `NCM.NodeProperties`' 31, the extra nine
+connection profile id, the SSH, Telnet and SNMP ports, the ten-column end-of-support block,
+`StatusText`, and three bookkeeping columns (`EnableOrionImport`, `LastRediscoveryTime`,
+`LastUpdateTime`). `Cirrus.NodeProperties` has 40 against `NCM.NodeProperties`' 31, the extra nine
 being live transfer state (`IsActiveTransfer`, `LastTransferDate`, `LastTransferMessage` and
 friends) plus EoS matching columns. But it does not run one way only:
 `NCM.Interfaces` adds `InterfaceHighSpeed`, `VLANID`, `VlanType` and `PortStatus` that
@@ -505,7 +510,7 @@ navigation property and `NCM.NodeProperties` through a `NodeProperties` one.
 | Ports and software | `PortsTcp`, `PortsUdp`, `WindowsAccounts`, `WindowsServices`, `WindowsSoftware` |
 | Cisco hardware | `CiscoChassis`, `CiscoCards`, `CatalystCards`, `CiscoFlash`, `CiscoFlashFiles`, `CiscoImageMIB`, `CiscoMemoryPools`, `CiscoCdp`, `CiscoBootloadImages`, `CiscoFruPowerStatus`, `CiscoFruFanTrayStatus`, `CiscoFruPowerSupplyGroups` |
 | Entity MIB | `EntityPhysical`, `EntityLogical`, `EntityPhysicalJuniper` |
-| Vendor specific | `F5System`, `F5LTMVirtualServers`, `F5GTMVirtualServers`, `F5LTMNodeAddresses`, `BrocadeChassis`, `BrocadeChassisUnit`, `BrocadeAgentConfigModule` |
+| Vendor specific | `F5System`, `F5LTMVirtualServers`, `F5LTMNodeAddresses`, `BrocadeChassis`, `BrocadeChassisUnit`, `BrocadeAgentConfigModule`, and `F5GTMVirtualServers`, which the schema marks obsolete and no longer updates |
 
 NCM also parses the configuration text it captured. `NCM.AccessList` is one row per detected
 ACL with `Name`, `Complexity`, `Interfaces` and a `Hash` that changes when the ACL does.

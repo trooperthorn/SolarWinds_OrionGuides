@@ -296,8 +296,9 @@ local, do the arithmetic, convert back. See
 
 ### Adding an interval
 
-All nine `AddX` functions take the count first and the date second: `AddDay(7, d)` is
-"seven days after `d`", not "day 7 of `d`". Passing a negative count subtracts.
+The eight single-unit `AddX` functions take the count first and the date second: `AddDay(7,
+d)` is "seven days after `d`", not "day 7 of `d`". Passing a negative count subtracts.
+`AddDate` is the ninth member of the family and puts the unit name in front of the count.
 
 Every one of these compiles to T-SQL `DATEADD`, which ignores timezone offsets entirely.
 That is the whole of the trap described in [date-and-time.md](date-and-time.md).

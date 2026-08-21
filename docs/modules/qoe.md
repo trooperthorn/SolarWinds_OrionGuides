@@ -590,14 +590,14 @@ settle each one on your own server.
 
 | Claim | Status | How to check |
 |---|---|---|
-| `ART` and `NRT` expand to application response time and network response time | Not stated anywhere in the schema; the columns carry no description. The product names are widely used but are not evidence from this data | `SELECT Name, Description FROM Metadata.Property WHERE EntityName = 'Orion.DPI.Applications'` |
+| `ART` and `NRT` expand to application response time and network response time | Not stated anywhere in the schema; the columns carry no description. The product names are widely used but are not evidence from this data | `SELECT p.Name, p.Type, p.Summary FROM Metadata.Property p WHERE p.Entity.FullName = 'Orion.DPI.Applications' ORDER BY p.Name` |
 | `Mode` on `Orion.DPI.Probes` distinguishes local-traffic from SPAN-port probes | Inferred from the two deployment verb names, not declared | `SELECT TOP 10 Mode, COUNT(ProbeID) AS Probes FROM Orion.DPI.Probes GROUP BY Mode` and compare against how each probe was deployed |
 | The grammar accepted by `Orion.DPI.Applications.Filter` and the values of `FilterSyntax` | Undocumented | `SELECT TOP 25 Name, Filter, FilterSyntax FROM Orion.DPI.Applications WHERE Filter IS NOT NULL` |
 | The valid names in `Orion.DPI.ProbeSettings`, `Orion.DPI.ProbeProperties` and `Orion.DPI.ApplicationSettings` | Undocumented; three separate name/value bags with no enumerated keys | Query each entity and read the `Name` column |
 | What distinguishes a probe *setting* from a probe *property* | Undocumented | As above, compare the two key sets |
 | The meaning of `DiscoveryMode` and `AdminStatus` on `Orion.DPI.Applications` | Undocumented integers | `SELECT TOP 10 DiscoveryMode, AdminStatus, COUNT(ApplicationID) AS Applications FROM Orion.DPI.Applications GROUP BY DiscoveryMode, AdminStatus` |
 | `ReloadAppDefinitions` is required after editing an application definition | Inferred from the verb name | Test on a non-production probe |
-| `Orion.APM.Application` is a parent of `Orion.DPI.Applications` | Claimed by the community-sourced netobject reference, contradicted by the 2026.2 relationship data | `SELECT SourceType, TargetType, Name FROM Metadata.Relationship WHERE SourceType LIKE 'Orion.DPI.%' OR TargetType LIKE 'Orion.DPI.%'` |
+| `Orion.APM.Application` is a parent of `Orion.DPI.Applications` | Claimed by the community-sourced netobject reference, contradicted by the 2026.2 relationship data | `SELECT p.Entity.FullName AS EntityName, p.Name, p.Type FROM Metadata.Property p WHERE p.IsNavigable = TRUE AND p.Entity.FullName LIKE 'Orion.DPI.%' ORDER BY p.Entity.FullName, p.Name` |
 | The full contents of `ProbeCapabilities` returned by `GetProbeCapabilities` | The Swagger contract declares only `Hardware.CpuCores`, `Hardware.PhysicalMemoryMb` and `Interfaces[].IpAddresses`; the live response may carry more | Invoke it against a real probe and inspect the result |
 
 There is no SolarWinds SDK documentation page for QoE in the published OrionSDK docs, and no
