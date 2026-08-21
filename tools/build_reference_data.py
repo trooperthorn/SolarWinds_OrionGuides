@@ -271,8 +271,12 @@ def suggest_rename(missing: str, known: set[str]) -> list[str]:
     squash = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
     singular = lambda s: s[:-1] if len(s) > 3 and s.endswith("s") else s
 
-    if squash(missing) in {squash(k) for k in known}:
-        return [k for k in known if squash(k) == squash(missing)][:1]
+    # Sorting every candidate list, and breaking ties on the name rather than leaving them
+    # to set iteration order, keeps the output byte-identical between runs. Python
+    # randomizes string hashing per process, so an unsorted set walk is not reproducible.
+    exact = sorted(k for k in known if squash(k) == squash(missing))
+    if exact:
+        return exact[:1]
 
     leaf = squash(missing.split(".")[-1])
     leaf_sing = singular(leaf)
@@ -307,7 +311,7 @@ def suggest_rename(missing: str, known: set[str]) -> list[str]:
         winners = [k for d, folded, k in hits if d == best and folded]
     else:
         return []
-    return sorted(winners, key=len)[:3]
+    return sorted(winners, key=lambda k: (len(k), k))[:3]
 
 
 def cross_check_entities(entities: list[dict], schema_index_path: str) -> list[dict]:

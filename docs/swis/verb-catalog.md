@@ -19,8 +19,9 @@ call one, start with [invoke-verbs.md](invoke-verbs.md).
   is not the same as "no restriction". Rights are declared at two levels, and the entity often
   carries one when the verb does not. 629 of the 958 verbs declare no verb-level right, and
   363 of those belong to an entity that declares an `invoke` right of its own. Each table
-  below states the entity-level right where one exists. NCM and IPAM then enforce their own
-  module roles on top of both. See [invoke-verbs.md](invoke-verbs.md#access-control).
+  below names the entity-level right wherever a row says `not declared`. NCM and IPAM then
+  enforce their own module roles on top of both. See
+  [invoke-verbs.md](invoke-verbs.md#access-control).
 - **What it does** reproduces SolarWinds' own summary text where one was published, trimmed
   to fit. Where the schema published no summary, the description here is derived from the
   verb name and its parameter list and says nothing the signature does not already imply.
@@ -77,6 +78,9 @@ whether the poll ran or succeeded. Verify by watching the data change, for examp
 | `Orion.Nodes` | `StopRealTimePolling` | `netObjectId, owner, properties` | `allowRealTimePolling`, `admin` | Stops real-time polling started by the same `owner`. |
 | `Orion.NPM.Interfaces` | `StartRealTimePolling` | `netObjectId, owner, properties, pollingExpiration?, pollingFrequency?` | `allowRealTimePolling`, `admin` | Starts realtime polling on Interface entity |
 | `Orion.Volumes` | `StartRealTimePolling` | `netObjectId, owner, properties, pollingExpiration?, pollingFrequency?` | `allowRealTimePolling`, `admin` | Starts realtime polling on Volume entity |
+
+The one `not declared` row is covered at the entity level: `Orion.SCM.ServerConfiguration`
+declares `invoke` for `manageNodes`.
 
 Watch the first argument. `Orion.Nodes.PollNow` wants the NetObject string `N:42`;
 `Orion.Nodes.StartRealTimePolling` and `Orion.Nodes.GetSupportedMetrics` declare
@@ -382,6 +386,10 @@ Both `Orion.Netflow.NodeSources` and `Orion.Netflow.InterfaceSources` declare `i
 
 `Metadata.Entity.GetAliases` is the verb SolarWinds uses as the official REST Invoke example:
 posting `["SELECT B.Caption FROM Orion.Nodes B"]` returns `{"B":"Orion.Nodes"}`.
+
+These three are the exception to the two-level rule above. `Metadata.Entity` declares no
+access control at all, and `System.QueryPlanCache` declares only `read` for `system`, so
+neither publishes an `invoke` right at either level.
 
 ## Querying the full set of 958
 

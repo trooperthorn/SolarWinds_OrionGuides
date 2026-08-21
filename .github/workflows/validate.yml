@@ -46,6 +46,21 @@ jobs:
             exit 1
           fi
 
+      # The build must be reproducible: a rebuild from the same sources has to produce
+      # byte-identical output, or "regenerate and commit" produces spurious diffs and
+      # nobody can tell a real schema change from noise. Python randomizes string hashing
+      # per process, so an unsorted set walk anywhere in the pipeline shows up here.
+      - name: Check data generation is deterministic
+        env:
+          PYTHONHASHSEED: random
+        run: |
+          python3 tools/build_reference_docs.py --version 2026.2
+          if ! git diff --quiet -- docs/reference/; then
+            echo "::error::regenerating docs/reference/ produced a different result on a second run"
+            git diff --stat -- docs/reference/
+            exit 1
+          fi
+
       - name: Check scripts parse
         run: |
           python3 -m compileall -q tools scripts/python

@@ -1,5 +1,6 @@
-__pycache__/
 *.pyc
-.venv/
 .DS_Store
+.orionsdk/
 .schema-versions/
+.venv/
+__pycache__/

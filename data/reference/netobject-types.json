@@ -527,7 +527,7 @@
   "parentEntities": [],
   "captionColumn": null,
   "inCurrentSchema": false,
-  "supersededBy": "Orion.F5.LTM.Pool"
+  "supersededBy": "Orion.F5.GTM.Pool"
  },
  {
   "entity": "Orion.F5.VirtualServers",
@@ -540,7 +540,7 @@
   "parentEntities": [],
   "captionColumn": null,
   "inCurrentSchema": false,
-  "supersededBy": "Orion.F5.Map.VirtualServer"
+  "supersededBy": "Orion.F5.GTM.VirtualServer"
  },
  {
   "entity": "Orion.Groups",

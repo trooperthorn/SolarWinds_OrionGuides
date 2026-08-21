@@ -63,9 +63,11 @@ def guess_rename(missing: str, added: set[str]) -> str | None:
     a deletion plus an unrelated addition otherwise.
     """
     target = squash(missing)
-    for cand in added:
-        if squash(cand) == target:
-            return cand
+    # Sorted, and tie-broken on the name, so the report is byte-identical between runs:
+    # Python randomizes string hashing per process, so walking a set is not reproducible.
+    exact = sorted(c for c in added if squash(c) == target)
+    if exact:
+        return exact[0]
 
     leaf = squash(missing.split(".")[-1])
     # A generic leaf such as "statistics" or "settings" matches half the schema, so a
@@ -75,10 +77,11 @@ def guess_rename(missing: str, added: set[str]) -> str | None:
     if len(leaf) < 6:
         return None
     root = missing.split(".")[0].lower()
-    hits = [
-        c for c in added if squash(c).endswith(leaf) and c.split(".")[0].lower() == root
-    ]
-    return sorted(hits, key=len)[0] if hits else None
+    hits = sorted(
+        (c for c in added if squash(c).endswith(leaf) and c.split(".")[0].lower() == root),
+        key=lambda c: (len(c), c),
+    )
+    return hits[0] if hits else None
 
 
 def diff(old: dict, new: dict) -> dict:

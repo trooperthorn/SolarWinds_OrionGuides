@@ -465,11 +465,13 @@ Entities carry the same structure for their CRUD operations. `Orion.Nodes` itsel
 ]
 ```
 
-Several entries mean any one of those rights grants the listed operations, which is why
+Multiple entries are alternatives, not requirements to be combined. That has to be the
+reading: on `Orion.Nodes`, `read` is granted to `everyone` and separately to `manageNodes`, so
+an AND interpretation would mean nobody could read a node. It is also why
 `Orion.Nodes.StartRealTimePolling` lists both `allowRealTimePolling` and `admin`.
 
-329 of the 958 verbs in 2026.2 declare a right. The complete set of rights that appear, with
-how many verbs require each:
+329 of the 958 verbs in 2026.2 declare at least one right, in 366 entries between them
+because a verb can list alternatives. Counting verbs per right:
 
 | Right | Verbs |
 |:---|---:|
@@ -589,14 +591,17 @@ Orion.Nodes.Remanage(netObjectId)
 `AA` for `Orion.APM.Application`. The full table is in
 [../reference/netobject-types.md](../reference/netobject-types.md).
 
-**`isRelative` changes what `remanageTime` means.** From the official
-[Unmanaging Entities](https://solarwinds.github.io/OrionSDK/docs/unmanaging-entities/) page:
-with `isRelative = true` the date portion of the third argument is ignored and the time
-portion is treated as a *duration*. So `isRelative = true` with a third argument of
-`0001-01-01T04:00:00` means "four hours", not "4am on the first of January". SolarWinds
-recommends passing `false` and using two absolute timestamps, and so does this guide, because
-a script that says `$start` and `$start.AddHours(4)` is readable by the next person and a
-duration smuggled into a date field is not.
+**`isRelative` changes what `remanageTime` means.** Quoting the official
+[Unmanaging Entities](https://solarwinds.github.io/OrionSDK/docs/unmanaging-entities/) page
+directly, because the behaviour is easy to get wrong from a paraphrase:
+
+> `isRelative` - if `true`, then the `unmanageUntil` argument will be interpreted differently:
+> the date portion will be ignored and the time portion will be treated as a *duration*. I
+> recommend passing `false` for `isRelative` - it makes the scripts more clear and consistent.
+
+This guide makes the same recommendation, for the same reason: a script that says `$start` and
+`$start.AddHours(4)` is readable by the next person, and a duration smuggled into a date field
+is not.
 
 **Times are handled in UTC.** The official documentation describes both timestamps as being
 "in UTC". Passing a local `DateTime` is the most common cause of a maintenance window that
@@ -688,14 +693,15 @@ FROM Orion.Nodes
 WHERE NodeID = @id
 ```
 
-Three related verbs on the same entity do different amounts of work, and picking the smallest
-one that solves your problem matters on a large estate:
+Three verbs on the same entity cover different scopes of work, going by their own summaries.
+Pick the narrowest one that answers your question, because on a large estate the difference
+compounds:
 
-| Verb | Signature | What it does |
+| Verb | Signature | Schema summary |
 |:---|:---|:---|
-| `PollStatusNow` | `(netObjectId)` | Polls status only. The cheapest. |
-| `PollNow` | `(netObjectId)` | Polls the node instance and updates its information. |
-| `RediscoverNow` | `(netObjectId)` | Rediscovers the node, which is the most expensive. |
+| `PollStatusNow` | `(netObjectId)` | "It will poll node status and update it" |
+| `PollNow` | `(netObjectId)` | "It will poll node instance and update its information" |
+| `RediscoverNow` | `(netObjectId)` | "It will rediscover node instance and update its information" |
 
 All three take the `N:<NodeID>` string and all three require `manageNodes`.
 
@@ -727,8 +733,8 @@ Orion.AlertActive.Acknowledge(alertObjectIds, notes) -> boolean   requires clear
 "based on array of alert active ids", but the parameter is named `alertObjectIds` and the
 official [Alerts](https://solarwinds.github.io/OrionSDK/docs/alerts/) page is explicit: "To
 acknowledge alerts, pass the AlertObjectID values and a note to
-`Orion.AlertActive.Acknowledge`". Both ids exist on `Orion.AlertActive`, they are different
-numbers, and passing the wrong one silently acknowledges nothing or the wrong thing.
+`Orion.AlertActive.Acknowledge`". Both ids are properties of `Orion.AlertActive` and they are
+different numbers, so passing the wrong one will not do what you meant.
 
 Find the ids first:
 
@@ -807,7 +813,7 @@ have to be present.
 | 7 | `Alignment` | `string` | yes | Unused. Pass null. |
 | 8 | `Format` | `string` | yes | Unused. Pass null. |
 | 9 | `Units` | `string` | yes | Unused. Pass null. |
-| 10 | `Usages` | `array<KeyValuePair<string,bool>>` | no | Which parts of the product may use the property. |
+| 10 | `Usages` | `array<KeyValuePair<string,bool>>` | no | Optional; the official documentation says you can pass null. |
 | 11 | `Mandatory` | `boolean` | no | Require a value in the Add Node wizard. |
 | 12 | `Default` | `string` | no | Default value for new nodes. |
 | 13 | `SourceId` | `string` | no | |
@@ -1018,12 +1024,14 @@ $DiscoveryProfileID = (Invoke-SwisVerb $swis Orion.Discovery StartDiscovery @($S
 
 Three things generalise from this beyond discovery:
 
-- The output of one verb feeds the input of the next. `CreateCorePluginConfiguration` returns
-  a string of XML which is embedded verbatim as `$($CorePluginConfiguration.InnerXml)`.
-- Long-running verbs return a job or profile id immediately and you poll for completion. Here
-  that is `Orion.DiscoveryProfiles.Status`, or `Orion.Discovery.GetDiscoveryProgress`.
-- The `xmlns` on the root element is part of the contract. Dropping it produces a
-  deserialisation failure that reads as a generic fault.
+- The output of one verb feeds the input of the next. `CreateCorePluginConfiguration` is
+  declared as returning a `string`; from PowerShell you take `.InnerXml` off the returned
+  `XmlElement` and embed it verbatim as `$($CorePluginConfiguration.InnerXml)`.
+- Long-running verbs hand back a job or profile id and you poll for completion separately.
+  Here that is the `Status` property of `Orion.DiscoveryProfiles`, or
+  `Orion.Discovery.GetDiscoveryProgress`.
+- The `xmlns` on the root element is part of the contract. Every SolarWinds sample carries it,
+  so keep it.
 
 The `Orion.Nodes` list-resources verbs follow the same schedule-then-poll-then-import shape
 without needing XML at all: `ScheduleListResources(nodeId)` returns a job id,
@@ -1038,7 +1046,7 @@ without needing XML at all: `ScheduleListResources(nodeId)` returns a job id,
 | Call succeeds, nothing changes | Wrong id kind. `N:42` where a bare `42` was wanted, or `AlertActiveID` where `AlertObjectID` was wanted. |
 | Maintenance window opens at the wrong hour | Local time passed where UTC was expected. |
 | Type error on the first argument | Arguments in the wrong order. Re-check with `schema_query.py verb`. |
-| PowerShell: "expected 1 argument, got N" | Single array argument flattened. Use `@( , [type[]] $array )`. |
+| PowerShell: the server rejects the argument count | Single array argument flattened into N arguments. Use `@( , [type[]] $array )`. |
 | PowerShell: serialisation error on a query result | `PSObject` wrappers. Cast with `[string[]]` or `[int[]]`. |
 | Permission denied | Missing right, or an account limitation hiding the target. |
 | Verb not found on your server | Module not installed or licensed, or a different platform version. Check `Metadata.Verb`. |

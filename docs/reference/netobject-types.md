@@ -33,8 +33,8 @@ This table comes from a community reference workbook that predates the current s
 | NCM | `Cirrus.Nodes` | NCM Nodes |  | `NodeID`, `CoreNodeID`, `EngineID` |  | current |
 | NPM | `Orion.F5.Device` | F5 Devices | `F5` | `ID` |  | renamed to `Orion.F5.System.Device` |
 | NPM | `Orion.F5.Nodes` | F5 Nodes | `FN` | `ID` |  | not in this version |
-| NPM | `Orion.F5.Pools` | F5 Pools | `FP` | `ID` |  | renamed to `Orion.F5.LTM.Pool` |
-| NPM | `Orion.F5.VirtualServers` | F5 Virtual Servers | `FVS` | `ID` |  | renamed to `Orion.F5.Map.VirtualServer` |
+| NPM | `Orion.F5.Pools` | F5 Pools | `FP` | `ID` |  | renamed to `Orion.F5.GTM.Pool` |
+| NPM | `Orion.F5.VirtualServers` | F5 Virtual Servers | `FVS` | `ID` |  | renamed to `Orion.F5.GTM.VirtualServer` |
 | NPM | `Orion.NPM.CustomPollerAssignmentOnInterface` | Custom Interface Poller | `UNDPI` | `CustomPollerAssignmentID` |  | current |
 | NPM | `Orion.NPM.CustomPollerAssignmentOnNode` | Custom Node Poller | `UNDPN` | `CustomPollerAssignmentID` |  | current |
 | NPM | `Orion.NPM.CustomPollerStatusOnNodeTabular` | Custom Node Table Poller | `UNDPT` | `CompressedRowID`, `CustomPollerAssignmentID` |  | current |
