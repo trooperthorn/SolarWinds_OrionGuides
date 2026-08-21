@@ -29,9 +29,10 @@ jobs:
       - name: Check extracted data
         run: python3 tools/check_data.py --version 2026.2
 
-      # Every .swql file and every ```sql block, resolved against the real schema.
+      # Every .swql file plus the SWQL embedded in the PowerShell, Python and shell
+      # scripts, all resolved against the real schema.
       - name: Validate sample queries
-        run: python3 tools/validate_swql.py scripts/swql/
+        run: python3 tools/validate_swql.py scripts/
 
       - name: Validate SWQL in documentation
         run: python3 tools/validate_swql.py --docs docs

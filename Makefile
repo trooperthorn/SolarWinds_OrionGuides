@@ -57,7 +57,7 @@ docs-reference:
 	@$(PYTHON) tools/build_reference_docs.py --version $(VERSION)
 
 validate:
-	@$(PYTHON) tools/validate_swql.py scripts/swql/ --quiet
+	@$(PYTHON) tools/validate_swql.py scripts/ --quiet
 	@$(PYTHON) tools/validate_swql.py --docs docs --quiet
 
 check: validate

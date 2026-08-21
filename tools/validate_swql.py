@@ -261,9 +261,72 @@ def queries_from_swql(path: str) -> list[tuple[str, str]]:
     return out
 
 
+# SWQL embedded in client scripts is exactly as capable of naming a property that does not
+# exist, and nothing else checks it. These patterns cover the ways the scripts here carry
+# a query: PowerShell here-strings, Python triple-quoted strings, and shell heredocs.
+PS_HERESTRING_RE = re.compile(r"@[\"']\r?\n(.*?)\r?\n[\"']@", re.S)
+PY_TRIPLE_RE = re.compile(r'"""(.*?)"""|\'\'\'(.*?)\'\'\'', re.S)
+QUOTED_QUERY_RE = re.compile(
+    r"""["'](\s*SELECT\b[^"']{10,}?\bFROM\b[^"']*?)["']""", re.I | re.S
+)
+
+
+# A whole block counts as a query only when it *starts* with SELECT (after any leading
+# SQL comments). Without this, a module docstring that merely quotes an example is
+# swallowed whole and its prose is parsed as SQL.
+STARTS_WITH_SELECT_RE = re.compile(r"\A(?:\s*--[^\n]*\n)*\s*SELECT\b", re.I)
+
+
+def queries_from_source(path: str) -> list[tuple[str, str]]:
+    """Pull embedded SWQL out of a PowerShell, Python, or shell script."""
+    text = open(path, encoding="utf-8", errors="replace").read()
+    found: list[str] = []
+
+    for m in PS_HERESTRING_RE.finditer(text):
+        found.append(m.group(1))
+    for m in PY_TRIPLE_RE.finditer(text):
+        found.append(m.group(1) or m.group(2) or "")
+    # This pattern is already anchored on SELECT, so a quoted query inside a docstring is
+    # still picked up individually even though the docstring as a whole is rejected.
+    for m in QUOTED_QUERY_RE.finditer(text):
+        found.append(m.group(1))
+
+    out = []
+    seen = set()
+    for i, block in enumerate(found, 1):
+        block = block.strip()
+        if not STARTS_WITH_SELECT_RE.match(block) or not re.search(r"\bfrom\b", block, re.I):
+            continue
+        # Skip anything still carrying an unresolved template placeholder: the query the
+        # script actually sends is not the text on the page.
+        if re.search(r"[{$%]\s*\w+\s*[}]|\{\}|%s", block):
+            continue
+        if block in seen:
+            continue
+        seen.add(block)
+        out.append((f"{path}#embedded-{i}", block))
+    return out
+
+
+SOURCE_SUFFIXES = (".ps1", ".psm1", ".py", ".sh", ".bash")
+
+
+def queries_from_path(path: str) -> list[tuple[str, str]]:
+    """Dispatch to the right extractor for a file, by extension."""
+    if not os.path.isfile(path):
+        return []
+    if path.endswith(".md"):
+        return queries_from_markdown(path)
+    if path.endswith(SOURCE_SUFFIXES):
+        return queries_from_source(path)
+    if path.endswith(".swql") or path.endswith(".sql"):
+        return queries_from_swql(path)
+    return []
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("paths", nargs="*", help="'.swql' files, markdown files, directories, or - for stdin")
+    ap.add_argument("paths", nargs="*", help=".swql, .md, .ps1, .py, .sh files, directories, or - for stdin")
     ap.add_argument("--docs", action="append", default=[], help="directory to scan for ```sql blocks")
     ap.add_argument("--version", default=DEFAULT_VERSION)
     ap.add_argument("--strict", action="store_true", help="treat warnings as failures")
@@ -282,17 +345,10 @@ def main() -> None:
             items.append(("<stdin>", sys.stdin.read()))
         elif os.path.isdir(target):
             for f in sorted(glob.glob(os.path.join(target, "**", "*"), recursive=True)):
-                if f.endswith(".swql"):
-                    items.extend(queries_from_swql(f))
-                elif f.endswith(".md"):
-                    items.extend(queries_from_markdown(f))
-        elif target.endswith(".md"):
-            items.extend(queries_from_markdown(target))
-        elif os.path.isfile(target):
-            items.extend(queries_from_swql(target))
+                items.extend(queries_from_path(f))
         else:
-            for f in sorted(glob.glob(target)):
-                items.extend(queries_from_swql(f) if not f.endswith(".md") else queries_from_markdown(f))
+            for f in ([target] if os.path.isfile(target) else sorted(glob.glob(target))):
+                items.extend(queries_from_path(f))
 
     if not items:
         print("no queries found", file=sys.stderr)
