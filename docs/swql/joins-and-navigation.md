@@ -598,8 +598,10 @@ ORDER BY COUNT(n.NodeID) DESC
 ```
 
 `Orion.Engines` also carries its own running counts in `Elements`, `Nodes`, `Interfaces`,
-`Volumes` and `Pollers`, plus `PollingCompletion` as a percentage. Those are maintained by
-the platform, so they are a cross-check on the join rather than a substitute for it.
+`Volumes` and `Pollers`, plus `PollingCompletion`. Those are maintained by the platform, so
+they are a cross-check on the join rather than a substitute for it. See
+[../platform/architecture.md](../platform/architecture.md) for what the engine health
+columns mean.
 
 The reverse navigation exists too: `Orion.Engines.AssignedNodes` leads back to
 `Orion.Nodes`, and it is to-many.

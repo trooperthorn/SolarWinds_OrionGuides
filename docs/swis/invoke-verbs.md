@@ -142,17 +142,18 @@ at all. This is the single most common source of Invoke bugs.
 
 ### How arguments are serialised
 
-`Invoke-SwisVerb` serialises each element of the array independently before sending it:
+`Invoke-SwisVerb` serialises each element of the array independently before sending it, and
+the cmdlet's source (`Src/SwisPowerShell/InvokeSwisVerb.cs` in the OrionSDK repository) has
+exactly three cases:
 
 | What you pass | How it is serialised |
 |:---|:---|
-| A scalar (`string`, `int`, `bool`, `DateTime`) | .NET `DataContractSerializer` on its runtime type |
-| A `Hashtable` or any `IDictionary` | A SWIS `PropertyBag` XML document |
-| An `XmlElement` (typically `([xml]"...").DocumentElement`) | Sent as the argument element |
-| A `PSObject` wrapper | Unwrapped to its `BaseObject`, then one of the above |
+| A `PSObject` wrapper | Unwrapped to its `BaseObject`, then handled by one of the rows below |
+| A `Hashtable` or any `IDictionary` | Serialised as a SWIS `PropertyBag` XML document |
+| Anything else | .NET `DataContractSerializer` on the value's runtime type |
 
-That table is why three distinct idioms show up in SolarWinds' own sample scripts, and why
-each of them exists.
+That is why three distinct idioms show up in SolarWinds' own sample scripts, and why each of
+them exists.
 
 **Scalars.** Nothing special. `@('N:42', $start, $end, $false)`.
 
@@ -179,8 +180,9 @@ $result = Invoke-SwisVerb $swis 'Orion.HA.Pools' 'CreatePool' @($mainPoolName, $
 **XML elements for complex contract types.** Some verbs declare a parameter whose type is a
 .NET contract class rather than a scalar, an array or a dictionary. `Orion.Discovery`
 `StartDiscovery` takes a single `context` parameter of type
-`SolarWinds.Data.Providers.Orion.Verbs.Discovery-StartDiscoveryContext`. For these you build
-the XML yourself and pass the document element:
+`SolarWinds.Data.Providers.Orion.Verbs.Discovery-StartDiscoveryContext`. For these the idiom
+in every SolarWinds sample is to build the XML yourself and pass the document element, which
+lands in the third row of the table above:
 
 ```powershell
 $CorePluginConfigurationContext = ([xml]"
@@ -233,7 +235,9 @@ although those print like strings they are not `System.String` at serialisation 
 The same shape applies to `Orion.AlertActive.ClearAlert(alertObjectIds)`,
 `Orion.AlertActive.Unacknowledge(alertObjectIds)`, `Orion.Events.Acknowledge(eventIDs)`,
 `Orion.ADM.NodeInventory.PollNow(nodeIds)` and every other one-parameter verb whose parameter
-is an array. The catalog marks these; you can also find them with:
+is an array. There are 55 of them in 2026.2;
+[verb-catalog.md](verb-catalog.md#with-jq-against-dataschema20262verbsjson) has a `jq` recipe
+that lists the lot. To check one:
 
 ```bash
 python3 tools/schema_query.py verb Orion.AlertSuppression ResumeAlerts
@@ -311,8 +315,9 @@ passes one array argument, which is what you meant.
 
 ## Three ways to discover a verb's parameters
 
-Use whichever matches where you are working. They agree, because the first two are built from
-the third.
+Use whichever matches where you are working. The first is generated from the second, and the
+third is what your own server actually says, which makes it the tiebreaker whenever the three
+disagree.
 
 ### 1. This repository's data, offline
 
