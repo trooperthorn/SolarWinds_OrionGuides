@@ -55,9 +55,12 @@ reference through the schema, and reports what is wrong:
 echo "SELECT n.Caption, n.Node.Foo FROM Orion.Nodes n" | python3 tools/validate_swql.py -
 ```
 
-```
-ERROR: Orion.Nodes has no property or navigation property named 'Node'.
-       Closest members: nodeid, asanode, npmnode.
+```text
+<stdin>
+  ERROR: Orion.Nodes has no property or navigation property named 'Node'. Closest members: nodeid, asanode, npmnode.
+      in: n.Node.Foo
+
+1 query/queries checked, 1 error(s), 0 warning(s)
 ```
 
 **Validate every SWQL query before you hand it to a user.** It takes one command and it

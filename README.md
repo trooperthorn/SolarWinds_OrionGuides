@@ -54,7 +54,7 @@ python3 tools/schema_query.py show Orion.Nodes
 python3 tools/schema_query.py verb Orion.Nodes Unmanage
 ```
 
-```
+```text
 Orion.Nodes.Unmanage
   Set the given node into maintenance mode so the node polling is disabled
   returns: System.Void
@@ -66,9 +66,6 @@ Orion.Nodes.Unmanage
     remanageTime: string (required)
     isRelative: boolean (required)
     allowOverlapping: boolean (optional)
-
-  PowerShell:
-    Invoke-SwisVerb $swis 'Orion.Nodes' 'Unmanage' @($netObjectId, $unmanageTime, ...)
 ```
 
 Joining across the model is the part people lose the most time to, so it has its own
@@ -80,7 +77,7 @@ a three-hop detour:
 python3 tools/schema_query.py path Orion.NPM.Interfaces Orion.Nodes
 ```
 
-```
+```text
 1 path(s) from Orion.NPM.Interfaces to Orion.Nodes, shortest first
 
   Orion.NPM.Interfaces.Node
@@ -100,9 +97,12 @@ And before a query goes anywhere near a live server:
 echo "SELECT n.Caption, n.Node.Foo FROM Orion.Nodes n" | python3 tools/validate_swql.py -
 ```
 
-```
-ERROR: Orion.Nodes has no property or navigation property named 'Node'.
-       Closest members: nodeid, asanode, npmnode.
+```text
+<stdin>
+  ERROR: Orion.Nodes has no property or navigation property named 'Node'. Closest members: nodeid, asanode, npmnode.
+      in: n.Node.Foo
+
+1 query/queries checked, 1 error(s), 0 warning(s)
 ```
 
 ## Layout

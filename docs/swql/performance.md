@@ -46,8 +46,8 @@ care a query needs.
 | Category | How to recognise it | Rough size | Care needed |
 |:---|:---|:---|:---|
 | Inventory | `Orion.Nodes`, `Orion.NPM.Interfaces`, `Orion.Volumes`, `Orion.APM.Application` | one row per monitored object | `TOP` and a sensible `WHERE` |
-| Lookup | `Orion.StatusInfo` (26 rows), `Orion.EventTypes`, `Orion.LimitationTypes`, `Orion.Engines` | tens of rows | none |
-| Extension | the 305 entities under `System.ExtensionEntity` that are not statistics, for example `Orion.NodesCustomProperties` | one row per object | joins to inventory, so watch cardinality |
+| Lookup | `Orion.StatusInfo` (26 documented status codes), `Orion.EventTypes`, `Orion.LimitationTypes`, `Orion.Engines` | tens of rows | none |
+| Extension | the 305 entities under `System.ExtensionEntity`, less the 236 statistics ones; for example `Orion.NodesCustomProperties` | one row per object | joins to inventory, so watch cardinality |
 | **Statistics and history** | the **236 entities under `System.StatisticsEntity`** | one row per object *per collection interval*, retained for months | **always time-bounded, always** |
 | Event and audit | `Orion.Events`, `Orion.AlertHistory`, `Cirrus.Audit` | one row per thing that happened | always time-bounded |
 
@@ -71,9 +71,12 @@ python3 tools/schema_query.py children System.StatisticsEntity
 
 ## 1. Bound every result set
 
-SWQL has no implicit row limit. `SELECT NodeID, Caption FROM Orion.Nodes` returns every node
-the caller can see, and the equivalent statement against a statistics entity returns every
-sample ever retained.
+Bounding the result is the caller's job, and SolarWinds' own samples do it as a matter of
+course: `SELECT TOP 3 URI FROM Orion.Nodes` in the Go `BulkCustomPropertyUpdate` sample,
+`SELECT TOP 2 Uri FROM Orion.Nodes` in `AlertSuppression.ps1`, `SELECT TOP 1 AlertObjectID FROM
+Orion.AlertActive ORDER BY TriggeredDateTime DESC` in the C# sample. An unbounded
+`SELECT NodeID, Caption FROM Orion.Nodes` returns every node the caller is permitted to see, and
+the equivalent statement against a statistics entity returns every retained sample.
 
 Two bounding mechanisms, and they do different jobs:
 
@@ -216,9 +219,9 @@ rather than memorising it.
 An index on a column is an ordered structure over the **column's values**. A predicate like
 `n.NodeID = 42` can be answered by descending the index. A predicate like
 `ToUpper(n.Caption) = 'CORE-SW-01'` cannot, because the index knows nothing about the values of
-`ToUpper(Caption)`. SQL Server's only remaining option is to compute the function for every row
-and compare, which is a full scan. The optimiser does not warn you; the query simply becomes
-linear in the size of the table.
+`ToUpper(Caption)`. In general SQL Server is then left computing the function for every row and
+comparing, which is a scan. The optimiser does not warn you; the query simply becomes linear in
+the size of the table.
 
 SWQL compiles to T-SQL, so this behaviour comes straight through. Every one of these is a scan:
 
@@ -249,6 +252,36 @@ is better than computing it in the query, because it also sidesteps the `GetUtcD
 `AddX` timezone trap described in [gotchas.md](gotchas.md#4-utc-dateadd-and-the-timestamp-that-quietly-shifts)
 and [date-and-time.md](date-and-time.md). One computation, in one place, with a type.
 
+### SolarWinds says this explicitly for flow data
+
+The NTA entity model page is the one place SolarWinds quantifies a SWQL performance difference,
+and it is exactly this effect:
+
+> Important note: the SWQL Functions for doing date math (like `ADDDAY`, `ADDHOUR`, etc.) do
+> work with flow data, but they aren't optimized. This means a several-orders-of-magnitude
+> difference. Stick with `+` and `-` for doing date math when querying flow data.
+>
+> [NTA 4.0 Entity Model](https://solarwinds.github.io/OrionSDK/docs/netflow-traffic-analyzer/nta-4-0-entity-model/)
+
+The same page shows the form it wants instead. Date arithmetic on `GETUTCDATE()` is expressed in
+days, with fractional days for smaller units, so "one hour ago" is `GETUTCDATE() - 1/24`:
+
+```sql
+SELECT TOP 10 f.Protocol.Name AS Protocol, SUM(f.Bytes) AS TotalBytes
+FROM Orion.Netflow.Flows f
+WHERE f.TimeStamp > GETUTCDATE() - 7
+  AND f.TimeStamp < GETUTCDATE()
+GROUP BY f.Protocol.Name
+ORDER BY SUM(f.Bytes) DESC
+```
+
+"Several orders of magnitude" is a strong claim and SolarWinds makes it only about flow data.
+Treat the *principle* as general and the *number* as specific to NTA. Note also that this is one
+of the rare cases where the official guidance is to do date arithmetic inside the query rather
+than bind a boundary from the client; a bound parameter achieves the same index-friendly shape
+and works on every entity, so prefer it unless you are writing a query that must be
+self-contained, such as an alert trigger condition.
+
 Functions in the `SELECT` list are a different matter. `Round()`, `Concat()` and `CASE` applied
 to output columns run once per returned row, and if the result set is bounded, so is the cost.
 It is specifically functions on a **filtered or joined** column that hurt.
@@ -257,10 +290,11 @@ It is specifically functions on a **filtered or joined** column that hurt.
 
 236 entities in 2026.2 inherit from `System.StatisticsEntity`. A statistics row exists per
 monitored object per collection interval, retained according to your retention settings, so the
-row count is roughly *objects x intervals x days*. On a mid-sized installation
-`Orion.NPM.InterfaceTraffic` alone is comfortably into the hundreds of millions of rows.
+row count grows as *objects x intervals per day x days retained*. Put your own numbers into that
+product for `Orion.NPM.InterfaceTraffic` and you will see why it is in a different category from
+`Orion.NPM.Interfaces`, which has one row per interface full stop.
 
-An unbounded query against one of those is not slow. It is an outage.
+An unbounded query against one of those is not slow. It is an incident.
 
 ```text
 -- Do not run this on a production server.

@@ -67,19 +67,21 @@ def matches(shown: list[str], actual: list[str]) -> tuple[bool, str]:
         if ELISION_RE.match(line):
             allow_gap = True
             continue
-        target = line.rstrip()
+        # Compare on stripped text. A page quoting one line out of an indented block
+        # reasonably drops the indentation, and failing over that would train authors to
+        # stop quoting output rather than to quote it accurately. The words still have to
+        # match exactly, which is what catches output that genuinely changed.
+        target = line.strip()
         if not target:
-            # A blank line in the shown block should line up with a blank one, but do not
-            # fail a page over spacing.
             continue
         found = None
         limit = len(actual) if allow_gap else min(len(actual), ai + 3)
         for j in range(ai, limit):
-            if actual[j].rstrip() == target:
+            if actual[j].strip() == target:
                 found = j
                 break
         if found is None:
-            near = actual[ai].rstrip() if ai < len(actual) else "(end of output)"
+            near = actual[ai].strip() if ai < len(actual) else "(end of output)"
             return False, f"expected {target!r}\n           got {near!r}"
         ai = found + 1
         allow_gap = False
