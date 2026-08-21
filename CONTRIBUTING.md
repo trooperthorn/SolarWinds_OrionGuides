@@ -46,7 +46,7 @@ echo "SELECT n.Caption, n.Engine.ServerName FROM Orion.Nodes n" | python3 tools/
 
 | Path | Contents | Edit by hand? |
 | --- | --- | --- |
-| `docs/platform/`, `docs/swis/`, `docs/swql/`, `docs/schema/`, `docs/automation/` | Written guides | Yes |
+| `docs/platform/`, `docs/swis/`, `docs/swql/`, `docs/schema/`, `docs/automation/`, `docs/polling/` | Written guides | Yes |
 | `docs/reference/` | Generated enumerations | **No**, run `make docs-reference` |
 | `data/` | Extracted schema and reference data | **No**, run `make data` |
 | `scripts/` | Sample queries and client scripts | Yes |

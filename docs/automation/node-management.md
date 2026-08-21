@@ -110,7 +110,7 @@ ORDER BY p.PollerType
 ```
 
 The CPU and memory pollers in the SNMP column are Cisco-specific; pick the ones that match
-the device. See [pollers.md](pollers.md) for the fuller story of why this step exists.
+the device. See [../polling/standard-pollers.md](../polling/standard-pollers.md) for the fuller story of why this step exists.
 
 ### PowerShell: add an SNMPv2c node
 
@@ -894,7 +894,7 @@ Where two rights are listed, the schema records the verb as invokable by either.
 
 ## Related pages
 
-- [pollers.md](pollers.md) explains the poller model that step two of "add a node" depends on
+- [../polling/standard-pollers.md](../polling/standard-pollers.md) explains the poller model that step two of "add a node" depends on
 - [maintenance-mode.md](maintenance-mode.md) for unmanaging instead of deleting
 - [custom-properties.md](custom-properties.md) for the extra columns you will want on nodes
 - [discovery.md](discovery.md) for finding devices instead of declaring them

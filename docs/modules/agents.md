@@ -687,7 +687,7 @@ Invoke-SwisVerb $swis 'Orion.AgentManagement.Agent' 'AssignToEngine' `
 Both verbs name their second parameter `pollerId`, and it is an **engine id**, matching
 `Orion.Engines.EngineID` and `Orion.AgentManagement.Agent.PollingEngineId`. It is not a
 `Orion.Pollers.PollerID`. The two are unrelated and the name collision is a genuine trap; see
-[../automation/pollers.md](../automation/pollers.md) for what `Orion.Pollers` actually is.
+[../polling/standard-pollers.md](../polling/standard-pollers.md) for what `Orion.Pollers` actually is.
 
 SolarWinds also documents one behaviour of `TestWithEngine` that matters for scripting it:
 **it returns `true` immediately if you pass the engine the agent is already assigned to**,
@@ -941,7 +941,7 @@ ORDER BY COUNT(a.AgentId) DESC
 
 The join is on `PollingEngineId`, not `EngineID`: the agent entity spells it with a lowercase
 `d`, and `Orion.Engines` spells its key `EngineID`. Pair this with the engine load queries in
-[../automation/pollers.md](../automation/pollers.md#deciding-where-the-load-should-go), because
+[../polling/standard-pollers.md](../polling/standard-pollers.md#deciding-where-the-load-should-go), because
 agent count on its own is not load.
 
 ### 8. Passive agents and the proxies they use
@@ -1081,7 +1081,7 @@ permissions hypothesis before it is a deployment one.
 
 - [../automation/node-management.md](../automation/node-management.md) for the node the agent
   is attached to, and for `DeployToNode`'s starting point.
-- [../automation/pollers.md](../automation/pollers.md) for `Orion.Pollers`, which is not what
+- [../polling/standard-pollers.md](../polling/standard-pollers.md) for `Orion.Pollers`, which is not what
   the `pollerId` argument means, and for the `N.StatusAndResponseTime.Agent.Native` poller that
   derives node status from agent status.
 - [../automation/maintenance-mode.md](../automation/maintenance-mode.md) for unmanaging the

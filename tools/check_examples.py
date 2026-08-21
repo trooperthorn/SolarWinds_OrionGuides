@@ -166,6 +166,19 @@ TOOL_INVOCATION_RE = re.compile(r"^\s*python3?\s+tools/[\w./-]+\.py\b")
 # argparse exits 2 and says one of these; a crash prints a traceback. Anything else,
 # including a validator exiting 1 because it found real errors, is the tool working.
 BROKEN_MARKERS = ("unrecognized arguments", "invalid choice", "Traceback (most recent call last)")
+# An argument that names a path rather than a flag or a bare value.
+PATH_ARG_RE = re.compile(r"^[.\w][\w./-]*/[\w./-]+$")
+
+
+def is_ignored(rel_path: str) -> bool:
+    """True when git ignores the path, so its absence is an environment difference."""
+    try:
+        return subprocess.run(
+            ["git", "check-ignore", "-q", rel_path],
+            cwd=ROOT, capture_output=True, timeout=10,
+        ).returncode == 0
+    except (subprocess.SubprocessError, OSError):
+        return False
 
 
 def check_tool_invocations(files: list[str]) -> tuple[int, list[str]]:
@@ -196,7 +209,20 @@ def check_tool_invocations(files: list[str]) -> tuple[int, list[str]]:
                     continue
                 seen.setdefault(line, rel)
 
-    for line, rel in seen.items():
+    skipped_inputs = 0
+    for line, rel in list(seen.items()):
+        # A documented command may read a file this checkout does not have. The SDK
+        # sparse-checkout under .orionsdk/ is the case here: it is gitignored scratch that
+        # `make sdk` fetches and `make clean` removes, so on a fresh clone the command is
+        # correct and its input is simply absent. Failing there reports a broken document
+        # for an environment difference. A path that git tracks and that is missing is a
+        # different matter and still fails.
+        missing = [a for a in shlex.split(line, comments=True)[1:]
+                   if PATH_ARG_RE.match(a) and not os.path.exists(os.path.join(ROOT, a))]
+        if missing and all(is_ignored(a) for a in missing):
+            del seen[line]
+            skipped_inputs += 1
+            continue
         try:
             # comments=True so a trailing "# what this does" is stripped the way a shell
             # would strip it, rather than being passed along as an argument.
@@ -211,6 +237,9 @@ def check_tool_invocations(files: list[str]) -> tuple[int, list[str]]:
         if proc.returncode == 2 or any(marker in output for marker in BROKEN_MARKERS):
             detail = (output.strip().splitlines() or ["failed"])[-1]
             problems.append(f"{rel}: `{line[:90]}` does not run\n           {detail[:120]}")
+    if skipped_inputs:
+        print(f"note: {skipped_inputs} documented invocation(s) skipped, their input files "
+              f"are not in this checkout")
     return len(seen), problems
 
 

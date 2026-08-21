@@ -773,7 +773,7 @@ GROUP BY n.NodeID, n.Caption
 ```
 
 See [../swis/crud.md](../swis/crud.md#not-every-entity-supports-crud) and
-[../automation/pollers.md](../automation/pollers.md).
+[../polling/standard-pollers.md](../polling/standard-pollers.md).
 
 ## Entity not found after an upgrade
 

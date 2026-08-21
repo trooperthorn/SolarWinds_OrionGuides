@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**144 statements across 45 pages.**
+**151 statements across 47 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -40,28 +40,6 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What is not verified here](../automation/alerts.md#what-is-not-verified-here)**
 
 - ## What is not verified here
-
-## [api-pollers.md](../automation/api-pollers.md)
-
-**[The poller](../automation/api-pollers.md#the-poller)**
-
-- `LastPollTimestamp` carries **no documented timezone** in the schema and its name does not end in `Utc`, so this is unverified here: settle it with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before trusting a narrow window.
-
-**[The request](../automation/api-pollers.md#the-request)**
-
-- Whether the platform redacts any header value on read is not recorded in the schema and is unverified here; assume it does not.
-
-**[The metric](../automation/api-pollers.md#the-metric)**
-
-- What syntax `Path` uses, and what values `Type` and `ThresholdRule` accept, are **not recorded in the published schema** and are unverified here — read existing rows on your own server before writing new ones.
-
-**[The verbs](../automation/api-pollers.md#the-verbs)**
-
-- **What belongs in which is not recorded in the published schema** and is unverified here.
-
-**[The template library](../automation/api-pollers.md#the-template-library)**
-
-- Its internal structure is **not recorded in the published schema** and is unverified here.
 
 ## [credentials.md](../automation/credentials.md)
 
@@ -197,21 +175,6 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Deleting a node](../automation/node-management.md#deleting-a-node)**
 
 - This page does not enumerate exactly which child rows go: that is runtime behaviour and it cannot be verified from the schema.
-
-## [pollers.md](../automation/pollers.md)
-
-**[Interfaces: discover, then add with default pollers](../automation/pollers.md#interfaces-discover-then-add-with-default-pollers)**
-
-- The exact shape the verb result takes when it comes back through `Invoke-SwisVerb` is a serialisation detail of the PowerShell client rather than a schema fact, and it is **not verified here**; inspect `$discovered` once interactively before writing the filter, and adjust the property path.
-
-**[Nodes: the list resources job](../automation/pollers.md#nodes-the-list-resources-job)**
-
-- And the tree it manipulates is XML whose element and display names are runtime data rather than schema, so the exact `DisplayName` values are **not verified here**; dump `$results` once for the device family you are automating and read the names off it.
-
-**[Polling parameters](../automation/pollers.md#polling-parameters)**
-
-- **`StatCollection`'s default is not recorded in the published schema** and is not verified here; read it off an existing object before you assume one.
-- The individual `SettingID` values are installation data rather than schema, and they are **not recorded in the published schema**.
 
 ## [reporting.md](../automation/reporting.md)
 
@@ -507,6 +470,72 @@ Read this before relying on this repository for something load-bearing. If you h
 **[DPA: Database Performance Analyzer](../platform/modules.md#dpa-database-performance-analyzer)**
 
 - Whether SWIS classifies them as federated entities is not recorded in the extracted schema; that claim is unverified here.
+
+## [api-pollers.md](../polling/api-pollers.md)
+
+**[The poller](../polling/api-pollers.md#the-poller)**
+
+- `LastPollTimestamp` carries **no documented timezone** in the schema and its name does not end in `Utc`, so this is unverified here: settle it with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before trusting a narrow window.
+
+**[The request](../polling/api-pollers.md#the-request)**
+
+- Whether the platform redacts any header value on read is not recorded in the schema and is unverified here; assume it does not.
+
+**[The metric](../polling/api-pollers.md#the-metric)**
+
+- What syntax `Path` uses, and what values `Type` and `ThresholdRule` accept, are **not recorded in the published schema** and are unverified here — read existing rows on your own server before writing new ones.
+
+**[The verbs](../polling/api-pollers.md#the-verbs)**
+
+- **What belongs in which is not recorded in the published schema** and is unverified here.
+
+**[The template library](../polling/api-pollers.md#the-template-library)**
+
+- Its internal structure is **not recorded in the published schema** and is unverified here.
+
+## [device-studio.md](../polling/device-studio.md)
+
+**[The poller definitions](../polling/device-studio.md#the-poller-definitions)**
+
+- What the ordering means when two share a priority is **not recorded in the published schema** and is unverified here.
+
+**[`TechnologyID` is a GUID here and a string elsewhere](../polling/device-studio.md#technologyid-is-a-guid-here-and-a-string-elsewhere)**
+
+- Whether every Device Studio poller has a matching `Orion.TechnologyPolling` row, or only those built on a technology the platform also polls declaratively, is **not recorded in the schema** and is unverified here.
+
+## [standard-pollers.md](../polling/standard-pollers.md)
+
+**[Interfaces: discover, then add with default pollers](../polling/standard-pollers.md#interfaces-discover-then-add-with-default-pollers)**
+
+- The exact shape the verb result takes when it comes back through `Invoke-SwisVerb` is a serialisation detail of the PowerShell client rather than a schema fact, and it is **not verified here**; inspect `$discovered` once interactively before writing the filter, and adjust the property path.
+
+**[Nodes: the list resources job](../polling/standard-pollers.md#nodes-the-list-resources-job)**
+
+- And the tree it manipulates is XML whose element and display names are runtime data rather than schema, so the exact `DisplayName` values are **not verified here**; dump `$results` once for the device family you are automating and read the names off it.
+
+**[Polling parameters](../polling/standard-pollers.md#polling-parameters)**
+
+- **`StatCollection`'s default is not recorded in the published schema** and is not verified here; read it off an existing object before you assume one.
+- The individual `SettingID` values are installation data rather than schema, and they are **not recorded in the published schema**.
+
+## [technology-polling.md](../polling/technology-polling.md)
+
+**[What technologies exist](../polling/technology-polling.md#what-technologies-exist)**
+
+- What happens when two share a priority is **not recorded in the published schema** and is unverified here.
+
+**[What it is assigned to](../polling/technology-polling.md#what-it-is-assigned-to)**
+
+- Whether `TargetEntity` on the assignment always matches `TargetEntity` on the technology above it, and whether a third target beyond nodes and volumes can appear, are **not recorded in the schema** and are unverified here.
+
+**[The four verbs](../polling/technology-polling.md#the-four-verbs)**
+
+- What the returned array contains is **not recorded in the published schema** and is unverified here.
+
+**[`clientSettings` is the whole configuration](../polling/technology-polling.md#clientsettings-is-the-whole-configuration)**
+
+- And `CredentialID` appears here as well as in the verb's own argument list, with nothing in the schema saying which wins — that is unverified here, so set one deliberately rather than both.
+- `CacheStorageScope` and the fields of `MacroValue` beyond `Key`, `Value`, `Values` and `IsExpandable` are **not described in the published schema** and are unverified here.
 
 ## [glossary.md](glossary.md)
 

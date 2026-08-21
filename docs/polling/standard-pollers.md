@@ -1,4 +1,4 @@
-# Pollers
+# Standard pollers
 
 This is the concept that catches everyone who automates node creation, and it catches them
 silently.
@@ -22,10 +22,13 @@ Orion.Pollers rows       "collect status from it, collect CPU from it, collect m
 monitoring
 ```
 
-This page is about the second half: what a poller assignment is, how to see which ones an
-object has, how to create and remove them, how to let the platform pick them for you, and the
-neighbouring poller systems (universal device pollers, Device Studio, API pollers) that use a
-completely different set of entities and are easy to confuse with this one.
+This page is about the second half: what an `Orion.Pollers` assignment is, how to see which
+ones an object has, how to create and remove them, and how to let the platform pick them for
+you.
+
+`Orion.Pollers` is one of five polling systems, and the other four share none of its
+entities. If what you are looking at is keyed on a GUID, or has no `NetObjectType`, it is not
+this system. [README.md](README.md) is the map.
 
 ## `Orion.Pollers` is an assignment table, not a poller
 
@@ -411,7 +414,7 @@ the exact `DisplayName` values are **not verified here**; dump `$results` once f
 family you are automating and read the names off it.
 
 The whole discovery side of this, including network sonar for devices that do not exist in
-Orion yet, is in [discovery.md](discovery.md).
+Orion yet, is in [../automation/discovery.md](../automation/discovery.md).
 
 ### What discovery found, before you import it
 
@@ -430,78 +433,6 @@ Its `NetObjectType`, `NetObjectID` and `PollerType` line up exactly with `Orion.
 makes the gap between the two directly queryable. Query 6 below does that, and it is the
 cheapest way to answer "what did discovery find on this device that we are not actually
 collecting".
-
-## Universal Device Pollers are a different system
-
-A universal device poller, or UnDP, is an SNMP OID you defined yourself. It has nothing to do
-with `Orion.Pollers` and shares none of its entities. Reaching for `Orion.Pollers` to assign a
-UnDP is the single most common wrong turn on this page.
-
-| Concept | Assignment entity | Key type |
-|:---|:---|:---|
-| Built-in poller | `Orion.Pollers` | `PollerType` string plus NetObject |
-| Universal device poller on a node | `Orion.NPM.CustomPollerAssignmentOnNode` | `CustomPollerID` GUID plus `NodeID` |
-| Universal device poller on an interface | `Orion.NPM.CustomPollerAssignmentOnInterface` | `CustomPollerID` GUID plus `InterfaceID` |
-
-**The definition is created interactively, not through the API.** SolarWinds is explicit about
-this on the
-[NPM Universal Device Pollers](https://solarwinds.github.io/OrionSDK/docs/network-performance-monitor/npm-universal-device-pollers/)
-page: you define a UnDP in the Universal Device Poller Windows application on the Orion server,
-and you can export and import those definitions as files. `Orion.NPM.CustomPollers` declares no
-operations at all in the schema, which is consistent: it is a read-only view of definitions
-made elsewhere.
-
-**The assignment is created through the API**, and it is an ordinary CRUD create with two
-properties:
-
-```powershell
-$customPollerId = Get-SwisData $swis `
-    "SELECT CustomPollerID FROM Orion.NPM.CustomPollers WHERE UniqueName = @name" `
-    @{ name = 'ciscoEnvMonFanState' }
-
-New-SwisObject $swis -EntityType 'Orion.NPM.CustomPollerAssignmentOnNode' -Properties @{
-    NodeID         = $nodeId
-    CustomPollerID = $customPollerId
-}
-```
-
-To remove one, find its URI and delete it:
-
-```sql
-SELECT a.Uri, a.CustomPollerAssignmentID, a.NodeID
-FROM Orion.NPM.CustomPollerAssignmentOnNode a
-WHERE a.NodeID = @nodeId
-```
-
-`Orion.NPM.CustomPollerAssignmentOnNode` inherits through
-`Orion.NPM.CustomPollerAssignment` from `System.ManagedEntity`, so unlike `Orion.Pollers` it
-carries `UnManaged`, `UnManageFrom` and `UnManageUntil` and can be put into a maintenance
-window on its own. It navigates to the node through `Node`, to the poller definition through
-`CustomPoller`, and to the collected values through `CustomPollerStatus`. It carries the
-`UNDPN` NetObject prefix; the interface variant carries `UNDPI`.
-
-The definition entity, `Orion.NPM.CustomPollers`, is where the OID lives: `CustomPollerID`,
-`UniqueName`, `Description`, `OID`, `MIB`, `SNMPGetType`, `NetObjectPrefix`, `PollerType`,
-`GroupName`, `Format`, `Unit`, `Enabled`, `PollInterval`, `IncludeHistoricStatistics` and the
-time-unit columns. Note that its own `PollerType` property is a `System.Char`, not the
-`System.String` that `Orion.Pollers.PollerType` is, and means something entirely different.
-
-### Two other poller systems worth naming
-
-**Device Studio pollers** are the vendor-specific technology pollers built in the console's
-Device Studio. `Orion.DeviceStudio.Pollers` holds the definitions (`PollerID` as a GUID,
-`Name`, `Vendor`, `Author`, `Tags`, `Priority`, `Enabled`, `TechnologyID`) and
-`Orion.DeviceStudio.PollerAssignments` holds the assignments, keyed on the same
-`NetObjectType` and `NetObjectID` pair as `Orion.Pollers` but pointing at a GUID `PollerID`.
-Neither declares any operations in the schema, so treat both as read-only through SWIS.
-
-**API pollers** poll an HTTP endpoint rather than a device.
-`Orion.APIPoller.ApiPoller` is the poller, with `RelatedEntityId` and `RelatedEntityType`
-instead of a NetObject, three verbs (`AssignTemplate`, `ExportTemplateFromApiPoller`,
-`CreateApiPollerFromTemplate`) and a supporting cast of template, request and
-value-to-monitor entities. It requires `admin` to change anything through CRUD, though the
-verbs themselves only require `manageNodes`. Ten entities in all, and enough of a system to
-have its own page: [api-pollers.md](api-pollers.md).
 
 ## Polling parameters
 
@@ -604,7 +535,7 @@ documents it on
 [How To Distribute Load Between Pollers](https://solarwinds.github.io/OrionSDK/docs/network-performance-monitor/how-to-distribute-load-between-pollers/)
 and it is covered in full, including the reachability warning that matters more than the
 mechanics, in
-[node-management.md](node-management.md#reassigning-a-node-to-a-different-polling-engine).
+[../automation/node-management.md](../automation/node-management.md#reassigning-a-node-to-a-different-polling-engine).
 
 The platform can also do this itself. Engine Load Balancing records what it moved and lets you
 exclude nodes from being moved:
@@ -619,7 +550,7 @@ ORDER BY r.ReassignmentTimestamp DESC
 `Orion.ELB.NodeExclusions` is the single-column opt-out list (`NodeId`), writable under
 `manageNodes`. Whether ELB is switched on is a per-pool setting: see the `ElbEnabled` property
 and the `ElbEnable` and `ElbDisable` verbs in
-[high-availability.md](high-availability.md#load-balancing).
+[../automation/high-availability.md](../automation/high-availability.md#load-balancing).
 
 Reducing configured load without moving anything is equally legitimate. Raising `PollInterval`
 and `StatCollection` on low-priority nodes, or deleting poller assignments nobody looks at, both
@@ -706,7 +637,7 @@ right one depends on the device. Any of them satisfies the question.
 the standard way to keep this kind of report about things that are actually wrong rather than
 things that are actually planned. `UnManaged` is inherited from `System.ManagedEntity` and is
 queryable on `Orion.Nodes` even though the entity does not declare it. See
-[maintenance-mode.md](maintenance-mode.md).
+[../automation/maintenance-mode.md](../automation/maintenance-mode.md).
 
 Substitute `N.Memory.%`, `N.Uptime.%` or `N.Topology%` for the other categories. Note the last
 one has no dot: the topology types split into `N.Topology`, `N.Topology_CDP`,
@@ -792,64 +723,6 @@ An interface created with `AddNoPollers`, or by a CRUD create that forgot the se
 here. `Orion.NPM.Interfaces` and `Orion.Volumes` both navigate to their node through `Node`,
 which `Orion.Pollers` cannot do.
 
-### 8. Universal device poller assignments and their last values
-
-```sql
-SELECT
-    a.CustomPollerAssignmentID,
-    a.NodeID,
-    a.Node.Caption AS NodeCaption,
-    a.CustomPoller.UniqueName AS PollerName,
-    a.CustomPoller.OID AS PollerOID,
-    a.Description
-FROM Orion.NPM.CustomPollerAssignmentOnNode a
-ORDER BY a.Node.Caption
-```
-
-`a.CustomPoller` navigates to `Orion.NPM.NodeCustomPollers`, which declares no properties of
-its own and inherits every one of them from `Orion.NPM.CustomPollers`, so `UniqueName` and
-`OID` resolve through it. That inheritance is invisible in the entity listing and is the reason
-this join looks like it should not work.
-
-The values themselves:
-
-```sql
-SELECT TOP 100
-    s.NodeID, s.AssignmentName, s.CustomPollerID, s.DateTime,
-    s.Status, s.RawStatus, s.Rate, s.Total, s.RowID
-FROM Orion.NPM.CustomPollerStatusOnNode s
-WHERE s.DateTime >= @startUtc
-ORDER BY s.DateTime DESC
-```
-
-Time-bound, because this is a statistics table. `Status` is a `System.String` here and
-`RawStatus` is the `System.Single` number behind it, which is the opposite of the convention
-everywhere else in the platform.
-
-The full definition list, when you need a `CustomPollerID` for an assignment:
-
-```sql
-SELECT cp.CustomPollerID, cp.UniqueName, cp.Description, cp.OID, cp.MIB,
-       cp.SNMPGetType, cp.NetObjectPrefix, cp.Enabled, cp.PollInterval
-FROM Orion.NPM.CustomPollers cp
-ORDER BY cp.UniqueName
-```
-
-### 9. Device Studio poller assignments on a node
-
-```sql
-SELECT dsa.ID, dsa.PollerID, dsa.NetObjectType, dsa.NetObjectID, dsa.Enabled,
-       dsa.Poller.Name AS PollerName
-FROM Orion.DeviceStudio.PollerAssignments dsa
-WHERE dsa.NetObjectType = 'N'
-  AND dsa.NetObjectID = @nodeId
-ORDER BY dsa.Poller.Name
-```
-
-Run this alongside query 2 when a node is collecting something you cannot find in
-`Orion.Pollers`. The two systems use the same `NetObjectType` and `NetObjectID` columns and are
-otherwise unrelated, so a node can have assignments in both and neither query sees the other's.
-
 ## Gotchas
 
 **Creating an object does not monitor it.** A node, an interface or a volume created through
@@ -888,14 +761,10 @@ rerun after a partial failure accumulates duplicates. Check before creating.
 assignment that exists and is disabled passes every "does this node have pollers" check and
 collects nothing.
 
-**A UnDP is not an `Orion.Pollers` row.** It is
-`Orion.NPM.CustomPollerAssignmentOnNode` or `...OnInterface`, keyed on a GUID
-`CustomPollerID`, and its definition is created in a Windows application rather than through
-the API. Device Studio pollers are a third system again, in `Orion.DeviceStudio.*`.
-
-**`Orion.NPM.CustomPollers.PollerType` is a `System.Char`.** It is unrelated to
-`Orion.Pollers.PollerType`, which is a `System.String`. Same property name, different entity,
-different type, different meaning.
+**A UnDP is not an `Orion.Pollers` row**, and neither is a Device Studio poller, a
+technology polling assignment or an API poller. Four other systems collect against the same
+objects through different entities, and a query on this page sees none of them. See
+[README.md](README.md).
 
 **Adding pollers adds load.** Check `Orion.Engines.PollingCompletion` and
 `Orion.PollingUsage.IsExceeded` before a bulk assignment, not after the polling cycle starts
@@ -905,27 +774,31 @@ overrunning.
 than you do, so "every node has pollers" from one account is not the same statement from
 another.
 
+
 ## Related pages
 
-- [node-management.md](node-management.md) for the first half of the operation: creating the
-  node these pollers attach to, and for moving one between engines.
-- [discovery.md](discovery.md) for network sonar and the full list resources treatment.
-- [maintenance-mode.md](maintenance-mode.md) for `UnManaged`, which stops polling without
-  touching poller assignments.
-- [high-availability.md](high-availability.md) for what happens to an engine's polling
-  responsibilities when a pool fails over.
+- [README.md](README.md) for the other four polling systems and how to tell them apart.
+- [universal-device-pollers.md](universal-device-pollers.md) for UnDPs, the system most often
+  mistaken for this one.
+- [../automation/node-management.md](../automation/node-management.md) for the first half of
+  the operation: creating the node these pollers attach to, and for moving one between engines.
+- [../automation/discovery.md](../automation/discovery.md) for network sonar and the full list
+  resources treatment.
+- [../automation/maintenance-mode.md](../automation/maintenance-mode.md) for `UnManaged`, which
+  stops polling without touching poller assignments.
+- [../automation/high-availability.md](../automation/high-availability.md) for what happens to
+  an engine's polling responsibilities when a pool fails over.
 - [../modules/agents.md](../modules/agents.md) for `N.StatusAndResponseTime.Agent.Native` and
   for why `pollerId` on the agent verbs is an engine id rather than a `PollerID`.
-- [../modules/npm.md](../modules/npm.md) for `Orion.NPM.Interfaces` and universal device
-  pollers in their module context.
+- [../modules/npm.md](../modules/npm.md) for `Orion.NPM.Interfaces` in its module context.
 - [../platform/architecture.md](../platform/architecture.md) for polling engines, element
   counts and where a poller actually runs.
 - [../swis/crud.md](../swis/crud.md) for the create, update and delete mechanics.
 - [../swis/uris.md](../swis/uris.md) for why you select `Uri` rather than building it.
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) for `DiscoverInterfacesOnNode`,
   `AddInterfacesOnNode` and the list resources job verbs.
-- [../reference/netobject-types.md](../reference/netobject-types.md) for the `N`, `I`, `V`,
-  `UNDPN` and `UNDPI` prefixes.
+- [../reference/netobject-types.md](../reference/netobject-types.md) for the `N`, `I` and `V`
+  prefixes.
 
 ## Official SolarWinds documentation
 
@@ -935,7 +808,6 @@ another.
 - [How To Set Polling Parameters On A Node](https://solarwinds.github.io/OrionSDK/docs/network-performance-monitor/how-to-set-polling-parameters-on-a-node/)
 - [How To Distribute Load Between Pollers](https://solarwinds.github.io/OrionSDK/docs/network-performance-monitor/how-to-distribute-load-between-pollers/)
 - [How To Specify Interfaces, Volumes, HW Sensors, Applications and Components To Be Monitored On A Node](https://solarwinds.github.io/OrionSDK/docs/network-performance-monitor/how-to-specify-interfaces-volumes-hw-sensors-applications-components-to-be-monitored-on-a-node/)
-- [NPM Universal Device Pollers](https://solarwinds.github.io/OrionSDK/docs/network-performance-monitor/npm-universal-device-pollers/)
 - [Polling Engine Load Balancing](https://solarwinds.github.io/OrionSDK/docs/polling-engine-load-balancing/)
 - [`CRUD.AddNode.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/CRUD.AddNode.ps1)
   and [`CRUD.AddInterface.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/CRUD.AddInterface.ps1),

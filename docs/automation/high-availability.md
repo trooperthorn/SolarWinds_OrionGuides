@@ -270,7 +270,7 @@ moves with the pool.** A node's `EngineID` does not change during a failover, be
 surviving server takes over that engine's identity. So a failover is invisible in
 `Orion.Nodes`, and a query grouping nodes by engine gives the same answer before and after. See
 [../platform/architecture.md](../platform/architecture.md) for the engine model and
-[pollers.md](pollers.md#deciding-where-the-load-should-go) for engine load.
+[../polling/standard-pollers.md](../polling/standard-pollers.md#deciding-where-the-load-should-go) for engine load.
 
 ## The verbs
 
@@ -491,7 +491,7 @@ need per-member control, and test `SelectiveSwitchover` on a lab pool first.
 
 **`ElbEnable` and `ElbDisable`** change whether the platform moves nodes between engines on its
 own. Turning ELB on will start rebalancing your estate; see
-[pollers.md](pollers.md#deciding-where-the-load-should-go) for what that looks like in
+[../polling/standard-pollers.md](../polling/standard-pollers.md#deciding-where-the-load-should-go) for what that looks like in
 `Orion.ELB.NodeReassignments`.
 
 **`RepairPool`** is described only as "Repair pool with given poolId". What it repairs, and
@@ -851,7 +851,7 @@ name works until that member is the one that failed. `Orion.HA.ReachabilityInfo`
 
 - [../platform/architecture.md](../platform/architecture.md) for polling engines, the
   main-versus-additional distinction, and where HA sits in the deployment picture.
-- [pollers.md](pollers.md) for engine load, `Orion.PollingUsage` and the ELB reassignment
+- [../polling/standard-pollers.md](../polling/standard-pollers.md) for engine load, `Orion.PollingUsage` and the ELB reassignment
   history that `ElbEnable` starts producing.
 - [node-management.md](node-management.md) for `EngineID` and why moving a node between engines
   is a different operation from a failover.

@@ -6,7 +6,7 @@ monitoring anything with a REST interface and no SNMP agent — a SaaS service, 
 management API, an internal application's health endpoint.
 
 It is worth treating as its own subsystem rather than as a kind of poller.
-[pollers.md](pollers.md) covers `Orion.Pollers`, which is an assignment table joining a
+[standard-pollers.md](standard-pollers.md) covers `Orion.Pollers`, which is an assignment table joining a
 poller type string to a NetObject. API pollers share none of that: they have no poller type
 string, no NetObject, and a model of ten entities of their own.
 
@@ -43,7 +43,7 @@ python3 tools/schema_query.py verb Orion.APIPoller.ApiPoller AssignTemplate
 ```
 
 That is the reverse of the usual arrangement, where the verb is the more privileged of the
-two (compare [dependencies.md](dependencies.md#the-verbs-want-admin-not-managenodes), where
+two (compare [../automation/dependencies.md](../automation/dependencies.md#the-verbs-want-admin-not-managenodes), where
 CRUD takes `manageNodes` and the verbs take `admin`). The practical consequence is worth
 stating plainly: an account with `manageNodes` can create an API poller from a template and
 export one, but cannot edit the resulting rows directly. Automation that builds pollers
@@ -173,7 +173,7 @@ ORDER BY h.RequestDetailsId, h.Name
 Whether the platform redacts any header value on read is not recorded in the schema and is
 unverified here; assume it does not. `CredentialsId` with `CredentialsType` is the safer
 pattern, since it points at the credential store rather than holding the secret. See
-[credentials.md](credentials.md).
+[../automation/credentials.md](../automation/credentials.md).
 
 **Two settings are per request rather than per poller.** `VerifySslCertificate` and
 `UseProxy` are columns on `Orion.APIPoller.RequestDetails`, so a poller that authenticates
@@ -413,8 +413,9 @@ ORDER BY COUNT(v.ID)
 
 ## See also
 
-- [pollers.md](pollers.md) for `Orion.Pollers`, universal device pollers and Device Studio
-- [credentials.md](credentials.md) for the credential store `CredentialsId` points at
+- [README.md](README.md) for the other four polling systems and how to tell them apart
+- [standard-pollers.md](standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments
+- [../automation/credentials.md](../automation/credentials.md) for the credential store `CredentialsId` points at
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) for the Invoke contract and array arguments
 - [../swql/gotchas.md](../swql/gotchas.md) for the `StatusInfo` navigation
 - [../swql/performance.md](../swql/performance.md) for windowing the statistics tables

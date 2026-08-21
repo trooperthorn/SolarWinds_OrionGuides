@@ -35,6 +35,7 @@ So this repository:
 | Look up an entity, property, or relationship | [docs/schema/](docs/schema/README.md) |
 | Change something, not just read it | [docs/swis/invoke-verbs.md](docs/swis/invoke-verbs.md) |
 | Automate a task end to end | [docs/automation/](docs/automation/README.md) |
+| Work out why something is or is not being polled | [docs/polling/](docs/polling/README.md) |
 | Copy a working query | [scripts/swql/](scripts/swql/) |
 | Use this repository from an AI agent | [AGENTS.md](AGENTS.md) |
 

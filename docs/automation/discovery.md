@@ -969,7 +969,7 @@ serialisation has to match exactly.
 
 `AddNoPollers` adds the interfaces but attaches no pollers, so they appear in the database and
 report nothing. That is occasionally what you want (inventory without polling load), and it
-is very often an accident. See [pollers.md](pollers.md).
+is very often an accident. See [../polling/standard-pollers.md](../polling/standard-pollers.md).
 
 ## Things that go wrong
 
@@ -1025,7 +1025,7 @@ is very often an accident. See [pollers.md](pollers.md).
 
 - [README.md](README.md) for the query-first method these flows follow
 - [node-management.md](node-management.md) for adding a node by hand and for `RediscoverNow`
-- [pollers.md](pollers.md) for why an imported node still needs the right pollers
+- [../polling/standard-pollers.md](../polling/standard-pollers.md) for why an imported node still needs the right pollers
 - [credentials.md](credentials.md) for creating the credentials a discovery references
 - [../modules/npm.md](../modules/npm.md) for interfaces once they are monitored
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) for complex verb arguments in each client

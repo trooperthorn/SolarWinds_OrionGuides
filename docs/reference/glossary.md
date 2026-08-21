@@ -283,7 +283,7 @@ A named piece of collection logic, and by extension the assignment that points o
 object. `Orion.Pollers` is the assignment table: `PollerType` says which poller,
 `NetObject` says what it polls, and `Enabled` says whether it is active. The poller code
 itself is not in the schema, so there is no entity to join to and no foreign key to
-validate a `PollerType` against. See [../automation/pollers.md](../automation/pollers.md).
+validate a `PollerType` against. See [../polling/standard-pollers.md](../polling/standard-pollers.md).
 
 ## Poller type
 
@@ -292,7 +292,7 @@ The string that names a poller, following the convention
 is a free string with nothing to validate it against, a typo produces an assignment that
 collects nothing and looks exactly like a correct one. SolarWinds publishes the catalogue
 at [Poller Types](https://solarwinds.github.io/OrionSDK/docs/poller-types/). See
-[../automation/pollers.md](../automation/pollers.md#the-poller-type-string).
+[../polling/standard-pollers.md](../polling/standard-pollers.md#the-poller-type-string).
 
 ## Polling engine
 

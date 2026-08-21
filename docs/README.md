@@ -96,12 +96,24 @@ Task guides that combine query, CRUD and Invoke.
 | [automation/events-and-auditing.md](automation/events-and-auditing.md) | What happened, and who changed it |
 | [automation/discovery.md](automation/discovery.md) | Network sonar discovery and list resources |
 | [automation/dependencies.md](automation/dependencies.md) | Suppressing downstream alerts during an outage |
-| [automation/pollers.md](automation/pollers.md) | Why a new node monitors nothing until pollers are assigned |
 | [automation/credentials.md](automation/credentials.md) | Credential entities and their security posture |
 | [automation/accounts-and-permissions.md](automation/accounts-and-permissions.md) | Accounts, roles, rights, and account limitations |
 | [automation/reporting.md](automation/reporting.md) | Building reports and scheduled exports |
 | [automation/scheduling.md](automation/scheduling.md) | Scheduled tasks and maintenance plans |
 | [automation/high-availability.md](automation/high-availability.md) | HA pools |
+
+## Polling
+
+Five separate polling systems that share no entities and reuse each other's column names.
+
+| Page | Covers |
+| --- | --- |
+| [polling/README.md](polling/README.md) | The map: which system is which, and how to tell them apart |
+| [polling/standard-pollers.md](polling/standard-pollers.md) | `Orion.Pollers`: why a new node monitors nothing until pollers are assigned |
+| [polling/universal-device-pollers.md](polling/universal-device-pollers.md) | UnDPs: an SNMP OID you defined yourself |
+| [polling/device-studio.md](polling/device-studio.md) | The read-only `Orion.DeviceStudio.*` entities |
+| [polling/technology-polling.md](polling/technology-polling.md) | Technology polling and the declarative poller templates |
+| [polling/api-pollers.md](polling/api-pollers.md) | Collecting from an HTTP endpoint |
 
 ## Guides
 

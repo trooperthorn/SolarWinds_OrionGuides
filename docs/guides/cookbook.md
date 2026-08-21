@@ -1380,7 +1380,7 @@ ORDER BY v.Node.Caption, v.Caption
 ```
 
 More poller queries, including "missing a whole category of collection", are in
-[../automation/pollers.md](../automation/pollers.md#worked-queries).
+[../polling/standard-pollers.md](../polling/standard-pollers.md#worked-queries).
 
 ### 56. Which poller assignments are switched off?
 
