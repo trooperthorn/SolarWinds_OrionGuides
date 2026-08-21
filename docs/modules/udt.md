@@ -56,10 +56,14 @@ there are two entities with almost the same columns:
 | Hostname to IP | `Orion.UDT.DNSNameCurrent` | `Orion.UDT.DNSNameHistory` |
 | User to IP | `Orion.UDT.UserToIPAddressCurrent` | `Orion.UDT.UserToIPAddressHistory` |
 
-The difference between the two halves of each pair is one column. **Current entities have
-`FirstSeen` and no `LastSeen`**, because the association is still true and "last seen" would
-be now. **History entities have both `FirstSeen` and `LastSeen`**, and the pair is a closed
-interval during which the association held.
+The difference between the two halves of each pair is one column. For the first three pairs
+that column is `LastSeen`: **`Current` entities have `FirstSeen` and no `LastSeen`**, because
+the association is still true and "last seen" would be now, and **`History` entities have
+both**, so the pair is a closed interval during which the association held.
+
+The user pair spells the same idea with different column names. `Orion.UDT.UserToIPAddressCurrent`
+has **no `FirstSeen` at all**: it carries `LogonDateTime`, and its history twin adds
+`LogoffDateTime`. Substitute those two names throughout when you work on that pair.
 
 That gives you the rule for choosing between them, and it is not the obvious one. "Where is
 this device now" is a `Current` query. "Where was this device at 14:00 last Tuesday" is a
@@ -67,9 +71,10 @@ this device now" is a `Current` query. "Where was this device at 14:00 last Tues
 has ever been" needs both, because the connection that is live right now is in `Current`
 only and will not appear in `History` until it ends.
 
-`Orion.UDT.PortHistoryCurrent` and `Orion.UDT.PortHistoryHistory` are a fifth pair on the
-same pattern, denormalised down to `MACAddress`, `IPAddress` and `DNSName` on one row for
-the port history resource.
+`Orion.UDT.PortHistoryCurrent` and `Orion.UDT.PortHistoryHistory` are a fifth current/history
+split, denormalised down to `MACAddress`, `IPAddress` and `DNSName` on one row for the port
+history resource. They are the exception to the column rule above: both halves declare the
+same eight columns, `LastSeen` included, so the name is the only thing separating them.
 
 ## The correlation chain
 
@@ -201,7 +206,9 @@ has **no `NodeName` and no `UserName`**, it uses `LastSeen` where `MACAddressInf
 `Orion.UDT.MACCurrentInformation` is a third variant with the same 27 columns.
 
 If you write `NodeName` against `MACCurrentInfo` the query fails with a column error, which
-is the good outcome. If you write `PortId` against it, you get a different error. Check the
+is the good outcome. The `PortId` versus `PortID` difference is the quieter one: SWQL is not
+case sensitive about property names, so the wrong spelling will usually be accepted, but a
+CRUD payload or a strongly typed client built from it will not be so forgiving. Check the
 entity you actually chose:
 
 ```bash
@@ -212,8 +219,9 @@ python3 tools/schema_query.py props Orion.UDT.MACCurrentInfo --grep name
 **`Orion.UDT.DeviceInventory`** is the per-node device list: `MacAddress`, `Vendor`,
 `IpAddress`, `DnsName`, `UserName` with `FirstName` and `LastName`, `PortName`,
 `ConnectedTo`, `ConnectionType`, `EndpointType`, and both `NodeStatus` and
-`PortOperationalStatus`. It is the only view that carries the user's real name next to the
-device.
+`PortOperationalStatus`. It is one of only two views that carry the user's real name next to
+the device; `Orion.UDT.UserInventory.Results` is the other, and it is keyed on the user
+rather than the node.
 
 **`Orion.UDT.ConnectedMACsAndIPs`** is the per-port summary: `ConnectedMACs` and
 `ConnectedIPs` counts with `NodeName`, `PortName` and `PortNumber`.
@@ -276,8 +284,9 @@ about when they appear.
 `WatchItem` (the MAC, IP or hostname being watched), `WatchItemDisplay`, `WatchItemType`,
 `WatchName` and a free-text `Note`. Both `WatchItem` and `WatchItemType` are strings here.
 
-**`Orion.UDT.WatchListPresent`** is the flat answer: the same list plus a `Present` boolean
-and a `NodeID`. This is the entity to alert on.
+**`Orion.UDT.WatchListPresent`** is the flat answer: the same list, minus
+`WatchItemDisplay`, plus a `Present` boolean, a `NodeID` and a `DetailsUrl`. This is the
+entity to alert on.
 
 **`Orion.UDT.WatchListAggregated`** is the full answer: 27 columns joining the watch entry
 to everything currently known about the item. `IsFound`, `IsActive`, `LastSeen`,
@@ -322,6 +331,10 @@ them. CDP gives `NodeID`, `IfIndex`, `IpAddress`, `DeviceId` and `DevicePort`; L
 `LocalPortNumber`, `RemoteIfIndex`, `RemotePortId`, `RemotePortDescription`,
 `RemoteSystemName` and `RemoteIpAddress`. `Orion.UDT.PortToPort`, `...Current` and
 `...History` record the resulting switch-to-switch links as `Port1ID` and `Port2ID` pairs.
+That `Current` and `History` split follows the same rule as the association pairs above:
+`Orion.UDT.PortToPortCurrent` carries `FirstSeen` and `Orion.UDT.PortToPortHistory` adds
+`LastSeen`. Counting it and the port history pair, six entity pairs in the module use the
+current/history shape, not the four tabulated above.
 
 `Orion.UDT.VLAN` is per port (`PortID`, `VlanID`, `VlanName`) and navigates back to the
 port through `VLANPort`. `Orion.UDT.VLANDevice` is the device-centric view of the same
@@ -857,9 +870,12 @@ other property on `Orion.UDT.Port` is set at create time or discovered, so chang
 means delete and recreate.
 
 **`Current` entities have no `LastSeen`.** `Orion.UDT.PortToEndpointCurrent`,
-`IPAddressCurrent`, `DNSNameCurrent` and `UserToIPAddressCurrent` carry `FirstSeen` only.
-Writing `LastSeen` against one of them fails. A complete history needs the `Current` row
-plus the `History` rows, because the live association is not in `History` yet.
+`IPAddressCurrent` and `DNSNameCurrent` carry `FirstSeen` only, and
+`UserToIPAddressCurrent` carries neither: its timestamp is `LogonDateTime`, and its history
+twin adds `LogoffDateTime` rather than `LastSeen`. Writing `LastSeen` against any of the
+four fails. `Orion.UDT.PortHistoryCurrent` is the one entity named `...Current` that does
+declare `LastSeen`. A complete history needs the `Current` row plus the `History` rows,
+because the live association is not in `History` yet.
 
 **Three MAC info entities with nearly the same name and different columns.**
 `Orion.UDT.MACAddressInfo` has `NodeName`, `UserName`, `LastUpdate` and `PortId`.
@@ -889,7 +905,9 @@ columns, and the names are one word apart.
 **`Orion.UDT.Port` has no NetObject prefix.** [`netobject-types.json`](../../data/reference/netobject-types.json)
 records an empty prefix for it, with `Orion.Nodes` as its parent and `NodeID`, `PortID` and
 `PortIndex` as its key properties. The rogue and watch entities do have prefixes (`UE-MAC`,
-`UE-IP`, `UE-DNS`, `UW`, `UP`), which is what makes them alertable. See
+`UE-IP`, `UE-DNS`, `UW`), which is what makes them alertable. `UP` is UDT's fifth prefix and
+belongs to `Orion.UDT.AccessPortEndpointCount`, which is neither a rogue nor a watch
+entity. See
 [../reference/netobject-types.md](../reference/netobject-types.md).
 
 **A MAC legitimately appears on more than one port.** It is on the access port it is plugged

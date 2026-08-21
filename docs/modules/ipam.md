@@ -18,7 +18,8 @@ address" and "who took this one".
 IPAM contributes **77 entities**, all under a bare `IPAM.` prefix with no `Orion.` in front
 of it. At 77 it is the largest namespace outside `Orion.` in the whole schema, and IPAM is
 the only licensed module whose entire surface lives under a single bare top-level prefix.
-The other module outside `Orion.` is NCM, and it splits across `Cirrus.` and `NCM.`. See
+The other two modules outside `Orion.` are NCM, which splits across `Cirrus.` and `NCM.`,
+and DPA, which splits across `DPA.` and `Orion.DPA.`. See
 [../platform/modules.md](../platform/modules.md) for the whole map and
 [ncm.md](ncm.md) for the split.
 
@@ -41,10 +42,15 @@ The 77 divide into eight families:
 | Address requests | 4 | `IPAM.IPRequests`, `IPAM.IPRequestAddresses`, `IPAM.RequesterDetailsFieldsMetadata`, `IPAM.RequesterDetailsFieldsValues` |
 | Role model | 3 | `IPAM.AccountRoles`, `IPAM.GroupRole`, `IPAM.GroupRoleNode` |
 
-The verb facades are the unusual family. Five entities carry **zero properties** and exist
-only to hang verbs on: you cannot `SELECT` from `IPAM.SubnetManagement`, only `Invoke`
-against it. All 67 of IPAM's verbs live on those five plus `IPAM.AttrDefine`,
+The verb facades are the unusual family. All five carry **zero properties** and exist only to
+hang verbs on: you cannot `SELECT` from `IPAM.SubnetManagement`, only `Invoke` against it.
+All 67 of IPAM's verbs live on those five plus `IPAM.AttrDefine`,
 `IPAM.GroupsCustomProperties` and `IPAM.NodesCustomProperties`.
+
+They are not quite the only property-less entities in the namespace. `IPAM.ImportStarted`
+has none either, but it is a `System.Indication` rather than a facade: an event SWIS
+publishes, with no verbs and no operations at all. Six IPAM entities have no properties;
+five of them are facades.
 
 ## The API changed shape across versions, and SolarWinds documents it that way
 
@@ -222,7 +228,9 @@ Transient for `IPAM.GroupNode.TransientPeriod`, and only then is reclaimed. That
 ## Conflicts
 
 Conflict detection is the reason people buy IPAM rather than keeping the spreadsheet, and
-there are four separate conflict entities detecting four different things.
+there are five separate conflict entities covering three different kinds of conflict: three
+views of an address-level conflict, one for overlapping DHCP scopes, one for DNS that
+disagrees with itself.
 
 **`IPAM.Conflict`** is the address-level conflict: two MACs claiming one IP. It carries
 `ConflictType` with a matching `ConflictTypeText`, `ConflictTimeUTC`, `ConflictStatus`, and
@@ -233,9 +241,10 @@ then two symmetrical halves. The **assigned** side (`AssignedMac`, `AssignedRawM
 of how each side was learned, which is usually the fastest way to see whether the argument
 is between DHCP and a statically configured host.
 
-**`IPAM.ConflictDetail`** is the same 27 columns plus six more that name the DHCP scope and
-server on each side: `AssignedScopeName`, `AssignedDhcpServerName`, `ConflictScopeName`,
-`ConflictDhcpServerName` and their icons. Use `IPAM.ConflictDetail` when the conflict
+**`IPAM.ConflictDetail`** is 33 columns: 25 of `IPAM.Conflict`'s 27, dropping only
+`AccountID` and `Role`, plus eight more that name the DHCP scope and server on each side —
+`AssignedScopeName`, `AssignedDhcpServerName`, `ConflictScopeName`,
+`ConflictDhcpServerName` and their four icons. Use `IPAM.ConflictDetail` when the conflict
 involves DHCP, which is most of the time.
 
 **`IPAM.IPConflict`** is the rolled-up form used by the web console: one row per address
@@ -250,7 +259,7 @@ It is small (`ScopeId`, `FriendlyName`, `ActiveConflicts`, `DHCPConflictMsg`, `N
 node through `DHCPScopeOvrLapp`. `Orion.Nodes` navigates back through `ScopeOverLapping`.
 Its NetObject prefix is `IPAM-DSO`.
 
-**`IPAM.DNSMismatch`** catches the fourth case: forward and reverse DNS disagreeing. It
+**`IPAM.DNSMismatch`** catches the third kind: forward and reverse DNS disagreeing. It
 gives `DNSServer`, `DNSZone`, `ClientHostName`, `ForwardZoneIPAddress` and
 `ReverseZoneIPAddress`, plus the two `IPNodeID` columns so you can join back to the
 addresses on both sides.
@@ -263,7 +272,7 @@ server's own structure.
 
 | Entity | Contents |
 |---|---|
-| `IPAM.DhcpServer` | One managed server. `NodeId` links to `Orion.Nodes`, `GroupId` to the tree, `ServerType`, `CredentialId`, `AddNewScopes`, `AutoScanNewSubnets`, `LastPollHadError`, plus 20 protocol counters (`StatDiscovers`, `StatOffers`, `StatAcks`, `StatNaks` and the DHCPv6 equivalents) |
+| `IPAM.DhcpServer` | One managed server. `NodeId` links to `Orion.Nodes`, `GroupId` to the tree, `ServerType`, `CredentialId`, `AddNewScopes`, `AutoScanNewSubnets`, `LastPollHadError`, plus 16 protocol counters: seven IPv4 (`StatDiscovers`, `StatOffers`, `StatRequests`, `StatAcks`, `StatNaks`, `StatDeclines`, `StatReleases`) and nine DHCPv6 `V6Stat...` equivalents |
 | `IPAM.DhcpScope` | One scope. `ScopeId`, `SubnetId`, `GroupId`, `Address`, `FoundAddress`, `FoundCIDR`, `DisabledAtServer`, `LastPollHadError`, `StatAddressesInUse`, `StatAddressesFree`, `StatPendingOffers`, `ScopeType`, `KeaSubnetId` |
 | `IPAM.DhcpLease` | One lease. `ClientIpAddress`, `ClientMAC`, `ClientIAID`, `ClientDUID`, `ClientName`, `ClientLeaseExpires`, `ClientPreferredLeaseExpires`, `LeaseType`, `ReservationType` |
 | `IPAM.DhcpRange` | The allocatable ranges inside a scope: `StartAddress`, `EndAddress`, `RangeType`, `PoolId` |
@@ -369,8 +378,8 @@ IPAM has **two** custom property mechanisms, from two different eras, and both a
 `attributeType` accepts `String`, `Integer`, `Datetime`, `Float` or `Boolean`.
 `addToIpAddress` puts the field on addresses, `addToGroups` puts it on groups, supernets,
 subnets, DHCP servers, scopes, DNS servers and zones. Values then appear as columns on
-`IPAM.IPNodeAttr` and `IPAM.GroupNodeAttr`, both of which declare no properties of their
-own until you create one.
+`IPAM.IPNodeAttr` and `IPAM.GroupNodeAttr`, both of which declare nothing but their key
+(`IPNodeId` and `GroupId`) until you create one.
 
 **The newer one is the platform's own custom property system**, reached through
 `IPAM.NodesCustomProperties` (for addresses, keyed on `IPNodeId`) and
@@ -644,8 +653,10 @@ for the keys they expect.
 ### DNS records for an address
 
 Ten verbs on `IPAM.IPAddressManagement`, and they are the most regular set in the module.
-Every one of them takes `dnsIpAddress` (the DNS **server** address) and `dnsZoneName` as
-its last arguments.
+Every one of them takes `dnsIpAddress` (the DNS **server** address) and `dnsZoneName`, and
+in seven of the ten those two are the last arguments. The three exceptions append one more:
+`ChangeDnsARecord` and `ChangeDnsAaaaRecord` put the replacement address after the zone
+name, and `RemovePtrRecord` puts its retry flag there.
 
 | Verb | Parameters, in order |
 |---|---|
