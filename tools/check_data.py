@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from collections import Counter
 
@@ -183,6 +184,20 @@ def main() -> None:
         missing = [n["entity"] for n in netobjects if not n.get("inCurrentSchema")]
         if missing:
             c.note(f"{len(missing)} workbook entity/entities absent from the {args.version} schema (expected; see reconciliation.json)")
+
+    # Completeness of the authored reference pages against the extracted data. A function
+    # reference that quietly drops a function is worse than one that never claimed to be
+    # complete, because a reader takes its silence as "SWIS does not have that".
+    funcs_md = os.path.join(ROOT, "docs", "swql", "functions.md")
+    if os.path.isfile(funcs_md) and os.path.isdir(ref):
+        text = open(funcs_md, encoding="utf-8", errors="replace").read()
+        names = [f["name"] for f in load(os.path.join(ref, "swql-functions.json"))]
+        missing = [n for n in names if not re.search(rf"\b{re.escape(n)}\b", text, re.I)]
+        c.require(
+            not missing,
+            f"docs/swql/functions.md does not mention {len(missing)} function(s): "
+            f"{', '.join(missing[:8])}",
+        )
 
     for n in c.notes:
         print(f"note: {n}")

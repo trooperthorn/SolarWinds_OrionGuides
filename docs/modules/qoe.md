@@ -98,10 +98,13 @@ application. `Orion.DPI.Applications.Category` follows it.
 
 `Orion.DPI.ApplicationProtocols` is the richer catalogue: `ProtocolID` (again a string),
 `Name`, `Description`, `CategoryID`, `RiskLevel`, `ProductivityRating` and `IsVisible`. It
-carries its own `Category` navigation, and an application inherits its defaults from the
-protocol it is based on. `IsVisible = FALSE` marks protocols the product does not surface in
-its own interface, which is the closest thing the schema gives you to "internal, ignore
-this".
+carries its own `Category` navigation, and `Orion.DPI.Applications.ApplicationProtocol`
+navigates to it. Note that `CategoryID`, `RiskLevel` and `ProductivityRating` are declared
+on *both* entities, so an application can carry a rating that differs from the one on the
+protocol it uses. Whether the application's value starts as a copy of the protocol's is
+**not stated in the schema**; compare the two on your own data before assuming either way.
+`IsVisible` on the protocol likewise has no description, so what a `FALSE` there suppresses
+is unverified.
 
 `Orion.DPI.ApplicationSettings` is a name/value bag per application: `SettingID`,
 `ApplicationID`, `Name`, `Value`. What the valid names are is not in the schema; enumerate
@@ -493,8 +496,10 @@ ORDER BY n.Caption
 
 ### 7. The protocol catalogue, by category
 
-Useful before defining anything: it shows what QoE can already recognise, and the risk and
-productivity defaults it will apply.
+Useful before defining anything, because it lists the protocols the module already carries
+definitions for, together with the risk and productivity ratings attached to each. Drop the
+`IsVisible` filter if you want the full catalogue: what that flag suppresses is not
+described in the schema, so filtering on it may hide rows you wanted.
 
 ```sql
 SELECT TOP 100
@@ -602,6 +607,7 @@ settle each one on your own server.
 | The grammar accepted by `Orion.DPI.Applications.Filter` and the values of `FilterSyntax` | Undocumented | `SELECT TOP 25 Name, Filter, FilterSyntax FROM Orion.DPI.Applications WHERE Filter IS NOT NULL` |
 | The valid names in `Orion.DPI.ProbeSettings`, `Orion.DPI.ProbeProperties` and `Orion.DPI.ApplicationSettings` | Undocumented; three separate name/value bags with no enumerated keys | Query each entity and read the `Name` column |
 | What distinguishes a probe *setting* from a probe *property* | Undocumented | As above, compare the two key sets |
+| What `IsVisible` on `Orion.DPI.ApplicationProtocols` suppresses | Undocumented boolean | `SELECT TOP 20 Name, IsVisible, Description FROM Orion.DPI.ApplicationProtocols WHERE IsVisible = FALSE` |
 | The meaning of `DiscoveryMode` and `AdminStatus` on `Orion.DPI.Applications` | Undocumented integers | `SELECT TOP 10 DiscoveryMode, AdminStatus, COUNT(ApplicationID) AS Applications FROM Orion.DPI.Applications GROUP BY DiscoveryMode, AdminStatus` |
 | `ReloadAppDefinitions` is required after editing an application definition | Inferred from the verb name | Test on a non-production probe |
 | `Orion.APM.Application` is a parent of `Orion.DPI.Applications` | Claimed by the community-sourced netobject reference, contradicted by the 2026.2 relationship data | `SELECT p.Entity.FullName AS EntityName, p.Name, p.Type FROM Metadata.Property p WHERE p.IsNavigable = TRUE AND p.Entity.FullName LIKE 'Orion.DPI.%' ORDER BY p.Entity.FullName, p.Name` |
