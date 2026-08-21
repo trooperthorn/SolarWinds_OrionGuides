@@ -25,6 +25,7 @@ closing brace in an edit, fails the moment a reader runs it and is invisible unt
 from __future__ import annotations
 
 import argparse
+import ast
 import os
 import re
 import shlex
@@ -137,6 +138,33 @@ def check_powershell_balance(files: list[str]) -> tuple[int, list[str]]:
     return total, problems
 
 
+PY_FENCE_RE = re.compile(r"```python\n(.*?)```", re.S)
+
+
+def check_python_syntax(files: list[str]) -> tuple[int, list[str]]:
+    """Parse every Python block. A block that does not parse cannot possibly run.
+
+    This is stronger than the bracket check the PowerShell blocks get, because Python has
+    a parser available here. It does not prove the example works against a live server,
+    only that a reader who pastes it gets past the first line.
+    """
+    problems: list[str] = []
+    total = 0
+    for path in files:
+        rel = os.path.relpath(path, ROOT)
+        if "reference" in rel.split(os.sep):
+            continue
+        for i, block in enumerate(PY_FENCE_RE.findall(open(path, encoding="utf-8", errors="replace").read()), 1):
+            total += 1
+            try:
+                ast.parse(block)
+            except SyntaxError as exc:
+                problems.append(
+                    f"{rel} python block {i} does not parse: {exc.msg} (line {exc.lineno})"
+                )
+    return total, problems
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=".", help="directory to scan for markdown")
@@ -179,10 +207,13 @@ def main() -> None:
 
     ps_total, ps_problems = check_powershell_balance(files)
     failures.extend(ps_problems)
+    py_total, py_problems = check_python_syntax(files)
+    failures.extend(py_problems)
 
     print(
         f"{checked} documented tool invocation(s) checked, {skipped} skipped as not "
-        f"runnable; {ps_total} PowerShell block(s) checked for balance"
+        f"runnable; {ps_total} PowerShell block(s) checked for balance; "
+        f"{py_total} Python block(s) parsed"
     )
     if failures:
         print(f"\n{len(failures)} mismatch(es):", file=sys.stderr)
