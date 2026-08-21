@@ -501,7 +501,7 @@ because a verb can list alternatives. Counting verbs per right:
 
 A verb with an empty `accessControl` array does not mean "anybody can call it". Rights are
 declared on the verb **and** on the entity, and when the verb declares nothing the entity's
-`invoke` entry is what applies. **629 of the 1021 verbs declare no right of their own, and 363
+`invoke` entry is what applies. **692 of the 1021 verbs declare no right of their own, and 363
 of those belong to an entity that does declare an `invoke` right.**
 
 That is not a technicality. It is the difference between reading the table and knowing what

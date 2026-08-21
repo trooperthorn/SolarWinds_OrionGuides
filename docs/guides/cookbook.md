@@ -463,9 +463,14 @@ average and to the peak series. Quote the average for planning and the peak for 
 
 ### 19. Which interfaces are running hot?
 
-`PercentUtil` is the higher of the two directions, which is what you want for a saturation
-question. Keep the two directions in the result anyway, because a link that is hot in one
-direction only is a different conversation from one that is hot in both.
+`PercentUtil` is the platform's single utilization figure, kept alongside the two
+per-direction columns, which is what you want for a saturation question. How
+`Orion.NPM.Interfaces.PercentUtil` combines `InPercentUtil` and `OutPercentUtil` is **not
+documented in the schema and is unverified here**: the commonly repeated answer is the higher
+of the two, and selecting all three columns on a link that is busy in one direction only
+settles it on your own server in one query. Keep the two directions in the result anyway,
+because a link that is hot in one direction only is a different conversation from one that is
+hot in both.
 
 ```sql
 SELECT TOP 50
@@ -1048,10 +1053,10 @@ WHERE us.Timestamp > AddDay(-30, GetDate())
 ORDER BY us.Timestamp DESC
 ```
 
-`Orion.Licensing.UtilizationSummary` restricts `read` to `admin`, so a service account gets
-an empty result from that second query even though the query is correct.
-`Orion.LicenseSaturation` declares no entity-level access control at all, which is why the
-first one is the more portable of the two.
+`Orion.Licensing.UtilizationSummary` restricts `read` to `admin`, so a service account is
+refused that second query outright rather than getting an empty result, even though the query
+is correct. `Orion.LicenseSaturation` declares no entity-level access control at all, which is
+why the first one is the more portable of the two.
 
 ### 44. When do the licences and maintenance expire?
 

@@ -449,7 +449,7 @@ to. See [../swis/uris.md](../swis/uris.md).
 A named operation an entity publishes, invoked rather than queried: `Unmanage`, `PollNow`,
 `Acknowledge`, `CreateCustomProperty`. Verbs exist because some changes are more than a
 property assignment, and going through one means the platform can check rights and record
-who did what. Of the 958 verbs in 2026.2, 794 publish typed, ordered parameters, and many
+who did what. Of the 1021 verbs in 2026.2, 848 publish typed, ordered parameters, and many
 declare the right they require, such as `manageNodes` or `allowUnmanage`. See
 [../swis/invoke-verbs.md](../swis/invoke-verbs.md) and the full list in
 [verb-index.md](verb-index.md).

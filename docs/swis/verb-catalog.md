@@ -17,7 +17,7 @@ call one, start with [invoke-verbs.md](invoke-verbs.md).
   argument array after the last one you want to supply.
 - **Requires** is the right the schema declares for `invoke` **on that verb**. `not declared`
   is not the same as "no restriction". Rights are declared at two levels, and the entity often
-  carries one when the verb does not. 629 of the 1021 verbs declare no verb-level right, and
+  carries one when the verb does not. 692 of the 1021 verbs declare no verb-level right, and
   363 of those belong to an entity that declares an `invoke` right of its own. Each table
   below names the entity-level right wherever a row says `not declared`. NCM and IPAM then
   enforce their own module roles on top of both. See

@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**135 statements across 42 pages.**
+**138 statements across 43 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -69,6 +69,16 @@ Read this before relying on this repository for something load-bearing. If you h
 **[ValidateCustomProperty](../automation/custom-properties.md#validatecustomproperty)**
 
 - The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it is unverified here.
+
+## [dependencies.md](../automation/dependencies.md)
+
+**[How a dependency is expressed](../automation/dependencies.md#how-a-dependency-is-expressed)**
+
+- What the `Category` integer classifies is **not recorded in the published schema** and is unverified here.
+
+**[How automatic discovery is scoped](../automation/dependencies.md#how-automatic-discovery-is-scoped)**
+
+- The precise algorithm that selects a root, and what the counts are used for once calculated, are **not recorded in the published schema** and are unverified here.
 
 ## [discovery.md](../automation/discovery.md)
 
@@ -235,6 +245,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Rules these queries follow](../guides/cookbook.md#rules-these-queries-follow)**
 
 - Most other date columns, including `Orion.AlertActive.TriggeredDateTime`, `Orion.AlertHistory.TimeStamp` and `Cirrus.ConfigArchive.DownloadTime`, carry **no documented timezone in the schema and are unverified here**: measure them once on your own server with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before writing a narrow windo...
+
+**[19. Which interfaces are running hot?](../guides/cookbook.md#19-which-interfaces-are-running-hot)**
+
+- How `Orion.NPM.Interfaces.PercentUtil` combines `InPercentUtil` and `OutPercentUtil` is **not documented in the schema and is unverified here**: the commonly repeated answer is the higher of the two, and selecting all three columns on a link that is busy in one direction only settles it on your own server in one query.
 
 **[31. What is unacknowledged and old?](../guides/cookbook.md#31-what-is-unacknowledged-and-old)**
 

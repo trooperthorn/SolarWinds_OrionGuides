@@ -250,7 +250,7 @@ one is often not the one you need. `Orion.Nodes.Unmanage` requires `allowUnmanag
 necessarily unmanage one.
 
 **2. The right is declared on the entity rather than on the verb.** A verb with no rights of
-its own is not open to everybody; the entity's `invoke` entry governs. 629 of the 1021 verbs
+its own is not open to everybody; the entity's `invoke` entry governs. 692 of the 1021 verbs
 in 2026.2 declare no right of their own, and 363 of those belong to an entity that does. So
 `Orion.NodesCustomProperties.CreateCustomProperty` needs `admin`, and nothing in the verb's
 own record says so.
