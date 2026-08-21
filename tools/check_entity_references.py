@@ -53,6 +53,16 @@ def entity_token_re(namespaces: set[str]) -> re.Pattern:
 NOISE_SUFFIXES = (
     ".json", ".md", ".html", ".py", ".ps1", ".sh", ".csv", ".xlsx", ".swql", ".yml", ".yaml",
 )
+
+# .NET base class library namespaces. PowerShell samples name these directly, as in
+# [System.Collections.Generic.List[object]]::new() or a [PSCredential] parameter, and they
+# are not SWIS entities. SWIS uses System.* too, but only for flat two-segment names such
+# as System.Entity and System.ManagedEntity, so there is no overlap with these.
+DOTNET_NAMESPACES = (
+    "System.Collections.", "System.Management.", "System.Text.", "System.IO.",
+    "System.Net.", "System.Threading.", "System.Reflection.", "System.Diagnostics.",
+    "System.Security.", "System.Xml.", "System.Linq.", "System.Globalization.",
+)
 # Property references written as Entity.Property, which are not entity names themselves.
 # Rather than guess, a token is accepted when stripping trailing segments yields a real
 # entity, since "Orion.Nodes.Caption" is a legitimate way to write a property.
@@ -236,6 +246,36 @@ def type_claims(text: str, members) -> list[tuple[str, str, str]]:
     return problems
 
 
+# A NetObject string as the guides write it: `N:42`, `AA:<ApplicationID>`, or the bare
+# prefix `TSR:`. Verbs taking a netObjectId want one of these rather than a bare id, and an
+# invented prefix is the same plausible-but-wrong failure as an invented entity name: the
+# call is accepted and acts on nothing, or on the wrong kind of thing.
+NETOBJECT_RE = re.compile(r"`(?P<prefix>[A-Z]{1,4}):(?:\d+|<[^`>]*>)?`")
+
+
+def load_netobject_prefixes() -> dict[str, list[str]]:
+    """Prefix to the entities that use it, from the reference data."""
+    path = os.path.join(ROOT, "data", "reference", "netobject-types.json")
+    prefixes: dict[str, list[str]] = defaultdict(list)
+    if not os.path.isfile(path):
+        return prefixes
+    for row in json.load(open(path, encoding="utf-8")):
+        prefix = (row.get("netObjectPrefix") or "").strip().rstrip(":")
+        if prefix:
+            prefixes[prefix].append(row["entity"])
+    return prefixes
+
+
+def netobject_claims(text: str, prefixes: dict[str, list[str]]) -> list[str]:
+    """Return the NetObject prefixes used in the text that the reference does not list."""
+    unknown = []
+    flat = " ".join(text.split())
+    for m in NETOBJECT_RE.finditer(flat):
+        if m.group("prefix") not in prefixes:
+            unknown.append(m.group(0))
+    return unknown
+
+
 def namespace_prefixes(entities: set[str]) -> set[str]:
     """Every dotted prefix of every entity name, so 'Orion.APM' resolves."""
     prefixes = set()
@@ -356,6 +396,9 @@ def main() -> None:
     unknown: dict[str, set[str]] = defaultdict(set)
     reasons: dict[str, str] = {}
     wrong_types: list[tuple[str, str, str, str]] = []
+    bad_netobjects: list[tuple[str, str]] = []
+    netobject_prefixes = load_netobject_prefixes()
+    netobjects_checked = 0
     types_checked = 0
     checked = 0
     negated = 0
@@ -369,7 +412,7 @@ def main() -> None:
         rel = os.path.relpath(path, ROOT)
         for m in token_re.finditer(text):
             token = m.group(0).rstrip(".")
-            if token.endswith(NOISE_SUFFIXES):
+            if token.endswith(NOISE_SUFFIXES) or token.startswith(DOTNET_NAMESPACES):
                 continue
             checked += 1
             if token in entities or token in allowed:
@@ -388,10 +431,16 @@ def main() -> None:
                 wrong_types.append((rel, token, claimed, actual))
             types_checked += len(PROPERTY_TYPE_RE.findall(" ".join(text.split())))
 
+        if netobject_prefixes:
+            netobjects_checked += len(NETOBJECT_RE.findall(" ".join(text.split())))
+            for written in netobject_claims(text, netobject_prefixes):
+                bad_netobjects.append((rel, written))
+
     print(
         f"{len(files) - skipped} authored file(s), {checked} entity reference(s) checked "
         f"({skipped} generated file(s) skipped, {negated} absent name(s) named inside a "
-        f"negation and accepted); {types_checked} property-type claim(s) checked"
+        f"negation and accepted); {types_checked} property-type and "
+        f"{netobjects_checked} NetObject claim(s) checked"
     )
 
     if wrong_types:
@@ -400,8 +449,15 @@ def main() -> None:
             print(f"  - {rel}: {token} is described as {claimed}, "
                   f"but the schema declares {actual}", file=sys.stderr)
 
+    if bad_netobjects:
+        print(f"\n{len(bad_netobjects)} NetObject prefix(es) the reference does not list:",
+              file=sys.stderr)
+        for rel, written in bad_netobjects:
+            print(f"  - {rel}: {written}", file=sys.stderr)
+        print("      Prefixes are in data/reference/netobject-types.json.", file=sys.stderr)
+
     if not unknown:
-        if not wrong_types:
+        if not wrong_types and not bad_netobjects:
             print("every entity named in the documentation exists in the schema")
             return
         if args.strict:

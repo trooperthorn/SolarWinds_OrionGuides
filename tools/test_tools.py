@@ -532,6 +532,41 @@ class TestPropertyTypeClaims(unittest.TestCase):
         self.assertEqual(self.problems("`Orion.Nope.Thing` is a `System.Int32`."), [])
 
 
+class TestNetObjectPrefixes(unittest.TestCase):
+    """NetObject prefixes written in prose have to be real ones.
+
+    A verb taking a netObjectId wants `N:42` rather than `42`, and an invented prefix is
+    the same plausible-but-wrong failure as an invented entity name: the call is accepted
+    and acts on nothing, or on the wrong kind of object.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_entity_references as cer
+
+        cls.cer = cer
+        cls.prefixes = cer.load_netobject_prefixes()
+
+    def test_reference_data_loaded(self):
+        self.assertGreater(len(self.prefixes), 50)
+
+    def test_known_prefixes_map_to_the_right_entities(self):
+        self.assertIn("Orion.Nodes", self.prefixes["N"])
+        self.assertIn("Orion.NPM.Interfaces", self.prefixes["I"])
+        self.assertIn("Orion.Volumes", self.prefixes["V"])
+
+    def test_real_prefixes_pass(self):
+        text = "A node is `N:42`, an interface `I:7`, an application `AA:<ApplicationID>`."
+        self.assertEqual(self.cer.netobject_claims(text, self.prefixes), [])
+
+    def test_invented_prefix_is_caught(self):
+        found = self.cer.netobject_claims("A node is `ZZ:42`.", self.prefixes)
+        self.assertEqual(found, ["`ZZ:42`"])
+
+    def test_bare_prefix_form_is_recognised(self):
+        self.assertEqual(self.cer.netobject_claims("The prefix is `TSR:`.", self.prefixes), [])
+
+
 class TestDotNetTypeNames(unittest.TestCase):
     """Verb signatures quoted in the documentation carry escaped .NET generics."""
 
@@ -557,6 +592,16 @@ class TestDotNetTypeNames(unittest.TestCase):
 
     def test_plain_parameter_still_yields_its_type(self):
         self.assertEqual(self.cer.type_names({"name": "nodeId", "type": "number"}), {"number"})
+
+    def test_dotnet_namespaces_do_not_collide_with_swis_entities(self):
+        # PowerShell samples name .NET types directly. Exempting those namespaces is only
+        # safe while no real entity lives under one, so assert that rather than assume it.
+        entities, _, _ = self.cer.load_schema(VERSION)
+        clashing = [e for e in entities if e.startswith(self.cer.DOTNET_NAMESPACES)]
+        self.assertEqual(clashing, [])
+        # The SWIS System.* entities this must not start ignoring.
+        self.assertIn("System.ManagedEntity", entities)
+        self.assertFalse("System.ManagedEntity".startswith(self.cer.DOTNET_NAMESPACES))
 
 
 class TestSignatureClaims(unittest.TestCase):
