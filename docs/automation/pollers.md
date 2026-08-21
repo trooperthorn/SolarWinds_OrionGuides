@@ -370,10 +370,12 @@ imports your choices, creating the poller assignments as a side effect.
 | `GetListResourcesResultByEngine` | `(jobId, engineId)` | bulk jobs across many nodes. |
 
 All require `manageNodes`. An eighth verb starts the same job against a device that is not a
-node yet, so it needs the credentials the node id would otherwise have supplied:
-`ScheduleListResourcesForAddress` takes
-`(ipAddress, port, credentialsType, credentialProperties, engineId, preferredSnmpVersion?)`
-and everything after it is identical. The flow, adapted from SolarWinds'
+node yet, so it needs the credentials the node id would otherwise have supplied, and everything
+after it is identical:
+
+`ScheduleListResourcesForAddress(ipAddress, port, credentialsType, credentialProperties, engineId, preferredSnmpVersion?)`
+
+The flow, adapted from SolarWinds'
 [`ImportSelectedListResources_CPUMemory.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/ImportSelectedListResources_CPUMemory.ps1),
 which turns on CPU and memory monitoring for one node without knowing which poller type that
 device needs:
