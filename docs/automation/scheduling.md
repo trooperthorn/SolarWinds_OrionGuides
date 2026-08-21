@@ -175,9 +175,9 @@ the honest form if you want to see tasks whose frequency row has gone missing.
 
 ### A cron expression without its timezone is ambiguous
 
-Six of the fourteen columns are not in the query above, and half of them are about time zones.
-This matters more than it looks: `CronExpression` says `0 2 * * *` and nothing about which
-2 a.m. that is.
+Six of the fourteen `Orion.Frequencies` columns are not in the query above, and half of them
+are about time zones. This matters more than it looks: `CronExpression` says `0 2 * * *` and
+nothing about which 2 a.m. that is.
 
 | Property | Type | What it is |
 | --- | --- | --- |

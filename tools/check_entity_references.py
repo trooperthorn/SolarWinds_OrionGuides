@@ -362,7 +362,11 @@ def member_table_claims(text: str, types: dict[str, list[str]]) -> tuple[int, li
         header = MEMBER_TABLE_ROW_RE.match(lines[i])
         if not header or not (MEMBER_TABLE_RULE_RE.match(lines[i + 1]) and "|" in lines[i + 1]):
             continue
-        if "member" not in [c.strip().lower() for c in header.group("cells").split("|")]:
+        # "Field" is the other word the guides use for a member of a contract type, as in
+        # the ConfigSearchTerm table in the NCM page. Those tables describe a type rather
+        # than an entity, so they belong to this check and not to the property one below.
+        cells_lower = [c.strip().lower() for c in header.group("cells").split("|")]
+        if not ({"member", "field"} & set(cells_lower)):
             continue
 
         # A markdown table is always preceded by a blank line, so skip the blanks first
@@ -389,6 +393,98 @@ def member_table_claims(text: str, types: dict[str, list[str]]) -> tuple[int, li
             m = MEMBER_NAME_RE.match(cells[0]) if cells else None
             if m and m.group(1).lower() not in members:
                 problems.append((named[0], m.group(1)))
+    return resolved, problems
+
+
+PROPERTY_TABLE_TYPE_RE = re.compile(r"^`(System\.\w+)`$")
+SHOW_COMMAND_RE = re.compile(r"schema_query\.py\s+show\s+([A-Z]\w*(?:\.[A-Z]\w*)+)")
+
+
+def table_subject(lines: list[str], i: int, entities, inheritance, token_re) -> str | None:
+    """The entity a table at line ``i`` describes, or None when it is not decidable.
+
+    The name is often not in the paragraph directly above the table: a section like "The
+    pool" names its entity once and then hangs four tables off it, and some name it only
+    in a ``schema_query.py show`` block. So the whole section from the nearest heading
+    down to the table is the context to read.
+    """
+    start = 0
+    for j in range(i, -1, -1):
+        if lines[j].startswith("#"):
+            start = j
+            break
+    section = " ".join(lines[start:i])
+    found = [m.group(0).rstrip(".") for m in token_re.finditer(section)]
+    candidates = {e for e in found + SHOW_COMMAND_RE.findall(section) if e in entities}
+    if len(candidates) == 1:
+        return candidates.pop()
+    if not candidates:
+        return None
+    # A section routinely names an entity's parent beside it ("Orion.Events ... plus three
+    # inherited from Orion.MixedObjectType"). The ancestor is context; the descendant is
+    # the subject, and its member lookup covers the inherited names anyway.
+    leaves = [
+        c for c in candidates
+        if not any(c in (inheritance.get(other) or []) for other in candidates if other != c)
+    ]
+    return leaves[0] if len(leaves) == 1 else None
+
+
+def property_table_claims(text: str, members, entities, inheritance, token_re) -> tuple[int, list[str]]:
+    """Return (tables resolved, problems) for tables of an entity's properties and types.
+
+    331 such rows are written across the guides and none of them were checked: the
+    property-type check above only reads the prose form ("`Orion.Foo.Bar` is a
+    `System.Int32`"), so a table saying the same thing in two cells went unread. A table
+    is the denser and more quotable form, which makes it the worse one to leave unchecked.
+    """
+    problems: list[str] = []
+    resolved = 0
+    lines = text.splitlines()
+    for i in range(len(lines) - 1):
+        header = MEMBER_TABLE_ROW_RE.match(lines[i])
+        if not header or not (MEMBER_TABLE_RULE_RE.match(lines[i + 1]) and "|" in lines[i + 1]):
+            continue
+        hdr = [c.strip().lower() for c in header.group("cells").split("|")]
+        # "Member" and "Field" tables describe a contract type, and are checked above.
+        if {"member", "field"} & set(hdr) or "type" not in hdr:
+            continue
+        named = [x for x in ("property", "column") if x in hdr]
+        if not named:
+            continue
+        ni, ti = hdr.index(named[0]), hdr.index("type")
+
+        entity = table_subject(lines, i, entities, inheritance, token_re)
+        if entity is None:
+            continue
+        try:
+            props, navs = members(entity)
+        except Exception:
+            continue
+        resolved += 1
+
+        for j in range(i + 2, len(lines)):
+            row = MEMBER_TABLE_ROW_RE.match(lines[j])
+            if not row:
+                break
+            cells = [c.strip() for c in row.group("cells").split("|")]
+            if len(cells) <= max(ni, ti):
+                continue
+            name = MEMBER_NAME_RE.match(cells[ni])
+            if not name:
+                continue
+            key = name.group(1).lower()
+            if key not in props and key not in navs:
+                problems.append(f"{entity} declares no `{name.group(1)}` (line {j + 1})")
+                continue
+            claimed = PROPERTY_TABLE_TYPE_RE.match(cells[ti])
+            # A navigation property is described by its relationship kind rather than by a
+            # member type, so it is not a claim this check can settle.
+            if claimed and key in props and props[key] not in ("verb", claimed.group(1)):
+                problems.append(
+                    f"{entity}.{name.group(1)} is `{props[key]}`, "
+                    f"not `{claimed.group(1)}` (line {j + 1})"
+                )
     return resolved, problems
 
 
@@ -499,6 +595,7 @@ def main() -> None:
     # Reuse the validator's inheritance-aware member lookup so a member reference in
     # prose is held to the same standard as one inside a query.
     members = None
+    inheritance: dict[str, list[str]] = {}
     try:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from validate_swql import SchemaIndex
@@ -509,6 +606,7 @@ def main() -> None:
         # write it in prose, so the lookup has to include them or every verb reference in
         # the documentation is reported as a missing property.
         verbs_by_entity: dict[str, set[str]] = {}
+        inheritance = {n: (r.get("inheritance") or []) for n, r in index.entities.items()}
         for name, rec in index.entities.items():
             chain = (rec.get("inheritance") or []) + [name]
             names = set()
@@ -552,6 +650,8 @@ def main() -> None:
     bad_members: list[tuple[str, str, str]] = []
     known_types = load_types(args.version)
     member_rows_checked = 0
+    property_tables_checked = 0
+    bad_property_tables: list[tuple[str, str]] = []
     bad_rights: list[tuple[str, str]] = []
     known_rights = load_rights(args.version)
     rights_checked = 0
@@ -604,12 +704,21 @@ def main() -> None:
             for type_name, member in problems:
                 bad_members.append((rel, type_name, member))
 
+        if members is not None:
+            resolved, problems = property_table_claims(
+                text, members, entities, inheritance, token_re
+            )
+            property_tables_checked += resolved
+            for problem in problems:
+                bad_property_tables.append((rel, problem))
+
     print(
         f"{len(files) - skipped} authored file(s), {checked} entity reference(s) checked "
         f"({skipped} generated file(s) skipped, {negated} absent name(s) named inside a "
         f"negation and accepted); {types_checked} property-type, "
         f"{netobjects_checked} NetObject and {rights_checked} rights claim(s) checked; "
-        f"{member_rows_checked} member table(s) resolved against types.json"
+        f"{member_rows_checked} member and {property_tables_checked} property "
+        f"table(s) resolved"
     )
 
     if wrong_types:

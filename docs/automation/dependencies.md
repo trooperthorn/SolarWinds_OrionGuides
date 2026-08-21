@@ -86,8 +86,8 @@ Parent and child are identified two ways at once, and knowing which to use matte
 whether the dependency actually suppresses child status, which is what makes a
 dependency do anything.
 
-Four more of the sixteen are worth knowing about, because they appear in query results and
-are easy to misread:
+Four more of the sixteen `Orion.Dependencies` properties are worth knowing about, because
+they appear in query results and are easy to misread:
 
 | Property | Type | What it is |
 | --- | --- | --- |

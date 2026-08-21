@@ -1382,6 +1382,91 @@ class TestContractSignatures(unittest.TestCase):
         self.assertFalse(any(p["required"] for p in verb["parameters"][1:]))
 
 
+class TestTableClaims(unittest.TestCase):
+    """Facts stated in a table cell are held to the same standard as facts in a sentence.
+
+    331 property/type rows and 25 fenced signatures were written across the guides and
+    none of them were read by any checker: the prose forms were covered and the denser,
+    more quotable table and block forms were not. A reader has no way to tell which half
+    of a page was verified.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_counts
+        import check_entity_references
+
+        cls.counts = check_counts
+        cls.refs = check_entity_references
+
+    def test_a_size_cell_is_read_as_a_count(self):
+        cell = "16 properties, 1 verb"
+        found = [
+            (m.group("n"), m.group("kind"), bool(m.group("nav")))
+            for m in self.counts.CELL_COUNT_RE.finditer(cell)
+        ]
+        self.assertEqual(found, [("16", "properties", False), ("1", "verb", False)])
+
+    def test_navigation_properties_are_not_read_as_plain_properties(self):
+        m = self.counts.CELL_COUNT_RE.search("11 navigation properties")
+        self.assertTrue(m.group("nav"))
+
+    def test_a_bare_year_in_a_cell_is_not_a_count(self):
+        self.assertIsNone(self.counts.CELL_COUNT_RE.search("Added in 2023.4"))
+
+    def test_the_subject_comes_from_the_whole_section_not_just_the_lead(self):
+        # A section names its entity once and then hangs several tables off it. Reading
+        # only the paragraph above the table left those unresolved and unchecked.
+        lines = [
+            "## The pool",
+            "",
+            "`Orion.HA.Pools` is the pool record.",
+            "",
+            "**The timers:**",
+            "",
+            "| Property | Type |",
+        ]
+        token_re = self.refs.entity_token_re({"Orion"})
+        subject = self.refs.table_subject(lines, 6, {"Orion.HA.Pools"}, {}, token_re)
+        self.assertEqual(subject, "Orion.HA.Pools")
+
+    def test_an_ancestor_named_beside_its_descendant_is_not_the_subject(self):
+        lines = [
+            "### `Orion.Events`",
+            "",
+            "Eight declared, plus three inherited from `Orion.MixedObjectType`.",
+            "",
+            "| Property | Type |",
+        ]
+        token_re = self.refs.entity_token_re({"Orion"})
+        subject = self.refs.table_subject(
+            lines, 4,
+            {"Orion.Events", "Orion.MixedObjectType"},
+            {"Orion.Events": ["System.Entity", "Orion.MixedObjectType"]},
+            token_re,
+        )
+        self.assertEqual(subject, "Orion.Events")
+
+    def test_two_unrelated_entities_leave_the_table_unresolved(self):
+        # Guessing would be worse than skipping: a wrong subject reports every row.
+        lines = ["## Both", "", "`Orion.Nodes` and `Orion.Volumes` differ.", "", "| Property | Type |"]
+        token_re = self.refs.entity_token_re({"Orion"})
+        self.assertIsNone(
+            self.refs.table_subject(lines, 4, {"Orion.Nodes", "Orion.Volumes"}, {}, token_re)
+        )
+
+    def test_a_fenced_signature_is_found_and_qualified(self):
+        import check_signatures
+
+        block = "Orion.Dependencies.RemoveDependencies(ids) -> number\n  Ignore dependencies.\n"
+        m = check_signatures.FENCED_SIGNATURE_RE.search(block)
+        self.assertEqual(m.group("entity"), "Orion.Dependencies")
+        self.assertEqual(m.group("verb"), "RemoveDependencies")
+        self.assertEqual(
+            check_signatures.balanced_arguments(block, m.end("open") - 1), "ids"
+        )
+
+
 class TestOutputPairing(unittest.TestCase):
     """A command block pairs with the output block directly under it, and no further.
 

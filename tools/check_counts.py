@@ -201,6 +201,11 @@ class Schema:
 # prose having to repeat the entity name.
 TABLE_ROW_RE = re.compile(r"^\s*\|(?P<cells>.+)\|\s*$")
 TABLE_RULE_RE = re.compile(r"^[\s|:\-]+$")
+# "16 properties", "1 verb", "11 navigation properties" written inside a table cell.
+CELL_COUNT_RE = re.compile(
+    r"(?<![\w-])(?P<n>\d{1,5})\s+(?P<nav>navigation\s+)?(?P<kind>propert(?:y|ies)|verbs?)\b",
+    re.I,
+)
 COUNT_COLUMNS = {
     "properties": "properties",
     "declared properties": "properties",
@@ -223,9 +228,8 @@ def table_claims(text: str, schema: Schema):
         columns = [c.strip().lower() for c in header.group("cells").split("|")]
         wanted = {j: COUNT_COLUMNS.get(name, "MISSING") for j, name in enumerate(columns)
                   if name in COUNT_COLUMNS}
-        if not wanted:
-            i += 1
-            continue
+        # A table with no dedicated count column is still worth walking: its rows may
+        # carry the same figures as prose in a "Size" cell.
         j = i + 2
         while j < len(lines):
             row = TABLE_ROW_RE.match(lines[j])
@@ -242,6 +246,18 @@ def table_claims(text: str, schema: Schema):
                     declared, _ = schema.member_counts(entity, field)
                     yield (f"{entity} {field}", int(cells[index]), declared,
                            f"| {entity} | ... | {cells[index]} |", "")
+                # A row whose first cell names the entity can also carry its sizes as
+                # prose in any other cell, as "16 properties, 1 verb" under a Size
+                # heading. That form had no dedicated column to key on and so went
+                # unchecked, which is the wrong outcome for a figure a reader will quote.
+                for cell in cells[1:]:
+                    for m in CELL_COUNT_RE.finditer(cell):
+                        field = ("navigation properties" if m.group("nav")
+                                 else "properties" if m.group("kind").startswith("propert")
+                                 else "verbs")
+                        declared, _ = schema.member_counts(entity, field)
+                        yield (f"{entity} {field}", int(m.group("n")), declared,
+                               f"| {entity} | ... | {m.group(0)} |", "")
             j += 1
         i = j
 

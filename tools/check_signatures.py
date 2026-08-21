@@ -55,6 +55,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # balanced-paren scan rather than a regex, so a nested call such as ToLocal(GetUtcDate())
 # parses instead of being cut off at the first closing paren.
 CALL_OPEN_RE = re.compile(r"`(?P<name>[A-Za-z]\w*)\(")
+# A whole fenced block, and inside one a summarised signature written at the start of a
+# line: Orion.Dependencies.RemoveDependencies(ids) -> number
+FENCE_BODY_RE = re.compile(r"```[a-z]*\n(.*?)```", re.S)
+FENCED_SIGNATURE_RE = re.compile(
+    r"^(?P<entity>[A-Z]\w*(?:\.[A-Z]\w*)+)\.(?P<verb>\w+)(?P<open>\()", re.M)
 ENTITY_RE = re.compile(r"`(?P<ent>[A-Z]\w*(?:\.[A-Z]\w*)+)`")
 ELISION_RE = re.compile(r"\.\.\.|…")
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
@@ -259,6 +264,38 @@ def main() -> None:
     for path in sorted(files):
         rel = os.path.relpath(path, ROOT)
         text = open(path, encoding="utf-8", errors="replace").read()
+
+        # A signature summarised inside a fenced block carries no backticks, so the prose
+        # scanner below cannot see it: 25 of them were written across the guides and none
+        # were checked. They are the easier case, since the entity is spelled out rather
+        # than inferred from the surrounding sentence.
+        for block in FENCE_BODY_RE.findall(text):
+            for m in FENCED_SIGNATURE_RE.finditer(block):
+                entity, name = m.group("entity"), m.group("verb")
+                body = balanced_arguments(block, m.end("open") - 1)
+                if body is None:
+                    skipped += 1
+                    continue
+                shown, elided = shown_arguments(body)
+                verb = next(
+                    (v for v in contract.by_name.get(name.lower(), [])
+                     if v["entity"].lower() == entity.lower()),
+                    None,
+                )
+                if verb is None or not shown:
+                    skipped += 1
+                    continue
+                actual = [p["name"] for p in (verb.get("parameters") or [])]
+                verbs_checked += 1
+                problem = compare(shown, actual, elided)
+                if problem is not None:
+                    failures.append(
+                        f"{rel}: {verb['entity']}.{verb['name']} (in a fenced block)\n"
+                        f"           {problem}\n"
+                        f"           shown:    {entity}.{name}({body})\n"
+                        f"           contract: {verb['name']}({', '.join(actual)})"
+                    )
+
         for paragraph in re.split(r"\n\s*\n", text):
             flat = " ".join(paragraph.split())
             nearby = [e for e in ENTITY_RE.findall(flat) if e in contract.entities]
@@ -333,7 +370,7 @@ def main() -> None:
             file=sys.stderr,
         )
         sys.exit(1)
-    print("every signature written in prose matches the extracted contract")
+    print("every signature written in prose or a fenced block matches the contract")
 
 
 if __name__ == "__main__":
