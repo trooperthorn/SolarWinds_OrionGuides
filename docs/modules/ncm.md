@@ -1298,8 +1298,9 @@ not set, including credentials.
 **Never select credential columns.** `Cirrus.Nodes` exposes `Password`, `EnablePassword`,
 `SNMPAuthPass`, `SNMPEncryptPass`, `Community` and `CommunityReadWrite`. They are stored
 encrypted, and `Cirrus.Settings.DecryptData` exists, which is exactly why a query that pulls
-them into a report or a log is a problem. `Cirrus.Settings.HideCommunityStrings` and
-`HideUsernames` are settings for a reason.
+them into a report or a log is a problem. The module's own settings enum, readable through
+`Cirrus.Settings.GetSetting`, includes `HideCommunityStrings` and `HideUsernames` for a
+reason.
 
 **Never select `Config` or `DiffList` in a listing.** `Cirrus.ConfigArchive.Config` is the
 entire device configuration and `Cirrus.CacheDiffResults.DiffList` is every differing line.

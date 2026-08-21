@@ -48,3 +48,15 @@ Orion.Netflow.FlowSources
 # but absent from both the 2026.2 schema and the Swagger contract. docs/modules/sam.md
 # marks it unverified and gives the Metadata.VerbArgument query to check a live server.
 Orion.APM.Application.SetupApplication
+
+# NCM's connection profiles are not an entity. They exist only as a contract type moved
+# through five verbs on Cirrus.Nodes, and docs/modules/ncm.md names the entity people
+# expect so they stop looking for it.
+Cirrus.ConnectionProfiles
+
+# SolarWinds' own Samples/PowerShell/NCM.ExecuteScript.ps1 invokes a verb called Execute
+# and polls an entity called Cirrus.TransferQueue. Neither exists in 2026.2: the verb is
+# Cirrus.ConfigArchive.ExecuteScript and the status entity is NCM.TransferResults.
+# docs/modules/ncm.md names both stale forms so readers recognise the broken sample.
+Cirrus.ConfigArchive.Execute
+Cirrus.TransferQueue
