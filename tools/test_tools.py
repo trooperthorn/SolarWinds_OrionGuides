@@ -488,6 +488,77 @@ class TestCountClaims(unittest.TestCase):
         self.assertEqual(self.claims("`Orion.Nope` declares 5 properties."), [])
 
 
+class TestPropertyTypeClaims(unittest.TestCase):
+    """Property types stated in prose are checked against the schema.
+
+    The two NodeID columns are the case that matters: `Cirrus.Nodes.NodeID` is a GUID and
+    `Orion.Nodes.NodeID` an integer, and the guides explain a whole class of silent
+    join failure with those two facts. Swapping them would make the explanation wrong in a
+    way no query validator would notice.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_entity_references as cer
+
+        cls.cer = cer
+        index = validate_swql.SchemaIndex(VERSION)
+        cls.members = staticmethod(index.members)
+
+    def problems(self, text):
+        return self.cer.type_claims(text, self.members)
+
+    def test_correct_type_passes(self):
+        self.assertEqual(self.problems("`Orion.Nodes.NodeID` is a `System.Int32`."), [])
+
+    def test_swapped_id_types_are_caught(self):
+        found = self.problems(
+            "`Cirrus.Nodes.NodeID` is a `System.Int32` and `Orion.Nodes.NodeID` is a `System.Guid`."
+        )
+        self.assertEqual(len(found), 2)
+        self.assertEqual({token for token, _, _ in found},
+                         {"Cirrus.Nodes.NodeID", "Orion.Nodes.NodeID"})
+
+    def test_inherited_property_type_resolves(self):
+        # Uri is declared on System.Entity, not on Orion.Nodes.
+        self.assertEqual(self.problems("`Orion.Nodes.Uri` is a `System.String`."), [])
+
+    def test_navigation_property_is_left_alone(self):
+        # A navigation property is described by its relationship kind, which is a
+        # different sort of statement than a member type.
+        self.assertEqual(self.problems("`Orion.Nodes.Interfaces` is a `System.Hosting`."), [])
+
+    def test_unknown_entity_is_left_to_the_name_check(self):
+        self.assertEqual(self.problems("`Orion.Nope.Thing` is a `System.Int32`."), [])
+
+
+class TestDotNetTypeNames(unittest.TestCase):
+    """Verb signatures quoted in the documentation carry escaped .NET generics."""
+
+    @classmethod
+    def setUpClass(cls):
+        import check_entity_references as cer
+
+        cls.cer = cer
+
+    def test_nested_element_types_are_collected(self):
+        # docfx puts an array's element type one level down. Reading only the top level
+        # means a page cannot paste a real verb signature without being reported.
+        param = {
+            "name": "configuration",
+            "type": "array",
+            "items": {"type": "System.Collections.Generic.KeyValuePair~System.String_System.String~"},
+        }
+        found = self.cer.type_names(param)
+        self.assertIn("array", found)
+        self.assertIn(
+            "System.Collections.Generic.KeyValuePair~System.String_System.String~", found
+        )
+
+    def test_plain_parameter_still_yields_its_type(self):
+        self.assertEqual(self.cer.type_names({"name": "nodeId", "type": "number"}), {"number"})
+
+
 class TestSignatureClaims(unittest.TestCase):
     """Verb signatures written in prose are checked against the positional contract.
 

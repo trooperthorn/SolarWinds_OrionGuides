@@ -48,6 +48,10 @@ python3 tools/schema_query.py verbs --entity Orion.Discovery
 
 ### `Orion.Discovery` has no properties
 
+```bash
+python3 tools/schema_query.py show Orion.Discovery
+```
+
 ```text
 Orion.Discovery   [2026.2]
   operations: invoke
@@ -625,17 +629,27 @@ on the profile rather than by reading the response.
 `ValidateCredentials` answers "will this credential work against this device" without running
 a discovery, which turns a failed hour-long scan into a two second check:
 
+```bash
+python3 tools/schema_query.py verb Orion.Discovery ValidateCredentials
+```
+
 ```text
 Orion.Discovery.ValidateCredentials
+  Check if provided credential is valid for given SNMP or WMI endpoint
   returns: boolean
   parameters (6):
     ipAddress: string (required)
     port: number (required)
     credentialsType: string (required)
-    credentialsProperties: array<KeyValuePair<string,string>> (required)
+    ...
     engineId: number (required)
-    preferredSnmpVersion: SNMPVersion (optional)  one of: None, SNMP1, SNMP2c, SNMP3
+    preferredSnmpVersion: SolarWinds.Orion.Core.Models.Credentials.SNMPVersion (optional)
+        one of: None, SNMP1, SNMP2c, SNMP3
 ```
+
+The elided line is `credentialsProperties`, typed as an array of .NET
+`KeyValuePair<string,string>`. It is elided here only because its fully qualified type name
+is long enough to wrap; the tool prints it in full.
 
 `credentialsProperties` is a key/value array. **The keys it expects are not described in the
 schema or the Swagger contract**, and no SDK sample calls this verb, so the content is
@@ -698,11 +712,20 @@ All eight verbs live on `Orion.Nodes` and all eight require `manageNodes`:
 
 The parameter descriptions in the schema say it outright:
 
+```bash
+python3 tools/schema_query.py verb Orion.Nodes GetScheduledListResourcesStatus
+```
+
 ```text
 Orion.Nodes.GetScheduledListResourcesStatus
+  Get current result of discovery job
+  returns: string
+  requires: manageNodes
   parameters (2):
-    jobId: string (required)     Job identifier to get status for
-    nodeId: number (required)    Provide node id to identify engine running the discovery
+    jobId: string (required)
+        Job identifier to get status for
+    nodeId: number (required)
+        Provide node id to identify engine running the discovery
 ```
 
 The job runs on a specific polling engine, and the `nodeId` is how SWIS works out which. That
@@ -829,18 +852,31 @@ are installed.
 `ScheduleListResourcesForAddress` runs the same job against a bare IP, so there is no node id
 to identify the engine and you supply one:
 
+```bash
+python3 tools/schema_query.py verb Orion.Nodes ScheduleListResourcesForAddress
+```
+
 ```text
 Orion.Nodes.ScheduleListResourcesForAddress
+  Schedule one time List Resources discovery for given ip address
   returns: string
   requires: manageNodes
   parameters (6):
-    ipAddress: string (required)             IP address of a target device to list resources for
-    port: number (required)                  Port
-    credentialsType: string (required)       Credentials type
-    credentialProperties: array<KeyValuePair<string,string>> (required)
-    engineId: number (required)              Define engine to be used for the discovery
-    preferredSnmpVersion: SNMPVersion (optional)  one of: None, SNMP1, SNMP2c, SNMP3
+    ipAddress: string (required)
+        IP address of a target device to list resources for
+    port: number (required)
+        Port
+    credentialsType: string (required)
+        Credentials type
+    ...
+    engineId: number (required)
+        Define engine to be used for the discovery
+    preferredSnmpVersion: SolarWinds.Orion.Core.Models.Credentials.SNMPVersion (optional)
+        one of: None, SNMP1, SNMP2c, SNMP3
 ```
+
+The elided line is `credentialProperties`, an array of .NET `KeyValuePair<string,string>`,
+same as on `ValidateCredentials`.
 
 Track it with the `ByEngine` variants, since there is still no node:
 
@@ -874,9 +910,15 @@ server.
 The simplest of the three flows, and synchronous. Two verbs, both on `Orion.NPM.Interfaces`,
 both requiring `manageNodes`:
 
+```bash
+python3 tools/schema_query.py verbs --entity Orion.NPM.Interfaces
+```
+
 ```text
-Orion.NPM.Interfaces.DiscoverInterfacesOnNode(nodeId) -> LiteDiscoveryResult
-Orion.NPM.Interfaces.AddInterfacesOnNode(nodeId, interfacesToAdd, pollers) -> LiteDiscoveryResult
+  Orion.NPM.Interfaces.AddInterfacesOnNode(nodeId, interfacesToAdd, pollers) -> SolarWinds.Interfaces.Common.Models.Discovery.LiteDiscoveryResult
+      Add provided interface to node.
+  Orion.NPM.Interfaces.DiscoverInterfacesOnNode(nodeId) -> SolarWinds.Interfaces.Common.Models.Discovery.LiteDiscoveryResult
+      Run lite discovery process for search interfaces on node and returns list of interfaces.
 ```
 
 The Swagger contract declares `LiteDiscoveryResult` as `{ DiscoveredInterfaces, Result }`,

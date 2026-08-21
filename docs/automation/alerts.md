@@ -634,9 +634,16 @@ Orion.AlertConfigurations.Export
     protectionPassword: string (optional)
 ```
 
+```bash
+python3 tools/schema_query.py verb Orion.AlertConfigurations Import
+```
+
 ```text
 Orion.AlertConfigurations.Import
+  This verb imports alert into system from alert xml
   returns: SolarWinds.Orion.Core.Common.Alerting.AlertImportResult
+  requires: admin
+  requires: manageAlerts
   parameters (3):
     alertXml: string (required)
     stripSensitiveInformation: boolean (optional)
@@ -1010,10 +1017,22 @@ shows what SWIS expects. See
 
 `Orion.AlertSchedules` has exactly two columns and no declared relationships:
 
+```bash
+python3 tools/schema_query.py show Orion.AlertSchedules
+```
+
 ```text
-Orion.AlertSchedules
-  FrequencyID            System.Int32
-  AlertConfigurationID   System.Int32
+Orion.AlertSchedules   [2026.2]
+  inherits: System.Entity -> Orion.AlertSchedules
+  operations: create, delete, invoke, read, update
+    read                                   requires everyone
+    create,read,update,delete,invoke       requires admin
+    create,read,update,delete,invoke       requires manageAlerts
+    create,read,update,delete,invoke       requires manageReports
+
+  properties (2)
+    FrequencyID                                System.Int32                
+    AlertConfigurationID                       System.Int32                
 ```
 
 It is a cross-reference between an alert and an `Orion.Frequencies` row, which is the same

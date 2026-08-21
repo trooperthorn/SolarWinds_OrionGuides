@@ -47,6 +47,22 @@ One entity holds every account, of every category.
 python3 tools/schema_query.py show Orion.Accounts
 ```
 
+```text
+Orion.Accounts   [2026.2]
+  inherits: System.Entity -> Orion.Accounts
+  operations: (none declared)
+
+  properties (39)
+    AccountID                                  System.String
+    Enabled                                    System.Char
+    AllowNodeManagement                        System.String
+```
+
+Note the `operations: (none declared)` line. `Orion.Accounts` publishes no entity-level CRUD
+access control, and it declares no create or update operation at all, which is why every
+change to an account goes through a verb rather than through
+[CRUD](../swis/crud.md).
+
 It declares 39 properties. The ones that matter for automation fall into four groups.
 
 **Identity**

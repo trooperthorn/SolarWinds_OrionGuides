@@ -60,17 +60,10 @@ a node event.
 filtering on it, is a real mistake people make because `Orion.AlertHistory.TimeStamp` in the
 same problem space genuinely is a date. Use `EventTime`.
 
-`Orion.Events` declares one verb:
-
-```text
-Orion.Events.Acknowledge(eventIDs: array<number>) -> boolean
-  Marks the specified event as acknowledged, typically used to clear events from active
-  monitoring views.
-  requires: clearEvents
-```
-
-Same right as the alert acknowledgement verbs, and the same caution applies: it returns one
-boolean for the whole call, so verify with a read-back.
+`Orion.Events` declares exactly one verb, `Acknowledge(eventIDs)`, which requires the
+`clearEvents` right and returns a boolean. It is covered in full
+[below](#acknowledging-events). Same right as the alert acknowledgement verbs, and the same
+caution applies: it returns one boolean for the whole call, so verify with a read-back.
 
 ### `Orion.EventTypes`
 

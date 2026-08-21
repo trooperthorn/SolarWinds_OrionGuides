@@ -103,9 +103,30 @@ def load_schema(version: str) -> tuple[set[str], set[str], set[str]]:
                         if verb.get("returns"):
                             other.add(verb["returns"])
                         for p in verb.get("parameters") or []:
-                            if p.get("type"):
-                                other.add(p["type"])
+                            other.update(type_names(p))
     return entities, namespaces, other
+
+
+def type_names(node) -> set[str]:
+    """Every type string in a parameter record, including nested element types.
+
+    An array parameter keeps its element type one level down, in ``items.type``, and that
+    is where the .NET generics live: an argument typed
+    ``array<System.Collections.Generic.KeyValuePair<string, string>>`` records only
+    ``array`` at the top level. Reading the top level alone means the documentation cannot
+    quote a verb signature without tripping the name check.
+    """
+    found: set[str] = set()
+    if isinstance(node, dict):
+        if isinstance(node.get("type"), str):
+            found.add(node["type"])
+        for key in ("items", "element", "value"):
+            if key in node:
+                found |= type_names(node[key])
+    elif isinstance(node, list):
+        for item in node:
+            found |= type_names(item)
+    return found
 
 
 def load_allowed(entities: set[str]) -> set[str]:
@@ -182,6 +203,39 @@ def resolves(token: str, entities: set[str], prefixes: set[str], members=None) -
     return False, "not an entity, namespace, or member of one"
 
 
+# "`Cirrus.Nodes.NodeID` is a `System.Guid`". Property types carry real weight in these
+# guides: the reason joining NCM to Orion on the wrong id silently returns nothing is that
+# one side is a GUID and the other an integer, and that whole explanation rests on the two
+# types being stated correctly.
+PROPERTY_TYPE_RE = re.compile(
+    r"`(?P<token>[A-Z]\w*(?:\.[A-Z]\w*)+\.\w+)`\s+is\s+an?\s+`(?P<type>System\.\w+)`")
+
+
+def type_claims(text: str, members) -> list[tuple[str, str, str]]:
+    """Return (token, claimed, actual) for every property-type claim that disagrees.
+
+    Only claims about a plain property are checked. A navigation property is described by
+    its relationship kind rather than by a member type, so ``Orion.Nodes.Interfaces is a
+    System.Hosting`` is a different sort of statement and is left alone here.
+    """
+    problems = []
+    flat = " ".join(text.split())
+    for m in PROPERTY_TYPE_RE.finditer(flat):
+        token, claimed = m.group("token"), m.group("type")
+        entity, _, prop = token.rpartition(".")
+        try:
+            props, navs = members(entity)
+        except Exception:
+            continue
+        key = prop.lower()
+        if key in navs or key not in props:
+            continue
+        actual = props[key]
+        if actual != "verb" and actual != claimed:
+            problems.append((token, claimed, actual))
+    return problems
+
+
 def namespace_prefixes(entities: set[str]) -> set[str]:
     """Every dotted prefix of every entity name, so 'Orion.APM' resolves."""
     prefixes = set()
@@ -253,6 +307,15 @@ def main() -> None:
     prefixes = namespace_prefixes(entities)
     token_re = entity_token_re(namespaces)
 
+    # docfx renders a .NET generic by escaping the angle brackets, so a verb argument type
+    # arrives as array<System.Collections.Generic.KeyValuePair~System.String_System.Object~>
+    # and the scanner pulls two names out of it that no entity file lists on their own.
+    # Whatever the scanner finds inside a type the schema really declares is itself real,
+    # so seed the known set with exactly that rather than allowlisting each page that
+    # quotes a verb signature.
+    for known in list(other_known):
+        allowed.update(token_re.findall(known))
+
     # Reuse the validator's inheritance-aware member lookup so a member reference in
     # prose is held to the same standard as one inside a query.
     members = None
@@ -292,6 +355,8 @@ def main() -> None:
 
     unknown: dict[str, set[str]] = defaultdict(set)
     reasons: dict[str, str] = {}
+    wrong_types: list[tuple[str, str, str, str]] = []
+    types_checked = 0
     checked = 0
     negated = 0
 
@@ -318,13 +383,29 @@ def main() -> None:
             unknown[token].add(rel)
             reasons[token] = reason
 
+        if members is not None:
+            for token, claimed, actual in type_claims(text, members):
+                wrong_types.append((rel, token, claimed, actual))
+            types_checked += len(PROPERTY_TYPE_RE.findall(" ".join(text.split())))
+
     print(
         f"{len(files) - skipped} authored file(s), {checked} entity reference(s) checked "
         f"({skipped} generated file(s) skipped, {negated} absent name(s) named inside a "
-        f"negation and accepted)"
+        f"negation and accepted); {types_checked} property-type claim(s) checked"
     )
+
+    if wrong_types:
+        print(f"\n{len(wrong_types)} property type(s) the schema contradicts:", file=sys.stderr)
+        for rel, token, claimed, actual in wrong_types:
+            print(f"  - {rel}: {token} is described as {claimed}, "
+                  f"but the schema declares {actual}", file=sys.stderr)
+
     if not unknown:
-        print("every entity named in the documentation exists in the schema")
+        if not wrong_types:
+            print("every entity named in the documentation exists in the schema")
+            return
+        if args.strict:
+            sys.exit(1)
         return
 
     print(f"\n{len(unknown)} name(s) not found in the {args.version} schema:", file=sys.stderr)

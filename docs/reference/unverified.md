@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**75 statements across 28 pages.**
+**80 statements across 31 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -39,6 +39,18 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What is not verified here](../automation/alerts.md#what-is-not-verified-here)**
 
 - ## What is not verified here
+
+## [credentials.md](../automation/credentials.md)
+
+**[Credential types](../automation/credentials.md#credential-types)**
+
+- The table below is [SolarWinds' published list](https://solarwinds.github.io/OrionSDK/docs/credential-management/), which is the authority for it: these strings are not entity names in the SWIS schema and this repository cannot verify them against the extracted data.
+**[Type-specific verbs](../automation/credentials.md#type-specific-verbs)**
+
+- The accepted values for the method arguments are not recorded in the published schema and are unverified here.
+**[Credentials cannot be read back](../automation/credentials.md#credentials-cannot-be-read-back)**
+
+- What a query against them actually returns is runtime behaviour and is **not verified here**.
 
 ## [custom-properties.md](../automation/custom-properties.md)
 
@@ -96,6 +108,12 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Deleting a node](../automation/node-management.md#deleting-a-node)**
 
 - This page does not enumerate exactly which child rows go: that is runtime behaviour and it cannot be verified from the schema.
+
+## [pollers.md](../automation/pollers.md)
+
+**[Nodes: the list resources job](../automation/pollers.md#nodes-the-list-resources-job)**
+
+- And the tree it manipulates is XML whose element and display names are runtime data rather than schema, so the exact `DisplayName` values are **not verified here**; dump `$results` once for the device family you are automating and read the names off it.
 
 ## [agents.md](../modules/agents.md)
 
@@ -263,6 +281,12 @@ Read this before relying on this repository for something load-bearing. If you h
 **[`Status` versus `PolledStatus`](../schema/status-codes.md#status-versus-polledstatus)**
 
 - How the two differ is **not verified**: the published 2026.2 schema attaches no summary text to either property, and neither the OrionSDK documentation nor any SolarWinds sample script in this repository's sources explains it.
+
+## [uris.md](../swis/uris.md)
+
+**[The key filter](../swis/uris.md#the-key-filter)**
+
+- That sourcing matters because *which* properties make up an entity's key is **not recorded in the published schema** that this repository extracts, so the composite key sets above cannot be verified here.
 
 ## [date-and-time.md](../swql/date-and-time.md)
 

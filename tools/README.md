@@ -1,7 +1,7 @@
 # Tools
 
 No dependencies beyond the Python standard library, except `openpyxl` for reading the
-source workbook. Four tools build, two consume, six guard.
+source workbook. Four tools build, two consume, seven guard.
 
 **Build**
 
@@ -29,13 +29,13 @@ ten of twenty-one.
 | Script | Catches |
 | --- | --- |
 | [validate_swql.py](validate_swql.py) | A query naming an entity, property or navigation that does not exist |
-| [check_entity_references.py](check_entity_references.py) | The same, in prose rather than in a query |
+| [check_entity_references.py](check_entity_references.py) | The same, in prose rather than in a query, and a property given the wrong type |
 | [check_counts.py](check_counts.py) | A number in a sentence that the extracted data contradicts |
 | [check_signatures.py](check_signatures.py) | A verb signature in prose whose arguments are wrong or out of order |
 | [check_examples.py](check_examples.py) | A documented command whose shown output is not what it prints |
 | [check_data.py](check_data.py) | Extraction that degraded quietly, and reference pages that fell behind |
 | [check_links.py](check_links.py) | A relative link to a file that no longer exists |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 73 tests |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 80 tests |
 
 Beyond names and links, `check_data.py` also holds the documentation to its own claims:
 the entity count each module page quotes for its namespace, the status tables written by
@@ -50,7 +50,7 @@ make docs-reference  # regenerate docs/reference/
 make schema-diff FROM=2025.4 TO=2026.2
 make test            # the toolchain unit tests
 make validate        # every sample query and every sql block in the docs
-make check           # the whole gate: tests, queries, data, prose, examples, links
+make check           # the whole gate: tests, queries, data, prose, counts, verbs, links
 ```
 
 `make check` is what CI runs. It is deliberately strict, because the value of this
