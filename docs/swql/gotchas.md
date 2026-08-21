@@ -87,9 +87,11 @@ WHERE a.LimitationID1 <> 0
 ORDER BY a.AccountID
 ```
 
-`Orion.LimitationTypes.IsSwisLimitation` is the property that tells you whether a limitation
-type is enforced at the SWIS layer at all, which is worth checking when a limitation appears
-to affect the web console but not an API query:
+`Orion.LimitationTypes` carries an `IsSwisLimitation` (`System.Boolean`) column and an
+`EntityType` (`System.String`) column. The schema publishes no summary for either, so what
+exactly `IsSwisLimitation` gates is **unverified** here; the name and the surrounding entity
+make it the first thing to look at when a limitation appears to affect the web console but not
+an API query. List them and compare against observed behaviour on your server:
 
 ```sql
 SELECT t.LimitationTypeID, t.Name, t.EntityType, t.IsSwisLimitation, t.IsGroupOfEntity
@@ -437,11 +439,12 @@ properties that most people never notice. One of them is a correctness landmine:
 > example one row with value collected for 20 seconds will have Weight=20. Other row collected
 > for one hour will have Weight=3600.
 
-Statistics rows do not all cover the same span of time. Orion rolls detail rows up into hourly
-and daily summaries as data ages, and a row that represents an hour sits in the same table as a
-row that represents twenty seconds. A plain `Avg()` treats them as equals, so a straight average
-over a window that crosses a rollup boundary is weighted towards whichever period happens to
-have more rows, which is normally the most recent one.
+SolarWinds' own example in that summary is the whole problem: one row can cover twenty seconds
+and another one hour, in the same entity. A plain `Avg()` treats those two rows as equally
+important, so the result is skewed towards whichever period contributed more rows rather than
+towards whichever period covered more time. Detail rows are normally the dense ones, so an
+average over a window that mixes detail and summarised data leans towards the recent end of the
+window.
 
 ```sql
 SELECT
@@ -456,10 +459,11 @@ GROUP BY c.NodeID
 ORDER BY c.NodeID
 ```
 
-If `UnweightedAvg` and `WeightedAvg` differ noticeably, your window crosses a rollup boundary
-and the unweighted figure is the wrong one. `ObservationTimestamp` and `ObservationFrequency`
-are the other two inherited properties, and `ObservationFrequency` is documented as "The
-interval between collections", which is the other way to see how coarse a given row is.
+If `UnweightedAvg` and `WeightedAvg` differ noticeably, your rows do not all cover the same span
+and the unweighted figure is the wrong one. `ObservationTimestamp` ("When this statistic was
+collected") and `ObservationFrequency` ("The interval between collections") are the other two
+inherited properties, and `ObservationFrequency` is the other way to see how coarse a given row
+is.
 
 The same entities also carry an `Archive` flag on many of the older `Orion.*` statistics tables
 (`Orion.CPULoad.Archive`, `Orion.ResponseTime.Archive`, `Orion.NPM.InterfaceTraffic.Archive`,
@@ -494,9 +498,10 @@ Both exist. Both have a key property called `VolumeID`. Neither is a superset of
 | Used-percent column | `VolumePercentUsed` (`System.Single`) | `CapacityUsedPercentage` (`System.Single`) |
 | Properties | 53 | 54 |
 
-`VolumeID` 412 in one is not `VolumeID` 412 in the other. They are separate identifier spaces,
-which is exactly why the NetObject prefixes differ. A capacity report that joins the wrong one
-returns rows, numbers and a completely fictional picture of your storage. The
+These are two different entities with two different NetObject prefixes, so there is no reason to
+expect `VolumeID` 412 in one to have anything to do with `VolumeID` 412 in the other. A capacity
+report that joins the wrong one returns rows, numbers and a completely fictional picture of your
+storage. The
 [NetObject type reference](../reference/netobject-types.md) lists the prefix and key properties
 for all 115 mapped entities, which is the fastest way to check you have the right one.
 
@@ -527,8 +532,8 @@ ORDER BY n.Caption
 ```
 
 `Cirrus.Interfaces` and `NCM.Interfaces` stand in the same relationship to
-`Orion.NPM.Interfaces`, and `Cirrus.NodeProperties` / `NCM.NodeProperties` are yet another pair
-of near-identical entities carrying the same NCM data.
+`Orion.NPM.Interfaces`, and `Cirrus.NodeProperties` (40 properties) and `NCM.NodeProperties`
+(31 properties) are yet another near-identical pair carrying NCM node data.
 
 ### 8.3 `Orion.Nodes.Volumes` versus `Orion.Nodes.RelyVolumes`
 
@@ -540,11 +545,14 @@ different things:
 | `Volumes` | `Orion.NodeHostsVolumes` | `System.Hosting` | volumes that live on this node |
 | `RelyVolumes` | `Orion.Rely.Core.VolumesRelyOnNodes` | `System.Reliance` | volumes elsewhere that depend on this node |
 
-Hosting relationships describe containment. Reliance relationships describe dependency, and
-they are what the dependency engine walks. Picking the wrong one gives you a plausible list of
-volumes that answers a question you did not ask. `Orion.Nodes` has 26 target-side navigations
-whose relationship kind is `System.Reliance` (`RelyApplications`, `RelyContainers`,
-`RelyVCenter`, `RelyHost`, `RelyVirtualMachine` and more), so this is not a one-off.
+A `System.Hosting` relationship describes containment: the target lives on the source. A
+`System.Reliance` relationship describes dependency. Picking the wrong one gives you a plausible
+list of volumes that answers a question you did not ask. This is not a one-off:
+of the 161 navigations on `Orion.Nodes`, 63 are source-side `System.Hosting`, 68 are source-side
+`System.Reference`, and 18 are `System.Reliance` (`RelyApplications`, `RelyContainers`,
+`RelyVCenter`, `RelyHost`, `RelyVirtualMachine` and more). See
+[../automation/dependencies.md](../automation/dependencies.md) for what Orion does with
+reliance.
 
 ### 8.4 `Orion.Nodes.Flows` is declared twice
 
@@ -705,11 +713,11 @@ is a third port, **17777**, and is unaffected.
 https://orion.example.com:17774/SolarWinds/InformationService/v3/Json/Query
 ```
 
-This is a gotcha rather than a footnote because of how it fails. Depending on the server, a
-request to the old port can time out, be refused, or be answered by something that is not the
-API you expect, and none of those produce a message that says "wrong port". A script copied from
-a pre-2023 blog post will simply stop working after an upgrade, in a way that looks like a
-network or certificate problem.
+This is a gotcha rather than a footnote because of how it fails. Sending a request to a port
+that no longer serves the API produces a connection-level failure, not an API error, so there is
+no response body explaining what went wrong. A script copied from a pre-2023 blog post stops
+working after an upgrade in a way that reads as a firewall or certificate problem, and people
+spend a day on TLS before checking the number after the colon.
 
 Details, including TLS and the self-signed certificate, are in
 [../swis/connecting.md](../swis/connecting.md#endpoints-and-ports).

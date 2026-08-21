@@ -1,18 +1,36 @@
 # Tools
 
-Six scripts, no dependencies beyond the Python standard library except `openpyxl` for
-reading the source workbook. Two build the data, three consume it, one guards it.
+No dependencies beyond the Python standard library, except `openpyxl` for reading the
+source workbook. Three tools build the data, two consume it, five guard it.
+
+**Build**
 
 | Script | Purpose |
 | --- | --- |
 | [build_schema_data.py](build_schema_data.py) | Extract the SWIS schema from the OrionSDK sources into JSON |
 | [build_reference_data.py](build_reference_data.py) | Merge the SWQL function reference with the examples workbook |
 | [build_reference_docs.py](build_reference_docs.py) | Generate the enumerated tables in `docs/reference/` |
-| [schema_query.py](schema_query.py) | Explore the schema offline: entities, verbs, join paths |
-| [validate_swql.py](validate_swql.py) | Check SWQL against the schema; the CI gate |
-| [diff_schema.py](diff_schema.py) | Report what changed between two platform versions |
-| [check_data.py](check_data.py) | Assert the extracted data is internally consistent |
-| [check_links.py](check_links.py) | Resolve every relative link in the documentation |
+
+**Use**
+
+| Script | Purpose |
+| --- | --- |
+| [schema_query.py](schema_query.py) | Explore the schema offline: entities, properties, verbs, join paths |
+| [diff_schema.py](diff_schema.py) | Report what changed between two platform versions, and what breaks |
+
+**Guard**
+
+Accuracy is the product, so most of the toolchain exists to keep it honest. Each of these
+was written after a specific mistake got through.
+
+| Script | Catches |
+| --- | --- |
+| [validate_swql.py](validate_swql.py) | A query naming an entity, property or navigation that does not exist |
+| [check_entity_references.py](check_entity_references.py) | The same, in prose rather than in a query |
+| [check_examples.py](check_examples.py) | A documented command whose shown output is not what it prints |
+| [check_data.py](check_data.py) | Extraction that degraded quietly, and reference pages that fell behind |
+| [check_links.py](check_links.py) | A relative link to a file that no longer exists |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 50 tests |
 
 Everything runs through the [Makefile](../Makefile):
 
@@ -20,9 +38,13 @@ Everything runs through the [Makefile](../Makefile):
 make data            # rebuild data/ from the OrionSDK sources
 make docs-reference  # regenerate docs/reference/
 make schema-diff FROM=2025.4 TO=2026.2
+make test            # the toolchain unit tests
 make validate        # every sample query and every sql block in the docs
-make check           # validate plus data consistency
+make check           # the whole gate: tests, queries, data, prose, examples, links
 ```
+
+`make check` is what CI runs. It is deliberately strict, because the value of this
+repository is that a reader does not have to verify it against a live server first.
 
 ## How extraction works
 
