@@ -819,10 +819,13 @@ records it. Invoking on `Orion.APM.Application` is documented and works for ever
 so prefer it. To check the derived path on your own server:
 
 ```sql
-SELECT EntityName, VerbName
-FROM Metadata.Verb
-WHERE EntityName = 'Orion.APM.SqlServerApplication'
-ORDER BY VerbName
+SELECT
+    v.Entity.FullName AS EntityName,
+    v.Name AS VerbName,
+    v.CanInvoke
+FROM Metadata.Verb v
+WHERE v.Entity.FullName = 'Orion.APM.SqlServerApplication'
+ORDER BY v.Name
 ```
 
 **SolarWinds' AppInsight page contains three transcription errors** worth knowing before
@@ -877,8 +880,8 @@ applications out.
   nodes SAM monitors.
 - [../platform/modules.md](../platform/modules.md) for the full module and namespace map.
 - [../swis/crud.md](../swis/crud.md) for creating and updating the settings entities.
-- [../swis/uris.md](../swis/uris.md) for the SWIS URI format the `Set-SwisObject` examples
-  above depend on.
+- [../swis/uris.md](../swis/uris.md) for the SWIS URI format, which is what
+  `Set-SwisObject` needs when you edit a template or a setting in place.
 - [../reference/verb-index.md](../reference/verb-index.md) for every verb with parameters.
 - [../reference/netobject-types.md](../reference/netobject-types.md) for the NetObject
   prefix table.

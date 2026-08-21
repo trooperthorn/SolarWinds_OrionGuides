@@ -16,6 +16,10 @@ believed to.
 | [07-groups-and-dependencies.swql](07-groups-and-dependencies.swql) | Groups, membership, rollup, dependencies |
 | [08-schema-introspection.swql](08-schema-introspection.swql) | Asking a live server about its own schema and verbs |
 | [09-engines-and-health.swql](09-engines-and-health.swql) | Polling engines, load balance, licence headroom |
+| [10-virtualization.swql](10-virtualization.swql) | VMs, hosts, clusters, datastores, snapshots, capacity forecasts |
+| [11-ncm-configs.swql](11-ncm-configs.swql) | NCM devices, config archives, compliance, end of life |
+| [12-udt-and-storage.swql](12-udt-and-storage.swql) | Device tracking by MAC/IP/port, and array-side storage |
+| [13-hardware-wireless-ipam.swql](13-hardware-wireless-ipam.swql) | Hardware sensors, access points and clients, subnet utilization |
 
 ## Running them
 

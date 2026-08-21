@@ -1,0 +1,266 @@
+-- Hardware health, wireless, and IP address management
+--
+-- Three smaller subject areas that come up constantly.
+--
+-- Hardware health (Orion.HardwareHealth.*) is a shared capability rather than a separately
+-- licensed module. Note that these entities declare almost nothing themselves: Name,
+-- Value, Status and the rest are inherited, mostly from System.ManagedEntity and
+-- System.Entity. They are queryable regardless, which is what inheritance means, but it
+-- is why the published entity page looks nearly empty.
+--
+-- Wireless data lives in two places for historical reasons: Orion.NPM.Wireless.* and
+-- Orion.Packages.Wireless.*. Check which is populated on your server before building on
+-- one of them.
+--
+-- IPAM uses the top-level IPAM.* namespace, one of only two outside Orion.*.
+
+
+-- =====================================================================================
+-- Hardware health
+-- =====================================================================================
+
+-- Failing hardware sensors across the estate. Value and Unit carry the reading, so a
+-- temperature sensor and a fan both fit the same shape.
+SELECT
+    hi.Name AS SensorName,
+    hi.Value,
+    hi.Unit,
+    hi.Status,
+    hi.OriginalStatus,
+    hi.Message,
+    hi.HardwareUnitDescription
+FROM Orion.HardwareHealth.HardwareItem hi
+WHERE hi.Status <> 1
+  AND hi.IsDeleted = FALSE
+  AND hi.IsDisabled = FALSE
+  AND hi.UnManaged = FALSE
+ORDER BY hi.Status DESC, hi.Name
+
+
+-- Failing sensors with the node they belong to, and a readable status.
+SELECT
+    n.Caption AS NodeName,
+    hi.Name AS SensorName,
+    hi.Value,
+    hi.Unit,
+    s.StatusName,
+    hi.Message
+FROM Orion.HardwareHealth.HardwareItem hi
+JOIN Orion.Nodes n ON hi.NodeID = n.NodeID
+JOIN Orion.StatusInfo s ON hi.Status = s.StatusId
+WHERE hi.Status <> 1
+  AND hi.IsDeleted = FALSE
+ORDER BY s.Ranking, n.Caption
+
+
+-- Sensor failures grouped by node, to find the machine with a real hardware problem
+-- rather than a single flapping sensor.
+SELECT TOP 30
+    n.Caption AS NodeName,
+    COUNT(hi.ID) AS FailingSensors
+FROM Orion.HardwareHealth.HardwareItem hi
+JOIN Orion.Nodes n ON hi.NodeID = n.NodeID
+WHERE hi.Status <> 1
+  AND hi.IsDeleted = FALSE
+  AND hi.IsDisabled = FALSE
+GROUP BY n.Caption
+ORDER BY COUNT(hi.ID) DESC
+
+
+-- Temperature readings, sorted hottest first. Filtering on the unit is more reliable
+-- than filtering on the sensor name, which varies by vendor.
+SELECT TOP 50
+    n.Caption AS NodeName,
+    hi.Name AS SensorName,
+    hi.Value,
+    hi.Unit,
+    hi.Status
+FROM Orion.HardwareHealth.HardwareItem hi
+JOIN Orion.Nodes n ON hi.NodeID = n.NodeID
+WHERE hi.Unit = 'C'
+  AND hi.IsDeleted = FALSE
+ORDER BY hi.Value DESC
+
+
+-- Sensors that have been disabled or unmanaged, and are therefore not alerting.
+SELECT
+    n.Caption AS NodeName,
+    hi.Name AS SensorName,
+    hi.IsDisabled,
+    hi.UnManaged,
+    hi.UnManageUntil
+FROM Orion.HardwareHealth.HardwareItem hi
+JOIN Orion.Nodes n ON hi.NodeID = n.NodeID
+WHERE (hi.IsDisabled = TRUE OR hi.UnManaged = TRUE)
+  AND hi.IsDeleted = FALSE
+ORDER BY n.Caption
+
+
+-- =====================================================================================
+-- Wireless
+-- =====================================================================================
+
+-- Access point inventory with client counts and load.
+SELECT
+    ap.Name AS AccessPointName,
+    ap.ControllerName,
+    ap.IPAddress,
+    ap.SSID,
+    ap.Clients,
+    ap.WirelessTypeDescription,
+    ap.Status,
+    ap.AvailablePercent,
+    ap.LastReported
+FROM Orion.Packages.Wireless.AccessPoints ap
+ORDER BY ap.Clients DESC
+
+
+-- Access points that have stopped reporting or are down.
+SELECT
+    ap.Name AS AccessPointName,
+    ap.ControllerName,
+    ap.IPAddress,
+    ap.Status,
+    ap.PreviousStatus,
+    ap.LastReported,
+    ap.Available
+FROM Orion.Packages.Wireless.AccessPoints ap
+WHERE ap.Status <> 1
+ORDER BY ap.LastReported
+
+
+-- Busiest access points by throughput, for coverage planning.
+SELECT TOP 30
+    ap.Name AS AccessPointName,
+    ap.SSID,
+    ap.Clients,
+    ap.InBps,
+    ap.OutBps,
+    ap.Bps,
+    ap.Pps
+FROM Orion.Packages.Wireless.AccessPoints ap
+ORDER BY ap.Bps DESC
+
+
+-- Wireless clients with poor signal, which is what a "the wifi is slow" ticket usually
+-- turns out to be.
+SELECT TOP 50
+    wc.Name AS ClientName,
+    wc.MAC,
+    wc.IPAddress,
+    wc.ESSID,
+    wc.SignalQuality,
+    wc.SignalStrength,
+    wc.TotalBytesRxPerSec,
+    wc.TotalBytesTxPerSec,
+    wc.LastUpdate
+FROM Orion.NPM.Wireless.Clients wc
+WHERE wc.SignalQuality < 50
+ORDER BY wc.SignalQuality
+
+
+-- Client count per SSID.
+SELECT
+    wc.ESSID,
+    COUNT(wc.ID) AS ClientCount
+FROM Orion.NPM.Wireless.Clients wc
+GROUP BY wc.ESSID
+ORDER BY COUNT(wc.ID) DESC
+
+
+-- Rogue access points, which matter for security rather than performance.
+SELECT
+    r.DisplayName,
+    r.Status
+FROM Orion.Wireless.Rogue r
+ORDER BY r.DisplayName
+
+
+-- =====================================================================================
+-- IP Address Manager
+-- =====================================================================================
+
+-- Subnet utilization, the report that decides whether a range needs splitting.
+SELECT
+    sn.FriendlyName,
+    sn.Address,
+    sn.CIDR,
+    sn.VLAN,
+    sn.Location,
+    sn.TotalCount,
+    sn.UsedCount,
+    sn.AvailableCount,
+    sn.ReservedCount,
+    sn.PercentUsed
+FROM IPAM.Subnet sn
+ORDER BY sn.PercentUsed DESC
+
+
+-- Subnets running out of addresses.
+SELECT
+    sn.FriendlyName,
+    sn.Address,
+    sn.CIDR,
+    sn.PercentUsed,
+    sn.AvailableCount,
+    sn.LastDiscovery
+FROM IPAM.Subnet sn
+WHERE sn.PercentUsed > 85
+ORDER BY sn.PercentUsed DESC
+
+
+-- Free addresses in one subnet. IPAM.IPNode has a row per address, so status is what
+-- distinguishes free from used rather than the row's presence.
+SELECT TOP 50
+    ip.IPAddress,
+    ip.Status,
+    ip.AllocPolicy,
+    ip.SkipScan
+FROM IPAM.IPNode ip
+WHERE ip.Subnet.FriendlyName = @subnetName
+  AND ip.Status = 2
+ORDER BY ip.IPOrdinal
+
+
+-- What is using a given IP address, with everything IPAM has learned about it.
+SELECT
+    ip.IPAddress,
+    ip.DnsBackward,
+    ip.MAC,
+    ip.SysName,
+    ip.Vendor,
+    ip.MachineType,
+    ip.Description,
+    ip.Contact,
+    ip.Location,
+    ip.LastSync,
+    ip.LeaseExpires
+FROM IPAM.IPNode ip
+WHERE ip.IPAddress = @ipAddress
+
+
+-- Addresses that stopped responding but are still allocated: reclaim candidates.
+SELECT TOP 100
+    ip.IPAddress,
+    ip.DnsBackward,
+    ip.MAC,
+    ip.Status,
+    ip.LastSync,
+    ip.Subnet.FriendlyName AS SubnetName
+FROM IPAM.IPNode ip
+WHERE ip.Status = 2
+  AND ip.MAC IS NOT NULL
+ORDER BY ip.LastSync
+
+
+-- Subnets that have not been scanned recently, so their utilization figures are stale.
+SELECT
+    sn.FriendlyName,
+    sn.Address,
+    sn.CIDR,
+    sn.LastDiscovery,
+    sn.ScanInterval,
+    DayDiff(sn.LastDiscovery, GetDate()) AS DaysSinceScan
+FROM IPAM.Subnet sn
+WHERE sn.LastDiscovery < AddDay(-7, GetDate())
+ORDER BY sn.LastDiscovery
