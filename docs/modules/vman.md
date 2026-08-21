@@ -986,12 +986,16 @@ statistics entities use `ObservationTimestamp`. Run `props` before writing the f
 `DiskFiles`. Join on `VirtualMachineID` explicitly, and remember `s.PowerState` is the state
 at snapshot time rather than now.
 
-**`Orion.VIM.VirtualDisks.DataStore` does not resolve.** The published schema declares that
-navigation as pointing at `Orion.VIM.DataStores`, with a capital S, and no such entity
-exists; the real entity is `Orion.VIM.Datastores`. Use the denormalised `DataStoreName`
-column that is already on the virtual disk row, or join `Orion.VIM.Datastores` explicitly on
-`DataStoreID`. The same row also carries `VirtualMachineName`, `HostName`, `ClusterName`,
-`DatacenterName`, `VCenterName` and `LunName`, so the join is rarely needed.
+**`Orion.VIM.VirtualDisks.DataStore` points at an entity name that is not in the schema.**
+The published relationship declares its target as `Orion.VIM.DataStores`, capital S, and the
+2026.2 schema contains no entity by that name; the real entity is `Orion.VIM.Datastores`.
+Anything that resolves the chain strictly, including `tools/validate_swql.py` in this
+repository, rejects `vd.DataStore.SomeColumn`. **Unverified:** whether a live server resolves
+it anyway by matching case-insensitively. Sidestep the question entirely by using the
+denormalised `DataStoreName` column already on the virtual disk row, or by joining
+`Orion.VIM.Datastores` explicitly on `DataStoreID`. The same row also carries
+`VirtualMachineName`, `HostName`, `ClusterName`, `DatacenterName`, `VCenterName` and
+`LunName`, so the join is rarely needed at all.
 
 **`Orion.VIM.TriggeredAlarmState.AlarmStatus` is not a platform status.** Its scale is 0
 unknown, 1 green, 2 yellow, 3 red. Joining `Orion.StatusInfo` to it produces plausible

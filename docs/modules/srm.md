@@ -5,8 +5,8 @@ mount point, a percentage full. Storage Resource Monitor sees it the way the arr
 It talks to the controller of a SAN or NAS device and pulls back the objects the array
 itself is built from, so you can answer questions that are invisible from the host side.
 Which pool is oversubscribed. Which LUN is queueing. Which physical disk failed and which
-spare took over. Which of the sixty servers attached to that array is the one generating
-the load.
+spare took over. Which of the sixty servers attached to that array will notice if you take
+one LUN offline.
 
 That difference in vantage point is the single most important thing to hold onto when
 reading this schema, and it is where nearly every SRM mistake starts. SRM has an entity
@@ -25,7 +25,7 @@ capitals. There is no `Orion.Storage.` namespace.
 |---|---|---|
 | Monitored objects | 9 | The things that appear in the web console and can be unmanaged, alerted on, and given custom properties |
 | Thresholds | 85 | One concrete entity per metric per object type, plus eight base entities |
-| Statistics | 12 | Capacity history and performance history, one pair per object type |
+| Statistics | 12 | Capacity history and performance history, covering seven of the object types |
 | Custom properties | 9 | One per monitored object type |
 | Everything else | 20 | Polling engines, device templates, topology, cross-module mappings, LUN masking, physical disks, file servers |
 
@@ -133,10 +133,21 @@ to `Orion.SRM.DeviceGroups`, `StorageArrays` to `Orion.SRM.StorageArrays`, and
 `CustomProperties`.
 
 `ProviderType`, `ProviderLocation` and `CredentialType` are integers whose meanings are not
-recorded in the extracted schema. **Unverified:** treat their values as opaque and select
-`DISTINCT` them on your own server before filtering on one, or read them through
-`Metadata.Property` to confirm the type has not changed:
-`SELECT Name, Type FROM Metadata.Property WHERE EntityName = 'Orion.SRM.Providers'`.
+recorded in the extracted schema. **Unverified:** treat their values as opaque until you
+have confirmed them on your own server. `Metadata.Property` sometimes carries the
+enumeration in its `Values` array, and it is the cheapest place to look first:
+
+```sql
+SELECT p.Name, p.Type, p.Values, p.Summary
+FROM Metadata.Property p
+WHERE p.Entity.FullName = 'Orion.SRM.Providers'
+  AND p.Name IN ('ProviderType', 'ProviderLocation', 'CredentialType')
+ORDER BY p.Name
+```
+
+If `Values` comes back empty, fall back to
+`SELECT DISTINCT pr.ProviderType FROM Orion.SRM.Providers pr` and match the results against
+what the web console shows.
 
 ### Storage arrays
 
@@ -252,8 +263,9 @@ Performance: `IOPSTotal`, `IOPSRead`, `IOPSWrite`, `IOPSOther`, `IOPSReadWriteRa
 `QueueLength`. Latency is the number that correlates with a user complaining; IOPS on its
 own tells you how busy something is, not whether it is suffering.
 
-Navigations out of a LUN are unusually rich, because a LUN is where SRM meets three other
-modules: `StorageArray`, `Pools`, `Statistics`, `CapacityStatistics`, `LunMaskings`,
+Navigations out of a LUN are unusually rich, because a LUN is where SRM meets the platform
+core, Virtualization Manager and Database Performance Analyzer at once: `StorageArray`,
+`Pools`, `Statistics`, `CapacityStatistics`, `LunMaskings`,
 `ServerVolumes` to `Orion.Volumes`, `Datastores` to `Orion.VIM.Datastores`,
 `VirtualMachines` to `Orion.VIM.VirtualMachines`, and `DatabaseInstance` to
 `Orion.DPA.DatabaseInstance`.
@@ -264,7 +276,7 @@ modules: `StorageArray`, `Pools`, `Statistics`, `CapacityStatistics`, `LunMaskin
 exported through a vServer. Key `VolumeID`, NetObject prefix `SMV`, displayed by SolarWinds
 as "NAS Volume".
 
-Its capacity family adds one column LUNs do not have, `CapacityFileSystem` and
+Its capacity family adds a pair of columns LUNs do not have, `CapacityFileSystem` and
 `CapacityFileSystemPercentage`, which is what the filesystem on the volume is consuming as
 opposed to what the volume has allocated from the pool. Everything else matches the LUN
 shape: `CapacityTotal`, `CapacityAllocated`, `CapacityFree`, `CapacityFreePercentage`,

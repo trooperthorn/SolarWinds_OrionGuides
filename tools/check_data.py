@@ -12,6 +12,7 @@ silent degradation into a failed build.
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import re
@@ -184,6 +185,31 @@ def main() -> None:
         missing = [n["entity"] for n in netobjects if not n.get("inCurrentSchema")]
         if missing:
             c.note(f"{len(missing)} workbook entity/entities absent from the {args.version} schema (expected; see reconciliation.json)")
+
+    # Entity counts quoted in the module pages. These are the claims most likely to go
+    # quietly wrong: rebuilding for another platform version changes every one of them,
+    # and nothing about the page looks stale afterwards.
+    prefix_claim = re.compile(r"\|\s*`([A-Z][\w.]*\.)`\s*\|\s*(\d+)\s*\|")
+    entity_names = [rec["entity"] for rec in index]
+    claim_files = sorted(glob.glob(os.path.join(ROOT, "docs", "modules", "*.md")))
+    claim_files.append(os.path.join(ROOT, "docs", "platform", "modules.md"))
+    claims = wrong = 0
+    for path in claim_files:
+        if not os.path.isfile(path):
+            continue
+        text = open(path, encoding="utf-8", errors="replace").read()
+        for m in prefix_claim.finditer(text):
+            prefix, claimed = m.group(1), int(m.group(2))
+            actual = sum(1 for n in entity_names if n.startswith(prefix))
+            claims += 1
+            if actual != claimed:
+                wrong += 1
+                c.fail(
+                    f"{os.path.relpath(path, ROOT)} says {prefix} has {claimed} entities; "
+                    f"the {args.version} schema has {actual}"
+                )
+    if claims and not wrong:
+        c.note(f"{claims} namespace count(s) quoted in the module pages all match the schema")
 
     # Completeness of the authored reference pages against the extracted data. A function
     # reference that quietly drops a function is worse than one that never claimed to be

@@ -448,9 +448,10 @@ mean the reverse navigation does not exist on a server, only that the published 
 name it.
 
 **Eight relationship targets have no entity page.** The edge list names eight entities that
-are not among the 2067 documented types. Two of the eight look like casing slips in the
-published schema, since a differently-cased name does exist. Never take a target name from
-the edge list as a confirmed entity without checking it:
+are not among the 2067 documented types, so a name appearing as a target is not proof that
+the entity exists. Two of the eight are casing slips in the published schema:
+`Orion.VIM.DataStores` and `Orion.Ipsla.CCMPhones` are absent, while `Orion.VIM.Datastores`
+and `Orion.IpSla.CCMPhones` are real. Check a target name before using it:
 
 ```bash
 python3 tools/schema_query.py find Datastores
@@ -463,13 +464,16 @@ entities matching 'datastores' (3 total)
   Orion.VIM.DatastoresCustomProperties                    1p   4v  Custom Properties
 ```
 
+`python3 tools/check_data.py --version 2026.2` prints the full list of eight on every run,
+which is how they stay visible rather than quietly becoming folklore.
+
 **Sixteen relationships point an entity at itself.** `Orion.Nodes` accounts for four of the
 sixteen edges, and every one of them is `System.Reliance`: `BMCControllerNodeForRack` and
 `SdWanNodeRelyOrchestratorInfo` as source, `RackNodes` and `OrchestratorInfoRelySdWanNode` as
-target. Any
-graph traversal over this data needs cycle handling, which is why the path finder above
-tracks `seen` and the repository's own `path` command excludes cycles per trail rather than
-globally.
+target. Any graph traversal over this data therefore needs cycle handling, which is why the
+path finder above tracks `seen`, and why the repository's own `path` command excludes cycles
+per trail rather than globally, so that an alternate route through a hub entity is not hidden
+by the first one to reach it.
 
 ## Where to go next
 
