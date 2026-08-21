@@ -1,0 +1,71 @@
+# Tools
+
+Six scripts, no dependencies beyond the Python standard library except `openpyxl` for
+reading the source workbook. Two build the data, three consume it, one guards it.
+
+| Script | Purpose |
+| --- | --- |
+| [build_schema_data.py](build_schema_data.py) | Extract the SWIS schema from the OrionSDK sources into JSON |
+| [build_reference_data.py](build_reference_data.py) | Merge the SWQL function reference with the examples workbook |
+| [build_reference_docs.py](build_reference_docs.py) | Generate the enumerated tables in `docs/reference/` |
+| [schema_query.py](schema_query.py) | Explore the schema offline: entities, verbs, join paths |
+| [validate_swql.py](validate_swql.py) | Check SWQL against the schema; the CI gate |
+| [diff_schema.py](diff_schema.py) | Report what changed between two platform versions |
+| [check_data.py](check_data.py) | Assert the extracted data is internally consistent |
+| [check_links.py](check_links.py) | Resolve every relative link in the documentation |
+
+Everything runs through the [Makefile](../Makefile):
+
+```bash
+make data            # rebuild data/ from the OrionSDK sources
+make docs-reference  # regenerate docs/reference/
+make schema-diff FROM=2025.4 TO=2026.2
+make validate        # every sample query and every sql block in the docs
+make check           # validate plus data consistency
+```
+
+## How extraction works
+
+The schema comes from the `gh-pages` branch of
+[solarwinds/OrionSDK](https://github.com/solarwinds/OrionSDK), which is what serves
+<https://solarwinds.github.io/OrionSDK/>. For each published version that branch carries
+two artifacts, and **neither is sufficient alone**:
+
+| Artifact | Has | Lacks |
+| --- | --- | --- |
+| `<version>/schema/<Entity>.html` | Properties, relationships, verbs, access control, inheritance | Verb parameters, which are flattened into one run-on paragraph |
+| `<version>/swagger.json` | Typed, named, ordered verb parameters and return types | Properties, relationships, inheritance |
+
+`build_schema_data.py` parses both and joins them on the verb name. That join is what
+turns a verb summary reading `"Starts realtime polling on Node entityNodeID of target
+NodeOwner identifier that owns this polling..."` into five named, typed, ordered
+parameters.
+
+The HTML is parsed with regular expressions rather than an HTML library, because the
+docfx output is regular enough and it keeps the tool runnable anywhere with a stock
+Python 3. The risk with that choice is silent degradation: a template changes, a selector
+stops matching, a section comes back empty, and the output is still valid JSON.
+`check_data.py` exists to make that loud, through count floors, required core entities,
+and three hand-verified verb signatures.
+
+## Two things the tools know that the raw data does not
+
+**Inherited members.** An entity page lists only the properties that entity declares.
+`Uri` and `InstanceType` are on `System.Entity`; `UnManaged`, `UnManageFrom` and
+`UnManageUntil` are on `System.ManagedEntity`. All of them are queryable on descendants.
+`schema_query.py props` and `validate_swql.py` both resolve the inheritance chain, which
+is why `Orion.Nodes.Uri` validates.
+
+**Both relationship directions are navigable.** The schema splits relationships into
+"Source" and "Target" tables, but both list navigation properties usable *from* the
+declaring entity. `Orion.Nodes.Interfaces` (source) and `Orion.NPM.Interfaces.Node`
+(target) are both valid SWQL. `schema_query.py path` walks both, which is what makes
+`Orion.NPM.Interfaces.Node` resolve as a single hop rather than a three-hop detour.
+
+## Adding a check
+
+If a schema change breaks extraction and `check_data.py` does not catch it, add the
+assertion there as part of the fix. A check that would have caught the bug is a better
+outcome than the fix alone.
+
+See [../CONTRIBUTING.md](../CONTRIBUTING.md).
