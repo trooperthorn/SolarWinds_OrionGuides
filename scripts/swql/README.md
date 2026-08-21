@@ -21,6 +21,7 @@ believed to.
 | [12-udt-and-storage.swql](12-udt-and-storage.swql) | Device tracking by MAC/IP/port, and array-side storage |
 | [13-hardware-wireless-ipam.swql](13-hardware-wireless-ipam.swql) | Hardware sensors, access points and clients, subnet utilization |
 | [14-netflow-traffic.swql](14-netflow-traffic.swql) | Flow sources, top talkers, traffic by application, protocol and country |
+| [15-voip-and-web-transactions.swql](15-voip-and-web-transactions.swql) | IP SLA operations, phones, web transactions, steps, playback locations |
 
 ## Running them
 

@@ -1,0 +1,245 @@
+-- VoIP and Network Quality Manager (Orion.IpSla.*) and Web Performance Monitor (Orion.SEUM.*)
+--
+-- Two modules whose namespaces do not match their product names, which is why searching
+-- the schema for "VNQM" or "WPM" finds nothing:
+--
+--   VoIP and Network Quality Manager  ->  Orion.IpSla.*   (IP SLA, the underlying feature)
+--   Web Performance Monitor           ->  Orion.SEUM.*    (synthetic end user monitoring)
+--
+-- WPM's model is recording -> transaction -> step. A recording is the script; a
+-- transaction is that script assigned to a playback location (which the schema calls an
+-- agent); a step is one action inside it. Durations are in milliseconds, and the
+-- thresholds live on the transaction and the step rather than in a separate table.
+--
+-- Note that Orion.SEUM.Agents exposes Password and ProxyPassword. Never select them.
+
+
+-- =====================================================================================
+-- VoIP and Network Quality Manager
+-- =====================================================================================
+
+-- IP SLA operation inventory with source and target.
+SELECT TOP 100
+    o.OperationInstanceID,
+    o.OperationName,
+    o.OperationType,
+    o.DisplaySource,
+    o.DisplayTarget,
+    o.Frequency,
+    o.OperationStatusID,
+    o.StatusMessage
+FROM Orion.IpSla.Operations o
+WHERE o.Deleted = FALSE
+ORDER BY o.OperationName
+
+
+-- Operations that are not healthy. StatusMessage usually says why, which saves a trip
+-- to the router.
+SELECT
+    o.OperationName,
+    o.DisplaySource,
+    o.DisplayTarget,
+    o.OperationStatusID,
+    o.StatusMessage,
+    o.DateChangedUtc
+FROM Orion.IpSla.Operations o
+WHERE o.Deleted = FALSE
+  AND o.OperationStatusID <> 1
+  AND o.UnManaged = FALSE
+ORDER BY o.DateChangedUtc DESC
+
+
+-- Operations by type, to see what is actually being measured.
+SELECT
+    o.OperationType,
+    COUNT(o.OperationInstanceID) AS OperationCount
+FROM Orion.IpSla.Operations o
+WHERE o.Deleted = FALSE
+GROUP BY o.OperationType
+ORDER BY COUNT(o.OperationInstanceID) DESC
+
+
+-- Auto-configured versus manually created operations. A large auto-configured count is
+-- worth knowing about before someone deletes them by hand.
+SELECT
+    o.IsAutoConfigured,
+    COUNT(o.OperationInstanceID) AS OperationCount
+FROM Orion.IpSla.Operations o
+WHERE o.Deleted = FALSE
+GROUP BY o.IsAutoConfigured
+
+
+-- Phone inventory. Extension and Location are the columns a service desk actually wants.
+SELECT TOP 200
+    p.Name,
+    p.Extension,
+    p.IPAddress,
+    p.MACAddress,
+    p.Location,
+    p.Status,
+    p.Licensed,
+    p.Description
+FROM Orion.IpSla.CCMPhones p
+ORDER BY p.Extension
+
+
+-- Phones that are not registered. A cluster of these in one Location is a switch or a
+-- power problem rather than a phone problem.
+SELECT
+    p.Name,
+    p.Extension,
+    p.IPAddress,
+    p.Location,
+    p.Status
+FROM Orion.IpSla.CCMPhones p
+WHERE p.Status <> 1
+  AND p.UnManaged = FALSE
+ORDER BY p.Location, p.Extension
+
+
+-- Phone count by location, for a site inventory.
+SELECT
+    p.Location,
+    COUNT(p.ID) AS PhoneCount
+FROM Orion.IpSla.CCMPhones p
+GROUP BY p.Location
+ORDER BY COUNT(p.ID) DESC
+
+
+-- Unlicensed phones, which are discovered but not monitored.
+SELECT
+    p.Name,
+    p.Extension,
+    p.IPAddress,
+    p.Licensed
+FROM Orion.IpSla.CCMPhones p
+WHERE p.Licensed = FALSE
+ORDER BY p.Name
+
+
+-- =====================================================================================
+-- Web Performance Monitor
+-- =====================================================================================
+
+-- Transaction inventory with the playback location and the last result.
+SELECT
+    t.TransactionId,
+    t.Name,
+    t.Agent.Name AS PlaybackLocation,
+    t.Frequency,
+    t.LastDuration,
+    t.LastDateTimeUtc,
+    t.IsEnabled,
+    t.UnManaged
+FROM Orion.SEUM.Transactions t
+ORDER BY t.Name
+
+
+-- Transactions that failed on their last run. LastErrorMessage is the first thing to
+-- read, before opening a screenshot.
+SELECT
+    t.Name,
+    t.Agent.Name AS PlaybackLocation,
+    t.LastErrorMessage,
+    t.LastDateTimeUtc,
+    t.LastDuration
+FROM Orion.SEUM.Transactions t
+WHERE t.LastErrorMessage IS NOT NULL
+  AND t.IsEnabled = TRUE
+ORDER BY t.LastDateTimeUtc DESC
+
+
+-- Transactions running slower than their own critical threshold. Comparing against the
+-- configured threshold rather than a fixed number keeps the query meaningful across
+-- transactions of very different sizes.
+SELECT
+    t.Name,
+    t.Agent.Name AS PlaybackLocation,
+    t.LastDuration,
+    t.WarningThreshold,
+    t.CriticalThreshold
+FROM Orion.SEUM.Transactions t
+WHERE t.LastDuration > t.CriticalThreshold
+  AND t.IsEnabled = TRUE
+ORDER BY t.LastDuration DESC
+
+
+-- Step-level timings for one transaction. This is where a slow transaction is actually
+-- diagnosed: one step usually owns most of the duration.
+SELECT
+    s.StepId,
+    s.LastDuration,
+    s.OptimalThreshold,
+    s.WarningThreshold,
+    s.CriticalThreshold,
+    s.LastErrorMessage,
+    s.LastDateTimeUtc
+FROM Orion.SEUM.TransactionSteps s
+WHERE s.Transaction.Name = @transactionName
+ORDER BY s.StepId
+
+
+-- The slowest steps anywhere, which is the fastest way to find a common bottleneck
+-- across several transactions.
+SELECT TOP 30
+    s.Transaction.Name AS TransactionName,
+    s.StepId,
+    s.LastDuration,
+    s.CriticalThreshold
+FROM Orion.SEUM.TransactionSteps s
+WHERE s.LastDuration > 0
+ORDER BY s.LastDuration DESC
+
+
+-- Steps that captured a failure screenshot.
+SELECT
+    s.Transaction.Name AS TransactionName,
+    s.StepId,
+    s.LastErrorMessage,
+    s.ScreenshotId,
+    s.ScreenshotDateTimeUtc
+FROM Orion.SEUM.TransactionSteps s
+WHERE s.ScreenshotId IS NOT NULL
+ORDER BY s.ScreenshotDateTimeUtc DESC
+
+
+-- Playback location health and load. A location above roughly 80 percent load will start
+-- to distort the timings it reports, which looks like an application problem.
+SELECT
+    a.Name,
+    a.Hostname,
+    a.IP,
+    a.ConnectionStatus,
+    a.ConnectionStatusMessage,
+    a.AgentVersion,
+    a.LoadPercentage,
+    a.AvgLoadPercentageLast30min,
+    a.NumManagedTransactions,
+    a.NumAllTransactions
+FROM Orion.SEUM.Agents a
+ORDER BY a.LoadPercentage DESC
+
+
+-- Playback locations that are not connected. Every transaction assigned to one of these
+-- has stopped running, whether or not the transaction itself looks healthy.
+SELECT
+    a.Name,
+    a.Hostname,
+    a.ConnectionStatus,
+    a.ConnectionStatusMessage,
+    a.ConnectionStatusTimeStampUtc,
+    a.NumManagedTransactions
+FROM Orion.SEUM.Agents a
+WHERE a.ConnectionStatus <> 1
+ORDER BY a.ConnectionStatusTimeStampUtc
+
+
+-- Transactions per location, to spot an overloaded playback location before it distorts
+-- results.
+SELECT
+    t.Agent.Name AS PlaybackLocation,
+    COUNT(t.TransactionId) AS TransactionCount
+FROM Orion.SEUM.Transactions t
+WHERE t.IsEnabled = TRUE
+GROUP BY t.Agent.Name
+ORDER BY COUNT(t.TransactionId) DESC
