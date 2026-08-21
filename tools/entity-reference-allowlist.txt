@@ -1,0 +1,29 @@
+# Names that look like entities, are not in the schema, and are written deliberately.
+#
+# tools/check_entity_references.py reports any entity-shaped token in the documentation
+# that the schema does not have. That is usually a mistake. Occasionally it is the point:
+# a page names the wrong form precisely to warn readers off it. Those go here, with a
+# reason, so the check stays useful instead of being widened until it catches nothing.
+#
+# Before adding a line, confirm the name really is absent:
+#     python3 tools/schema_query.py find <name>
+#
+# One name per line. Text after # is a comment.
+
+# The module is Server and Application Monitor, but its entities kept the original
+# engineering name APM. Deriving the entity name from the product name is a common
+# mistake, so the documentation states the wrong form explicitly to head it off.
+Orion.SAM
+Orion.SAM.Application
+
+# Virtualization Manager entities are prefixed Orion.VIM. There is no Orion.VMAN
+# namespace, and the docs say so directly.
+Orion.VMAN
+
+# A placeholder used when describing the shape of entity names in general.
+Orion.something
+
+# Frequently cited in older community material as the base entity to query across all
+# monitored object types. It does not exist in 2026.2; System.ManagedEntity is what
+# people mean. docs/swql/joins-and-navigation.md names it to correct the belief.
+Orion.NetObjects

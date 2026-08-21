@@ -58,9 +58,10 @@ returns a job id as a string; you then pass that same `jobId` to the other three
 
 ## On-demand polling
 
-Every one of these queues work on the polling engine and returns before that work finishes.
-None of them tells you whether the poll succeeded. Verify by watching the data change, for
-example `Orion.Nodes.LastSync` and `Orion.Nodes.MinutesSinceLastSync`.
+Every one of these asks for polling work to happen now instead of at the next scheduled
+cycle. All the `PollNow` variants are declared `System.Void`, so none of them tells you
+whether the poll ran or succeeded. Verify by watching the data change, for example
+`Orion.Nodes.LastSync` and `Orion.Nodes.MinutesSinceLastSync`.
 
 | Entity | Verb | Parameters | Requires | What it does |
 |:---|:---|:---|:---|:---|

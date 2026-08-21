@@ -39,6 +39,13 @@ entity whose name equals the listed prefix or begins with that prefix plus a dot
 | [cloud](cloud.md) | Cloud monitoring | AWS and Azure accounts, instances, volumes, cloud metrics | `Orion.Cloud.` | 148 |
 | [agents](agents.md) | Agent management | Deployed agents, plugins, versions, agent-based polling | `Orion.AgentManagement.` | 16 |
 
+The namespace prefixes and entity counts come from the extracted schema. The short module
+codes come from the `module` field in
+[`data/reference/netobject-types.json`](../../data/reference/netobject-types.json). The full
+product names are spelled out here for orientation; SolarWinds' own SDK documentation names
+some of them in full and refers to others only by their code, as
+[../platform/modules.md](../platform/modules.md) explains.
+
 Several modules contribute entities outside their headline prefix, and the individual
 pages say so. NPM is the clearest case: beyond the 139 entities above it also owns the F5
 family (`Orion.F5.`, 24 entities), the Cisco UCS family (`Orion.UCS.`, 8), and an older

@@ -27,7 +27,7 @@ help:
 	@echo "make data            rebuild data/ from the OrionSDK docs (VERSION=$(VERSION))"
 	@echo "make docs-reference  regenerate the generated tables in docs/reference/"
 	@echo "make validate        check sample queries and docs code blocks against the schema"
-	@echo "make check           validate + verify generated data is internally consistent"
+	@echo "make check           validate + data consistency + entity references + links"
 	@echo "make schema-diff     compare two versions (FROM=2025.4 TO=2026.2)"
 	@echo "make clean           remove $(SDK_DIR)"
 
@@ -84,6 +84,8 @@ validate:
 
 check: validate
 	@$(PYTHON) tools/check_data.py --version $(VERSION)
+	@$(PYTHON) tools/check_entity_references.py --version $(VERSION) --strict
+	@$(PYTHON) tools/check_links.py
 
 clean:
 	@rm -rf $(SDK_DIR) $(DIFF_SCRATCH)

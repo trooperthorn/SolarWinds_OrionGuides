@@ -17,12 +17,14 @@ return type, and optionally a required user right. It runs inside SWIS, on the O
 with the caller's identity attached.
 
 That last part is the point. `Orion.Nodes.Unmanage` is not "set `UnManaged = true` on a
-row". Unmanaging a node has to write the unmanage window, change the node's status, stop the
-pollers on the right polling engine, and make the same change consistent for the objects
-underneath the node. Expressing that as a CRUD update would mean re-implementing Orion's
-internals in every client, and getting it subtly wrong in each one. Going through a verb
-means the platform does it, checks that the caller holds the `allowUnmanage` right first,
-and records that it happened.
+row". One call has to set `UnManaged`, `UnManageFrom` and `UnManageUntil`, move the node to
+status `9` (`Unmanaged`), and stop data collection for the window, which the official
+[Unmanaging Entities](https://solarwinds.github.io/OrionSDK/docs/unmanaging-entities/) page
+describes as "no data will be collected for that entity, no up/down status, no response time".
+Expressing that as a set of CRUD updates would mean re-implementing part of the platform in
+every client and getting it subtly wrong in each one. Going through a verb means the platform
+does it, and means it can check that the caller holds the `allowUnmanage` right before
+anything happens.
 
 So the rule of thumb is: if the change you want has a name in the Orion web console
 ("Unmanage", "Poll Now", "Acknowledge", "Rediscover", "Deploy Agent"), look for a verb before
@@ -95,9 +97,10 @@ and `allowOverlapping` are JSON booleans, not the strings `"false"`.
 
 ### Optional trailing arguments may be omitted
 
-The 794 verbs with typed parameters mark each parameter required or optional. Optional
-parameters are always at the end of the list, so you can truncate the array after the last
-argument you want to supply. The official
+The 794 verbs with typed parameters mark each parameter required or optional, and across all
+958 records in `data/schema/2026.2/verbs.json` there is not a single verb where a required
+parameter follows an optional one. Optional parameters are always at the end of the list, so
+you can truncate the array after the last argument you want to supply. The official
 [Managing Custom Properties](https://solarwinds.github.io/OrionSDK/docs/managing-custom-properties/)
 example does exactly this: `Orion.NodesCustomProperties.CreateCustomProperty` declares 16
 parameters in 2026.2, the first 10 of which are required, and the official example passes 10.
@@ -657,8 +660,9 @@ in `scripts/powershell/Set-NodeMaintenanceWindow.ps1`.
 Orion.Nodes.PollNow(netObjectId) -> System.Void        requires manageNodes
 ```
 
-One argument, the same `N:<NodeID>` NetObject string. It asks the polling engine that owns
-the node to poll it now rather than waiting for the next scheduled cycle.
+One argument, the same `N:<NodeID>` NetObject string. The schema summary is "It will poll node
+instance and update its information", which is the on-demand version of what would otherwise
+happen at the next scheduled cycle.
 
 ```powershell
 Invoke-SwisVerb $swis 'Orion.Nodes' 'PollNow' @('N:42') | Out-Null
@@ -670,8 +674,8 @@ curl -sS -X POST -u "$ORION_USER:$ORION_PASS" --cacert "$ORION_CA" \
   'https://myorion.example.com:17774/SolarWinds/InformationService/v3/Json/Invoke/Orion.Nodes/PollNow'
 ```
 
-`PollNow` returns `System.Void` and returns as soon as the request is queued, so it tells you
-nothing about whether the poll happened. Confirm by watching the sync timestamps move:
+`PollNow` is declared `System.Void`, so a successful call tells you nothing at all about
+whether the poll ran or what it found. Confirm by watching the sync timestamps move:
 
 ```sql
 SELECT Caption, LastSync, MinutesSinceLastSync, NextPoll

@@ -51,5 +51,10 @@ jobs:
           python3 -m compileall -q tools scripts/python
           for f in scripts/curl/*.sh; do bash -n "$f"; done
 
+      # Entity names in prose are as easy to get wrong as ones in queries, and nothing
+      # else checks them.
+      - name: Check entity names in prose exist
+        run: python3 tools/check_entity_references.py --version 2026.2 --strict
+
       - name: Check documentation links resolve
         run: python3 tools/check_links.py

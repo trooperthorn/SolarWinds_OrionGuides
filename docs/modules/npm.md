@@ -77,8 +77,9 @@ node has been deleted will not appear.
 ### The properties worth knowing
 
 **Identity and shape.** `Name`, `Caption`, `FullName`, `IfName`, `Alias`, `Index`,
-`PhysicalAddress`, `MTU`, `Speed`, `Type`, `TypeName`, `TypeDescription`, `DuplexMode`,
-`Counter64`.
+`PhysicalAddress`, `MTU`, `Speed`, `Type`, `TypeName`, `TypeDescription`, `DuplexMode`, and
+`Counter64`, which is a `System.Char` holding `'Y'` or `'N'` rather than the boolean its
+name suggests.
 
 **State.** `AdminStatus` and `OperStatus` are the two SNMP values, both `System.Int16`.
 `Status` is the platform's combined view, and its schema description enumerates the values
@@ -90,9 +91,11 @@ than hard-coding those integers.
 `PercentUtil`, `InPps`, `OutPps`, `InUcastPps`, `OutUcastPps`, `InMcastPps`, `OutMcastPps`,
 `InPktSize`, `OutPktSize`. These hold the most recent poll, not a history.
 
-**Rolled-up counters.** `InErrorsToday`, `InErrorsThisHour`, `OutDiscardsToday`,
-`CRCAlignErrorsToday`, `LateCollisionsToday`, `MaxInBpsToday`, `MaxInBpsTime`,
-`MaxOutBpsToday`, `MaxOutBpsTime`, and the `ThisHour` variants of each.
+**Rolled-up counters.** Errors, discards, CRC alignment errors and late collisions each come
+in a `Today` and a `ThisHour` form, in and out: `InErrorsToday`, `InErrorsThisHour`,
+`OutDiscardsToday`, `OutDiscardsThisHour`, `CRCAlignErrorsToday`, `LateCollisionsToday` and
+the rest. Peak throughput has only a daily form, paired with the timestamp it happened at:
+`MaxInBpsToday` with `MaxInBpsTime`, `MaxOutBpsToday` with `MaxOutBpsTime`.
 
 **Bandwidth overrides.** `InBandwidth` and `OutBandwidth` are settable values used in place
 of the polled `Speed` when `CustomBandwidth` is true. The `SetBandwidth` verb is how you
