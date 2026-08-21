@@ -57,11 +57,12 @@ to `Orion.Nodes`; `Orion.DPA.DatabaseInstance` has `RelyNode`; `Orion.Nodes` has
 it actually runs on. The naming convention is a giveaway: most reliance navigations start
 with `Rely`.
 
-Reliance edges are the ones you want when the question is "which node is behind this thing",
-and they frequently coexist with a hosting or reference edge that answers a slightly
-different question. `Orion.APM.Application` can reach `Orion.Nodes` through both `Node` (the
-node it is configured on) and `RelyNode` (the node it depends on), and those are not
-guaranteed to be the same row.
+Reliance edges frequently coexist with a hosting or reference edge that answers a slightly
+different question, which is the trap. `Orion.APM.Application` reaches `Orion.Nodes` two
+ways: `Node`, the `System.Hosting` edge for the node the application is configured on, and
+`RelyNode`, the `System.Reliance` edge for the node it depends on. They are separate
+relationships and are not guaranteed to resolve to the same row, so picking the wrong one
+gives you a plausible answer to a question you did not ask.
 
 ```sql
 SELECT TOP 20

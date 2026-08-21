@@ -5,7 +5,7 @@ Self-Hosted, in the four forms people actually use.
 
 | Directory | Contents |
 | --- | --- |
-| [swql/](swql/) | 188 verified sample queries, grouped by subject |
+| [swql/](swql/) | 207 verified sample queries, grouped by subject |
 | [powershell/](powershell/) | `SwisPowerShell` module examples |
 | [python/](python/) | A dependency-light REST client and CLI |
 | [curl/](curl/) | The raw wire protocol, with nothing in between |

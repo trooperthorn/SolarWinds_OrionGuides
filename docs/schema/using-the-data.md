@@ -118,7 +118,8 @@ applied. `file` points at the namespace file holding the full record.
 
 ### entities/&lt;Namespace&gt;.json
 
-The full records, one file per namespace, same array shape. Fifteen fields per entity:
+The full records, one file per namespace, same array shape. Fifteen fields on every entity,
+plus `keyHints` and `keyHintSource` on the 79 that have them:
 
 ```bash
 jq -r '.[0] | keys_unsorted[]' data/schema/2026.2/entities/System.json
@@ -145,8 +146,10 @@ canCreate
 `inheritance` is the full ancestor chain, root first, excluding the entity itself, which is
 what makes "does this entity descend from X" a single `contains` test.
 `sourceRelationships` and `targetRelationships` are both lists of navigation properties
-usable **from** this entity; see [relationships.md](relationships.md). `keyHints` appears
-only on the 79 entities where SolarWinds names a key in property prose.
+usable **from** this entity; see [relationships.md](relationships.md). `keyHints` is present
+only where SolarWinds names a key in the property's own description text, so its absence
+means the prose was silent, not that the entity has no key. The authority for a given server
+is `Metadata.Property.IsKey`; see [entity-model.md](entity-model.md).
 
 ### verbs.json
 

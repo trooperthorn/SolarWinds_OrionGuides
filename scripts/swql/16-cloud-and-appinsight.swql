@@ -1,0 +1,285 @@
+-- Cloud monitoring (Orion.Cloud.*) and SAM AppInsight (Orion.APM.Sql*, IIS, Exchange)
+--
+-- Cloud is one of the largest families in the schema, 148 entities under Orion.Cloud.*,
+-- organized as account -> region -> instance with provider-specific variants
+-- (Orion.Cloud.Aws.*, Orion.Cloud.Azure.*, Orion.Cloud.Gcp.*) hanging off the generic ones.
+--
+-- AppInsight is a set of deep-inspection templates inside SAM rather than a separate
+-- module. Each one has its own entity family and its own vocabulary, which is why a
+-- query written for one does not transfer to another:
+--
+--   AppInsight for SQL       Orion.APM.SqlDatabase, SqlDatabaseFile, SqlJobInfo, SqlQuery
+--   AppInsight for IIS       Orion.APM.IIS.Site, ApplicationPool, Request
+--   AppInsight for Exchange  Orion.APM.Exchange.Database, Mailbox, ReplicationStatus
+
+
+-- =====================================================================================
+-- Cloud
+-- =====================================================================================
+
+-- Cloud accounts being monitored, and how hard they are being polled. The API request
+-- counter matters because cloud providers bill for it.
+SELECT
+    a.Id,
+    a.Name,
+    a.Description,
+    a.AutoMonitoring,
+    a.PollingIntervalInSeconds,
+    a.MonitorApiRequestsMadePerMonth,
+    a.MonitorResourceType
+FROM Orion.Cloud.Accounts a
+ORDER BY a.Name
+
+
+-- Cloud instance inventory across providers.
+SELECT TOP 200
+    i.Name,
+    i.InstanceId,
+    i.Provider,
+    i.Region,
+    i.Type,
+    i.State,
+    i.Platform,
+    i.PublicDNSName,
+    i.PrivateDNSName
+FROM Orion.Cloud.Instances i
+ORDER BY i.Provider, i.Region, i.Name
+
+
+-- Instance count by provider, region and size, which is the shape a cost conversation
+-- starts from.
+SELECT
+    i.Provider,
+    i.Region,
+    i.Type,
+    COUNT(i.InstanceId) AS InstanceCount
+FROM Orion.Cloud.Instances i
+GROUP BY i.Provider, i.Region, i.Type
+ORDER BY COUNT(i.InstanceId) DESC
+
+
+-- Instances that are not running. Stopped instances still cost money for their storage.
+SELECT
+    i.Name,
+    i.InstanceId,
+    i.Provider,
+    i.Region,
+    i.State,
+    i.LastPoll
+FROM Orion.Cloud.Instances i
+WHERE i.State <> 'running'
+ORDER BY i.Provider, i.Name
+
+
+-- Instances whose polling has fallen behind. LastSuccessfulPoll lagging LastPoll usually
+-- means a credential or a permissions problem at the provider rather than a dead instance.
+SELECT
+    i.Name,
+    i.Provider,
+    i.LastPoll,
+    i.LastSuccessfulPoll,
+    MinuteDiff(i.LastSuccessfulPoll, GetUtcDate()) AS MinutesSinceSuccess
+FROM Orion.Cloud.Instances i
+WHERE i.LastSuccessfulPoll < i.LastPoll
+ORDER BY i.LastSuccessfulPoll
+
+
+-- Disk pressure on cloud instances.
+SELECT TOP 30
+    i.Name,
+    i.Provider,
+    i.IOPSTotal,
+    i.IOPSRead,
+    i.IOPSWrite,
+    i.DiskReadInBytesPerSecond,
+    i.DiskWriteInBytesPerSecond
+FROM Orion.Cloud.Instances i
+WHERE i.IOPSTotal > 0
+ORDER BY i.IOPSTotal DESC
+
+
+-- Instances grouped by autoscaling group, to distinguish managed fleet members from
+-- individually created machines.
+SELECT
+    i.AutoScalingGroupName,
+    COUNT(i.InstanceId) AS InstanceCount
+FROM Orion.Cloud.Instances i
+WHERE i.AutoScalingGroupName IS NOT NULL
+GROUP BY i.AutoScalingGroupName
+ORDER BY COUNT(i.InstanceId) DESC
+
+
+-- =====================================================================================
+-- AppInsight for SQL
+-- =====================================================================================
+
+-- Database inventory with size and recovery posture.
+SELECT TOP 200
+    d.DatabaseID,
+    d.OperationalState,
+    d.RecoveryModel,
+    d.CompatibilityLevel,
+    d.Collation,
+    d.DatabaseSize,
+    d.TransactionLogSize,
+    d.LastBackup,
+    d.Status
+FROM Orion.APM.SqlDatabase d
+ORDER BY d.DatabaseSize DESC
+
+
+-- Databases with no recent backup, which is the report that gets attention.
+SELECT
+    d.DatabaseID,
+    d.OperationalState,
+    d.RecoveryModel,
+    d.LastBackup,
+    DayDiff(d.LastBackup, GetDate()) AS DaysSinceBackup
+FROM Orion.APM.SqlDatabase d
+WHERE d.LastBackup < AddDay(-1, GetDate())
+   OR d.LastBackup IS NULL
+ORDER BY d.LastBackup
+
+
+-- Databases in full recovery whose transaction log has grown large relative to the data.
+-- That combination usually means log backups are not running.
+SELECT
+    d.DatabaseID,
+    d.RecoveryModel,
+    d.DatabaseSize,
+    d.TransactionLogSize,
+    d.LastBackup
+FROM Orion.APM.SqlDatabase d
+WHERE d.RecoveryModel = 'Full'
+  AND d.TransactionLogSize > d.DatabaseSize
+ORDER BY d.TransactionLogSize DESC
+
+
+-- Databases that are not online.
+SELECT
+    d.DatabaseID,
+    d.OperationalState,
+    d.Status,
+    d.StatusDescription
+FROM Orion.APM.SqlDatabase d
+WHERE d.OperationalState <> 'Online'
+ORDER BY d.DatabaseID
+
+
+-- =====================================================================================
+-- AppInsight for IIS
+-- =====================================================================================
+
+-- Site inventory with bindings and current load.
+SELECT
+    s.IISSiteID,
+    s.Name,
+    s.State,
+    s.PhysicalPath,
+    s.CurrentConnections,
+    s.AverageResponseTime,
+    s.CurrentHttpBindingsUrls,
+    s.CurrentHttpsBindingsUrls
+FROM Orion.APM.IIS.Site s
+ORDER BY s.Name
+
+
+-- Sites that are stopped or erroring.
+SELECT
+    s.Name,
+    s.State,
+    s.DisplayState,
+    s.ErrorCode,
+    s.ErrorMessage,
+    s.Status
+FROM Orion.APM.IIS.Site s
+WHERE s.State <> 1
+   OR s.ErrorCode IS NOT NULL
+ORDER BY s.Name
+
+
+-- Slow sites, measured against their own response-time status rather than a fixed number.
+SELECT TOP 30
+    s.Name,
+    s.AverageResponseTime,
+    s.AverageResponseTimeStatus,
+    s.CurrentConnections,
+    s.MaxConnections
+FROM Orion.APM.IIS.Site s
+WHERE s.AverageResponseTime > 0
+ORDER BY s.AverageResponseTime DESC
+
+
+-- Application pools that are not running. A stopped pool takes every site using it down
+-- with it, which is why the site error can look unrelated to the site.
+SELECT
+    p.ItemID,
+    p.Name,
+    p.State,
+    p.AutoStart,
+    p.ManagedRuntimeVersion,
+    p.Status,
+    p.StatusDescription
+FROM Orion.APM.IIS.ApplicationPool p
+WHERE p.State <> 1
+ORDER BY p.Name
+
+
+-- =====================================================================================
+-- AppInsight for Exchange
+-- =====================================================================================
+
+-- Mailbox database inventory with backup and quota configuration.
+SELECT
+    d.Identity,
+    d.ServerName,
+    d.MasterType,
+    d.TotalMailboxes,
+    d.AvgMailBoxSize,
+    d.LastFullBackup,
+    d.LastIncrementalBackup,
+    d.CircularLoggingEnabled,
+    d.Status
+FROM Orion.APM.Exchange.Database d
+ORDER BY d.Identity
+
+
+-- Databases with no recent full backup. Circular logging changes what that means, so
+-- select it alongside rather than filtering it out.
+SELECT
+    d.Identity,
+    d.ServerName,
+    d.LastFullBackup,
+    d.CircularLoggingEnabled,
+    DayDiff(d.LastFullBackup, GetDate()) AS DaysSinceFullBackup
+FROM Orion.APM.Exchange.Database d
+WHERE d.LastFullBackup < AddDay(-7, GetDate())
+   OR d.LastFullBackup IS NULL
+ORDER BY d.LastFullBackup
+
+
+-- Quota configuration per database, for a capacity conversation.
+SELECT
+    d.Identity,
+    d.TotalMailboxes,
+    d.AvgMailBoxSize,
+    d.IssueWarningQuota,
+    d.ProhibitSendQuota,
+    d.ProhibitSendReceiveQuota
+FROM Orion.APM.Exchange.Database d
+ORDER BY d.TotalMailboxes DESC
+
+
+-- Databases whose active copy is not on the preferred server, which is what you check
+-- after a failover.
+SELECT
+    d.Identity,
+    d.ServerName,
+    d.PreferredServer,
+    d.MasterType,
+    d.DisplayMasterType,
+    d.Status
+FROM Orion.APM.Exchange.Database d
+WHERE d.PreferredServer IS NOT NULL
+  AND d.ServerName <> d.PreferredServer
+ORDER BY d.Identity

@@ -22,6 +22,7 @@ believed to.
 | [13-hardware-wireless-ipam.swql](13-hardware-wireless-ipam.swql) | Hardware sensors, access points and clients, subnet utilization |
 | [14-netflow-traffic.swql](14-netflow-traffic.swql) | Flow sources, top talkers, traffic by application, protocol and country |
 | [15-voip-and-web-transactions.swql](15-voip-and-web-transactions.swql) | IP SLA operations, phones, web transactions, steps, playback locations |
+| [16-cloud-and-appinsight.swql](16-cloud-and-appinsight.swql) | Cloud accounts and instances, AppInsight for SQL, IIS and Exchange |
 
 ## Running them
 
