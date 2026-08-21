@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**130 statements across 42 pages.**
+**132 statements across 42 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -91,6 +91,9 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [high-availability.md](../automation/high-availability.md)
 
+**[High availability](../automation/high-availability.md#high-availability)**
+
+- `Orion.HA.ResourcesInstances` and `Orion.HA.PoolMemberInterfacesInfo` do declare CRUD under `admin`, but they are the mechanism's own bookkeeping rather than a supported way to configure anything; what the platform does with a row written directly into either is **not documented in the published schema** and is not verified here.
 **[The pool](../automation/high-availability.md#the-pool)**
 
 - The value set behind `CurrentStatus` is **not documented in the published schema**, so treat the integer as opaque and compare pools against each other rather than against a hard-coded number.
@@ -150,6 +153,7 @@ Read this before relying on this repository for something load-bearing. If you h
 - And the tree it manipulates is XML whose element and display names are runtime data rather than schema, so the exact `DisplayName` values are **not verified here**; dump `$results` once for the device family you are automating and read the names off it.
 **[Polling parameters](../automation/pollers.md#polling-parameters)**
 
+- **`StatCollection`'s default is not recorded in the published schema** and is not verified here; read it off an existing object before you assume one.
 - The individual `SettingID` values are installation data rather than schema, and they are **not recorded in the published schema**.
 
 ## [reporting.md](../automation/reporting.md)

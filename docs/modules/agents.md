@@ -346,8 +346,9 @@ returning `int`. What the integer identifies is **not documented in the publishe
 this page does not assert that it is the new `AgentId`. Confirm the result by querying for the
 agent rather than by trusting the return value; query 2 below is written for exactly that.
 
-Six of `Deploy`'s twelve arguments exist to cover Linux authentication, and they only make
-sense together. SolarWinds'
+Six of `Deploy`'s twelve arguments are optional, four of them covering Linux authentication and
+the last two the connection mode and the install package, and they only make sense together.
+SolarWinds'
 [`DeployAgentViaVerb.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/DeployAgentViaVerb.ps1)
 sample documents each one; the combinations it shows are:
 
@@ -602,10 +603,12 @@ Swagger contract defines as `Success`, `ResponseTime`, `Agent`, `ErrorMessage`,
 **`AddAgent(agent)` and `UpdateAgent(agent, updateRemoteSettings)` are the low-level pair
 underneath `AddPassiveAgent`.** Both take a full
 `SolarWinds.AgentManagement.Contract.Models.AgentRecord`, whose fields the Swagger contract
-lists and which is close to, but not identical with, the entity's property set: it adds
-`PollingEngineName`, `PollingEngineIP`, `PollingEnginePort`, `LogLevel`, `AgentStatusData` and
-`PkgOsDistro`, and spells the timestamps `ConnectionStatusTimeStamp` and `AgentStatusTimeStamp`
-with a capital S where the entity uses `ConnectionStatusTimestamp` and `AgentStatusTimestamp`.
+lists and which is close to, but not identical with, the entity's property set. It adds
+thirteen fields the entity does not have — `PollingEngineName`, `PollingEngineIP`,
+`PollingEnginePort`, `LogLevel`, `AgentStatusData`, `PkgOsDistro`, `PkgOsVersion`, `Password`,
+`JobTimeout`, `JobFrequency`, `DetailsUrl`, `OrionStatus` and `AgentEndpointId` — and it spells
+the timestamps `ConnectionStatusTimeStamp` and `AgentStatusTimeStamp` with a capital S where
+the entity uses `ConnectionStatusTimestamp` and `AgentStatusTimestamp`.
 Prefer `AddPassiveAgent`, which SolarWinds describes as existing "for usability convenience".
 
 ### 3. Update
@@ -1065,8 +1068,9 @@ repository holds, so they are not in the schema. Call
 **`Orion.SEUM.Agents` is a different thing entirely.** That is the Web Performance Monitor
 player, which carries the `L` NetObject prefix and is documented in [wpm.md](wpm.md).
 `Orion.Cman.ContainerAgent` is a third unrelated agent concept. `Orion.AgentManagement.Agent`
-has **no NetObject prefix at all**, which is why no verb on it takes a `netObjectId`: every one
-takes a bare `agentId` instead. See
+has **no NetObject prefix at all**, which is why no verb on it takes a `netObjectId`: the twelve
+that address an existing agent take a bare `agentId` instead, and the rest identify the target
+by hostname, node id, engine id or a whole `AgentRecord`. See
 [../reference/netobject-types.md](../reference/netobject-types.md).
 
 **Account limitations filter agents silently.** Two accounts running query 1 legitimately see

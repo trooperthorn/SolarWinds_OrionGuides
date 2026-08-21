@@ -355,7 +355,7 @@ interface to exist without being polled, which is rarer than it sounds.
 
 ### Nodes: the list resources job
 
-For a node that already exists, `Orion.Nodes` carries a six-verb job API that runs the same
+For a node that already exists, `Orion.Nodes` carries a seven-verb job API that runs the same
 probe the console's "List Resources" page runs, returns what it found as a selectable tree, and
 imports your choices, creating the poller assignments as a side effect.
 
@@ -369,7 +369,11 @@ imports your choices, creating the poller assignments as a side effect.
 | `GetScheduledListResourcesStatusByEngine` | `(jobId, engineId)` | The engine-wide variants, for |
 | `GetListResourcesResultByEngine` | `(jobId, engineId)` | bulk jobs across many nodes. |
 
-All require `manageNodes`. The flow, adapted from SolarWinds'
+All require `manageNodes`. An eighth verb starts the same job against a device that is not a
+node yet, so it needs the credentials the node id would otherwise have supplied:
+`ScheduleListResourcesForAddress` takes
+`(ipAddress, port, credentialsType, credentialProperties, engineId, preferredSnmpVersion?)`
+and everything after it is identical. The flow, adapted from SolarWinds'
 [`ImportSelectedListResources_CPUMemory.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/ImportSelectedListResources_CPUMemory.ps1),
 which turns on CPU and memory monitoring for one node without knowing which poller type that
 device needs:
@@ -497,15 +501,23 @@ value-to-monitor entities. It requires `admin` to change anything.
 
 ## Polling parameters
 
-Assigning a poller says *what* is collected. Three properties on the object say *how often*,
-and SolarWinds documents them on
-[How To Set Polling Parameters On A Node](https://solarwinds.github.io/OrionSDK/docs/network-performance-monitor/how-to-set-polling-parameters-on-a-node/).
+Assigning a poller says *what* is collected. Three properties on the object say *how often*.
+SolarWinds documents the first two on
+[How To Set Polling Parameters On A Node](https://solarwinds.github.io/OrionSDK/docs/network-performance-monitor/how-to-set-polling-parameters-on-a-node/),
+with the sample values below; the third is a real property on all three entities but that page
+does not mention it.
 
-| Property | Unit | Sample default | What it governs |
+| Property | Unit | Sample value | What it governs |
 |:---|:---|---:|:---|
 | `PollInterval` | seconds | 120 | How often status is polled |
 | `RediscoveryInterval` | minutes | 30 | How often the node is re-examined for what it is |
-| `StatCollection` | minutes | 10 | How often statistics are collected |
+| `StatCollection` | minutes | not published | How often statistics are collected |
+
+The units come from the schema descriptions on `Orion.NPM.Interfaces`, which are the only ones
+of the three sets that carry them: "Interval of polling interface in seconds", "Interval of
+rediscovery interface in minutes", "Interval of collecting statistics for interface in
+minutes". **`StatCollection`'s default is not recorded in the published schema** and is not
+verified here; read it off an existing object before you assume one.
 
 All three are plain properties, so changing them is a CRUD update against the object's URI:
 

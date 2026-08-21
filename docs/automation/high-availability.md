@@ -11,9 +11,13 @@ failover is a change of which member holds the resources, and everything else, i
 virtual IP address and the virtual host name that clients follow, is one of those resources.
 
 The other thing worth knowing before you write any of this down: **`Orion.HA.PoolMembers` is
-read-only, and every write in the module is a verb on `Orion.HA.Pools` requiring `admin`.**
-There is no CRUD path into a pool's membership. That is deliberate, and it shapes everything on
-this page.
+read-only, and every write that configures a pool is a verb on `Orion.HA.Pools` requiring
+`admin`.** There is no CRUD path into a pool's membership at all.
+`Orion.HA.ResourcesInstances` and `Orion.HA.PoolMemberInterfacesInfo` do declare CRUD under
+`admin`, but they are the mechanism's own bookkeeping rather than a supported way to configure
+anything; what the platform does with a row written directly into either is **not documented in
+the published schema** and is not verified here. Use the verbs. That shape is deliberate, and it
+shapes everything on this page.
 
 ## Namespaces and how many entities
 
