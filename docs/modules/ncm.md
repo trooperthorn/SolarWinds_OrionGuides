@@ -206,7 +206,7 @@ It navigates both ways: `NCM.TransferResults.ConfigArchive` leads to `Cirrus.Con
 and `NCM.TransferResults.NodeProperties` leads to `NCM.NodeProperties`, from where
 `.Nodes` reaches `Orion.Nodes`. Going the other way, `Cirrus.ConfigArchive.TransferResults`
 walks from a config to the transfers that produced or referenced it. Those two are the only
-cross-namespace navigation properties in the whole module.
+navigation properties that cross between `Cirrus.` and `NCM.` in the whole module.
 
 Two summary entities sit on top: `NCM.LatestTransferJobStatus` gives the most recent transfer
 state per node and job, and `NCM.ConfigBackupStatus` gives a per node, per config type view
@@ -1075,11 +1075,11 @@ FROM Cirrus.Nodes cn
 WHERE cn.NodeGroup = @group
 "@ @{ group = 'Core' }
 
-# DownloadConfig(nodeId[], configType). The first argument must be a Guid[], and the
-# leading comma keeps it as one array argument rather than N separate ones.
-$guids = [Guid[]] $ncmNodeIds
+# DownloadConfig(nodeId[], configType). Two arguments, so the ordinary two-element
+# array is right; the cast matters because Get-SwisData returns PSObject wrappers
+# rather than System.Guid values.
 $response = Invoke-SwisVerb -SwisConnection $swis -EntityName Cirrus.ConfigArchive `
-    -Verb DownloadConfig -Arguments @( , $guids ), 'Running'
+    -Verb DownloadConfig -Arguments @([Guid[]] $ncmNodeIds, 'Running')
 
 # The response is an XmlElement whose children are the transfer tickets. Inspect
 # $response.InnerXml once to confirm the element name on your version before relying on it.
@@ -1130,10 +1130,10 @@ $script = 'show clock'
 $ncmNodeId = Get-SwisData $swis `
     "SELECT NodeID FROM Cirrus.Nodes WHERE AgentIP = @ip" @{ ip = $ip }
 
-# ExecuteScript(nodeId[], script, Reboot?). Reboot is optional and defaults to no reboot;
-# pass it explicitly when the answer matters, because the default is not yours to assume.
+# ExecuteScript(nodeId[], script, Reboot?). Reboot is optional; pass it explicitly when
+# the answer matters, because the default is not yours to assume.
 $response = Invoke-SwisVerb -SwisConnection $swis -EntityName Cirrus.ConfigArchive `
-    -Verb ExecuteScript -Arguments @( , [Guid[]] @($ncmNodeId) ), $script, $false
+    -Verb ExecuteScript -Arguments @([Guid[]] @($ncmNodeId), $script, $false)
 
 $transferIds = $response.ChildNodes | ForEach-Object { $_.InnerText }
 
