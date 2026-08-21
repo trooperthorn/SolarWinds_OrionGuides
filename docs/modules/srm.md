@@ -347,9 +347,9 @@ to `Spare = FALSE` has been consumed by a rebuild.
 `StorageArrayID`, `Manufacturer`, `Model`, `SerialNumber`, `Firmware`, `Type`,
 `HAConfigurationState`, `TotalMemory`, `MemoryUsed`, `MemoryUtilization`, `CPUFrequency`,
 `CPUCount`, `TotalCacheSize`, `Utilization`, the IOPS/BytesPS/IOSize/IOLatency families, and
-two columns unique to this entity: `IOPSDistribution` and `BytesPSDistribution`, the share of
-the array's total work this controller is doing. Port counts come as `FcPortCount`,
-`EthernetPortCount` and `ISCSIPortCount`.
+two columns that appear only here and on the port entity: `IOPSDistribution` and
+`BytesPSDistribution`, the share of the array's total work this controller is doing. Port
+counts come as `FcPortCount`, `EthernetPortCount` and `ISCSIPortCount`.
 
 Controller balance is the thing to watch. On a dual-controller array both
 `IOPSDistribution` values should sit near 50, and a persistent split like 85/15 usually means
@@ -380,8 +380,9 @@ not self-correct after the underlying storage is reconfigured.
 
 ### Cross-module mappings
 
-Three small entities join SRM to Virtualization Manager and are the honest path between the
-two modules:
+Two small entities join SRM to Virtualization Manager and are the honest path between the
+two modules. A third, listed here because it has the same shape, joins pools to their
+parents inside SRM:
 
 | Entity | Columns | Joins |
 |---|---|---|
@@ -447,7 +448,8 @@ The seven per-object base entities and their concrete counts:
 | `Orion.SRM.StorageControllerPortThresholds` | 4 | IOPS total and distribution, bytes per second total and distribution |
 
 Because the properties are inherited, `show` reports zero properties for every one of them
-and `props` reports twenty. Use `props`:
+while `props` reports twenty-five: the twenty from `Orion.Thresholds` plus the five every
+entity gets from `System.Entity`. Use `props`:
 
 ```bash
 python3 tools/schema_query.py show Orion.SRM.LUNIOLatencyTotalThreshold
@@ -505,11 +507,13 @@ the case where `Invoke-SwisVerb` needs the leading-comma idiom described in
 Import-Module SwisPowerShell
 $swis = Connect-Swis -Hostname orion.example.com -Trusted
 
-# 1. Store SMI-S credentials. Returns the new credential id.
+# 1. Store SMI-S credentials. Returns the new credential id. Take the password from a
+#    prompt or a secret store rather than embedding it in the script.
+$password = Read-Host -Prompt 'SMI-S password'
 $credentialId = (Invoke-SwisVerb $swis Orion.SRM.StorageArrays AddSmisCredentials @(
     'Lab SMI-S',            # displayName
     'srm-readonly',         # userName
-    $plainTextPassword,     # password
+    $password,              # password
     'root/interop',         # interopNamespace
     'root/emc',             # arrayNamespace
     5988,                   # httpPort
@@ -545,9 +549,17 @@ This changes how a production array is polled, so read the row before you act on
 expect a gap in collection while it runs.
 
 The extracted schema records **no required right** on any of these seven verbs, and none of
-the SRM entities declares access control. That is not the same as "anyone may call them", it
-means the rendered schema page did not carry the information. Verify with a low-privilege
-account, or ask your own server:
+SRM's nine monitored object entities declares access control at all. That is not the same as
+"anyone may call them", it means the rendered schema page did not carry the information.
+Verify with a low-privilege account before assuming either way.
+
+The nine custom property entities are the exception, and they do declare rights: `read` for
+`everyone`, `read` and `update` for `manageNodes`, and `read`, `update` and `invoke` for
+`admin`. So creating an SRM custom property needs `admin`, while setting its value on an
+object needs only `manageNodes`.
+
+Whatever your version does about rights, the argument list is something you can always read
+back from the server, and it is the part that breaks silently after an upgrade:
 
 ```sql
 SELECT EntityName, VerbName, Position, Name, Type, IsOptional
@@ -642,13 +654,19 @@ SELECT TOP 25
     l.IOLatencyWrite,
     l.IOPSTotal,
     l.QueueLength,
-    l.IOLatencyTotalThreshold.Level1Value AS WarningMs,
-    l.IOLatencyTotalThreshold.Level2Value AS CriticalMs
+    l.IOLatencyTotalThreshold.Level1Value AS WarningLevel,
+    l.IOLatencyTotalThreshold.Level2Value AS CriticalLevel
 FROM Orion.SRM.LUNs l
 WHERE l.UnManaged = FALSE
   AND l.IOLatencyTotal IS NOT NULL
 ORDER BY l.IOLatencyTotal DESC
 ```
+
+Two naming details in that query are worth pointing out. `l.Pools` is plural even though a
+LUN sits in one pool, because the navigation is named after the relationship rather than the
+cardinality, and there is no singular `l.Pool`. And the threshold levels are unitless numbers
+in the schema, so they are aliased here as levels rather than milliseconds; confirm the unit
+in the web console before putting one in a report heading.
 
 ### Which hosts are using this LUN
 

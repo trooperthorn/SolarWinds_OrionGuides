@@ -66,6 +66,17 @@ jobs:
             exit 1
           fi
 
+      # A page that ships with a TODO in it is a page nobody finished. The generated
+      # reference is excluded because entity summaries can legitimately contain the word.
+      - name: Check for unfinished markers
+        run: |
+          if grep -rniE '\b(TODO|FIXME|TBD|XXX)\b' docs scripts *.md \
+               --exclude-dir=reference; then
+            echo "::error::unfinished marker found; finish the section or remove the marker"
+            exit 1
+          fi
+          echo "no unfinished markers"
+
       - name: Check scripts parse
         run: |
           python3 -m compileall -q tools scripts/python
