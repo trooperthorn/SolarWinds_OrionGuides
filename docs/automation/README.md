@@ -201,9 +201,15 @@ generated change reports flag exactly this:
 
 Two related details that bite:
 
-- **`netObjectId` wants a NetObject string, not an id.** Node 42 is `N:42`, interface 58 is
-  `I:58`, volume 9 is `V:9`. The prefix table is
-  [../reference/netobject-types.md](../reference/netobject-types.md).
+- **`netObjectId` usually wants a NetObject string, but read the declared type.** Node 42
+  is `N:42`, interface 58 is `I:58`, volume 9 is `V:9`, and the prefix table is
+  [../reference/netobject-types.md](../reference/netobject-types.md). The name is not the
+  contract, though: of the 21 verbs taking a `netObjectId`, 12 declare it `string` and want
+  that form, while nine declare it `number` and want the bare integer key. The nine are
+  `GetSupportedMetrics`, `StartRealTimePolling` and `StopRealTimePolling` on each of
+  `Orion.Nodes`, `Orion.NPM.Interfaces` and `Orion.Volumes`, so the same entity can take
+  both forms depending on the verb. Check with
+  `python3 tools/schema_query.py verb <Entity> <Verb>`.
 - **Times are handled in UTC.** Convert explicitly rather than relying on the caller's
   locale. See [../swql/date-and-time.md](../swql/date-and-time.md).
 

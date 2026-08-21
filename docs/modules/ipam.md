@@ -77,11 +77,15 @@ pages as the explanation of what each verb means**. When the two disagree, ask y
 server:
 
 ```sql
-SELECT VerbName
+SELECT Name
 FROM Metadata.Verb
-WHERE EntityName = 'IPAM.SubnetManagement'
-ORDER BY VerbName
+WHERE Entity.FullName = 'IPAM.SubnetManagement'
+ORDER BY Name
 ```
+
+`Metadata.Verb` names the verb in `Name` and reaches its owner through the `Entity`
+navigation. It has no flat `EntityName` or `VerbName` column. `Metadata.VerbArgument` does
+carry both, which is the asymmetry to remember when moving between the two.
 
 See [../swis/metadata-introspection.md](../swis/metadata-introspection.md) for the rest of
 that pattern.
@@ -118,8 +122,10 @@ and the five counters (`TotalCount`, `UsedCount`, `AvailableCount`, `ReservedCou
 `ServerType`, `PrimaryServer`, `SecondaryServer`, `FailoverServerType` and the failover
 state columns. Selecting a DHCP column from a subnet row is legal and returns null.
 
-`IPAM.GroupNode` declares ten navigation properties, which is how you get from a tree node
-to whatever it actually is:
+`IPAM.GroupNode` declares eleven navigation properties, which is how you get from a tree node
+to whatever it actually is. `Parent` and `Children` are the two ends of one self-relationship,
+`IPAM.GroupNodeHostsGroupNode`, which is why the table below has ten rows for eleven
+navigations:
 
 | From `IPAM.GroupNode` | Leads to |
 |---|---|

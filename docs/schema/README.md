@@ -128,7 +128,9 @@ entities answer that authoritatively: see
 
 [tools/schema_query.py](../../tools/schema_query.py) reads the extract, needs no network and
 no server, and answers the questions people actually have. Run it from the repository root.
-Add `--json` to any subcommand for machine-readable output.
+Every subcommand can emit machine-readable output with `--json`, but it is a global option
+and goes **before** the subcommand — `python3 tools/schema_query.py --json show Orion.Nodes`.
+Appending it after the subcommand's own arguments is an argparse error rather than JSON.
 
 ### Which entity holds this data?
 

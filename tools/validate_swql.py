@@ -231,6 +231,63 @@ def validate(query: str, schema: SchemaIndex) -> list[Finding]:
             Finding("WARN", f"{fname!r} is not in the SWQL function reference; verify it exists on your version", m.group(0))
         )
 
+    # 4. Unqualified column names, when there is exactly one source to resolve them against.
+    #
+    # A query with a single FROM and no joins can write its columns bare, and until this
+    # existed nothing checked them: "SELECT VerbName FROM Metadata.Verb WHERE EntityName =
+    # ..." named two columns that entity does not have and passed every check in this
+    # repository. More than one source makes a bare name genuinely ambiguous, so those are
+    # left alone rather than guessed at.
+    findings.extend(_check_bare_columns(clean, sources, aliases, schema))
+
+    return findings
+
+
+# Text that is not a column reference and must be removed before the bare names are read:
+# a bracket-quoted identifier, which may follow a qualifier that would otherwise be left
+# stranded; a bound parameter; a numeric literal.
+BRACKET_QUALIFIED_RE = re.compile(r"\b[A-Za-z_]\w*\s*\.\s*\[[^\]]*\]")
+BRACKET_RE = re.compile(r"\[[^\]]*\]")
+PARAM_RE = re.compile(r"@\w+")
+NUMBER_RE = re.compile(r"\b\d[\w.]*\b")
+AS_ALIAS_RE = re.compile(r"\bas\s+([A-Za-z_]\w*)", re.I)
+
+
+def _check_bare_columns(clean, sources, aliases, schema) -> list[Finding]:
+    if len(sources) != 1:
+        return []
+    entity = sources[0]
+    props, navs = schema.members(entity)
+
+    masked = clean
+    for m in SOURCE_RE.finditer(clean):
+        masked = masked.replace(m.group(0), " ")
+    masked = BRACKET_QUALIFIED_RE.sub(" ", masked)
+    masked = DOTTED_RE.sub(" ", masked)
+    masked = BRACKET_RE.sub(" ", masked)
+    masked = PARAM_RE.sub(" ", masked)
+    masked = NUMBER_RE.sub(" ", masked)
+
+    called = {m.group(1).lower() for m in FUNC_RE.finditer(masked)}
+    named = {m.group(1).lower() for m in AS_ALIAS_RE.finditer(masked)}
+
+    findings: list[Finding] = []
+    reported: set[str] = set()
+    for m in re.finditer(r"\b([A-Za-z_]\w*)\b", masked):
+        word = m.group(1)
+        key = word.lower()
+        if key in KEYWORDS or key in called or key in named or key in aliases:
+            continue
+        if key in schema.functions or key in props or key in navs:
+            continue
+        if key in reported:
+            continue
+        reported.add(key)
+        near = sorted((n for n in list(props) + list(navs) if key in n or n in key), key=len)[:3]
+        hint = f" Closest members: {', '.join(near)}." if near else ""
+        findings.append(
+            Finding("ERROR", f"{entity} has no member named {word!r}.{hint}", word)
+        )
     return findings
 
 
@@ -238,16 +295,43 @@ def validate(query: str, schema: SchemaIndex) -> list[Finding]:
 # Input collection
 # --------------------------------------------------------------------------------------
 
+GENERATED_MARKER = "GENERATED FILE"
 FENCE_RE = re.compile(r"```(?:sql|swql)\n(.*?)```", re.S | re.I)
+ANY_FENCE_RE = re.compile(r"```.*?```", re.S)
+# A whole statement written inline in a single-backtick code span, which is how the guides
+# write a one-liner rather than breaking the paragraph for a fenced block. These are just
+# as copyable as a fenced query and were not being checked, which is how a
+# `Metadata.Property` filter on a column that entity does not have survived review.
+INLINE_QUERY_RE = re.compile(r"`([^`\n]*\bSELECT\b[^`\n]*\bFROM\b[^`\n]*)`", re.I)
+DELIBERATELY_INVALID_RE = re.compile(
+    r"\bdeliberately invalid\b|\bintentionally invalid\b|\binvalid query\b|"
+    r"\bwill fail\b|\bfails with\b|\bdoes not work\b", re.I)
 
 
 def queries_from_markdown(path: str) -> list[tuple[str, str]]:
-    text = open(path, encoding="utf-8", errors="replace").read()
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        text = fh.read()
     out = []
     for i, block in enumerate(FENCE_RE.findall(text), 1):
         block = block.strip()
         if re.search(r"\bselect\b", block, re.I):
             out.append((f"{path}#sql-block-{i}", block))
+    # Generated tables lift example queries from their sources and truncate them to fit a
+    # column, so "FROM Orion.Cont" is a rendering artefact rather than a broken query.
+    # Authored pages are where an inline statement is a claim someone can copy.
+    if GENERATED_MARKER not in text[:400]:
+        # Blank the fenced blocks first so a line inside one is not counted twice.
+        outside = ANY_FENCE_RE.sub("", text)
+        i = 0
+        for m in INLINE_QUERY_RE.finditer(outside):
+            i += 1
+            # A query shown in order to demonstrate a failure is not a claim that it works.
+            # The pages say so in the sentence introducing it, which is the right place for
+            # a reader as well as the only place a one-line inline query can carry it.
+            lead = " ".join(outside[max(0, m.start() - 200):m.start()].split())
+            if DELIBERATELY_INVALID_RE.search(lead):
+                continue
+            out.append((f"{path}#inline-{i}", m.group(1).strip()))
     return out
 
 

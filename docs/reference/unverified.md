@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**127 statements across 41 pages.**
+**128 statements across 41 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -274,7 +274,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Gotchas](../modules/ncm.md#gotchas)**
 
-- Whether `ClearTransfers` is present but undocumented on a given server is **unverified here**; check with `SELECT VerbName FROM Metadata.Verb WHERE EntityName = 'Cirrus.ConfigArchive' ORDER BY VerbName`.
+- Whether `ClearTransfers` is present but undocumented on a given server is **unverified here**; check with `SELECT Name FROM Metadata.Verb WHERE Entity.FullName = 'Cirrus.ConfigArchive' ORDER BY Name`.
 
 ## [npm.md](../modules/npm.md)
 
@@ -423,7 +423,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[How they connect](../swis/metadata-introspection.md#how-they-connect)**
 
-- A query of the form `SELECT Name FROM Metadata.Property WHERE EntityName='Metadata.Entity' AND Name IN (...)` is reported to ship in SWQL Studio's own source; that provenance is **unverified** here, because this repository holds no copy of it.
+- A query of the form `SELECT Name FROM Metadata.Property WHERE Entity.FullName='Metadata.Entity' AND Name IN (...)` is reported to ship in SWQL Studio's own source; that provenance is **unverified** here, because this repository holds no copy of it.
 
 ## [uris.md](../swis/uris.md)
 
@@ -463,6 +463,9 @@ Read this before relying on this repository for something load-bearing. If you h
 **[8.4 `Orion.Nodes.Flows` is declared twice](../swql/gotchas.md#84-orionnodesflows-is-declared-twice)**
 
 - **Unverified:** treat `n.Flows` as ambiguous and write the target entity out in an explicit join instead.
+**[10. String comparison, collation and case](../swql/gotchas.md#10-string-comparison-collation-and-case)**
+
+- T-SQL's `LIKE` also accepts `[abc]` character classes and SWQL compiles to T-SQL, so those may pass through, but nothing in the SWQL documentation says so and it is **unverified** here: test `WHERE n.Caption LIKE 'core-sw-0[12]'` in SWQL Studio before relying on it. - **Compare Uris with `UriEquals`, not `=`.** The documented description is "Returns true if SWIS Uri `a` refers to the same entit...
 
 ## [language-reference.md](../swql/language-reference.md)
 

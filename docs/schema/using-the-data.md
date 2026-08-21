@@ -209,10 +209,12 @@ jq '.[] | select(.entity=="Orion.Volumes" and .name=="Unmanage")' data/schema/20
 
 **The order of the `parameters` array is the contract.** Invoke arguments travel positionally
 and the names never appear on the wire, so a generated client that reorders them still
-type-checks and still sends the wrong values into the wrong slots. Two optional fields show
-up on some records: `summaryRaw` preserves the original run-on prose from the HTML page when
-the Swagger description replaced it, and `sourceOnly: "swagger"` marks a verb that exists in
-the contract but has no section on the rendered page.
+type-checks and still sends the wrong values into the wrong slots. One optional field
+actually shows up in this build: `summaryRaw`, on 245 of the 958 records, preserving the
+original run-on prose from the HTML page where the Swagger description replaced it. The
+builder can also emit `sourceOnly: "swagger"` to mark a verb that exists in the contract but
+has no section on the rendered page — in 2026.2 no verb carries it, every one of the 958
+having been found on a rendered page, so do not write a consumer that expects the field.
 
 ### relationships.json
 
@@ -353,9 +355,14 @@ Cortex.Orion.NetMan.Firewalls.Firewall	5 verbs
 
 ### Every verb taking a parameter of a given name
 
-This is how you find the whole family of verbs that share a calling convention. Everything
-that takes a `netObjectId` wants a NetObject string such as `N:42`, not a bare id, so this
-list is also the list of calls where the prefix matters:
+This is how you find the whole family of verbs that share a calling convention. The shared
+name does not mean a shared format, though, and this is the trap: of the 21 verbs taking a
+`netObjectId`, 12 declare it `string` and want a NetObject string such as `N:42`, while nine
+declare it `number` and want the bare integer key. The nine are `GetSupportedMetrics`,
+`StartRealTimePolling` and `StopRealTimePolling` on each of `Orion.Nodes`,
+`Orion.NPM.Interfaces` and `Orion.Volumes`; `Orion.Nodes.StartRealTimePolling` even documents
+its first argument as "NodeID of target Node". Read the declared type before you build the
+argument:
 
 ```bash
 jq -r '.[] | select(any(.parameters[]?; .name=="netObjectId")) | "\(.entity).\(.name)"' data/schema/2026.2/verbs.json
@@ -374,7 +381,8 @@ Orion.Nodes.PollStatusNow
 Orion.Nodes.RediscoverNow
 ```
 
-Ten of 21. Prefixes are in
+Ten of 21. Add `select(any(.parameters[]?; .name=="netObjectId" and .type=="string"))` to
+narrow it to the twelve that really do want a prefix. Prefixes are in
 [netobject-types.json](../../data/reference/netobject-types.json) and
 [netobject-types.md](../reference/netobject-types.md).
 
@@ -468,7 +476,7 @@ python3 tools/build_schema_data.py --source .orionsdk --version 2026.2
 | --- | --- | --- |
 | `--source` | required | A checkout of the OrionSDK `gh-pages` branch |
 | `--version` | `2026.2` | The version directory inside that checkout to build |
-| `--out` | `data` | Output root |
+| `--out` | `data/schema` | Output root. The version directory is created inside it, so the default writes `data/schema/2026.2/` |
 
 It reads two artifacts from `<source>/<version>/` and joins them, because **neither is
 sufficient alone**:
@@ -509,16 +517,17 @@ python3 tools/build_reference_data.py \
 
 | Argument | Meaning |
 | --- | --- |
-| `--functions-md` | `docs/swql-functions/index.md` from the gh-pages checkout, the authoritative signature list |
-| `--workbook` | The community workbook, which supplies worked examples, status codes and NetObject prefixes |
-| `--schema-index` | Optional. The entity index for the version being documented. Supplying it is what lets the build mark workbook rows whose entity no longer exists |
+| `--functions-md` | Required. `docs/swql-functions/index.md` from the gh-pages checkout, the authoritative signature list |
+| `--workbook` | Required. The community workbook, which supplies worked examples, status codes and NetObject prefixes |
+| `--schema-index` | Optional, default `data/schema/2026.2/index.json`. The entity index for the version being documented, which is what lets the build mark workbook rows whose entity no longer exists |
 | `--out` | Output root, default `data/reference` |
 
 The two inputs disagree in places, and the design decision worth knowing is that the merge
 does not silently pick a winner. It records both and writes `reconciliation.json`, so a
-discrepancy stays visible and can be checked against a live server. Without `--schema-index`
-you still get the reference files, but the `unknown-entity` findings and the
-`inCurrentSchema` flags will not be there.
+discrepancy stays visible and can be checked against a live server. Point `--schema-index` at
+a file that is not there — which is what happens if you build reference data for a version
+whose schema you have not extracted yet — and you still get the reference files, but the
+`unknown-entity` findings and the `inCurrentSchema` flags will not be there.
 
 ### schema_query.py
 
@@ -538,7 +547,9 @@ The read side. Eight subcommands, all offline, all reading `data/schema/<version
 Two global options apply to all of them. `--json` emits machine-readable output instead of
 text, which is what you want when scripting against it. `--version` selects which extracted
 schema to read, so once you have built a second version you can compare them without
-touching the tools.
+touching the tools. Both belong to the top-level parser, so they go before the subcommand
+name — `schema_query.py --json show Orion.Nodes`, not `schema_query.py show Orion.Nodes
+--json`, which argparse rejects as an unrecognized argument.
 
 The tool knows two things the raw JSON does not, and both are why it is usually the right
 starting point:

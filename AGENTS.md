@@ -202,8 +202,13 @@ to check their own server over guessing on their behalf.
 ## Writing automations
 
 - Verify the verb signature first: `python3 tools/schema_query.py verb <Entity> <Verb>`.
-- `netObjectId` arguments want a NetObject string, not a bare id. Node 42 is `N:42`.
-  Prefixes are in `data/reference/netobject-types.json`.
+- **A `netObjectId` argument does not always want a NetObject string.** Read its declared
+  type. Of the 21 verbs taking one in 2026.2, 12 declare it `string` and want `N:42`;
+  nine declare it `number` and want the bare integer key. The nine are
+  `GetSupportedMetrics`, `StartRealTimePolling` and `StopRealTimePolling` on each of
+  `Orion.Nodes`, `Orion.NPM.Interfaces` and `Orion.Volumes`. The shared argument name is
+  not a shared format, and this is the kind of thing you will otherwise get wrong from
+  memory. Prefixes for the string form are in `data/reference/netobject-types.json`.
 - Verbs declare the right they require (`manageNodes`, `allowUnmanage`,
   `allowRealTimePolling`). A permission error is usually a missing right, not a bug.
 - Account limitations silently filter query results. Two accounts running the same
@@ -219,8 +224,10 @@ guessing around them:
 
 - `Orion.APM.Application.Unmanage` names its first parameter `netObjetId`, missing the
   `c`. Positional callers are unaffected; generated clients are not.
-- Some verbs exist in the Swagger contract but not in the rendered schema pages. Records
-  carrying `"sourceOnly": "swagger"` came from the contract alone.
+- The extractor can mark a verb that exists in the Swagger contract but has no section on
+  the rendered schema page, by emitting `"sourceOnly": "swagger"` on the record. **In
+  2026.2 no verb carries it**, all 958 having been found on a rendered page, so do not
+  write a consumer that expects the field to be present.
 - `SplitStringToArray` is documented as splitting on commas, but the community workbook
   shows a different delimiter. Verify on your version before relying on it.
 

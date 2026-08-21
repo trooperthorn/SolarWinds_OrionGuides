@@ -188,8 +188,8 @@ checks eight things:
 
 | Check | Catches |
 | --- | --- |
-| `test_tools.py` | Regressions in the tools' own judgement, across 114 tests |
-| `validate_swql.py` | A query naming an entity, property or navigation that does not exist |
+| `test_tools.py` | Regressions in the tools' own judgement, across 136 tests |
+| `validate_swql.py` | A query naming an entity, property, column or navigation that does not exist |
 | `check_data.py` | Extraction that degraded quietly, and reference pages that fell behind |
 | `check_entity_references.py` | An invented entity, member, NetObject prefix or right, or a wrong property type |
 | `check_counts.py` | A number in a sentence that the extracted data contradicts |

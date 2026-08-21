@@ -16,8 +16,10 @@ missing licence rather than a typo.
 ## Namespace and size
 
 Everything SAM contributes lives under `Orion.APM.`, which holds **140 entities** in the
-2026.2 schema. That is the largest single module namespace tied to one product. Thirty-nine
-verbs are declared across eleven of those entities.
+2026.2 schema. That ties with VNQM's `Orion.IpSla.` for the largest namespace belonging to a
+single licensed module; only the cloud family (`Orion.Cloud.`, 148 entities) is larger, and
+that one is a platform capability rather than a product you buy. Thirty-nine verbs are
+declared across eleven of those entities.
 
 ```bash
 python3 tools/schema_query.py find Orion.APM --properties
@@ -144,7 +146,7 @@ constantly:
 | `ApplicationTemplateID` | `System.Int32` | The template it came from |
 | `Status` | `System.Int32` | Join `Orion.StatusInfo` to read it |
 | `StatusDescription` | `System.String` | Already-rendered status text |
-| `UnManaged`, `UnManageFrom`, `UnManageUntil` | | Inherited from `System.ManagedEntity` |
+| `UnManaged`, `UnManageFrom`, `UnManageUntil` | | The maintenance-window trio, declared on this entity rather than inherited |
 | `HasCredentials` | `System.Boolean` | Whether a credential set is attached |
 | `CustomApplicationType` | `System.String` | Set for AppInsight applications, empty for template-based ones |
 | `Created`, `LastModified` | `System.DateTime` | |

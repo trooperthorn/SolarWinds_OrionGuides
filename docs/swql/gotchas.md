@@ -189,8 +189,8 @@ ORDER BY i.Caption
 
 `Orion.StatusInfo.Ranking` orders statuses for rollup, and **a lower rank is worse**. Down is
 110, Warning is 220, Up is 500, Unknown is 495. Sorting `ORDER BY s.Ranking DESC` to get "worst
-first" puts Dormant (560) and Expired (580) at the top and Down near the bottom. Sort
-ascending.
+first" puts Other Category (1000), Expired (580), Inactive (570) and Dormant (560) at the top
+and Down, the lowest rank of all at 110, dead last. Sort ascending.
 
 ### 2.5 Unmanaged and External are statuses, so "not Up" is not "broken"
 
@@ -271,8 +271,9 @@ Two things you can rely on without running anything:
 Related properties worth knowing before you write a status filter: `ChildStatus`
 (`System.Int32`), `CustomStatus` (`System.Boolean`), `GroupStatus` (`System.String`, so it is
 not a status integer at all), `Severity` and `UiSeverity` (`System.Int32`), and
-`StatusDescription` (`System.String`, inherited from `System.ManagedEntity`, documented as
-"Textual information about the status of this entity").
+`StatusDescription` (`System.String`). `Orion.Nodes` redeclares `StatusDescription` with no
+summary of its own; the base declaration on `System.ManagedEntity` is the one that carries the
+documentation, "Textual information about the status of this entity".
 
 ## 4. UTC, DATEADD and the timestamp that quietly shifts
 
@@ -326,8 +327,9 @@ FROM Orion.Nodes n
 ORDER BY n.Caption
 ```
 
-The documented SWQL function library has 63 entries and **`Coalesce` and `NullIf` are not among
-them**. If you need three-way fallback, nest `IsNull` or use `CASE`. Full list:
+The SWQL function library indexed in this repository has 63 entries, 62 of them in SolarWinds'
+official reference, and **`Coalesce` and `NullIf` are not among them**. If you need three-way
+fallback, nest `IsNull` or use `CASE`. Full list:
 [../reference/swql-function-index.md](../reference/swql-function-index.md).
 
 ### 5.3 NULL propagates through arithmetic and concatenation
@@ -483,7 +485,7 @@ archived", for example on `Orion.APM.ComponentStatus`. Look at the distinct valu
 server before you either filter on it or ignore it:
 
 ```sql
-SELECT c.Archive, COUNT(c.NodeID) AS Rows
+SELECT c.Archive, COUNT(c.NodeID) AS Samples
 FROM Orion.CPULoad c
 WHERE c.DateTime >= @start
 GROUP BY c.Archive
@@ -504,10 +506,13 @@ Both exist. Both have a key property called `VolumeID`. Neither is a superset of
 | What it is | A logical disk on a monitored node | A volume on a monitored storage array |
 | NetObject prefix | `V` | `SMV` |
 | Key property | `VolumeID` | `VolumeID` |
-| Parent | the node (`NodeID` column) | `Orion.SRM.Pools` (`StorageArrayID` column) |
+| Parent | the node (`NodeID` column) | the storage array (`StorageArrayID` column) |
 | Size column | `VolumeSize` (`System.Double`) | `CapacityTotal` (`System.Int64`) |
 | Used-percent column | `VolumePercentUsed` (`System.Single`) | `CapacityUsedPercentage` (`System.Single`) |
 | Properties | 53 | 54 |
+
+`Orion.SRM.Volumes` also carries `Pools` and `RelyPools` navigations to `Orion.SRM.Pools`, but
+no `PoolID` column of its own, so `StorageArrayID` is the only parent key on the entity itself.
 
 These are two different entities with two different NetObject prefixes, so there is no reason to
 expect `VolumeID` 412 in one to have anything to do with `VolumeID` 412 in the other. A capacity
@@ -571,9 +576,12 @@ reliance.
 both to `Orion.Netflow.Flows` and to `Orion.Netflow.FlowsByApplication`, both as
 `System.Reference`. Which one `n.Flows.Bytes` resolves to is not something the extracted schema
 records, and it is not documented. **Unverified:** treat `n.Flows` as ambiguous and write the
-target entity out in an explicit join instead. To confirm the behaviour on your own server, run
-a query selecting a property that exists on only one of the two (for example `ApplicationID`,
-which is on `Orion.Netflow.FlowsByApplication`) and see whether it resolves.
+target entity out in an explicit join instead. To confirm the behaviour on your own server you
+need a property that exists on only one of the two, and the discriminator only runs one way:
+`Orion.Netflow.FlowsByApplication` has no property that `Orion.Netflow.Flows` lacks, so pick one
+of the 22 that only `Orion.Netflow.Flows` declares. `SELECT TOP 1 n.Flows.SourceIP FROM
+Orion.Nodes n` resolving means `Flows` bound to `Orion.Netflow.Flows`; failing to resolve means
+it bound to `Orion.Netflow.FlowsByApplication`.
 
 Check for this pattern on any entity before you dot-walk it:
 
@@ -652,9 +660,11 @@ key; see [performance.md](performance.md#3-filter-on-keys-not-on-captions).
 
 Two more string-shaped traps:
 
-- **`LIKE` has no regular expressions.** `%` matches any run of characters, `_` matches exactly
-  one, and that is the entire pattern language. There is no `*`, no `?`, no character class and
-  no alternation.
+- **`LIKE` has no regular expressions.** `%` matches any run of characters and `_` matches
+  exactly one. There is no `*`, no `?` and no alternation. T-SQL's `LIKE` also accepts `[abc]`
+  character classes and SWQL compiles to T-SQL, so those may pass through, but nothing in the
+  SWQL documentation says so and it is **unverified** here: test `WHERE n.Caption LIKE
+  'core-sw-0[12]'` in SWQL Studio before relying on it.
 - **Compare Uris with `UriEquals`, not `=`.** The documented description is "Returns true if
   SWIS Uri `a` refers to the same entity instance as SWIS Uri `b`", which is a different
   question from whether two strings match character by character. A string `=` on two Uris can
@@ -744,9 +754,11 @@ missing entity fails outright rather than returning zero rows, which is at least
 problem is the reverse case: documentation, blog posts and community query libraries that still
 name the old entity.
 
-`data/reference/reconciliation.json` in this repository records every name in the community
-reference workbook that could not be resolved against the published schema, with the closest
-matching real entity:
+`data/reference/reconciliation.json` in this repository records every entity name in the
+community reference workbook that could not be resolved against the published schema, with the
+closest matching real entity. Fourteen records in all: twelve entity names, plus two
+function-level discrepancies covered in
+[functions.md](functions.md#reconciliation-where-the-sources-disagree). The entity names are:
 
 | Name you will see quoted | Real entity in 2026.2 | Note |
 |:---|:---|:---|
@@ -756,6 +768,7 @@ matching real entity:
 | `Orion.NPM.UCSFabrics` | `Orion.UCS.Fabrics` | moved namespace |
 | `Orion.NPM.UCSFans`, `Orion.NPM.UCSManagers`, `Orion.NPM.UCSPSUs` | no direct successor | see `Orion.UCS.FansOnChassis`, `Orion.UCS.FansOnFabrics`, `Orion.UCS.PSUsOnChassis` |
 | `Orion.F5.Device` | `Orion.F5.System.Device` | moved namespace |
+| `Orion.F5.Nodes` | no direct successor | the workbook name resolves to nothing in 2026.2 |
 | `Orion.F5.Pools` | `Orion.F5.GTM.Pool`, `Orion.F5.LTM.Pool` | split by module |
 | `Orion.F5.VirtualServers` | `Orion.F5.GTM.VirtualServer`, `Orion.F5.LTM.VirtualServer`, `Orion.F5.Map.VirtualServer` | split by module |
 | `Orion.SRM.FIleServerIdentification` | `Orion.SRM.FileServerIdentification` | capitalisation only |
@@ -780,13 +793,14 @@ python3 tools/schema_query.py find LUN
   Orion.SRM.LunsToVIMLuns                                 4p   0v  Defines mapping between SRM LUNs and VIM LUNs
 ```
 
-**When did these change?** Not recently. Every published schema version from 2023.1 to 2026.2
-(2023.1, 2023.2, 2023.3, 2023.4, 2024.1, 2024.2, 2024.4, 2024.4.1, 2025.1, 2025.1.1, 2025.2,
-2025.2.1, 2025.4, 2026.1, 2026.2, fifteen releases) already uses `Orion.VIM.Luns`,
-`Orion.UCS.*` and `Orion.F5.System.Device`, and none of them contains `Orion.VIM.LUNs`, any
-`Orion.NPM.UCS*` entity, or `Orion.F5.Device`. The renames therefore predate 2023.1, which means
-any source still quoting the old names has been stale for years. You can confirm this yourself
-with the URL pattern in check 2 below, substituting each version.
+**When did these change?** Not recently. The SDK publishes fifteen versions (2023.1, 2023.2,
+2023.3, 2023.4, 2024.1, 2024.2, 2024.4, 2024.4.1, 2025.1, 2025.1.1, 2025.2, 2025.2.1, 2025.4,
+2026.1, 2026.2), and **2023.1, the oldest of them, already uses `Orion.VIM.Luns`, `Orion.UCS.*`
+and `Orion.F5.System.Device`**, with no `Orion.VIM.LUNs`, no `Orion.NPM.UCS*` entity and no
+`Orion.F5.Device` anywhere in it. The renames therefore predate the entire published range,
+which means any source still quoting the old names has been stale for years. The intermediate
+thirteen versions have not been checked one by one here; if you need to pin down a specific one,
+use the URL pattern in check 2 below.
 
 ### How to check whether an entity exists on the version you are targeting
 
@@ -844,7 +858,21 @@ echo "SELECT LUNID FROM Orion.VIM.LUNs" | python3 tools/validate_swql.py -
 ```
 
 ```text
-ERROR: unknown entity 'Orion.VIM.LUNs'. Did you mean: Orion.VIM.Luns?
+<stdin>
+  WARN: entity 'Orion.VIM.LUNs' differs in case from schema name 'Orion.VIM.Luns'
+      in: FROM Orion.VIM.LUNs
+
+1 query/queries checked, 0 error(s), 1 warning(s)
+```
+
+A name that is wrong by more than its capitalisation is an error rather than a warning:
+
+```text
+<stdin>
+  ERROR: unknown entity 'Orion.NotAnEntity'.
+      in: FROM Orion.NotAnEntity
+
+1 query/queries checked, 1 error(s), 0 warning(s)
 ```
 
 ## 14. Types change between versions too

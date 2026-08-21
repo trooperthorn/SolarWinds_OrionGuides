@@ -243,6 +243,78 @@ def main() -> None:
         if quoted:
             c.note(f"{quoted} sample-query count(s) quoted in the docs all match the {real} on disk")
 
+    # The netObjectId split. Three pages now tell a reader that the argument name is not the
+    # contract, because 9 of the 21 verbs taking one declare it as a number and want a bare
+    # id rather than "N:42". That is the sort of correction that gets undone by a rebuild
+    # for another version, and a page still saying "nine" afterwards is worse than one that
+    # never mentioned it.
+    netobj = [
+        (v["entity"], v["name"], p.get("type"))
+        for v in verbs
+        for p in (v.get("parameters") or [])
+        if p.get("name", "").lower() == "netobjectid"
+    ]
+    if netobj:
+        strings = sum(1 for _, _, t in netobj if t == "string")
+        numbers = sum(1 for _, _, t in netobj if t == "number")
+        words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+                 "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12}
+        for _t, _tv in {"twenty": 20, "thirty": 30}.items():
+            words[_t] = _tv
+            for _u, _uv in list(words.items())[:9]:
+                words[f"{_t}-{_u}"] = _tv + _uv
+        number = r"(?:\d{1,3}|" + "|".join(sorted(words, key=len, reverse=True)) + r")"
+
+        def value(token):
+            return int(token) if token.isdigit() else words[token.lower()]
+
+        total_claim = re.compile(rf"(?<![\w-])({number})\s+verbs?\s+taking\b", re.I)
+        typed_claim = re.compile(
+            rf"(?<![\w-])({number})\s+declare\s+it\s+(?:as\s+)?(?:a\s+)?\**`?(string|number)`?", re.I)
+        # Only read these near a mention, so an unrelated sentence elsewhere on the page
+        # cannot be scored against the netObjectId figures.
+        window = re.compile(r"netObjectId.{0,400}", re.I | re.S)
+
+        checked = 0
+        for rel in ["AGENTS.md", os.path.join("docs", "automation", "README.md"),
+                    os.path.join("docs", "swis", "verb-catalog.md")]:
+            path = os.path.join(ROOT, rel)
+            if not os.path.isfile(path):
+                continue
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                text = " ".join(fh.read().split())
+            for w in window.findall(text):
+                for m in total_claim.finditer(w):
+                    checked += 1
+                    c.require(
+                        value(m.group(1)) == len(netobj),
+                        f"{rel} says {m.group(1)} verbs take netObjectId; "
+                        f"the schema has {len(netobj)}",
+                    )
+                for m in typed_claim.finditer(w):
+                    checked += 1
+                    want = strings if m.group(2).lower() == "string" else numbers
+                    c.require(
+                        value(m.group(1)) == want,
+                        f"{rel} says {m.group(1)} declare netObjectId as {m.group(2)}; "
+                        f"the schema has {want}",
+                    )
+        c.note(f"netObjectId is declared string on {strings} verb(s) and number on "
+               f"{numbers}; {checked} claim(s) in the guides agree")
+
+    # A verb the extractor found only in the Swagger contract carries sourceOnly. The guides
+    # state that none do in this version, so if a rebuild produces one, that statement has
+    # to be revisited rather than left standing.
+    source_only = [v for v in verbs if v.get("sourceOnly")]
+    agents = os.path.join(ROOT, "AGENTS.md")
+    if os.path.isfile(agents):
+        with open(agents, encoding="utf-8", errors="replace") as fh:
+            claims_none = "no verb carries it" in " ".join(fh.read().split())
+        c.require(
+            not (claims_none and source_only),
+            f"AGENTS.md says no verb carries sourceOnly, but {len(source_only)} do",
+        )
+
     # PowerShell cmdlet names. The SwisPowerShell module exports seven, and an invented
     # eighth reads exactly like the real ones. Sample scripts in this repository follow the
     # same Verb-Noun convention, so their own names are allowed by filename.

@@ -40,8 +40,10 @@ property list is the authority.
 Of the 2067 entities in 2026.2, **2043 have `System.Entity` somewhere in their inheritance
 chain**. The remaining 24 are `System.Entity` itself and 23 entities in the `Cortex`
 namespace: `Cortex.System.ElementInstance`, the 21 entities that descend from it, and
-`Cortex.Orion.NetMan.CloudMonitoring.VirtualNetworkGateway.Metrics`. The published pages for
-those last two record no base type at all, which makes them look like additional roots.
+`Cortex.Orion.NetMan.CloudMonitoring.VirtualNetworkGateway.Metrics`. Two of those 23 record
+no base type at all on their published pages — `Cortex.System.ElementInstance` and
+`Cortex.Orion.NetMan.CloudMonitoring.VirtualNetworkGateway.Metrics` — which makes them look
+like additional roots alongside `System.Entity`.
 
 The official documentation says "each entity type has a parent entity type except the root
 type, `System.Entity`", so the likelier explanation is that those two pages do not render an
@@ -450,9 +452,15 @@ Orion.Volumes.Unmanage
 ```
 
 Note that alert suppression sits under the same right as unmanaging, which is a sensible
-grouping and not an obvious one. Note also that `Orion.APM.Application` has an
-`allowUnmanage` entry for `invoke` in its entity access control table, so the set of things
-this right touches is slightly wider than the verb list alone suggests.
+grouping and not an obvious one. Note also that the six entities naming `allowUnmanage` in
+their own access control table are not the entities those ten verbs sit on.
+`Orion.APM.Application` grants `invoke` for it. The other five —
+`Orion.Frequencies`, `Orion.MaintenancePlan`, `Orion.MaintenancePlanAssignment`,
+`Orion.ScheduleEntityAssignment` and `Orion.ScheduleTaskDefinition`, the scheduling records
+behind a maintenance window — grant create, read, update and delete, and
+`Orion.ScheduleEntityAssignment` grants `invoke` as well. So the right covers writing the
+schedule as much as invoking the verbs, and the set of things it touches is wider than the
+verb list alone suggests.
 
 **`allowRealTimePolling`** gates on-demand polling, which is expensive and can be triggered
 in a loop, so it is separated out. It appears on `Orion.Nodes`, `Orion.NPM.Interfaces` and

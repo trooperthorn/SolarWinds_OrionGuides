@@ -141,6 +141,43 @@ class TestValidator(unittest.TestCase):
         query = "-- n.Bogus is not real\nSELECT n.Caption FROM Orion.Nodes n"
         self.assertEqual(self.errors(query), [])
 
+    def test_unqualified_column_is_checked_against_a_single_source(self):
+        # This exact query shipped in two module pages. Metadata.Verb names the verb in
+        # Name and reaches its owner through the Entity navigation; it has neither of the
+        # flat columns written here, and nothing caught it.
+        errs = self.errors(
+            "SELECT VerbName FROM Metadata.Verb WHERE EntityName = 'IPAM.SubnetManagement'")
+        self.assertEqual(len(errs), 2)
+        self.assertTrue(any("VerbName" in e.message for e in errs))
+        self.assertTrue(any("EntityName" in e.message for e in errs))
+
+    def test_the_corrected_form_passes(self):
+        self.assertEqual(
+            self.errors("SELECT Name FROM Metadata.Verb WHERE Entity.FullName = 'X'"), [])
+
+    def test_verbargument_really_does_have_the_flat_columns(self):
+        # The asymmetry that makes the mistake so easy: the sibling entity has them.
+        self.assertEqual(
+            self.errors("SELECT Position, Name FROM Metadata.VerbArgument "
+                        "WHERE EntityName = 'Orion.Nodes' AND VerbName = 'Unmanage'"), [])
+
+    def test_unqualified_columns_are_left_alone_when_sources_are_ambiguous(self):
+        # With more than one source a bare name genuinely could belong to either, so
+        # reporting it would be guessing.
+        query = ("SELECT Caption, Frobnicate FROM Orion.Nodes n "
+                 "JOIN Orion.NPM.Interfaces i ON n.NodeID = i.NodeID")
+        self.assertEqual(self.errors(query), [])
+
+    def test_bracket_quoted_identifiers_do_not_strand_their_qualifier(self):
+        query = ("SELECT t.LimitationTypeID, t.[Table] AS SourceTable "
+                 "FROM Orion.LimitationTypes t")
+        self.assertEqual(self.errors(query), [])
+
+    def test_bound_parameters_and_literals_are_not_columns(self):
+        query = ("SELECT TOP 5 Caption FROM Orion.Nodes "
+                 "WHERE NodeID IN @ids AND Status = 2")
+        self.assertEqual(self.errors(query), [])
+
 
 class TestEmbeddedExtraction(unittest.TestCase):
     """SWQL inside client scripts has to be found without swallowing surrounding prose."""
@@ -166,6 +203,36 @@ class TestEmbeddedExtraction(unittest.TestCase):
         text = '"""Run it like this:\n\n    query "SELECT Caption FROM Orion.Nodes"\n"""\n'
         found = self.extract(text, ".py")
         self.assertEqual(found, ["SELECT Caption FROM Orion.Nodes"])
+
+    def test_inline_backtick_query_is_extracted(self):
+        # A one-liner written inline rather than in a fenced block is just as copyable,
+        # and was not being checked at all.
+        text = "See `SELECT Caption FROM Orion.Nodes` for the shape.\n"
+        self.assertEqual(
+            [q for _, q in self.extract_md(text)], ["SELECT Caption FROM Orion.Nodes"])
+
+    def test_inline_query_inside_a_fenced_block_is_not_counted_twice(self):
+        text = "```sql\nSELECT Caption FROM Orion.Nodes\n```\n"
+        found = self.extract_md(text)
+        self.assertEqual(len(found), 1)
+        self.assertIn("sql-block", found[0][0])
+
+    def test_a_deliberately_invalid_example_is_skipped(self):
+        # Shown to demonstrate the error response, not as a working query.
+        text = ("confirm by sending a deliberately invalid query such as "
+                "`SELECT Nonsense FROM Orion.Nodes` and printing the body.\n")
+        self.assertEqual(self.extract_md(text), [])
+
+    def extract_md(self, text):
+        import tempfile
+
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
+            fh.write(text)
+            path = fh.name
+        try:
+            return validate_swql.queries_from_markdown(path)
+        finally:
+            os.unlink(path)
 
     def test_templated_query_is_skipped(self):
         # The query the script sends is not the text on the page, so checking it would be
@@ -486,6 +553,127 @@ class TestCountClaims(unittest.TestCase):
     def test_unknown_entity_is_ignored(self):
         # Inventing a name is check_entity_references.py's job, not this one's.
         self.assertEqual(self.claims("`Orion.Nope` declares 5 properties."), [])
+
+    def test_navigation_count_spans_both_relationship_lists(self):
+        # The schema splits relationships into source and target, and both are navigable
+        # from the declaring entity, so a navigation count is the two together.
+        declared, resolved = self.schema.member_counts("Orion.Nodes", "navigation properties")
+        record = self.schema.entities["Orion.Nodes"]
+        self.assertEqual(
+            declared,
+            len(record["sourceRelationships"]) + len(record["targetRelationships"]))
+        self.assertGreaterEqual(resolved, declared)
+
+    def test_wrong_navigation_count_is_caught(self):
+        self.assertEqual(
+            self.verdicts("`Orion.Nodes` declares 5 navigation properties."), [False])
+
+    def test_a_count_scoped_to_a_destination_is_skipped(self):
+        # "two navigation properties into NCM" is a true sentence about an entity with 161
+        # of them. The qualifier sits after the phrase the pattern matches, so the subset
+        # guard has to look past the match rather than only inside it.
+        sentence = "`Orion.Nodes` declares exactly two navigation properties into NCM:"
+        self.assertEqual(self.claims(sentence), [])
+
+    def test_an_ordinary_continuation_is_not_read_as_scoping(self):
+        # The scoping guard must not swallow a real total that simply continues.
+        self.assertEqual(
+            self.verdicts("`Orion.Nodes` declares 102 properties in the 2026.2 schema."),
+            [True])
+
+
+@requires_data
+class TestNetObjectIdContract(unittest.TestCase):
+    """The argument name `netObjectId` is not the argument's contract.
+
+    Twelve verbs declare it `string` and want `N:42`; nine declare it `number` and want the
+    bare key. The guides used to say the string form was universal, which is the kind of
+    plausible blanket rule that produces a call SWIS accepts and answers wrongly.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(DATA, "verbs.json"), encoding="utf-8") as fh:
+            verbs = json.load(fh)
+        cls.taking = [
+            (v["entity"], v["name"], p.get("type"))
+            for v in verbs
+            for p in (v.get("parameters") or [])
+            if p.get("name", "").lower() == "netobjectid"
+        ]
+
+    def test_both_declared_types_are_present(self):
+        kinds = {t for _, _, t in self.taking}
+        self.assertEqual(kinds, {"string", "number"})
+
+    def test_the_number_typed_verbs_are_the_real_time_polling_family(self):
+        # These are the ones a blanket "always send N:42" rule gets wrong.
+        numbers = {f"{e}.{v}" for e, v, t in self.taking if t == "number"}
+        expected = {
+            f"{entity}.{verb}"
+            for entity in ("Orion.Nodes", "Orion.NPM.Interfaces", "Orion.Volumes")
+            for verb in ("GetSupportedMetrics", "StartRealTimePolling", "StopRealTimePolling")
+        }
+        self.assertEqual(numbers, expected)
+
+    def test_unmanage_still_wants_the_string_form(self):
+        by_key = {f"{e}.{v}": t for e, v, t in self.taking}
+        self.assertEqual(by_key.get("Orion.Nodes.Unmanage"), "string")
+
+    def test_the_same_entity_can_take_both_forms(self):
+        on_nodes = {t for e, _, t in self.taking if e == "Orion.Nodes"}
+        self.assertEqual(on_nodes, {"string", "number"})
+
+
+class TestSizeParagraphs(unittest.TestCase):
+    """The `**Size.**` convention gives an entity's shape in one line, and the entity is
+    its section heading rather than a name in the sentence."""
+
+    @classmethod
+    def setUpClass(cls):
+        import check_counts
+
+        cls.mod = check_counts
+        cls.schema = check_counts.Schema(VERSION)
+
+    def claims(self, text):
+        return list(self.mod.size_claims(text, self.schema))
+
+    def test_entity_comes_from_the_heading(self):
+        text = ("## `Orion.Volumes`\n\n**Size.** 53 declared properties, 19 source "
+                "relationships, 3 target relationships, 5 verbs.\n")
+        found = self.claims(text)
+        self.assertEqual(len(found), 4)
+        for label, claimed, actual, _, _ in found:
+            self.assertTrue(label.startswith("Orion.Volumes"), label)
+            self.assertEqual(claimed, actual, label)
+
+    def test_a_wrong_figure_is_caught(self):
+        text = ("## `Orion.Volumes`\n\n**Size.** 53 declared properties, 19 source "
+                "relationships, 7 target relationships, 5 verbs.\n")
+        wrong = [c for c in self.claims(text) if c[1] != c[2]]
+        self.assertEqual(len(wrong), 1)
+        self.assertIn("target relationships", wrong[0][0])
+
+    def test_no_verbs_at_all_is_checked_as_zero(self):
+        text = ("## `Orion.Engines`\n\n**Size.** 51 declared properties, 9 source "
+                "relationships, 3 target relationships, and **no verbs at all**.\n")
+        found = self.claims(text)
+        verbs = [c for c in found if c[0].endswith("verbs")]
+        self.assertTrue(verbs)
+        for _, claimed, actual, _, _ in verbs:
+            self.assertEqual(claimed, actual)
+
+    def test_a_size_paragraph_under_a_non_entity_heading_is_skipped(self):
+        text = "## Sizing\n\n**Size.** 53 declared properties, 5 verbs.\n"
+        self.assertEqual(self.claims(text), [])
+
+    def test_the_real_page_is_fully_consistent(self):
+        with open(os.path.join(ROOT, "docs", "schema", "key-entities.md"), encoding="utf-8") as fh:
+            text = fh.read()
+        found = self.claims(text)
+        self.assertGreater(len(found), 25)
+        self.assertEqual([c for c in found if c[1] != c[2]], [])
 
 
 class TestPropertyTypeClaims(unittest.TestCase):

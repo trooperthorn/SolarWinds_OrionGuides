@@ -45,7 +45,7 @@ python3 tools/schema_query.py verbs --entity Orion.HardwareHealth.HardwareInfoBa
 ## The three-level model
 
 Hardware health has exactly three levels, and each has a `*Base` entity that declares the
-properties plus per-parent subtypes that add only the parent's key.
+properties plus per-parent subtypes that add little beyond the parent's key.
 
 ```
 Orion.HardwareHealth.HardwareInfoBase        one row per monitored piece of hardware
@@ -82,8 +82,10 @@ python3 tools/schema_query.py props Orion.HardwareHealth.HardwareItem
 ```
 
 Thirty-five properties come back, including `Status` from `System.DashboardEntity` and
-`UnManaged` from `System.ManagedEntity`. Inherited properties are queryable exactly like
-declared ones.
+`Uri` from `System.Entity`. `UnManaged` is on the list too, but the `[from ...]` marker on
+its row names `Orion.HardwareHealth.HardwareItemBase`, not `System.ManagedEntity`: the base
+declares its own copy of the maintenance-window trio. Inherited properties are queryable
+exactly like declared ones.
 
 **Query the subtype, not the base, when you want node context.** `Orion.HardwareHealth.HardwareItem`
 has a `Node` navigation property; `Orion.HardwareHealth.HardwareItemBase` does not, because
@@ -152,8 +154,9 @@ that set them take strings too. Reach it from a sensor with
 
 ## Historical data
 
-Three statistics entities hang off `HardwareItemBase`, all inheriting `ObservationTimestamp`,
-`ObservationFrequency` and `Weight` from `System.StatisticsEntity`:
+Three statistics entities hang off `HardwareItemBase`, all inheriting `ObservationTimestamp`
+and `ObservationFrequency` from `System.StatisticsEntity`. Two of them redeclare `Weight` as
+a `System.Int32` of their own, narrowing the `System.Double` on the base:
 
 | Entity | Carries |
 |---|---|
@@ -484,9 +487,9 @@ ORDER BY ch.Name
 
 ### Walking from the node side
 
-`Orion.Nodes` navigates to hardware health three ways, and all three are usable in a query.
-This is the shape to use when you already have a node-centred query and want to add
-hardware columns to it.
+`Orion.Nodes` navigates into the hardware health namespace eight ways, and all eight are
+usable in a query. Three of them are the three-level model. This is the shape to use when
+you already have a node-centred query and want to add hardware columns to it.
 
 ```sql
 SELECT TOP 50
@@ -500,7 +503,36 @@ WHERE n.HardwareHealthInfos.LastPollStatus <> 0
 ORDER BY n.Caption
 ```
 
-The other two are `n.HardwareCategoryStatus` and `n.HardwareItems`.
+The other two levels are `n.HardwareCategoryStatus` and `n.HardwareItems`. The remaining five
+navigations lead into the BMC family instead, and they are named under three different
+conventions on the same entity, which is worth seeing in one place before you guess at one:
+
+| Navigation | Target |
+|---|---|
+| `n.HwHBMCControllers` | `Orion.HardwareHealth.BMC.Controllers` |
+| `n.OrionHwHBMCBlades` | `Orion.HardwareHealth.BMC.Blades` |
+| `n.OrionHwHBMCRacks` | `Orion.HardwareHealth.BMC.Racks` |
+| `n.OrionUCSFans` | `Orion.HardwareHealth.BMC.Fans` |
+| `n.OrionUCSPSUs` | `Orion.HardwareHealth.BMC.PSUs` |
+
+The other three BMC entities have no navigation from `Orion.Nodes`. Reach them through the
+chassis, and watch the names while you do: `Chassis.Fans` resolves to
+`Orion.HardwareHealth.BMC.FansOnChassis`, not to `Orion.HardwareHealth.BMC.Fans`, and
+`Chassis.PSUs` likewise resolves to `PSUsOnChassis`. The navigation is named after the thing
+it returns, not after the entity that shares its name.
+
+Both on-chassis entities do carry a `Node` navigation of their own, so the join still works
+starting from the hardware side:
+
+```sql
+SELECT TOP 50
+    f.Node.Caption AS NodeName,
+    f.Chassis.Name AS ChassisName,
+    f.Name,
+    f.Status
+FROM Orion.HardwareHealth.BMC.FansOnChassis f
+ORDER BY f.Node.Caption
+```
 
 ## Gotchas
 
@@ -510,9 +542,10 @@ a base row might belong to a chassis or a storage array. Join
 `Orion.HardwareHealth.HardwareItem` on `ID` instead. This is the error the validator in this
 repository catches most often on hardware health queries.
 
-**`Status` is a string on four of the six BMC entities.** `Fans`, `PSUs`, `Blades` and
-`Racks` type it as `System.String`; `Chassis` types it as `System.Int32`. Only the last one
-joins `Orion.StatusInfo`.
+**`Status` is a string on four of the five BMC entities that declare it.** `Fans`, `PSUs`,
+`Blades` and `Racks` type it as `System.String`, and `FansOnChassis` and `PSUsOnChassis`
+inherit that string from their parents. `Chassis` types it as `System.Int32` and is the only
+one that joins `Orion.StatusInfo`. `Controllers` has no `Status` at all.
 
 **`show` under-reports these entities.** `Orion.HardwareHealth.HardwareItem` declares two
 properties and inherits thirty-three. Always use `props` here, not `show`.

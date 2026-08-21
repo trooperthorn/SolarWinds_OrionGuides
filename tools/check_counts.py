@@ -10,12 +10,16 @@ rebuilt for another platform version. Nothing about the sentence looks stale aft
     python tools/check_counts.py
     python tools/check_counts.py --verbose     # list every confirmed claim
 
-This checks four shapes, chosen because each makes the subject of the count unambiguous:
+This checks five shapes, chosen because each makes the subject of the count unambiguous:
 
-  - ```Orion.Nodes` declares 102 properties``, and the same for verbs
+  - ```Orion.Nodes` declares 102 properties``, and the same for verbs and navigation
+    properties, where the count spans both relationship lists because both are navigable
   - ```Orion.VIM.Luns` (7 properties)``
   - ``174 entities inherit from `System.ManagedEntity```
   - ```Orion.Nodes.Unmanage` takes four arguments``
+  - a ``**Size.**`` paragraph, which the entity pages use to give a whole shape at once:
+    "53 declared properties, 19 source relationships, 3 target relationships, 5 verbs".
+    There the entity is the section heading, not a name in the sentence.
 
 Precision is the whole design constraint. Prose counts subsets far more often than it
 counts totals, and "two verbs on ``Cirrus.ConfigArchive``: ``Diff`` and ``CompareConfigs``"
@@ -62,7 +66,7 @@ for _tens, _tv in TENS.items():
 NUMWORD = "|".join(sorted(WORDS, key=len, reverse=True))
 NUM = rf"(?<![\w-])(?P<n>\d{{1,6}}(?:,\d{{3}})*|{NUMWORD})"
 ENTITY = r"[A-Z]\w*(?:\.[A-Z]\w*)+"
-KIND = r"(?P<kind>properties|verbs)"
+KIND = r"(?P<kind>properties|verbs|navigation properties)"
 
 # Forms where the entity is the subject and the number is its total.
 TOTAL_FORMS = [
@@ -93,8 +97,33 @@ SUBSET_RE = re.compile(
     r"remaining|other|further|additional|new|extra|internal|deprecated|writable|readable)\b",
     re.I)
 
+# A qualifier that narrows the count to a destination, sitting just after the phrase the
+# pattern matched rather than inside it: "declares exactly two navigation properties into
+# NCM" is a true sentence about an entity with 161 of them. Deliberately short, because a
+# broader list would swallow ordinary continuations such as "102 properties in 2026.2".
+SCOPED_RE = re.compile(
+    r"^\W{0,3}(?:into|toward|towards|leading|pointing|that (?:lead|point|go|reach))\b", re.I)
+
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 GENERATED_MARKER = "GENERATED FILE"
+
+# A "**Size.**" paragraph, which is the convention the entity pages use to give an
+# entity's shape in one line: "53 declared properties, 19 source relationships, 3 target
+# relationships, 5 verbs". The marker is what makes the subject unambiguous, so the entity
+# comes from the heading the paragraph sits under rather than from a name in the sentence.
+HEADING_ENTITY_RE = re.compile(r"^#{2,6}\s+`?(?P<ent>[A-Z]\w*(?:\.[A-Z]\w*)+)`?\s*$", re.M)
+SIZE_PARAGRAPH_RE = re.compile(r"\*\*Size\.\*\*\s*(?P<body>.+?)(?:\n\s*\n|\Z)", re.S)
+SIZE_FIGURE_RE = re.compile(
+    r"(?<![\w-])(?P<n>\d{1,6})\s+(?P<kind>declared properties|source relationships|"
+    r"target relationships|verbs)\b", re.I)
+NO_VERBS_RE = re.compile(r"\*{0,2}no verbs at all\*{0,2}", re.I)
+
+SIZE_FIELDS = {
+    "declared properties": "properties",
+    "source relationships": "sourceRelationships",
+    "target relationships": "targetRelationships",
+    "verbs": "verbs",
+}
 
 
 def is_generated(path: str) -> bool:
@@ -121,15 +150,26 @@ class Schema:
             self.verbs = json.load(fh)
 
     def member_counts(self, entity: str, kind: str) -> tuple[int, int]:
-        """Return (declared, resolved). Resolved includes inherited members."""
-        field = "properties" if kind == "properties" else "verbs"
+        """Return (declared, resolved). Resolved includes inherited members.
+
+        A navigation property is not one field: the schema splits relationships into
+        source and target lists and both are navigable from the declaring entity, so the
+        count a reader cares about is the two together.
+        """
         record = self.entities[entity]
-        declared = len(record[field])
+        if kind == "navigation properties":
+            fields = ("sourceRelationships", "targetRelationships")
+        elif kind == "properties":
+            fields = ("properties",)
+        else:
+            fields = ("verbs",)
+        declared = sum(len(record[f]) for f in fields)
         seen = set()
         for ancestor in list(record.get("inheritance") or []) + [entity]:
             if ancestor in self.entities:
-                for member in self.entities[ancestor][field]:
-                    seen.add(member["name"].lower())
+                for f in fields:
+                    for member in self.entities[ancestor][f]:
+                        seen.add(member["name"].lower())
         return declared, len(seen)
 
     def descendants(self, base: str) -> int:
@@ -147,6 +187,33 @@ class Schema:
         return None
 
 
+def size_claims(text: str, schema: Schema):
+    """Yield (label, claimed, actual, fragment, detail) for every **Size.** figure.
+
+    The entity is taken from the nearest preceding heading, which is what the convention
+    means: a Size paragraph describes the entity whose section it is in, so the numbers do
+    not have to repeat the name and a name appearing in the prose is not the subject.
+    """
+    headings = [(m.start(), m.group("ent")) for m in HEADING_ENTITY_RE.finditer(text)]
+    for m in SIZE_PARAGRAPH_RE.finditer(text):
+        entity = None
+        for position, name in headings:
+            if position < m.start():
+                entity = name
+            else:
+                break
+        if entity not in schema.entities:
+            continue
+        record = schema.entities[entity]
+        body = " ".join(m.group("body").split())
+        for figure in SIZE_FIGURE_RE.finditer(body):
+            kind = figure.group("kind").lower()
+            actual = len(record[SIZE_FIELDS[kind]])
+            yield (f"{entity} {kind}", int(figure.group("n")), actual, figure.group(0), "")
+        if NO_VERBS_RE.search(body):
+            yield (f"{entity} verbs", 0, len(record["verbs"]), "no verbs at all", "")
+
+
 def claims_in(sentence: str, schema: Schema):
     """Yield (label, claimed, actual, fragment) for every checkable claim."""
     for form in TOTAL_FORMS:
@@ -155,7 +222,7 @@ def claims_in(sentence: str, schema: Schema):
             claimed = to_int(m.group("n"))
             if entity not in schema.entities or claimed is None:
                 continue
-            if SUBSET_RE.search(m.group(0)):
+            if SUBSET_RE.search(m.group(0)) or SCOPED_RE.match(sentence[m.end():]):
                 continue
             declared, resolved = schema.member_counts(entity, kind)
             actual = declared if claimed == declared else resolved
@@ -207,25 +274,32 @@ def main() -> None:
     confirmed = 0
     failures: list[str] = []
 
+    def record(rel, label, claimed, actual, fragment, detail):
+        nonlocal confirmed
+        if claimed == actual:
+            confirmed += 1
+            if args.verbose:
+                print(f"ok   {rel}: {label} = {claimed}")
+            return
+        note = f"\n           ({detail})" if detail else ""
+        failures.append(
+            f"{rel}: {label}\n"
+            f"           page says {claimed}, the {args.version} schema "
+            f"says {actual}{note}\n"
+            f"           in: {fragment[:120]}"
+        )
+
     for path in sorted(files):
         rel = os.path.relpath(path, ROOT)
-        text = open(path, encoding="utf-8", errors="replace").read()
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+        for claim in size_claims(text, schema):
+            record(rel, *claim)
         for paragraph in re.split(r"\n\s*\n", text):
             flat = " ".join(paragraph.split())
             for sentence in SENTENCE_RE.split(flat):
-                for label, claimed, actual, fragment, detail in claims_in(sentence, schema):
-                    if claimed == actual:
-                        confirmed += 1
-                        if args.verbose:
-                            print(f"ok   {rel}: {label} = {claimed}")
-                    else:
-                        note = f"\n           ({detail})" if detail else ""
-                        failures.append(
-                            f"{rel}: {label}\n"
-                            f"           page says {claimed}, the {args.version} schema "
-                            f"says {actual}{note}\n"
-                            f"           in: {fragment[:120]}"
-                        )
+                for claim in claims_in(sentence, schema):
+                    record(rel, *claim)
 
     print(f"{confirmed + len(failures)} numeric schema claim(s) checked against data/")
     if failures:

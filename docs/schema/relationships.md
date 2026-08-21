@@ -158,7 +158,8 @@ Navigation is not evenly distributed, and knowing the shape saves time.
 | Definitions with only one end recorded | 10 |
 | Entities that declare at least one navigation | 1167 |
 | Entities that declare none | 900 |
-| Self-relationships (source and target are the same entity) | 16 |
+| Self-referential edges (source and target are the same entity) | 16 |
+| Definitions behind those self-referential edges | 8 |
 
 Roughly 44 percent of entities have no navigation properties at all. Those are the lookup
 tables, statistics rows and settings entities that are joined to by key rather than
@@ -420,11 +421,12 @@ any node has ports. Always confirm against the server before acting on the resul
 These are all verified properties of the published 2026.2 schema, not bugs in the extraction.
 
 **A navigation property name is not unique on an entity.** There are 21 (entity, navigation
-property) pairs in 2026.2 where the same name is declared twice with different targets. On
-`Orion.Nodes`, `Flows` leads both to `Orion.Netflow.Flows` and to
-`Orion.Netflow.FlowsByApplication`. How a live server resolves that is not something the
-published pages answer, so if you hit one, check `Metadata.Relationship` on the server before
-relying on either reading.
+property) pairs in 2026.2 where the same name is declared twice. Ten of the 21 lead to two
+different targets: on `Orion.Nodes`, `Flows` leads both to `Orion.Netflow.Flows` and to
+`Orion.Netflow.FlowsByApplication`. The other eleven lead to the same target through two
+different relationship definitions. How a live server resolves either case is not something
+the published pages answer, so if you hit one, check `Metadata.Relationship` on the server
+before relying on any single reading.
 
 ```bash
 jq -r 'group_by([.from, .navigationProperty])[] | select(length > 1) | "\(.[0].from).\(.[0].navigationProperty) -> \([.[].to] | join(", "))"' data/schema/2026.2/relationships.json | head -5
@@ -464,10 +466,27 @@ entities matching 'datastores' (3 total)
   Orion.VIM.DatastoresCustomProperties                    1p   4v  Custom Properties
 ```
 
-`python3 tools/check_data.py --version 2026.2` prints the full list of eight on every run,
-which is how they stay visible rather than quietly becoming folklore.
+`python3 tools/check_data.py --version 2026.2` notes the count of eight on every run, naming
+the five most common, which is how they stay visible rather than quietly becoming folklore.
+For all eight names at once, ask the edge list directly:
 
-**Sixteen relationships point an entity at itself.** `Orion.Nodes` accounts for four of the
+```bash
+jq -rs '(.[0] | map(.to)) - (.[1] | map(.entity)) | unique[]' data/schema/2026.2/relationships.json data/schema/2026.2/index.json
+```
+
+```text
+Orion.Cloud.Azure.SWIPUnsupportedResources
+Orion.Dashboards.DashboardRoute
+Orion.Ipsla.CCMPhones
+Orion.NetPath.EndpointServicesBase
+Orion.NetPath.ProbesBase
+Orion.PolicyEngine.RuleWaiver
+Orion.SCM.AssignedElementSettingOverride
+Orion.VIM.DataStores
+```
+
+**Sixteen edges point an entity at itself.** They come from eight relationship definitions
+across seven entities, each recorded from both ends. `Orion.Nodes` accounts for four of the
 sixteen edges, and every one of them is `System.Reliance`: `BMCControllerNodeForRack` and
 `SdWanNodeRelyOrchestratorInfo` as source, `RackNodes` and `OrchestratorInfoRelySdWanNode` as
 target. Any graph traversal over this data therefore needs cycle handling, which is why the

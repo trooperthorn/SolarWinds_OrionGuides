@@ -8,10 +8,10 @@ adjacencies the device maintains, the multicast trees it participates in, arbitr
 values you decide to collect yourself, and the hop-by-hop path from a probe to a service.
 
 NPM has a long history and the schema records all of it. Four families model wireless in
-overlapping ways, two families that older documentation places under `Orion.NPM.` have been
-moved out to namespaces of their own, and the interface entity carries duplicate property
-names inherited from successive generations of the product. This page maps that out so you
-can pick the right entity the first time.
+overlapping ways, two families that belong to NPM sit in namespaces of their own rather than
+under `Orion.NPM.`, and the interface entity carries duplicate property names inherited from
+successive generations of the product. This page maps that out so you can pick the right
+entity the first time.
 
 ## Namespaces and how many entities
 
@@ -26,8 +26,7 @@ extraction and count every entity whose name begins with the prefix:
 | `Orion.WirelessHeatMap.` | 11 | Floor plan heat maps, map points, client location, signal measurements |
 | `Orion.Routing.` | 11 | Routers, neighbors, routing tables, VRFs, route and adjacency flap history |
 
-That is **139 entities**. Two more families belong to NPM but sit outside those prefixes,
-because they were moved rather than renamed:
+That is **139 entities**. Two more families belong to NPM but sit outside those prefixes:
 
 | Prefix | Entities | What is in it |
 |---|---|---|
@@ -37,8 +36,10 @@ because they were moved rather than renamed:
 And one older wireless shape, `Orion.Wireless.` (14 entities), still exists alongside the
 `Orion.Packages.Wireless.` family. See [Wireless](#wireless) for how to tell them apart.
 
-The [netobject reference](../reference/netobject-types.md) attributes all of these to the
-NPM module, including the F5 and UCS rows, which is the evidence for grouping them here.
+The [netobject reference](../reference/netobject-types.md) attributes the F5 and UCS rows to
+the NPM module, which is the evidence for grouping them here. It carries them under their
+legacy names (`Orion.F5.Device`, `Orion.NPM.UCSChassis` and the rest), each flagged as no
+longer resolving in 2026.2; `Orion.Wireless.` has no row there at all.
 
 Verify the grouping for yourself:
 
@@ -70,9 +71,11 @@ need to write the join by hand:
 python3 tools/schema_query.py path Orion.Nodes Orion.NPM.Interfaces
 ```
 
-`Orion.Nodes.Interfaces` walks from a node to its interfaces and behaves as a left join;
-`Orion.NPM.Interfaces.Node` walks back and behaves as an inner join, so an interface whose
-node has been deleted will not appear.
+`Orion.Nodes.Interfaces` walks from a node to its interfaces and is to-many, so it multiplies
+rows: one per node and interface pair, not one per node. `Orion.NPM.Interfaces.Node` walks
+back, is to-one, and behaves as an inner join, so an interface whose node has been deleted
+will not appear. [../swql/joins-and-navigation.md](../swql/joins-and-navigation.md) covers
+both directions and when to write the join explicitly instead.
 
 ### The properties worth knowing
 
@@ -410,9 +413,11 @@ it), `Orion.F5.System.VLAN`, `Orion.F5.System.Failover` and the virtual servers.
 `Orion.F5.LTM.` is local traffic management: `VirtualServer`, `Pool`, `PoolMember`,
 `Monitor`, `Server`, `VirtualIPAddress`, plus `PoolMemberStats` and `VirtualServerStats`.
 `Orion.F5.GTM.` is global traffic management: `WideIP`, `WideIPPool`, `WideIPStats`, `Pool`,
-`PoolMember`, `Server`, `VirtualServer`. Both families keep a device-native status and a
-platform-mapped one side by side, as `F5Status` and `OrionStatus`, each with a matching
-`...StatusDescription` string that is safer to display than the raw byte.
+`PoolMember`, `Server`, `VirtualServer`. Where an F5 entity carries status at all it keeps a
+device-native value and a platform-mapped one side by side, as `F5Status` and `OrionStatus`,
+each a `System.Byte` with a matching `...StatusDescription` string that is safer to display
+than the raw number. The pair is on most of the `Orion.F5.LTM.` entities but on only one
+`Orion.F5.GTM.` entity, `Orion.F5.GTM.WideIP`, so check before you select it.
 
 **UCS** moved out of `Orion.NPM.` wholesale. `Orion.UCS.Chassis` inherits from
 `Orion.HardwareHealth.BMC.Chassis`, `Orion.UCS.Blades` from
@@ -505,7 +510,10 @@ if ($discovered.Result -eq 'Succeed') {
 schema, `InterfaceID`. On a live server it also carries one column per interface custom
 property, named after the property. That behaviour is not recorded in the extracted schema,
 so confirm the columns your server actually has before writing against them:
-`SELECT Name, Type FROM Metadata.Property WHERE EntityName = 'Orion.NPM.InterfacesCustomProperties'`.
+`SELECT Name, Type FROM Metadata.Property WHERE Entity.FullName = 'Orion.NPM.InterfacesCustomProperties'`.
+`Metadata.Property` has no flat `EntityName` column in 2026.2; it reaches its owner through
+the `Entity` navigation property, as [../swis/metadata-introspection.md](../swis/metadata-introspection.md)
+explains.
 
 ## Worked queries
 
@@ -853,9 +861,10 @@ bound parameters, which is what the queries above assume.
 `Orion.StatusInfo.StatusId` is an integer, so the chassis joins to it cleanly and the other
 two do not; read their `Status` as the text it is.
 
-**F5 entities carry two statuses on purpose.** `F5Status` is what the device reports and
-`OrionStatus` is the mapped platform value. Alerting on the wrong one produces surprises,
-and each has a matching `...StatusDescription` string that is safer to display.
+**F5 entities that carry status carry two of them on purpose.** `F5Status` is what the device
+reports and `OrionStatus` is the mapped platform value. Alerting on the wrong one produces
+surprises, and each has a matching `...StatusDescription` string that is safer to display.
+Not every F5 entity has the pair: under `Orion.F5.GTM.` only `Orion.F5.GTM.WideIP` does.
 
 **`Orion.NPM.Nodes` is not the node entity.** It is NPM's polling bookkeeping table. Query
 `Orion.Nodes`.

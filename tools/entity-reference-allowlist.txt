@@ -26,3 +26,8 @@ Orion.SAM.Application
 # A placeholder used when describing the shape of entity names in general, as in
 # "an entity name looks like Orion.something".
 Orion.something
+
+# A deliberately invented name, used in docs/swql/gotchas.md inside a verbatim
+# tools/validate_swql.py output block to show what the checker prints for an entity that
+# does not exist at all, as against one that is only wrong in its capitalisation.
+Orion.NotAnEntity

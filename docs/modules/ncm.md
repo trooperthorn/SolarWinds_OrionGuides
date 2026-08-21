@@ -76,17 +76,19 @@ NCM:
 | `NodeProperties` | `NCM.NodeProperties` | `Orion.NodesHostsNodeProperties` (hosting) |
 | `NCMLicenseStatus` | `Cirrus.NCMNodeLicenseStatus` | `Orion.NodeHostLicensedByNCM` (hosting) |
 
-**3. The `Cirrus.` copy of a duplicated entity is usually the wider one, and the `NCM.` copy
-sometimes carries columns the original lacks.** `Cirrus.Nodes` has 66 properties and
+**3. The `Cirrus.` copy is the wider one for exactly two of the duplicated names, and the
+`NCM.` copy is wider for almost all the rest.** `Cirrus.Nodes` has 66 properties and
 `NCM.Nodes` has 48, and `NCM.Nodes` has none that `Cirrus.Nodes` lacks: the extra 18 are the
 connection profile id, the SSH, Telnet and SNMP ports, the ten-column end-of-support block,
 `StatusText`, and three bookkeeping columns (`EnableOrionImport`, `LastRediscoveryTime`,
 `LastUpdateTime`). `Cirrus.NodeProperties` has 40 against `NCM.NodeProperties`' 31, the extra nine
 being live transfer state (`IsActiveTransfer`, `LastTransferDate`, `LastTransferMessage` and
-friends) plus EoS matching columns. But it does not run one way only:
-`NCM.Interfaces` adds `InterfaceHighSpeed`, `VLANID`, `VlanType` and `PortStatus` that
-`Cirrus.Interfaces` does not have, and `NCM.ConfigArchive` carries `AdditionalCommands`
-while `Cirrus.ConfigArchive` carries `BaseConfigID`. Check before you assume.
+friends) plus EoS matching columns. `Nodes` and `NodeProperties` are the whole of that
+pattern. Across the other 23 duplicated names the `NCM.` copy is wider 19 times and the same
+size 4 times: 18 of them add the `EntityID` key the original lacks, `NCM.Interfaces` adds
+`InterfaceHighSpeed`, `VLANID`, `VlanType` and `PortStatus` that `Cirrus.Interfaces` does not
+have, and `NCM.ConfigArchive` carries `AdditionalCommands` while `Cirrus.ConfigArchive`
+carries `BaseConfigID`. Check before you assume.
 
 ### The working rule
 
@@ -94,13 +96,16 @@ while `Cirrus.ConfigArchive` carries `BaseConfigID`. Check before you assume.
   properties.
 - Reading NCM's own operational state (nodes, configs, compliance, jobs, approvals): use
   `Cirrus.*`, because that is where the columns are.
-- Invoking anything: use `Cirrus.*`, unless the feature is baselines, firmware, EoS refresh,
-  config types or vulnerabilities, which are `NCM.*` only.
+- Invoking anything: use `Cirrus.*`, unless the feature is firmware, EoS refresh, config
+  types, one-time operations, security policy or vulnerabilities, which are `NCM.*` only.
+  Baselines are on neither side of that line: they carry no verbs at all.
 - Writing through CRUD: `Cirrus.Nodes`, `Cirrus.NodeProperties` and `NCM.Nodes` allow
   `update`; `Cirrus.IgnoredNodes`, `NCM.Baselines`, `NCM.BaselineNodeMap`,
-  `NCM.FirmwareOperations`, `NCM.FirmwareOperationNodes`, `NCM.FirmwareUpgradeImages`,
-  `NCM.FirmwareUpgradeMachineTypes` and `NCM.ConfigTypeVendors` allow `create` and `delete`.
-  Nothing else in either namespace does.
+  `NCM.BaselineViolations`, `NCM.FirmwareOperations`, `NCM.FirmwareOperationNodes`,
+  `NCM.FirmwareUpgradeImages`, `NCM.FirmwareUpgradeMachineTypes` and `NCM.ConfigTypeVendors`
+  allow `create` and `delete`. Nothing else in either namespace does.
+  `NCM.BaselineViolations` grants them to the `system` right only, so in practice you can
+  write to eight of those nine.
 
 ## `Cirrus.Nodes` and its relationship to `Orion.Nodes`
 
@@ -406,8 +411,11 @@ target nodes for a request, and `Cirrus.NCM_ApproveQueueView` is a view over the
 
 The 12 verbs are `AddRequest`, `UpdateRequest`, `ApproveRequest`, `DeclineRequest`,
 `DeleteRequest`, `GetRequest`, `GetTicketStatus`, `GetApprovalUsers`, `UpdateApprovalUsers`,
-`GetUserApproveRole`, `GetApprovalMode` and `SetApprovalMode`. The three that take a `ticket`
-want a full `NCMApprovalTicket` object; the rest take a ticket id or a user id as a string.
+`GetUserApproveRole`, `GetApprovalMode` and `SetApprovalMode`. The four that take a `ticket`
+(`AddRequest`, `UpdateRequest`, `ApproveRequest` and `DeclineRequest`) want a full
+`NCMApprovalTicket` object; `GetRequest`, `DeleteRequest`, `GetTicketStatus` and
+`GetUserApproveRole` take a single ticket id or user id as a string; `UpdateApprovalUsers`
+takes an array of `NCMApprovalUser`, and the two mode verbs take nothing or the mode enum.
 `GetApprovalMode` and `SetApprovalMode` use the string enum `ApprovalDisabled`, `OneLevel`,
 `TwoLevelWebUploader` or `TwoLevelAll`, and `GetTicketStatus` returns `PendingApproval`,
 `Declined`, `WaitingForExecution`, `Scheduled`, `Complete`, `Executing` or `NeedConfirmation`.
@@ -471,8 +479,9 @@ changes how a set of nodes is classified, and `DeleteEOSData(nodeIds)` clears it
 argument is the string enum `NotAssigned`, `User`, `Manual`, `Auto`, `Awaiting` or `Ignored`.
 
 Vulnerability data used to live alongside EoS in `NCM.VulnerabilitiesAnnouncements` and
-`NCM.VulnerabilitiesAnnouncementsNodes`. **Both are marked obsolete in 2026.2**, and the
-schema names the successor: `Orion.SecObs.Vulnerabilities.Cves`. The four verbs
+`NCM.VulnerabilitiesAnnouncementsNodes`. **Both are marked obsolete in 2026.2**, and each
+names its own successor: `Orion.SecObs.Vulnerabilities.Cves` for the announcements,
+`Orion.SecObs.Vulnerabilities.LastMatching.Result` for the per-node matches. The four verbs
 (`StartVulnerabilityMatching`, `IsVulnerabilityMatchingActive`, `InitVulnerabilitySchedule`,
 `GetSettings`) and the `Cirrus.Nodes` vulnerability verbs still exist, but do not build
 anything new on them.
@@ -501,8 +510,12 @@ engine, `4` not scheduled yet, `5` waiting in job engine, `6` starting now, `7` 
 ## Inventory and parsed configuration
 
 Beyond configuration text, NCM runs an inventory that fills a wide set of read-only tables.
-The `NCM.` copies are the navigable ones, each reaching `NCM.Nodes` through a `Node`
-navigation property and `NCM.NodeProperties` through a `NodeProperties` one.
+The `NCM.` copies are the navigable ones. Every one of them reaches `NCM.NodeProperties`
+through a `NodeProperties` navigation property, and the platform node from there through
+`.Nodes`. The hop to `NCM.Nodes` is less uniform: most carry a `Node` property, the four
+Cisco FRU and bootload tables call theirs `Nodes`, and the `IpAddresses`, `CATOSPorts`,
+`Windows*`, `F5*`, `Brocade*` and `EntityPhysicalJuniper` tables have no direct hop to
+`NCM.Nodes` at all. Check the entity rather than assuming the pair.
 
 | Family | Entities |
 |---|---|
@@ -517,7 +530,8 @@ ACL with `Name`, `Complexity`, `Interfaces` and a `Hash` that changes when the A
 `NCM.ObjectGroupData` and `NCM.ObjectDefinitionData` hold the parsed object groups.
 `NCM.ShadowRuleDetectionResult`, `NCM.AceShadowRuleDetectionResult`, `NCM.RuleDetection` and
 `NCM.ShadowRuleDetectionAclStatistics` hold shadow and redundancy analysis, with
-`NCM.RuleDetection.OverlappingType` of `0` unique, `1` shadowed and `2` partially overlapping.
+`NCM.RuleDetection.OverlappingType` of `0` unique, `1` shadowed, `2` partially shadowed, `3`
+redundant and `4` partially redundant.
 `NCM.ParsedConfigData` holds a NETCONF-like XML rendering of a config, and
 `NCM.ConfigInterface` links a config back to the interfaces named inside it.
 
@@ -528,8 +542,8 @@ verbs behind it, `ExecuteRtn(ipAddress, commandLine)` and `RunRtn(args)`.
 ## Verbs
 
 NCM declares **160 verbs**, 132 in `Cirrus.` and 28 in `NCM.`. That is the richest verb
-surface in the platform, and it is concentrated: nine `Cirrus.` entities and eight `NCM.`
-entities carry all of them.
+surface of any module in the platform, and it is concentrated: nine `Cirrus.` entities and
+eight `NCM.` entities carry all of them.
 
 | Entity | Verbs | Theme |
 |---|---|---|
@@ -658,9 +672,9 @@ That field renaming (`searchString` to `OriginalSearchString`, `searchOnlyMostRe
 | `AddPolicyReport` / `UpdatePolicyReport` | `report` (+ `importFlag` on Add) |
 | `AddPolicy` / `UpdatePolicy` | `policy` (+ `importFlag` on Add) |
 | `AddPolicyRule` / `UpdatePolicyRule` | `rule` |
-| `DeletePolicyReports` / `DeletePolicies` | `ids` (array), `deleteChildren` (boolean) |
+| `DeletePolicyReports` / `DeletePolicies` | `policyReportIds` / `policyIds` (array), `deleteChildren` (boolean) |
 | `DeletePolicyRules` | `ruleIds` (array) |
-| `GetPolicyReport` / `GetPolicy` | `id`, `exportFlag` (boolean) |
+| `GetPolicyReport` / `GetPolicy` | `reportId` / `policyId`, `exportFlag` (boolean) |
 | `GetPolicyRule` | `ruleId` |
 | `StartCaching` | `selectedReportsIds` (array, optional; empty or null processes every report) |
 | `UpdateReportStatus` | `status` (`Disabled` or `Enabled`), `selectedReportsIds` (array) |
@@ -709,8 +723,8 @@ ORDER BY n.Caption
 will never equal an `Orion.Nodes.NodeID` integer. Filtering on `n.Vendor IS NOT NULL` removes
 the servers and printers nobody expected NCM to cover.
 
-The same question through the navigation property, which is shorter and reads better once you
-know it is there:
+Turned around, the navigation property answers the other half of the question — which nodes
+NCM does cover, and what state it is in on each — from one entity, with no join at all:
 
 ```sql
 SELECT TOP 100
@@ -770,8 +784,9 @@ WHERE tr.Status = 3
 ORDER BY tr.DateTime DESC
 ```
 
-`tr.NodeProperties.Nodes.Caption` walks two hosting relationships in one expression: from the
-transfer to NCM's node properties, then from there to the platform node. `Action` is `1`
+`tr.NodeProperties.Nodes.Caption` walks two relationships in one expression: a reference from
+the transfer to NCM's node properties, then the hosting relationship from there to the
+platform node. `Action` is `1`
 download, `2` upload, `3` execute script, and `TransferProtocol` is the combination actually
 used, such as `Telnet - TFTP`, which is often the thing that explains the failure.
 
@@ -974,7 +989,8 @@ ORDER BY c.ConfigTitle, ace.RuleId
 ```
 
 `OverlappingType` of `0` is unique, `1` is shadowed (the rule can never match because an
-earlier rule catches everything it would) and `2` is partially overlapping.
+earlier rule catches everything it would), `2` is partially shadowed, `3` is redundant and
+`4` is partially redundant, so `<> 0` is every rule the analysis flagged for either reason.
 
 ### 13. Turning search results into rows
 
@@ -1284,7 +1300,9 @@ page documents `void ClearTransfers(Guid[] TransferTickets)` on `Cirrus.ConfigAr
 only transfer verb in the extracted 2026.2 schema is `CancelTransfers`, which has the same
 signature but cancels rather than deletes history. Whether `ClearTransfers` is present but
 undocumented on a given server is **unverified here**; check with
-`SELECT VerbName FROM Metadata.Verb WHERE EntityName = 'Cirrus.ConfigArchive' ORDER BY VerbName`.
+`SELECT Name FROM Metadata.Verb WHERE Entity.FullName = 'Cirrus.ConfigArchive' ORDER BY Name`.
+`Metadata.Verb` has no flat `EntityName` or `VerbName` column; it reaches its owner through
+the `Entity` navigation.
 
 **`ComparisonType` is documented with two different bases.** `Cirrus.CacheDiffResults`
 enumerates it as `1` RunningToStartup through `4` MostRecentToLastOfTheSameType.
@@ -1341,8 +1359,9 @@ still has a plausible-looking argument count and sends the wrong values into the
 See [../reference/schema-changes-2026.1-to-2026.2.md](../reference/schema-changes-2026.1-to-2026.2.md).
 
 **`NCM.VulnerabilitiesAnnouncements` and `NCM.VulnerabilitiesAnnouncementsNodes` are
-obsolete.** The schema names `Orion.SecObs.Vulnerabilities.Cves` as the replacement. They
-still work; do not start anything new on them.
+obsolete.** The schema names `Orion.SecObs.Vulnerabilities.Cves` as the replacement for the
+announcements and `Orion.SecObs.Vulnerabilities.LastMatching.Result` for the per-node
+matches. They still work; do not start anything new on them.
 
 **NCM enforces its own role model on top of Orion rights.** Almost every verb summary says
 something like "Valid for Orion manage node users with at least WebUploader NCM role", and

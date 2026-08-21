@@ -5,7 +5,8 @@ them into T-SQL and executing them **against the live Orion database**, which is
 database the polling engines are writing to continuously. SolarWinds shows this translation
 happening on the
 [possible issues](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/)
-page, where a five-column SWQL statement is printed alongside the exact T-SQL it becomes:
+page, where the exact T-SQL that a nine-column query against `Orion.Engines` becomes is printed
+in full:
 
 ```text
 SET DATEFIRST 7;
@@ -116,13 +117,13 @@ reason.
 not all the same cost. Some are stored columns. Others are **computed by SWIS at query time**,
 and the schema says so:
 
-| Property | Declared on | What its own summary says |
+| Property | Declared on | What the schema says |
 |:---|:---|:---|
-| `Uri` | `System.Entity` | "The values for `InstanceType` and `Uri` will be filled in by SWIS, so you should not map those to storage properties" |
-| `InstanceType` | `System.Entity` | as above |
+| `Uri` | `System.Entity` | from the entity summary, not the property's own: "The values for `InstanceType` and `Uri` will be filled in by SWIS, so you should not map those to storage properties" |
+| `InstanceType` | `System.Entity` | as above; the property carries no summary of its own |
 | `DetailsUrl` | `System.DashboardEntity` | "typically constructed using a string concatenation expression in a defining query storage entity" |
 | `AncestorDisplayNames` | `System.ManagedEntity` | "Returns an array containing the `DisplayName` properties of this entity, the entity that hosts this entity, and so on, **recursively**. Generated automatically by SWIS" |
-| `AncestorDetailsUrls` | `System.ManagedEntity` | as above |
+| `AncestorDetailsUrls` | `System.ManagedEntity` | as above, for `DetailsUrl` |
 
 `AncestorDisplayNames` and `AncestorDetailsUrls` are the expensive ones: they walk the hosting
 chain upward for every row in your result and return a `System.String[]`. Selecting them on a
@@ -329,11 +330,13 @@ ORDER BY t.DateTime
 
 This trips people up constantly. Every entity under `System.StatisticsEntity` inherits
 `ObservationTimestamp` ("When this statistic was collected") and `ObservationFrequency` ("The
-interval between collections"), so there is always *a* time column. But 92 of the 236 also
-declare a timestamp column of their own, and the name is not consistent: 32 declare `TimeStamp`,
-32 redeclare `ObservationTimestamp`, 19 declare `DateTime`, 11 declare `Timestamp` (different
-capitalisation), 5 declare `Date` and 5 declare `DateTimeUTC`. Outliers exist too, such as
-`Orion.CPUMultiLoad.TimeStampUTC`.
+interval between collections"), so there is always *a* time column. But 126 of the 236 also
+declare a timestamp column of their own, and the name is not consistent. Six names account for
+92 of those entities: 32 declare `TimeStamp`, 32 redeclare `ObservationTimestamp`, 19 declare
+`DateTime`, 11 declare `Timestamp` (different capitalisation), 5 declare `Date` and 5 declare
+`DateTimeUTC` — the counts sum to more than 92 because twelve entities, all of them
+`Orion.Netflow.Flows*`, declare two of the six. The remaining 34 use something else again,
+`RecordTime`, `RecordTimeUtc` and `Orion.CPUMultiLoad.TimeStampUTC` among them.
 
 | Entity | Its own time column |
 |:---|:---|
@@ -346,6 +349,11 @@ capitalisation), 5 declare `Date` and 5 declare `DateTimeUTC`. Outliers exist to
 | `Orion.APM.HistoricalCPULoad` | `Date` ("The date of poll") |
 | `Orion.AlertHistory` | `TimeStamp` |
 | `Orion.Events` | `EventTime` (documented as local time, not UTC) |
+
+The last two are in the table because they are time-series in practice, not because they are
+statistics entities. `Orion.AlertHistory` inherits straight from `System.Entity` and
+`Orion.Events` from `Orion.MixedObjectType`, so neither has `ObservationTimestamp` to fall back
+on. Their own column is the only time column they have.
 
 Check before you write the `WHERE`:
 
