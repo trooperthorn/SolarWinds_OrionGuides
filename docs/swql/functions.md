@@ -430,7 +430,7 @@ FROM Orion.Engines
 
 ### Measuring an interval
 
-The seven `XDiff` functions all have the same shape: `XDiff(a, b)` returns how much later
+The eight `XDiff` functions all have the same shape: `XDiff(a, b)` returns how much later
 `b` is than `a`, rounded to the nearest whole unit. Order matters, and it is the opposite of
 subtraction: `DayDiff(earlier, later)` is positive.
 
@@ -572,7 +572,7 @@ automatically when it is compared with or passed alongside a date. See
 
 ### Extracting a part of a date
 
-These eight all take a date and return an integer. They are the natural `GROUP BY` keys for
+These eleven all take a date and return an integer. They are the natural `GROUP BY` keys for
 "by hour of day" or "by day of week" reports.
 
 #### `Year(d)`

@@ -236,9 +236,10 @@ timestamp the action produced and compare it with what your watch said.
 
 ## The `AddX` family
 
-Ten functions, one shape: **the count comes first, the date second**. `AddDay(7, d)` means
-"seven days after `d`". A negative count subtracts, and subtracting is what nearly every
-real query does.
+Nine functions, and for eight of them one shape: **the count comes first, the date second**.
+`AddDay(7, d)` means "seven days after `d`". A negative count subtracts, and subtracting is
+what nearly every real query does. `AddDate` is the exception, taking the unit name in front
+of the count.
 
 | Function | Adds |
 |:---|:---|
@@ -295,7 +296,7 @@ who does not know the trick, and is documented.
 
 ## The `XDiff` family
 
-Seven functions, all of the form `XDiff(a, b)`: **how much later `b` is than `a`**, rounded
+Eight functions, all of the form `XDiff(a, b)`: **how much later `b` is than `a`**, rounded
 to the nearest whole unit. The order is the opposite of subtraction, so
 `DayDiff(earlier, later)` is positive.
 
