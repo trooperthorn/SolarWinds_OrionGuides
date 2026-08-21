@@ -211,6 +211,38 @@ def main() -> None:
     if claims and not wrong:
         c.note(f"{claims} namespace count(s) quoted in the module pages all match the schema")
 
+    # The sample query count. Three separate files quote it, so adding one query file makes
+    # all three wrong at once and none of them look it.
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "tools"))
+        from validate_swql import queries_from_swql
+
+        real = sum(len(queries_from_swql(p))
+                   for p in sorted(glob.glob(os.path.join(ROOT, "scripts", "swql", "*.swql"))))
+    except Exception as exc:  # pragma: no cover
+        real = None
+        c.note(f"sample query count not checked ({exc})")
+
+    if real:
+        query_claim = re.compile(r"(\d+)\s+(?:verified\s+)?sample quer(?:y|ies)"
+                                 r"|(\d+)\s+sample quer(?:y|ies)")
+        quoted = 0
+        for rel in ("README.md", "llms.txt", os.path.join("docs", "README.md"),
+                    os.path.join("scripts", "swql", "README.md")):
+            path = os.path.join(ROOT, rel)
+            if not os.path.isfile(path):
+                continue
+            text = open(path, encoding="utf-8", errors="replace").read()
+            for m in query_claim.finditer(text):
+                claimed = int(m.group(1) or m.group(2))
+                quoted += 1
+                c.require(
+                    claimed == real,
+                    f"{rel} says {claimed} sample queries; scripts/swql/ holds {real}",
+                )
+        if quoted:
+            c.note(f"{quoted} sample-query count(s) quoted in the docs all match the {real} on disk")
+
     # PowerShell cmdlet names. The SwisPowerShell module exports seven, and an invented
     # eighth reads exactly like the real ones. Sample scripts in this repository follow the
     # same Verb-Noun convention, so their own names are allowed by filename.

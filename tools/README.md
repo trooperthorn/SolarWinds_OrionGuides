@@ -39,8 +39,9 @@ ten of twenty-one.
 
 Beyond names and links, `check_data.py` also holds the documentation to its own claims:
 the entity count each module page quotes for its namespace, the status tables written by
-hand, the completeness of the function reference, and the PowerShell cmdlet names, which
-are easy to invent because a plausible eighth reads exactly like the seven real ones.
+hand, the completeness of the function reference, the sample query count that three
+separate files quote, and the PowerShell cmdlet names, which are easy to invent because a
+plausible eighth reads exactly like the seven real ones.
 
 Everything runs through the [Makefile](../Makefile):
 

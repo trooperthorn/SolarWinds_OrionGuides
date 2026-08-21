@@ -68,8 +68,9 @@ Beyond that table the schema also carries namespaces for cloud monitoring
 inventory (`Orion.AssetInventory.`, 23), Server Configuration Monitor (`Orion.SCM.`, 23),
 Patch Manager integration (`Orion.PM.`, 30), Access Rights Manager integration
 (`Orion.ARM.`, 9), Security Event Manager integration (`Orion.SEM.`, 14), anomaly
-detection (`Orion.AIIM.`, 16), and 56 more smaller `Orion.*` prefixes: 76 in total, of
-which the twenty named above are the large ones. To see the whole list for yourself:
+detection (`Orion.AIIM.`, 16), and 56 more smaller ones. The schema carries 76 distinct
+`Orion.<something>.` prefixes altogether; the twenty named in this page's table and in
+the paragraph above are the large ones. To see the whole list for yourself:
 
 ```bash
 python3 tools/schema_query.py stats
@@ -297,8 +298,8 @@ ORDER BY Address
 ```
 
 IPAM has the longest and most version-dependent API history of any module. SolarWinds
-publishes separate pages per generation: "Ipam 4.5 X Api", "Ipam 4.6 Api", "Ipam 4.7 Api",
-"Ipam 4.9 Api", "IPAM 2019.4+ API", "IPAM Observability 2022.2", and "IPAM vNext API".
+publishes separate pages per generation: one each for **4.5.x**, **4.6**, **4.7** and
+**4.9**, plus "IPAM 2019.4+ API", "IPAM Observability 2022.2" and "IPAM vNext API".
 Start from
 [IPAM API](https://solarwinds.github.io/OrionSDK/docs/ip-address-manager/ipam-api/) and
 pick the page matching your version, because the verb signatures genuinely changed between
