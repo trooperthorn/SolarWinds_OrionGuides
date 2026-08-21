@@ -237,12 +237,17 @@ stated in the verb summary rather than in `accessControl`, and it is real.
 | `Cirrus.ConfigArchive` | `DownloadConfig` | `nodeId, configType` | not declared | Downloads config file for the particular node. |
 | `Cirrus.ConfigArchive` | `UploadConfig` | `nodeId, configType, ConfigText, RebootDevice` | not declared | Uploads config. |
 | `Cirrus.ConfigArchive` | `ExecuteScript` | `nodeId, script, Reboot?` | not declared | Executes script on the particular node. |
-| `Cirrus.ConfigArchive` | `ImportConfig` | `nodeId, title, comments, configText` | not declared | Imports a config into the archive without touching the device. |
+| `Cirrus.ConfigArchive` | `ImportConfig` | `nodeId, title, comments, configText` | not declared | Imports binary config. `nodeId` here is the NCM node id, declared `string`. |
 | `Cirrus.ConfigArchive` | `CompareConfigs` | `configId1, configId2, settings` | not declared | Compares two archived configs. |
 | `Cirrus.ConfigArchive` | `ConfigSearch2` | `searchTerm` | not declared | Searches for the config. Replaces the deprecated `ConfigSearch`. |
 | `NCM.FirmwareOperations` | `PrepareFirmwareUpgrade` | `coreNodeIds, firmwareDefinitionId, firmwareOperationName, imagesToApply` | not declared | Prepares new firmware upgrade operation. Returns the operation id. |
 | `NCM.FirmwareOperations` | `StartUpgrade` | `operationId, nodeOptions, runAt, emailSettings` | not declared | Starts upgrade operation. |
 | `NCM.Eos` | `RefreshNow` | `nodeIds` | not declared | Starts refreshing End of Support data for selected nodes. |
+
+The `nodeId` parameter is not one type across this namespace. `Cirrus.ConfigArchive`
+`ImportConfig` declares it `string`, `DownloadConfig` and `ExecuteScript` declare it `string`,
+and `UploadConfig` declares it **`array`** while still calling it `nodeId`. Check the type,
+not the name.
 
 `Cirrus.Nodes` declares `invoke` at the entity level for `everyone` or `manageNodes`;
 `NCM.FirmwareOperations` declares it for `everyone` or `admin`. `Cirrus.ConfigArchive` and

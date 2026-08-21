@@ -187,6 +187,8 @@ SWIS rather than the database, but it does make results non-reproducible across 
 | [joins-and-navigation.md](joins-and-navigation.md) | Navigation properties versus explicit joins, cardinality and row multiplication, finding a path between two entities, inheritance-based querying, and worked joins for the common entity pairings |
 | [functions.md](functions.md) | The built-in function library with worked examples |
 | [date-and-time.md](date-and-time.md) | Time-bounding queries correctly, and the `GetUtcDate()` plus `AddX` trap |
+| [gotchas.md](gotchas.md) | Constructs that run cleanly and return the wrong answer |
+| [performance.md](performance.md) | Writing queries that do not hurt the database |
 
 Related reading elsewhere in this repository:
 
