@@ -10,7 +10,7 @@ rebuilt for another platform version. Nothing about the sentence looks stale aft
     python tools/check_counts.py
     python tools/check_counts.py --verbose     # list every confirmed claim
 
-This checks five shapes, chosen because each makes the subject of the count unambiguous:
+This checks six shapes, chosen because each makes the subject of the count unambiguous:
 
   - ```Orion.Nodes` declares 102 properties``, and the same for verbs and navigation
     properties, where the count spans both relationship lists because both are navigable
@@ -20,6 +20,8 @@ This checks five shapes, chosen because each makes the subject of the count unam
   - a ``**Size.**`` paragraph, which the entity pages use to give a whole shape at once:
     "53 declared properties, 19 source relationships, 3 target relationships, 5 verbs".
     There the entity is the section heading, not a name in the sentence.
+  - a summary table whose columns are counts, headed ``| Entity | Properties | Verbs |``.
+    The header names what each column holds, so a row needs no prose around it.
 
 Precision is the whole design constraint. Prose counts subsets far more often than it
 counts totals, and "two verbs on ``Cirrus.ConfigArchive``: ``Diff`` and ``CompareConfigs``"
@@ -70,7 +72,7 @@ KIND = r"(?P<kind>properties|verbs|navigation properties)"
 
 # Forms where the entity is the subject and the number is its total.
 TOTAL_FORMS = [
-    re.compile(rf"`(?P<ent>{ENTITY})`\s+(?:entity\s+)?(?:has|declares)\s+"
+    re.compile(rf"`(?P<ent>{ENTITY})`\s+(?:entity\s+)?(?:has|declares|exposes|publishes)\s+"
                rf"(?:just\s+|only\s+|exactly\s+)?{NUM}\s+(?:declared\s+)?{KIND}\b", re.I),
     re.compile(rf"`(?P<ent>{ENTITY})`\s*\({NUM}\s+{KIND}\)", re.I),
     re.compile(rf"`(?P<ent>{ENTITY})`[^.`]{{0,40}}?\bIts\s+{NUM}\s+{KIND}\b", re.I),
@@ -82,7 +84,9 @@ INHERIT_FORMS = [
 ]
 
 NAMESPACE_FORMS = [
-    re.compile(rf"{NUM}\s+entities\s+(?:under|in)\s+`(?P<ns>[A-Z][\w.]*?)\.?`", re.I),
+    # The bold and the "all" are how the module pages actually write it: "contributes
+    # **16 entities**, all under `Orion.AgentManagement.`".
+    re.compile(rf"{NUM}\s+entities\*{{0,2}},?\s+(?:all\s+)?(?:under|in)\s+`(?P<ns>[A-Z][\w.]*?)\.?`", re.I),
     re.compile(rf"`(?P<ns>[A-Z][\w.]*?)\.?`[^.`]{{0,30}}?\bholds\s+\*{{0,2}}{NUM}\s+entities", re.I),
 ]
 
@@ -185,6 +189,61 @@ class Schema:
             if record.get("entity") == entity and record.get("name", "").lower() == verb.lower():
                 return len(record.get("parameters") or [])
         return None
+
+
+# A summary table that gives each entity's shape in numeric columns:
+#
+#   | Entity | Properties | Verbs | What it is |
+#   |---|---:|---:|---|
+#   | `Orion.AgentManagement.Agent` | 37 | 20 | One row per agent. |
+#
+# The header names what each column counts, so the numbers are unambiguous without the
+# prose having to repeat the entity name.
+TABLE_ROW_RE = re.compile(r"^\s*\|(?P<cells>.+)\|\s*$")
+TABLE_RULE_RE = re.compile(r"^[\s|:\-]+$")
+COUNT_COLUMNS = {
+    "properties": "properties",
+    "declared properties": "properties",
+    "verbs": "verbs",
+    "navigations": None,          # resolved below, spans both relationship lists
+    "navigation properties": None,
+}
+
+
+def table_claims(text: str, schema: Schema):
+    """Yield claims from summary tables whose columns are counts of members."""
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines) - 1:
+        header = TABLE_ROW_RE.match(lines[i])
+        rule = TABLE_RULE_RE.match(lines[i + 1]) and "|" in lines[i + 1]
+        if not (header and rule):
+            i += 1
+            continue
+        columns = [c.strip().lower() for c in header.group("cells").split("|")]
+        wanted = {j: COUNT_COLUMNS.get(name, "MISSING") for j, name in enumerate(columns)
+                  if name in COUNT_COLUMNS}
+        if not wanted:
+            i += 1
+            continue
+        j = i + 2
+        while j < len(lines):
+            row = TABLE_ROW_RE.match(lines[j])
+            if not row:
+                break
+            cells = [c.strip() for c in row.group("cells").split("|")]
+            name = re.match(r"`([A-Z]\w*(?:\.[A-Z]\w*)+)`\s*$", cells[0]) if cells else None
+            if name and name.group(1) in schema.entities:
+                entity = name.group(1)
+                for index, kind in wanted.items():
+                    if index >= len(cells) or not cells[index].isdigit():
+                        continue
+                    field = kind or "navigation properties"
+                    declared, _ = schema.member_counts(entity, field)
+                    yield (f"{entity} {field}", int(cells[index]), declared,
+                           f"| {entity} | ... | {cells[index]} |", "")
+            j += 1
+        i = j
 
 
 def size_claims(text: str, schema: Schema):
@@ -294,6 +353,8 @@ def main() -> None:
         with open(path, encoding="utf-8", errors="replace") as fh:
             text = fh.read()
         for claim in size_claims(text, schema):
+            record(rel, *claim)
+        for claim in table_claims(text, schema):
             record(rel, *claim)
         for paragraph in re.split(r"\n\s*\n", text):
             flat = " ".join(paragraph.split())

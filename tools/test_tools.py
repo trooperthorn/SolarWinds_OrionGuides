@@ -625,6 +625,70 @@ class TestNetObjectIdContract(unittest.TestCase):
         self.assertEqual(on_nodes, {"string", "number"})
 
 
+class TestSummaryTables(unittest.TestCase):
+    """A table whose columns are member counts is checked row by row.
+
+    The header names what each column counts, so the numbers are unambiguous without the
+    prose repeating the entity. Eight pages use this shape for 77 figures, none of which
+    any other check could see.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_counts
+
+        cls.mod = check_counts
+        cls.schema = check_counts.Schema(VERSION)
+
+    def claims(self, text):
+        return list(self.mod.table_claims(text, self.schema))
+
+    TABLE = ("| Entity | Properties | Verbs | What it is |\n"
+             "|---|---:|---:|---|\n"
+             "| `Orion.AgentManagement.Agent` | 37 | 20 | One row per agent. |\n"
+             "| `Orion.AgentManagement.AgentPlugin` | 6 | 0 | One row per plugin. |\n")
+
+    def test_every_count_column_is_read(self):
+        found = self.claims(self.TABLE)
+        self.assertEqual(len(found), 4)
+        for _, claimed, actual, _, _ in found:
+            self.assertEqual(claimed, actual)
+
+    def test_a_wrong_figure_is_caught(self):
+        wrong = self.TABLE.replace("| 37 |", "| 39 |")
+        bad = [c for c in self.claims(wrong) if c[1] != c[2]]
+        self.assertEqual(len(bad), 1)
+        self.assertIn("properties", bad[0][0])
+
+    def test_a_zero_count_is_still_checked(self):
+        # AgentPlugin really does declare no verbs, and 0 must not be read as "no claim".
+        found = [c for c in self.claims(self.TABLE) if c[0].endswith("verbs") and c[1] == 0]
+        self.assertTrue(found)
+
+    def test_a_table_without_count_columns_is_ignored(self):
+        table = ("| Entity | What it is |\n|---|---|\n"
+                 "| `Orion.Nodes` | The device record |\n")
+        self.assertEqual(self.claims(table), [])
+
+    def test_rows_naming_something_that_is_not_an_entity_are_skipped(self):
+        table = ("| Entity | Properties |\n|---|---:|\n"
+                 "| `Not.An.Entity` | 12 |\n| some prose | 4 |\n")
+        self.assertEqual(self.claims(table), [])
+
+    def test_the_real_pages_are_consistent(self):
+        import glob as _glob
+
+        total = 0
+        for path in _glob.glob(os.path.join(ROOT, "docs", "**", "*.md"), recursive=True):
+            if self.mod.is_generated(path):
+                continue
+            with open(path, encoding="utf-8") as fh:
+                found = self.claims(fh.read())
+            total += len(found)
+            self.assertEqual([c for c in found if c[1] != c[2]], [], path)
+        self.assertGreater(total, 50)
+
+
 class TestSizeParagraphs(unittest.TestCase):
     """The `**Size.**` convention gives an entity's shape in one line, and the entity is
     its section heading rather than a name in the sentence."""
