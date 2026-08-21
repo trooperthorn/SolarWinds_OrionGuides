@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**139 statements across 44 pages.**
+**144 statements across 45 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -40,6 +40,28 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What is not verified here](../automation/alerts.md#what-is-not-verified-here)**
 
 - ## What is not verified here
+
+## [api-pollers.md](../automation/api-pollers.md)
+
+**[The poller](../automation/api-pollers.md#the-poller)**
+
+- `LastPollTimestamp` carries **no documented timezone** in the schema and its name does not end in `Utc`, so this is unverified here: settle it with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before trusting a narrow window.
+
+**[The request](../automation/api-pollers.md#the-request)**
+
+- Whether the platform redacts any header value on read is not recorded in the schema and is unverified here; assume it does not.
+
+**[The metric](../automation/api-pollers.md#the-metric)**
+
+- What syntax `Path` uses, and what values `Type` and `ThresholdRule` accept, are **not recorded in the published schema** and are unverified here — read existing rows on your own server before writing new ones.
+
+**[The verbs](../automation/api-pollers.md#the-verbs)**
+
+- **What belongs in which is not recorded in the published schema** and is unverified here.
+
+**[The template library](../automation/api-pollers.md#the-template-library)**
+
+- Its internal structure is **not recorded in the published schema** and is unverified here.
 
 ## [credentials.md](../automation/credentials.md)
 

@@ -499,7 +499,9 @@ Neither declares any operations in the schema, so treat both as read-only throug
 `Orion.APIPoller.ApiPoller` is the poller, with `RelatedEntityId` and `RelatedEntityType`
 instead of a NetObject, three verbs (`AssignTemplate`, `ExportTemplateFromApiPoller`,
 `CreateApiPollerFromTemplate`) and a supporting cast of template, request and
-value-to-monitor entities. It requires `admin` to change anything.
+value-to-monitor entities. It requires `admin` to change anything through CRUD, though the
+verbs themselves only require `manageNodes`. Ten entities in all, and enough of a system to
+have its own page: [api-pollers.md](api-pollers.md).
 
 ## Polling parameters
 

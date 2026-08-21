@@ -268,6 +268,7 @@ that reason.
 | [maintenance-mode.md](maintenance-mode.md) | Unmanage and remanage, for planned work |
 | [custom-properties.md](custom-properties.md) | Define, populate and query custom properties |
 | [pollers.md](pollers.md) | Why a new node monitors nothing until pollers are assigned |
+| [api-pollers.md](api-pollers.md) | Monitoring an HTTP endpoint, and moving a poller between servers |
 | [alerts.md](alerts.md) | Active alerts, acknowledgement, definitions, suppression |
 | [dependencies.md](dependencies.md) | Suppressing downstream alerts during an outage |
 | [discovery.md](discovery.md) | Network sonar discovery and list resources |
