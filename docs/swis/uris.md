@@ -127,13 +127,23 @@ Composite keys are comma separated, with no spaces:
 
 ```text
 swis://abcdef/Orion/IPAM.Subnet/SubnetId=100,ParentId=2
-swis://abcdef/Orion/Orion.APM.ComponentTemplateSetting/ComponentTemplateID=17,Key=<setting-key>
+swis://abcdef/Orion/Orion.APM.ComponentTemplateSetting/ComponentTemplateID=17,Key="<setting-key>"
 ```
 
 `SubnetId` and `ParentId` are both real `IPAM.Subnet` properties; `ComponentTemplateID` and
 `Key` are both real `Orion.APM.ComponentTemplateSetting` properties, where `Key` is
 described in the schema as "Unique string representation of the setting". The setting keys
 themselves come from the template, so select them rather than guessing.
+
+Both of those URI shapes are lifted from SolarWinds' own samples rather than invented here,
+which is where the double quotes around the string `Key` value come from: the SAM
+[application monitoring templates](https://solarwinds.github.io/OrionSDK/docs/server-and-application-monitor/sam-application-monitoring-templates/)
+page builds exactly that URI, and the
+[IPAM API](https://solarwinds.github.io/OrionSDK/docs/ipam-2019-4-and-higher-versions-api/)
+page uses the `IPAM.Subnet` one. That sourcing matters because *which* properties make up an
+entity's key is **not recorded in the published schema** that this repository extracts, so
+the composite key sets above cannot be verified here. Confirm them on your own server with
+`Metadata.Property` and `IsKey`, as below.
 
 ## Entities without key properties have no URI
 

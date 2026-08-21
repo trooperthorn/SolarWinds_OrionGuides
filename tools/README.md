@@ -31,10 +31,11 @@ ten of twenty-one.
 | [validate_swql.py](validate_swql.py) | A query naming an entity, property or navigation that does not exist |
 | [check_entity_references.py](check_entity_references.py) | The same, in prose rather than in a query |
 | [check_counts.py](check_counts.py) | A number in a sentence that the extracted data contradicts |
+| [check_signatures.py](check_signatures.py) | A verb signature in prose whose arguments are wrong or out of order |
 | [check_examples.py](check_examples.py) | A documented command whose shown output is not what it prints |
 | [check_data.py](check_data.py) | Extraction that degraded quietly, and reference pages that fell behind |
 | [check_links.py](check_links.py) | A relative link to a file that no longer exists |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 62 tests |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 73 tests |
 
 Beyond names and links, `check_data.py` also holds the documentation to its own claims:
 the entity count each module page quotes for its namespace, the status tables written by

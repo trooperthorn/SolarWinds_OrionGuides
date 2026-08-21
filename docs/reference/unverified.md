@@ -8,9 +8,37 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**51 statements across 23 pages.**
+**75 statements across 28 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
+
+## [accounts-and-permissions.md](../automation/accounts-and-permissions.md)
+
+**[`AccountType`](../automation/accounts-and-permissions.md#accounttype)**
+
+- The value an Orion-only account carries is **not recorded in the published schema** and is unverified here.
+**[`CreateOneTimeLoginToken`](../automation/accounts-and-permissions.md#createonetimelogintoken)**
+
+- What the token is valid for, and for how long, is not recorded in the published schema and is unverified here.
+**[Which account column corresponds to which right](../automation/accounts-and-permissions.md#which-account-column-corresponds-to-which-right)**
+
+- The rest of the table below is inferred from the names and is unverified here; confirm it on your own server by granting one right to a test account and seeing which calls start succeeding.
+- It gates 21 verbs, including `Orion.Nodes.StartRealTimePolling` and `Orion.Nodes.StopRealTimePolling`, but searching the 2026.2 property data for a matching account column returns nothing, so how it is granted is **not recorded in the published schema** and is unverified here.
+**[The limitation verbs](../automation/accounts-and-permissions.md#the-limitation-verbs)**
+
+- Rebinding an existing limitation to a different account means writing the `LimitationIDn` column on `Orion.Accounts`, and whether `UpdateAccount` accepts `LimitationID1` in its properties dictionary is **not recorded in the published schema** and is unverified here.
+**[Accounts that carry a limitation](../automation/accounts-and-permissions.md#accounts-that-carry-a-limitation)**
+
+- `IsNull(column, 0) <> 0` covers both ways an unused slot can be represented, because whether an empty slot holds `0` or `NULL` is not recorded in the schema.
+
+## [alerts.md](../automation/alerts.md)
+
+**[Reading suppression state properly](../automation/alerts.md#reading-suppression-state-properly)**
+
+- The extracted schema records the verb as returning `array` without describing the element, so **the exact serialised member names on the wire are not verified here**.
+**[What is not verified here](../automation/alerts.md#what-is-not-verified-here)**
+
+- ## What is not verified here
 
 ## [custom-properties.md](../automation/custom-properties.md)
 
@@ -24,6 +52,33 @@ Read this before relying on this repository for something load-bearing. If you h
 **[ValidateCustomProperty](../automation/custom-properties.md#validatecustomproperty)**
 
 - The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it is unverified here.
+
+## [discovery.md](../automation/discovery.md)
+
+**[Phase 1b: the interfaces plugin configuration](../automation/discovery.md#phase-1b-the-interfaces-plugin-configuration)**
+
+- `AutoImportExpressionFilter` is present in the 2026.2 contract with members `Prop`, `Op` and `Val`, but no accepted property names or operators are documented and no sample uses it, so **its usage is unverified here**.
+**[Importing a staged discovery](../automation/discovery.md#importing-a-staged-discovery)**
+
+- The semantics of `SelectedDiscoveredResources` are unverified here.
+**[Checking a credential before you scan with it](../automation/discovery.md#checking-a-credential-before-you-scan-with-it)**
+
+- The keys it expects are not described in the schema or the Swagger contract**, and no SDK sample calls this verb, so the content is unverified here.
+**[List Resources on an address that is not a node yet](../automation/discovery.md#list-resources-on-an-address-that-is-not-a-node-yet)**
+
+- Both are unverified here.** Check `Metadata.VerbArgument.XmlTemplate` on your own server.
+**[What is not verified here](../automation/discovery.md#what-is-not-verified-here)**
+
+- ## What is not verified here
+
+## [events-and-auditing.md](../automation/events-and-auditing.md)
+
+**[Down and back up, in one row](../automation/events-and-auditing.md#down-and-back-up-in-one-row)**
+
+- The timezone of `DateTimeFrom` is not documented in the schema, so measure it the same way before building a report on it.
+**[What is not verified here](../automation/events-and-auditing.md#what-is-not-verified-here)**
+
+- ## What is not verified here
 
 ## [node-management.md](../automation/node-management.md)
 
@@ -41,6 +96,33 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Deleting a node](../automation/node-management.md#deleting-a-node)**
 
 - This page does not enumerate exactly which child rows go: that is runtime behaviour and it cannot be verified from the schema.
+
+## [agents.md](../modules/agents.md)
+
+**[Namespaces and how many entities](../modules/agents.md#namespaces-and-how-many-entities)**
+
+- Whether a query against one of those indication entities returns historical rows, or nothing at all because indications are transient, is **not recorded in the published schema** and is not verified here.
+**[The two status columns, and why they disagree with each other](../modules/agents.md#the-two-status-columns-and-why-they-disagree-with-each-other)**
+
+- Which of the two is right for your release **cannot be verified here**, because the Swagger enum is declared as a string enum and does not carry the integers.
+**[Plugins](../modules/agents.md#plugins)**
+
+- The `Status` integers for a plugin are **not documented in the published schema** and are not verified here; read `StatusMessage` alongside the number and build the mapping for your release with the same `GROUP BY` shape shown above.
+**[1. Deploy](../modules/agents.md#1-deploy)**
+
+- What the integer identifies is **not documented in the published schema**, so this page does not assert that it is the new `AgentId`.
+**[Validate credentials before you deploy](../modules/agents.md#validate-credentials-before-you-deploy)**
+
+- The two enums' members are not published in the schema or the Swagger contract and are **not verified here**; the boolean and the string are the parts to act on.
+**[2. Connect](../modules/agents.md#2-connect)**
+
+- The `agentPort` value above is an example, not a documented default: the port a passive agent listens on is installation configuration and is **not recorded in the published schema**.
+**[4. Move, or remove](../modules/agents.md#4-move-or-remove)**
+
+- What it does to an agent, and whether it is reversible, is **not documented in the published schema** and is not verified here.
+**[The verbs, in full](../modules/agents.md#the-verbs-in-full)**
+
+- What the platform does with an agent row written that way, as opposed to one produced by `Deploy` or `AddAgent`, is **not documented in the published schema** and is not verified here.
 
 ## [cloud.md](../modules/cloud.md)
 
@@ -217,6 +299,9 @@ Read this before relying on this repository for something load-bearing. If you h
 **[UNION](../swql/language-reference.md#union)**
 
 - `UNION ALL` is unverified.** The official reference documents only `UNION`.
+**[CASE](../swql/language-reference.md#case)**
+
+- Whether the simple form, `CASE Severity WHEN 2 THEN ...`, is also accepted **is unverified here**.
 
 ## [performance.md](../swql/performance.md)
 

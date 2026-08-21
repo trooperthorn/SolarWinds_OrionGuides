@@ -11,7 +11,8 @@ Orion, SWIS is the contract you write against.
 
 This guide documents SWIS schema version **2026.2**, which contains 2067 entities,
 19328 properties, 958 verbs (794 of which publish typed parameters) and 2992 navigation
-relationships.
+edges across 1501 relationship definitions. Each relationship is navigable from both ends,
+which is why there are twice as many edges as definitions.
 
 ## Why SWIS instead of the SQL database
 
@@ -58,7 +59,10 @@ the specific type in advance.
 Every SWIS entity type has a parent type, and the root of the tree is `System.Entity`.
 `System.Entity` declares five properties that every other entity inherits: `DisplayName`,
 `Description`, `InstanceType`, `Uri` and `InstanceSiteId`. SWIS fills in `InstanceType` and
-`Uri` itself.
+`Uri` itself. Note that SolarWinds' own summary sentence for `System.Entity` still says it
+defines *four* properties and names only the first four; `InstanceSiteId` is in the
+published property table but was never added to that sentence. The table is the one to
+trust, and it is what this repository extracts.
 
 Querying a base type returns rows from every type beneath it:
 

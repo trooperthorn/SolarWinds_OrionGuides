@@ -104,6 +104,12 @@ Specifics:
   102 properties" and compares them against `data/`. If you mean a subset rather than a
   total, say so in the sentence: "two of its verbs", not "two verbs". The checker skips
   subset phrasings, and a reader needs the distinction anyway.
+- Verb signatures are checked. `tools/check_signatures.py` reads a form like
+  `` `Diff(configId1, configId2)` `` and compares the argument names and their order
+  against the contract. Writing only the leading arguments is fine, since prose abbreviates
+  a signature to its subject all the time, but the ones you do write must be in contract
+  order. Arguments are positional, so this is the error that reaches a reader as a call
+  that returns the wrong answer instead of one that fails.
 - Link the official SolarWinds documentation where it already says something well, rather
   than paraphrasing it loosely.
 - Cross-link sibling pages with relative links.

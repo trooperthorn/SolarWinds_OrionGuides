@@ -52,14 +52,36 @@ a SWQL-ish `TriggerQuery` string:
 
 ```bash
 python3 tools/schema_query.py props Orion.AlertDefinitions
+```
+
+```text
+Orion.AlertDefinitions properties (27 shown, including inherited)
+  AlertDefID                                 System.Guid                 
+  Name                                       System.String               
+  Description                                System.String               
+  Enabled                                    System.Boolean              
+  StartTime                                  System.DateTime             
+  EndTime                                    System.DateTime             
+  DOW                                        System.String               
+```
+
+The rest of that list carries `TriggerQuery`, `ResetQuery`, `SuppressionQuery`,
+`TriggerSustained`, `ResetSustained`, `ExecuteInterval`, `LastExecuteTime`, `BlockUntil`,
+`LastError` and `Reverted`, none of which have counterparts on
+`Orion.AlertConfigurations`. `Orion.AlertStatus` is the matching state table and keys on the
+same GUID:
+
+```bash
 python3 tools/schema_query.py props Orion.AlertStatus
 ```
 
 ```text
-Orion.AlertDefinitions   AlertDefID: System.Guid, TriggerQuery, ResetQuery,
-                         SuppressionQuery, DOW, StartTime, EndTime, ExecuteInterval, ...
-Orion.AlertStatus        AlertDefID: System.Guid, ActiveObject, ObjectName, State,
-                         WorkingState, TriggerTimeStamp, Acknowledged, AlertObjectID
+Orion.AlertStatus properties (26 shown, including inherited)
+  AlertDefID                                 System.Guid                 
+  ActiveObject                               System.String               
+  ObjectType                                 System.String               
+  State                                      System.Byte                 
+  WorkingState                               System.Byte                 
 ```
 
 `Orion.AlertConfigurations` carries three verbs whose names say what that relationship is:
@@ -218,14 +240,12 @@ SELECT
     ao.AlertConfigurations.Name AS AlertName,
     ao.EntityCaption,
     aa.TriggeredDateTime,
-    CASE ao.AlertConfigurations.Severity
-        WHEN 2 THEN 1   -- Critical
-        WHEN 3 THEN 2   -- Serious
-        WHEN 1 THEN 3   -- Warning
-        WHEN 4 THEN 4   -- Notice
-        WHEN 0 THEN 5   -- Information
-        ELSE 9
-    END AS TriageOrder
+    CASE WHEN ao.AlertConfigurations.Severity = 2 THEN 1   -- Critical
+         WHEN ao.AlertConfigurations.Severity = 3 THEN 2   -- Serious
+         WHEN ao.AlertConfigurations.Severity = 1 THEN 3   -- Warning
+         WHEN ao.AlertConfigurations.Severity = 4 THEN 4   -- Notice
+         WHEN ao.AlertConfigurations.Severity = 0 THEN 5   -- Information
+         ELSE 9 END AS TriageOrder
 FROM Orion.AlertActive aa
 JOIN Orion.AlertObjects ao ON aa.AlertObjectID = ao.AlertObjectID
 WHERE aa.Acknowledged = FALSE

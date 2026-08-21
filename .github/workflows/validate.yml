@@ -94,6 +94,11 @@ jobs:
       - name: Check numeric claims against the schema
         run: python3 tools/check_counts.py --version 2026.2
 
+      # Arguments are positional, so a reordered signature in prose becomes a call that
+      # returns the wrong answer rather than one that errors.
+      - name: Check verb signatures in prose against the contract
+        run: python3 tools/check_signatures.py --version 2026.2
+
       # A page that shows a command and its output is making a claim that rots like any
       # other. Run the documented invocations and compare.
       - name: Check documented tool output matches reality

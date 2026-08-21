@@ -75,9 +75,13 @@ make check
 ```
 
 That validates every query, asserts the extracted data is intact, confirms every entity
-name **mentioned in prose** exists, and resolves every relative link. The prose check
-matters for you specifically: a hallucinated entity name in a sentence is not caught by
-the query validator, and it is the failure mode you are most prone to.
+name **mentioned in prose** exists, checks the numbers and verb signatures written into
+sentences against the extracted data, and resolves every relative link.
+
+Three of those matter for you specifically, because they catch what a query validator
+cannot see: a hallucinated entity name in a sentence, a count that sounds right and is
+not, and a verb signature with its arguments in the wrong order. The last is the worst of
+the three, since arguments are positional and a reordered call fails silently.
 
 ## What is in `data/`
 

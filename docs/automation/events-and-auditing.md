@@ -176,9 +176,9 @@ python3 tools/schema_query.py show Orion.Events
 
 ```text
   targetRelationships (3) - this entity is the target; property leads back to the source
-    Nodes                                      -> Orion.Nodes
-    Engine                                     -> Orion.Engines
-    EventTypeProperties                        -> Orion.EventTypes
+    Nodes                                      -> Orion.Nodes                                  System.Reference
+    Engine                                     -> Orion.Engines                                System.Reference
+    EventTypeProperties                        -> Orion.EventTypes                             System.Reference
 ```
 
 The node navigation property is `Nodes`, **plural, resolving to a single node**:

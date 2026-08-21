@@ -488,5 +488,83 @@ class TestCountClaims(unittest.TestCase):
         self.assertEqual(self.claims("`Orion.Nope` declares 5 properties."), [])
 
 
+class TestSignatureClaims(unittest.TestCase):
+    """Verb signatures written in prose are checked against the positional contract.
+
+    This is the highest-stakes claim in the repository: arguments never travel by name, so
+    a reordered signature produces a call that fails silently rather than one that errors.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_signatures
+
+        cls.mod = check_signatures
+        cls.contract = check_signatures.Contract(VERSION)
+
+    def compare(self, shown, actual, elided=False):
+        return self.mod.compare(shown, actual, elided)
+
+    def test_notation_is_stripped_from_argument_names(self):
+        # Prose writes nodeId[], Reboot? and componentId: number for real argument names.
+        for written, plain in (
+            ("nodeId[]", "nodeid"), ("Reboot?", "reboot"),
+            ("componentId: number", "componentid"), ("configId1", "configid1"),
+        ):
+            self.assertEqual(self.mod.normalise(written), plain)
+
+    def test_matching_signature_passes(self):
+        self.assertIsNone(self.compare(["configId1", "configId2"], ["configId1", "configId2"]))
+
+    def test_prefix_is_accepted(self):
+        # A paragraph about which id space a verb takes writes only the first argument,
+        # and a paragraph about a version change writes the older shorter form. Both are
+        # correct prose, and treating them as errors would be noise.
+        self.assertIsNone(self.compare(["nodeId"], ["nodeId", "configType"]))
+
+    def test_reordered_arguments_are_caught(self):
+        problem = self.compare(["configId2", "configId1"], ["configId1", "configId2"])
+        self.assertIsNotNone(problem)
+        self.assertIn("position 2", problem)
+
+    def test_wrong_argument_name_is_caught(self):
+        problem = self.compare(["configId1", "flavour"], ["configId1", "settings"])
+        self.assertIsNotNone(problem)
+        self.assertIn("settings", problem)
+
+    def test_too_many_arguments_are_caught(self):
+        problem = self.compare(["a", "b", "c"], ["a", "b"])
+        self.assertIsNotNone(problem)
+        self.assertIn("the contract has 2", problem)
+
+    def test_elision_allows_a_gap_but_not_a_wrong_name(self):
+        self.assertIsNone(self.compare(["subnetGroupId", "cidr"],
+                                       ["subnetGroupId", "name", "cidr"], elided=True))
+        self.assertIsNotNone(self.compare(["subnetGroupId", "nope"],
+                                          ["subnetGroupId", "name", "cidr"], elided=True))
+
+    def test_elision_still_requires_the_real_order(self):
+        problem = self.compare(["cidr", "subnetGroupId"],
+                               ["subnetGroupId", "name", "cidr"], elided=True)
+        self.assertIsNotNone(problem)
+
+    def test_resolution_prefers_an_entity_named_nearby(self):
+        verb = self.contract.resolve("Unmanage", ["Orion.Nodes"])
+        self.assertIsNotNone(verb)
+        self.assertEqual(verb["entity"], "Orion.Nodes")
+
+    def test_unknown_verb_name_resolves_to_nothing(self):
+        self.assertIsNone(self.contract.resolve("Frobnicate", []))
+
+    def test_real_signature_from_the_contract(self):
+        verb = self.contract.resolve("SuppressAlerts", ["Orion.AlertSuppression"])
+        names = [p["name"] for p in verb["parameters"]]
+        self.assertEqual(names[:3], ["entityUris", "suppressFrom", "suppressUntil"])
+        # The alerting guide states that only the first is required. Hold that claim here
+        # too, since it is what makes the shorter published form safe to keep using.
+        self.assertTrue(verb["parameters"][0]["required"])
+        self.assertFalse(any(p["required"] for p in verb["parameters"][1:]))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

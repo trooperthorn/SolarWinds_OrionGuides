@@ -484,6 +484,17 @@ ORDER BY v.VolumePercentUsed DESC
 All branches must yield compatible types. `ELSE` is optional; without it, an unmatched row
 yields null.
 
+Whether the simple form, `CASE Severity WHEN 2 THEN ...`, is also accepted **is unverified
+here**. The official reference gives only the searched form above, and the schema does not
+record grammar, so this repository cannot settle it. Write the searched form: it is the
+documented one, it costs a repeated column reference, and it works everywhere the simple
+form would. If you want to know for your own version, run both against a small entity:
+
+```sql
+SELECT TOP 1 CASE WHEN n.Status = 1 THEN 'up' ELSE 'other' END AS Searched
+FROM Orion.Nodes n
+```
+
 `CASE` also works in `WHERE`, `GROUP BY` and `ORDER BY`, which is how you get a custom sort
 order without adding a column to the model.
 

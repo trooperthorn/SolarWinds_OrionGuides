@@ -149,9 +149,11 @@ Two reconciliation details worth knowing, because the numbers do not line up nai
   `Metadata.Entity` rather than trusting the count here.
 - The `operations` list on each index record comes from the entity's own access control table
   in the schema reference. 239 entities declare `create` there. Exactly 11 entities have
-  `canCreate` true while `operations` omits `create`: the eight `Orion.Cloud.Aws.*`,
-  `Orion.Cloud.Azure.*` and `Orion.Cloud.Gcp.*` `Accounts`, `Regions` and `ResourseTags`
-  types, plus `Orion.DPA.DatabaseInstanceApplication`,
+  `canCreate` true while `operations` omits `create`. Eight are cloud types: `Accounts`,
+  `Regions` and `ResourseTags` under each of `Orion.Cloud.Aws` and `Orion.Cloud.Azure`,
+  plus `Orion.Cloud.Gcp.Accounts` and `Orion.Cloud.Gcp.Regions` — there is no
+  `Orion.Cloud.Gcp.ResourseTags` in 2026.2, which is why that is eight and not nine. The
+  other three are `Orion.DPA.DatabaseInstanceApplication`,
   `Orion.DPA.DatabaseInstanceApplicationNoRelationship` and
   `Orion.DPA.DatabaseInstanceClientApplication`. Those have a `/Create` path in the contract
   but no published access control table. When the two sources disagree,
