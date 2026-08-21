@@ -1122,6 +1122,38 @@ class TestMemberTables(unittest.TestCase):
         self.assertGreaterEqual(total, 4)
 
 
+class TestAtomicWrites(unittest.TestCase):
+    """The data writers rename into place rather than truncating the target.
+
+    These files are large. Anything reading one while a rebuild runs gets a
+    JSONDecodeError partway through, which surfaced three times as a spurious CI failure
+    before the writers were changed.
+    """
+
+    def test_both_data_writers_are_atomic(self):
+        import inspect
+
+        import build_reference_data
+        import build_schema_data
+
+        for module in (build_schema_data, build_reference_data):
+            source = inspect.getsource(module.write_json)
+            self.assertIn("os.replace", source, module.__name__)
+            self.assertIn(".tmp", source, module.__name__)
+
+    def test_a_write_leaves_no_temporary_behind(self):
+        import json as _json
+        import tempfile
+
+        import build_schema_data
+
+        with tempfile.TemporaryDirectory() as d:
+            target = os.path.join(d, "out.json")
+            build_schema_data.write_json(target, {"a": 1})
+            self.assertEqual(_json.load(open(target, encoding="utf-8")), {"a": 1})
+            self.assertEqual(sorted(os.listdir(d)), ["out.json"])
+
+
 class TestDotNetTypeNames(unittest.TestCase):
     """Verb signatures quoted in the documentation carry escaped .NET generics."""
 

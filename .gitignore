@@ -4,3 +4,6 @@
 .schema-versions/
 .venv/
 __pycache__/
+
+# Transient files from an interrupted data build; the writers rename on success.
+*.tmp

@@ -342,10 +342,17 @@ def cross_check_entities(entities: list[dict], schema_index_path: str) -> list[d
 
 
 def write_json(path: str, payload) -> None:
+    """Write atomically, so a concurrent reader never sees a half-written file.
+
+    Same reasoning as tools/build_schema_data.py: anything reading these while a rebuild
+    runs gets a JSONDecodeError partway through, and the rename makes the swap atomic.
+    """
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=1, ensure_ascii=False)
         fh.write("\n")
+    os.replace(tmp, path)
 
 
 def main() -> None:

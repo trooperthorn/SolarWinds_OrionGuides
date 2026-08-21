@@ -698,9 +698,18 @@ def build(source: str, version: str, out_root: str) -> dict:
 
 
 def write_json(path: str, payload) -> None:
-    with open(path, "w", encoding="utf-8") as fh:
+    """Write atomically, so a concurrent reader never sees a half-written file.
+
+    These files are large, and anything reading them while a rebuild is in progress gets a
+    JSONDecodeError partway through: the validator, the query tool, CI. Writing to a
+    temporary file in the same directory and renaming makes the swap atomic on POSIX, so a
+    reader sees either the old file or the new one and never the middle of either.
+    """
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=1, ensure_ascii=False, sort_keys=False)
         fh.write("\n")
+    os.replace(tmp, path)
 
 
 def main() -> None:
