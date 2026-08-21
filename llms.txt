@@ -48,12 +48,27 @@ Everything below works offline. No server, no network, no credentials.
 - Both relationship lists on an entity are navigable from it. `Orion.Nodes.Interfaces` and
   `Orion.NPM.Interfaces.Node` are both valid SWQL.
 
+## Where this repository is uncertain
+
+[docs/reference/unverified.md](docs/reference/unverified.md) collects every statement the
+guides decline to assert, gathered from the pages themselves so it cannot drift from them.
+It covers what the schema does not record: behaviour only a running server exhibits,
+values that are installation data rather than schema, and places where SolarWinds' own
+documentation and their published contract disagree. Read it before answering something
+load-bearing from this repository alone, and when a question lands on one of those points,
+say it is unverified here and give the `Metadata.*` query that settles it.
+
 ## When this repository is not the authority
 
 It documents one platform version, and the schema varies with the release and with which
 modules are licensed. For a specific server, ask that server through the `Metadata.*`
 entities: see [scripts/swql/08-schema-introspection.swql](scripts/swql/08-schema-introspection.swql)
 and [docs/swis/metadata-introspection.md](docs/swis/metadata-introspection.md).
+
+Upgrading between versions: [docs/reference/](docs/reference/) carries generated change
+reports that classify each difference by risk, and the class worth knowing about is a verb
+whose positional arguments shifted, because an existing call still has the right number of
+arguments and sends them into the wrong slots.
 
 ## Optional
 
