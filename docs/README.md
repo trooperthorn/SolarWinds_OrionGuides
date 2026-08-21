@@ -54,6 +54,8 @@ The SolarWinds Information Service: how to reach it and what it offers.
 | [schema/entity-model.md](schema/entity-model.md) | Inheritance, key properties, access control |
 | [schema/relationships.md](schema/relationships.md) | Relationship kinds and navigating between entities |
 | [schema/key-entities.md](schema/key-entities.md) | Deep reference for the entities you will actually use |
+| [schema/netobject-types.md](schema/netobject-types.md) | What a NetObject prefix is and where `N:42` is required |
+| [schema/status-codes.md](schema/status-codes.md) | What the status integers mean and how rollup ranking works |
 | [schema/using-the-data.md](schema/using-the-data.md) | The generated JSON under `data/`, and how to query it |
 
 ## Modules

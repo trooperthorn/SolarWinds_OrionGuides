@@ -803,8 +803,10 @@ ORDER BY c.CPULoad DESC
 ```
 
 `VmCapacityConstraint` names the resource that runs out first, which turns three depletion
-dates into one actionable sentence. `HaStatus` and `DrsStatus` are booleans, so a cluster with
-`HaStatus = FALSE` is one where a host failure will not restart anything.
+dates into one actionable sentence. `HaStatus` and `DrsStatus` are typed `System.Boolean`
+rather than as strings, so they filter cleanly: `WHERE c.HaStatus = FALSE` finds the clusters
+where high availability is not in effect, which is worth reviewing alongside the capacity
+numbers rather than after an incident.
 
 ### Unresolved hypervisor alarms
 
@@ -829,8 +831,9 @@ ORDER BY t.Timestamp DESC
 ```
 
 `GetUtcDate()` rather than `GetDate()`, because `Timestamp` on this entity is documented as
-UTC. The four `Related*` navigations are to-one and any of them can be null for a given
-alarm, since an alarm is about exactly one kind of object.
+UTC. The four `Related*` navigations selected here are all to-one, and any of them can be
+null for a given alarm, since one alarm is about one kind of object. Selecting all four and
+letting three be null is deliberate: it gives one column shape whatever the alarm is about.
 
 ### Datastores and the storage array behind them
 
