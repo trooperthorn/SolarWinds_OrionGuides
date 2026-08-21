@@ -284,6 +284,10 @@
     "summaryRaw": "Updates NCM approval mode. For valid Orion user with at least Engineer NCM role.The NCM approvals mode."
    }
   ],
+  "keyHints": [
+   "ID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 14,
@@ -329,6 +333,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "ApproveQueueID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 3,
@@ -509,6 +517,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "ID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 10,
@@ -2714,6 +2726,10 @@
     "summaryRaw": "Saves snippet as copy. Valid for Orion manage node users with at least WebUploader NCM role.Config snippet.Saved snippet ID. Full type: System.Int32"
    }
   ],
+  "keyHints": [
+   "ID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 7,
@@ -3184,6 +3200,10 @@
    }
   ],
   "verbs": [],
+  "keyHints": [
+   "InterfaceID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 20,
@@ -3537,6 +3557,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "MatrixTargetID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 7,
@@ -3695,6 +3719,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "ID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 14,
@@ -3806,6 +3834,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "ID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 14,
@@ -3857,6 +3889,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "JobEngineJobID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 4,
@@ -4097,6 +4133,10 @@
     "summaryRaw": "Tests access for the invoker.Validation results. Full type: SolarWinds.NCM.Contracts.InformationService.ValidationResults"
    }
   ],
+  "keyHints": [
+   "NCMJobID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 10,
@@ -4214,6 +4254,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "NCMJobID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 15,
@@ -4495,6 +4539,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "NodeID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [
    "invoke",
    "read",
@@ -5576,6 +5624,10 @@
     "summaryRaw": "Executes and makes config change report. Valid for Orion manage node users with at least WebViewer NCM role.NCM node ID.Comparison type.Differences between configurations. Full type: System.String"
    }
   ],
+  "keyHints": [
+   "NodeID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [
    "invoke",
    "read",
@@ -5620,6 +5672,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "OptionName"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 2,
@@ -5689,6 +5745,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "PolicyID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 7,
@@ -5728,6 +5788,11 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "PolicyReportID",
+   "PolicyID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 2,
@@ -5767,6 +5832,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "CacheID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 2,
@@ -5902,6 +5971,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "CacheID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 18,
@@ -6710,6 +6783,10 @@
     "summaryRaw": "Generates remediation scripts. If compliance only for administrators option enabled then it's valid only for Orion admins. If not then valid for Orion users with at least WebViewer NCM role.NCM node IDs.Compliance policy report ID.Compliance policy ID.Compliance policy rule ID.Script template.Array of scripts and nodes data. Full type: SolarWinds.NCM.Contracts.InformationService.NetworkNode"
    }
   ],
+  "keyHints": [
+   "PolicyReportID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 11,
@@ -6749,6 +6826,11 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "PolicyID",
+   "PolicyRuleID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 2,
@@ -6866,6 +6948,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "PolicyRuleID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 15,
@@ -8111,6 +8197,10 @@
     "summaryRaw": "Updates snippet. For valid Orion user with at least Administrator NCM role. Snippet id. Full type: System.Guid.Config title. Full type: System.String.Config. Full type: System.String.Comments. Full type: System.String."
    }
   ],
+  "keyHints": [
+   "ConfigID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 6,
@@ -8150,6 +8240,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "SnippetID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 2,
@@ -8286,6 +8380,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "Account"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [],
   "counts": {
    "properties": 5,

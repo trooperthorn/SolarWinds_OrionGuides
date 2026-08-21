@@ -160,6 +160,12 @@ def cmd_show(schema: Schema, args):
         if r["inheritance"]:
             print(f"  inherits: {' -> '.join(r['inheritance'])} -> {r['entity']}")
         print(f"  operations: {', '.join(r['supportedOperations']) or '(none declared)'}")
+        if r.get("keyHints"):
+            # The rendered schema does not mark keys; this comes from SolarWinds' own
+            # property prose, so present it as a hint and name the authority.
+            print(f"  key (from property prose): {', '.join(r['keyHints'])}")
+            print("    confirm with: SELECT Name FROM Metadata.Property "
+                  f"WHERE Entity.FullName = '{r['entity']}' AND IsKey = true")
         for ac in r["accessControl"]:
             print(f"    {','.join(ac['operations']):<38} requires {ac['right']}")
         print(f"\n  properties ({len(r['properties'])})")

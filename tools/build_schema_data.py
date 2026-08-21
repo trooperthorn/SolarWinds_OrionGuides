@@ -121,6 +121,15 @@ TODO_RE = re.compile(r"^ToDo\.?$", re.I)
 # Flags SolarWinds writes into the entity summary prose.
 READONLY_RE = re.compile(r"\bread[- ]only\b", re.I)
 DEPRECATED_RE = re.compile(r"\bobsolete\b|\bdeprecated\b", re.I)
+# Some property summaries state outright that the property is the key, which is the only
+# place the rendered schema records it. Deliberately narrow: "key" alone matches far too
+# much ("foreign key", "key name", "licence key").
+KEY_SUMMARY_RE = re.compile(
+    r"\b(?:is the |as the |and )?primary key\b|\bprimary key of\b|\bkey property\b", re.I
+)
+# A property that names or describes the key is not itself the key.
+# Orion.AIIM.OccurrencesLimited.PrimaryKeyName reads "Name of the primary key."
+NOT_A_KEY_RE = re.compile(r"\bname of the (?:primary )?key\b|\bprimary key name\b", re.I)
 
 
 def parse_entity_page(path: str, version: str) -> dict | None:
@@ -235,6 +244,20 @@ def parse_entity_page(path: str, version: str) -> dict | None:
         entity["flags"]["readOnly"] = True
     if DEPRECATED_RE.search(blob):
         entity["flags"]["deprecated"] = True
+
+    # The rendered schema pages do not mark key properties, which is a real gap: a key is
+    # what a SWIS URI is built from and what CRUD addresses. SolarWinds does say so in
+    # prose on some properties ("Interface ID. Primary key."), so surface that where it
+    # exists, labelled as a hint rather than as the schema saying it. The authority for a
+    # given server is Metadata.Property.IsKey; see docs/swis/metadata-introspection.md.
+    key_hints = [
+        p["name"]
+        for p in entity["properties"]
+        if KEY_SUMMARY_RE.search(p["summary"]) and not NOT_A_KEY_RE.search(p["summary"])
+    ]
+    if key_hints:
+        entity["keyHints"] = key_hints
+        entity["keyHintSource"] = "property summary text"
 
     ops = {op for ac in entity["accessControl"] for op in ac["operations"]}
     entity["supportedOperations"] = sorted(ops)
@@ -458,6 +481,7 @@ def build(source: str, version: str, out_root: str) -> dict:
             "summary": r["summary"][:400],
             "operations": r["supportedOperations"],
             "canCreate": r["canCreate"],
+            "keyHints": r.get("keyHints"),
             "counts": r["counts"],
             "file": f"entities/{r['namespace']}.json",
         }

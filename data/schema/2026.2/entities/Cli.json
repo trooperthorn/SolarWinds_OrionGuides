@@ -188,6 +188,10 @@
     "restPath": "/Invoke/Cli.CliSessionSettings/ValidateCliCredentialsExtended"
    }
   ],
+  "keyHints": [
+   "SettingName"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [
    "create",
    "delete",
@@ -274,6 +278,11 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "NodeId",
+   "FeatureName"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [
    "read"
   ],
@@ -401,6 +410,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "ID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [
    "create",
    "delete",
@@ -459,6 +472,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "NodeId"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [
    "create",
    "delete",

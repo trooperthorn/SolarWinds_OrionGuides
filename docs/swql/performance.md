@@ -48,8 +48,8 @@ care a query needs.
 | Inventory | `Orion.Nodes`, `Orion.NPM.Interfaces`, `Orion.Volumes`, `Orion.APM.Application` | one row per monitored object | `TOP` and a sensible `WHERE` |
 | Lookup | `Orion.StatusInfo` (26 documented status codes), `Orion.EventTypes`, `Orion.LimitationTypes`, `Orion.Engines` | tens of rows | none |
 | Extension | the 305 entities under `System.ExtensionEntity`, less the 236 statistics ones; for example `Orion.NodesCustomProperties` | one row per object | joins to inventory, so watch cardinality |
-| **Statistics and history** | the **236 entities under `System.StatisticsEntity`** | one row per object *per collection interval*, retained for months | **always time-bounded, always** |
-| Event and audit | `Orion.Events`, `Orion.AlertHistory`, `Cirrus.Audit` | one row per thing that happened | always time-bounded |
+| **Statistics and history** | the **236 entities under `System.StatisticsEntity`** | one row per object *per collection interval*, for as long as retention keeps it | **always time-bounded, always** |
+| Event and audit | `Orion.Events` (`EventTime`), `Orion.AlertHistory` (`TimeStamp`), `Cirrus.Audit` (`DateTime`) | one row per thing that happened | always time-bounded |
 
 Find out which category an entity is in without a server:
 
@@ -62,8 +62,9 @@ inherits: System.Entity -> System.ExtensionEntity -> System.StatisticsEntity -> 
 ```
 
 That inheritance line is the whole warning. `Orion.CPULoad`, `Orion.ResponseTime`,
-`Orion.NPM.InterfaceTraffic`, `Orion.VolumeUsageHistory`, every `Orion.Netflow.Flows*` entity
-and every `Cortex.Orion.*.Statistics` entity sit under `System.StatisticsEntity`. List them all:
+`Orion.NPM.InterfaceTraffic`, `Orion.VolumeUsageHistory`, all twelve `Orion.Netflow.Flows*`
+entities and all eight `Cortex.Orion.*.Statistics` entities sit under
+`System.StatisticsEntity`. List them all:
 
 ```bash
 python3 tools/schema_query.py children System.StatisticsEntity
@@ -148,10 +149,17 @@ python3 tools/schema_query.py props Orion.Nodes --grep Ancestor
 
 ## 3. Filter on keys, not on captions
 
-Key columns are integers, they are the primary keys of the underlying tables, and they are what
-every relationship in the schema is expressed in terms of. Captions are user-editable strings
-whose comparison behaviour depends on the database collation
+Key columns are the identifiers SWIS itself works in. They are what `Metadata.Property.IsKey`
+marks, what the NetObject ids are built from, and what every relationship edge in the schema is
+expressed in terms of. On the core entities they are all integers. Captions are user-editable
+strings whose comparison behaviour depends on the database collation
 ([gotchas.md](gotchas.md#10-string-comparison-collation-and-case)).
+
+A caveat on how far to take this. The published schema does **not** carry index metadata:
+`Metadata.Property` exposes `IsKey`, `IsSortable`, `FilterBy` and `GroupBy`, but nothing that
+names an index. So the advice here is about query *shape*, which is what you control, and not a
+claim about which columns are indexed on your particular database. Where a rewrite matters,
+measure it ([Measuring rather than guessing](#measuring-rather-than-guessing)).
 
 `data/reference/netobject-types.json` records the key properties for 115 mapped entities. The
 core ones:
@@ -321,9 +329,11 @@ ORDER BY t.DateTime
 
 This trips people up constantly. Every entity under `System.StatisticsEntity` inherits
 `ObservationTimestamp` ("When this statistic was collected") and `ObservationFrequency` ("The
-interval between collections"), but most of them also declare their own timestamp column, and
-the name varies. Counting only entities that declare their own: 32 use `TimeStamp`, 19 use
-`DateTime`, 11 use `Timestamp` (different capitalisation), 5 use `Date` and 5 use `DateTimeUTC`.
+interval between collections"), so there is always *a* time column. But 92 of the 236 also
+declare a timestamp column of their own, and the name is not consistent: 32 declare `TimeStamp`,
+32 redeclare `ObservationTimestamp`, 19 declare `DateTime`, 11 declare `Timestamp` (different
+capitalisation), 5 declare `Date` and 5 declare `DateTimeUTC`. Outliers exist too, such as
+`Orion.CPUMultiLoad.TimeStampUTC`.
 
 | Entity | Its own time column |
 |:---|:---|
@@ -345,8 +355,9 @@ python3 tools/schema_query.py props Orion.Netflow.FlowsByApplication --grep Time
 
 ### Aggregate in the database, not in the client
 
-Pulling 200000 rows over HTTP to compute an average in PowerShell is slow at both ends. Let
-SWIS do it, and remember `Weight` when the window might cross a rollup boundary
+Transferring a large statistics result over HTTP to compute an average in the client is slow at
+both ends and moves work off the machine best placed to do it. Let SWIS do it, and remember
+`Weight` when rows in the window may cover different spans of time
 ([gotchas.md](gotchas.md#7-averaging-statistics-rows-without-weight)):
 
 ```sql
@@ -452,16 +463,16 @@ ORDER BY COUNT(a.ApplicationID) DESC
 
 ## 7. Dot-walking is joining, and deep chains join repeatedly
 
-A navigation property is a declared join. `cp.Application.Node.Engine.ServerName` is three
-joins, written in eleven characters plus some dots, which is exactly what makes it so easy to
-write something expensive by accident.
+A navigation property is a declared join. `cp.Application.Node.Engine.ServerName` walks three
+navigations, so it is a four-table join expressed as a single column reference. That compactness
+is what makes it so easy to write something expensive without noticing.
 
 Two distinct costs:
 
-**Depth.** Each dot adds a join to the generated T-SQL. A four-segment path is a four-table
-join, and if four different columns in your `SELECT` each start with `cp.Application.Node.`,
-you are relying on SWIS to recognise the shared prefix. Whether it always does is not
-documented. Writing the join once, explicitly, removes the question:
+**Depth.** Each navigation segment adds a join. If four different columns in your `SELECT` each
+start with `cp.Application.Node.`, you are relying on SWIS to recognise the shared prefix rather
+than joining once per column. Whether it always does is not documented. Writing the join out
+explicitly removes the question:
 
 ```sql
 SELECT TOP 500
@@ -524,8 +535,9 @@ Then 501 TO 1000, and so on. Four rules make this work rather than half work:
    stopped, and rows can be repeated or skipped between pages.
 2. **Ask for `WITH TOTALROWS` once, on the first page.** It is a count over the unwindowed
    result, so it is not free; requesting it on every page pays for it every page.
-3. **Order by the key rather than by a caption when you can.** Sorting a large result on an
-   unindexed string is a large part of what makes paging expensive.
+3. **Order by the key rather than by a caption when you can.** Sorting a large result on a
+   string column costs more than sorting on an integer key, and the sort has to happen before
+   the window can be taken, so it is paid on every page.
 4. **For a set you already know, skip paging entirely** and bind the ids as one multi-valued
    parameter (`WHERE n.NodeID IN @ids`). One round trip beats twenty pages.
 
@@ -603,10 +615,11 @@ WHERE t.InterfaceID = @interfaceId
 ORDER BY t.DateTime DESC
 ```
 
-**Why it is better.** Three independent bounds. `InterfaceID` is the key column and a single
-integer comparison; `DateTime` is a half-open range that an index can seek rather than scan; and
-`TOP` caps the worst case even if the range is wider than you thought. Dropping `t.NodeID` from
-the select list also removes a column you can already derive from `@interfaceId`.
+**Why it is better.** Three independent bounds. `InterfaceID` narrows to one interface's rows
+with a single integer comparison; `DateTime` is a half-open range on a bare column, which is the
+shape a range index can seek rather than scan; and `TOP` caps the worst case even if the range
+turns out wider than you thought. Dropping `t.NodeID` from the select list also removes a column
+you can already derive from `@interfaceId`.
 
 ### Rewrite 2: a function on the filtered column
 
@@ -631,8 +644,8 @@ WHERE c.DateTime >= @monthStart
 ORDER BY c.DateTime
 ```
 
-**Why it is better.** The column is bare on one side of both comparisons, so the predicate is
-index-friendly. The bounds are computed once in the client instead of twice per row in the
+**Why it is better.** The column is bare on one side of both comparisons, which is the shape a
+range index can use. The bounds are computed once in the client instead of twice per row in the
 database. And because the client computed them, there is no `GetUtcDate()` plus `AddX` in the
 query to go wrong on a SQL Server in a different timezone.
 
@@ -657,8 +670,8 @@ ORDER BY n.Caption
 ```
 
 **Why it is better.** One query instead of N. The column is bare, so the comparison can use an
-index instead of computing `ToUpper` for every row on both sides. The `ToUpper` on both sides in
-the slow form was defending against collation
+index if one exists, instead of computing `ToUpper` for every row on both sides no matter what.
+The `ToUpper` on both sides in the slow form was defending against collation
 ([gotchas.md](gotchas.md#10-string-comparison-collation-and-case)); if you genuinely need
 case-insensitive matching, do the fold once when you build the caption list, and cache the
 resulting `NodeID` values so the lookup happens once per run rather than once per operation.

@@ -482,6 +482,10 @@
   "targetRelationships": [],
   "sourceRelationships": [],
   "verbs": [],
+  "keyHints": [
+   "Id"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [
    "create",
    "delete",
@@ -95684,6 +95688,10 @@
     "summaryRaw": "Sets the custom bandwidth (InBandwidth and OutBandwidth) for the interface. When customBandwidth is true the provided inBandwidth and outBandwidth values are applied; when false both are reset to the interface's native speed. At least one of inBandwidth or outBandwidth must be provided when customBandwidth is true.InterfaceID of the target interface.Desired inbound bandwidth in bits per second. Applied only when customBandwidth is true. If omitted (null), the current InBandwidth value is retained.Desired outbound bandwidth in bits per second. Applied only when customBandwidth is true. If omitted (null), the current OutBandwidth value is retained.Set to true to apply custom bandwidth values; set to false to revert to the interface's native speed."
    }
   ],
+  "keyHints": [
+   "InterfaceID"
+  ],
+  "keyHintSource": "property summary text",
   "supportedOperations": [
    "create",
    "delete",
