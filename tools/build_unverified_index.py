@@ -222,6 +222,11 @@ def render(found: dict[str, list[tuple[str, str]]]) -> str:
         for heading, sentence in found[path]:
             if heading and heading != last_heading:
                 anchor = f"{rel}#{slug(heading)}"
+                # A bold line straight after a bullet is a lazy continuation of
+                # that list item, so the heading would render inside the entry
+                # above it rather than over the ones below.
+                if out and out[-1] != "":
+                    out.append("")
                 out.append(f"**[{heading}]({anchor})**")
                 out.append("")
                 last_heading = heading

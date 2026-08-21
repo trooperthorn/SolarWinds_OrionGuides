@@ -17,16 +17,20 @@ Read this before relying on this repository for something load-bearing. If you h
 **[`AccountType`](../automation/accounts-and-permissions.md#accounttype)**
 
 - The value an Orion-only account carries is **not recorded in the published schema** and is unverified here.
+
 **[`CreateOneTimeLoginToken`](../automation/accounts-and-permissions.md#createonetimelogintoken)**
 
 - What the token is valid for, and for how long, is not recorded in the published schema and is unverified here.
+
 **[Which account column corresponds to which right](../automation/accounts-and-permissions.md#which-account-column-corresponds-to-which-right)**
 
 - The rest of the table below is inferred from the names and is unverified here; confirm it on your own server by granting one right to a test account and seeing which calls start succeeding.
 - It gates 21 verbs, including `Orion.Nodes.StartRealTimePolling` and `Orion.Nodes.StopRealTimePolling`, but searching the 2026.2 property data for a matching account column returns nothing, so how it is granted is **not recorded in the published schema** and is unverified here.
+
 **[The limitation verbs](../automation/accounts-and-permissions.md#the-limitation-verbs)**
 
 - Rebinding an existing limitation to a different account means writing the `LimitationIDn` column on `Orion.Accounts`, and whether `UpdateAccount` accepts `LimitationID1` in its properties dictionary is **not recorded in the published schema** and is unverified here.
+
 **[Accounts that carry a limitation](../automation/accounts-and-permissions.md#accounts-that-carry-a-limitation)**
 
 - `IsNull(column, 0) <> 0` covers both ways an unused slot can be represented, because whether an empty slot holds `0` or `NULL` is not recorded in the schema.
@@ -42,9 +46,11 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Credential types](../automation/credentials.md#credential-types)**
 
 - The table below is [SolarWinds' published list](https://solarwinds.github.io/OrionSDK/docs/credential-management/), which is the authority for it: these strings are not entity names in the SWIS schema and this repository cannot verify them against the extracted data.
+
 **[Type-specific verbs](../automation/credentials.md#type-specific-verbs)**
 
 - The accepted values for the method arguments are not recorded in the published schema and are unverified here.
+
 **[Credentials cannot be read back](../automation/credentials.md#credentials-cannot-be-read-back)**
 
 - What a query against them actually returns is runtime behaviour and is **not verified here**.
@@ -54,10 +60,12 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The one structural fact to hold on to](../automation/custom-properties.md#the-one-structural-fact-to-hold-on-to)**
 
 - They are created per installation, they are not in the published schema, and so this repository cannot verify them.
+
 **[CreateCustomProperty](../automation/custom-properties.md#createcustomproperty)**
 
 - The allowed `ValueType` values and which parameters are ignored are not recorded in the schema data, so that page is where to check them.
 - How that serialises over REST is not recorded in the published schema and cannot be verified here, so the safe value is null.
+
 **[ValidateCustomProperty](../automation/custom-properties.md#validatecustomproperty)**
 
 - The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it is unverified here.
@@ -67,15 +75,19 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Phase 1b: the interfaces plugin configuration](../automation/discovery.md#phase-1b-the-interfaces-plugin-configuration)**
 
 - `AutoImportExpressionFilter` is present in the 2026.2 contract with members `Prop`, `Op` and `Val`, but no accepted property names or operators are documented and no sample uses it, so **its usage is unverified here**.
+
 **[Importing a staged discovery](../automation/discovery.md#importing-a-staged-discovery)**
 
 - **The semantics of `SelectedDiscoveredResources` are unverified here.**
+
 **[Checking a credential before you scan with it](../automation/discovery.md#checking-a-credential-before-you-scan-with-it)**
 
 - **The keys it expects are not described in the schema or the Swagger contract**, and no SDK sample calls this verb, so the content is unverified here.
+
 **[List Resources on an address that is not a node yet](../automation/discovery.md#list-resources-on-an-address-that-is-not-a-node-yet)**
 
 - **Both are unverified here.** Check `Metadata.VerbArgument.XmlTemplate` on your own server.
+
 **[What is not verified here](../automation/discovery.md#what-is-not-verified-here)**
 
 - ## What is not verified here
@@ -85,6 +97,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Down and back up, in one row](../automation/events-and-auditing.md#down-and-back-up-in-one-row)**
 
 - The timezone of `DateTimeFrom` is not documented in the schema, so measure it the same way before building a report on it.
+
 **[What is not verified here](../automation/events-and-auditing.md#what-is-not-verified-here)**
 
 - ## What is not verified here
@@ -94,23 +107,29 @@ Read this before relying on this repository for something load-bearing. If you h
 **[High availability](../automation/high-availability.md#high-availability)**
 
 - `Orion.HA.ResourcesInstances` and `Orion.HA.PoolMemberInterfacesInfo` do declare CRUD under `admin`, but they are the mechanism's own bookkeeping rather than a supported way to configure anything; what the platform does with a row written directly into either is **not documented in the published schema** and is not verified here.
+
 **[The pool](../automation/high-availability.md#the-pool)**
 
 - The value set behind `CurrentStatus` is **not documented in the published schema**, so treat the integer as opaque and compare pools against each other rather than against a hard-coded number.
+
 **[Pool members](../automation/high-availability.md#pool-members)**
 
 - `Status`, `PreferredStatus` and `RepairStatus` are integers whose value sets are **not documented in the published schema**.
 - This page follows that lead in query 2, but treat the mapping as **unverified**: confirm on your own server by reading the number next to `StatusMessage` before you build an alert on a specific value.
+
 **[The result object](../automation/high-availability.md#the-result-object)**
 
 - Read `Message` and treat `ErrorMessage` as **unverified**; if you want to know what your server returns, print the whole object once with `$result.InnerXml`.
+
 **[The `properties` argument](../automation/high-availability.md#the-properties-argument)**
 
 - One of them is wrong, and which one **cannot be verified here**.
+
 **[Safe in a controlled window, with a human deciding](../automation/high-availability.md#safe-in-a-controlled-window-with-a-human-deciding)**
 
 - The schema records **no description** for this verb, so its exact semantics when the two arrays are different lengths, or when a target is not in the same pool, are **not documented in the published schema** and are not verified here.
 - What it repairs, and whether it is disruptive, is **not documented in the published schema**.
+
 **[Gotchas](../automation/high-availability.md#gotchas)**
 
 - Which one the server accepts cannot be verified here; find out with `ValidateEditPool` before running the real call.
@@ -128,17 +147,21 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The properties to set on create](../automation/node-management.md#the-properties-to-set-on-create)**
 
 - Which properties are required on create is **not recorded in the published schema**, and the Swagger contract does not mark them either, so the honest statement is: the set below is what SolarWinds' own [`CRUD.AddNode.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/CRUD.AddNode.ps1) sample sets, and every name in it is a real `Orion.Nodes` property in 2026.2.
+
 **[The pollers](../automation/node-management.md#the-pollers)**
 
 - **The two "no" rows are unverified here.** They come from the sample scripts rather than from the reference.
+
 **[SNMPv3](../automation/node-management.md#snmpv3)**
 
 - The accepted values for `AuthenticationMethod` and `PrivacyMethod` are not recorded in the published schema; the sample script names `None`, `MD5` and `SHA1` for authentication and `None`, `DES56`, `AES128`, `AES192` and `AES256` for privacy, which is worth treating as indicative rather than authoritative for your release.
 - It cannot be verified here for `SNMPv3Credentials` specifically, so treat this URI form as unverified.
+
 **[There is no node-level AssignToEngine verb in 2026.2](../automation/node-management.md#there-is-no-node-level-assigntoengine-verb-in-20262)**
 
 - Searching the verb data for `AssignToEngine` returns `Orion.AgentManagement.Agent.AssignToEngine(agentId, pollerId)`, which moves an *agent*, and a set of `Core.AssignToEngine` verbs on `Cortex.*` entities including `Cortex.Orion.Node`, whose parameter lists are **not recorded in the published schema** and which require the `admin` right.
 - Because their signatures cannot be verified here, do not call them from a script on the strength of this page; if you want to know what your server exposes, ask it:
+
 **[Deleting a node](../automation/node-management.md#deleting-a-node)**
 
 - This page does not enumerate exactly which child rows go: that is runtime behaviour and it cannot be verified from the schema.
@@ -148,9 +171,11 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Interfaces: discover, then add with default pollers](../automation/pollers.md#interfaces-discover-then-add-with-default-pollers)**
 
 - The exact shape the verb result takes when it comes back through `Invoke-SwisVerb` is a serialisation detail of the PowerShell client rather than a schema fact, and it is **not verified here**; inspect `$discovered` once interactively before writing the filter, and adjust the property path.
+
 **[Nodes: the list resources job](../automation/pollers.md#nodes-the-list-resources-job)**
 
 - And the tree it manipulates is XML whose element and display names are runtime data rather than schema, so the exact `DisplayName` values are **not verified here**; dump `$results` once for the device family you are automating and read the names off it.
+
 **[Polling parameters](../automation/pollers.md#polling-parameters)**
 
 - **`StatCollection`'s default is not recorded in the published schema** and is not verified here; read it off an existing object before you assume one.
@@ -161,21 +186,27 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Reports and scheduled exports](../automation/reporting.md#reports-and-scheduled-exports)**
 
 - The report entities are queryable and are worth understanding for inventory and audit, but their `Definition` is an opaque serialisation that this repository cannot verify, so building a report by writing that string is not something to attempt from a script.
+
 **[The reporting entities](../automation/reporting.md#the-reporting-entities)**
 
 - Its format is **not recorded in the published schema** and is unverified here.
+
 **[Report schedules are not `Orion.ScheduleTaskDefinition`](../automation/reporting.md#report-schedules-are-not-orionscheduletaskdefinition)**
 
 - Whether a particular release also surfaces report jobs as rows in `Orion.ScheduleTaskDefinition` is unverified here.
+
 **[`Orion.Reporting.ExecuteSQL`](../automation/reporting.md#orionreportingexecutesql)**
 
 - Whether account limitations are applied to its results is not recorded in the schema and is unverified here, which is another reason to prefer SWQL: with SWQL you know limitations apply, and can reason about it.
+
 **[Practical constraints](../automation/reporting.md#practical-constraints)**
 
 - `Orion.AlertHistory.TimeStamp` and `Orion.ResponseTime.DateTime` carry **no documented timezone** and are unverified here, so measure them once on your own server with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before you write a narrow window against either.
+
 **[Alert volume by definition](../automation/reporting.md#alert-volume-by-definition)**
 
 - The parameters are named for UTC because that is the usual answer, but `ah.TimeStamp` carries **no documented timezone** in the schema and its name does not end in `Utc`, so this is unverified here: settle it on your own server with the `MinuteDiff` probe in [alerts.md](../automation/alerts.md#the-timezone-caveat-on-timestamp) before trusting a month boundary, and drop the `Utc` suffixes if the column turns...
+
 **[The report inventory itself](../automation/reporting.md#the-report-inventory-itself)**
 
 - The schema types it `System.String` rather than a number or an interval, and what that string contains is not recorded and is unverified here, so read a few values before you sort on it and expect lexicographic order rather than numeric if you do.
@@ -185,13 +216,16 @@ Read this before relying on this repository for something load-bearing. If you h
 **[3. Authentication and secret handling](../guides/building-integrations.md#3-authentication-and-secret-handling)**
 
 - What it is valid for and for how long is not recorded in the published schema and is unverified here; confirm the behaviour on your own server before building anything on it.
+
 **[Incremental sync beats a full pass](../guides/building-integrations.md#incremental-sync-beats-a-full-pass)**
 
 - Whether `EventID` values are always allocated in ascending order is not recorded in the published schema, so treat any watermarked feed as at-least-once: make the downstream write idempotent, and confirm the ordering on your own server by comparing `EventID` against `EventTime` over a busy period before you rely on it for anything you cannot reconcile later.
+
 **[Which operations survive being repeated](../guides/building-integrations.md#which-operations-survive-being-repeated)**
 
 - CRUD delete, `BulkDelete` — Unverified — Whether a second delete of an already-deleted URI errors or succeeds quietly is not recorded in the published schema. Test it on your own server before relying on either
 - `Orion.AlertActive.Acknowledge(alertObjectIds, notes)` — Unverified — Whether re-acknowledging an acknowledged alert is a no-op or an error is not recorded in the published schema; confirm on your own server
+
 **[Ask the schema the question you actually have](../guides/building-integrations.md#ask-the-schema-the-question-you-actually-have)**
 
 - The row values themselves are installation data: which row corresponds to the platform core, and how its `Version` string relates to the release number, are not recorded in the published schema and are unverified here.
@@ -201,9 +235,11 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Rules these queries follow](../guides/cookbook.md#rules-these-queries-follow)**
 
 - Most other date columns, including `Orion.AlertActive.TriggeredDateTime`, `Orion.AlertHistory.TimeStamp` and `Cirrus.ConfigArchive.DownloadTime`, carry **no documented timezone in the schema and are unverified here**: measure them once on your own server with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before writing a narrow windo...
+
 **[31. What is unacknowledged and old?](../guides/cookbook.md#31-what-is-unacknowledged-and-old)**
 
 - The triage list, with the age computed both ways because `Orion.AlertActive.TriggeredDateTime` carries no documented timezone in the schema and is therefore unverified here.
+
 **[49. Which accounts see less than the whole estate?](../guides/cookbook.md#49-which-accounts-see-less-than-the-whole-estate)**
 
 - `IsNull(column, 0) <> 0` because whether an unused slot holds `0` or `NULL` is not recorded in the schema; written this way the query is correct either way.
@@ -213,24 +249,31 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Namespaces and how many entities](../modules/agents.md#namespaces-and-how-many-entities)**
 
 - Whether a query against one of those indication entities returns historical rows, or nothing at all because indications are transient, is **not recorded in the published schema** and is not verified here.
+
 **[The two status columns, and why they disagree with each other](../modules/agents.md#the-two-status-columns-and-why-they-disagree-with-each-other)**
 
 - Which of the two is right for your release **cannot be verified here**, because the Swagger enum is declared as a string enum and does not carry the integers.
+
 **[Plugins](../modules/agents.md#plugins)**
 
 - The `Status` integers for a plugin are **not documented in the published schema** and are not verified here; read `StatusMessage` alongside the number and build the mapping for your release with the same `GROUP BY` shape shown above.
+
 **[1. Deploy](../modules/agents.md#1-deploy)**
 
 - What the integer identifies is **not documented in the published schema**, so this page does not assert that it is the new `AgentId`.
+
 **[Validate credentials before you deploy](../modules/agents.md#validate-credentials-before-you-deploy)**
 
 - The two enums' members are not published in the schema or the Swagger contract and are **not verified here**; the boolean and the string are the parts to act on.
+
 **[2. Connect](../modules/agents.md#2-connect)**
 
 - The `agentPort` value above is an example, not a documented default: the port a passive agent listens on is installation configuration and is **not recorded in the published schema**.
+
 **[4. Move, or remove](../modules/agents.md#4-move-or-remove)**
 
 - What it does to an agent, and whether it is reversible, is **not documented in the published schema** and is not verified here.
+
 **[The verbs, in full](../modules/agents.md#the-verbs-in-full)**
 
 - What the platform does with an agent row written that way, as opposed to one produced by `Deploy` or `AddAgent`, is **not documented in the published schema** and is not verified here.
@@ -240,12 +283,15 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Tag filters and resource tags are different entities](../modules/cloud.md#tag-filters-and-resource-tags-are-different-entities)**
 
 - For an EC2 instance the obvious candidate is `Orion.Cloud.Instances.InstanceId`, which is also a `System.String`, but the schema does not declare that correspondence and the exact format of `ResourceId` per provider is **unverified here**.
+
 **[The `Local.` entities in the CRUD surface](../modules/cloud.md#the-local-entities-in-the-crud-surface)**
 
 - **That reading is unverified.**
+
 **[Adding AWS accounts in bulk](../modules/cloud.md#adding-aws-accounts-in-bulk)**
 
 - It appears neither in the rendered schema for 2026.2 nor in the Swagger contract for 2026.2, both of which this repository extracts from, so it is **not verified here**.
+
 **[What is not verified here](../modules/cloud.md#what-is-not-verified-here)**
 
 - ## What is not verified here
@@ -255,6 +301,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The wait-time entities](../modules/dpa.md#the-wait-time-entities)**
 
 - See the names in NormalizedDataDimension class." That class is not in the extracted data, so treat the exact strings as **unverified** and read them off your own server before hard-coding one:
+
 **[What is not verified here](../modules/dpa.md#what-is-not-verified-here)**
 
 - ## What is not verified here
@@ -270,9 +317,11 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The status values, and how to find out what the numbers are](../modules/ipam.md#the-status-values-and-how-to-find-out-what-the-numbers-are)**
 
 - That is consistent across the file but it is **not verified against 2026.2 schema documentation**; run the query above before you rely on it.
+
 **[Just looking, not claiming](../modules/ipam.md#just-looking-not-claiming)**
 
 - It appears in the rendered schema pages with **no parameters and an unknown return type**, and it is absent from the 2026.2 Swagger contract entirely, so its signature is **unverified here**.
+
 **[DHCP and DNS server management](../modules/ipam.md#dhcp-and-dns-server-management)**
 
 - Treat the `credentials` and `propertiesToUpdate` key/value arrays as unverified in content and inspect `Metadata.VerbArgument.XmlTemplate` on your own server for the keys they expect.
@@ -282,6 +331,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Verbs](../modules/log-analyzer.md#verbs)**
 
 - The three `Orion.OLM.LogEntry` verbs are all documented as "For internal use only." Their names and signatures are consistent with `LogEntryID` encoding a timestamp, so that a date range can be turned into an id range without touching the `DateTime` column, but that is an inference from the names and is **not verified**.
+
 **[What is not verified here](../modules/log-analyzer.md#what-is-not-verified-here)**
 
 - ## What is not verified here
@@ -297,6 +347,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Wireless](../modules/npm.md#wireless)**
 
 - Which of the other three are deprecated, and in which release, is **not recorded in the published schema**: none of these entities carries a summary, and none is marked obsolete.
+
 **[Gotchas](../modules/npm.md#gotchas)**
 
 - Whether the `Base` entities are present but undocumented on a live server is unverified here; check with `SELECT FullName FROM Metadata.Entity WHERE FullName LIKE 'Orion.NetPath.%'`.
@@ -306,9 +357,11 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Lookup entities](../modules/nta.md#lookup-entities)**
 
 - `Multiport` and `MapTo` on `Orion.Netflow.Applications` carry no description in the published schema, so their semantics are **unverified** here.
+
 **[`Orion.Netflow.InterfaceSources`](../modules/nta.md#orionnetflowinterfacesources)**
 
 - Its `FlowExporterConfiguration` type is declared in SolarWinds' Swagger contract as a bare object with **no properties**, so the field names it expects are **unverified**.
+
 **[Gotchas](../modules/nta.md#gotchas)**
 
 - Whether verbs exist there on a live server is **unverified**; check with `SELECT v.Entity.FullName, v.Name FROM Metadata.Verb v WHERE v.Entity.FullName LIKE 'Orion.Netflow.%'`.
@@ -318,13 +371,16 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Applications are the centre of the model](../modules/qoe.md#applications-are-the-centre-of-the-model)**
 
 - `Filter` is the expression that matches traffic to this application and `FilterSyntax` presumably names the dialect it is written in, but neither carries a description in the schema, so the exact grammar is **unverified** here.
+
 **[The catalogue behind an application](../modules/qoe.md#the-catalogue-behind-an-application)**
 
 - `IsVisible` on the protocol likewise has no description, so what a `FALSE` there suppresses is unverified.
+
 **[Probes](../modules/qoe.md#probes)**
 
 - The schema does not say what distinguishes a setting from a property, and no valid names are enumerated, so both are **unverified** in content.
 - Given that the two deployment verbs are `DeployLocalTrafficProbe` and `DeploySpanPortProbe`, it is a reasonable guess that `Mode` distinguishes those two deployment styles, but that is an inference and is **not verified** by the schema.
+
 **[What is not verified here](../modules/qoe.md#what-is-not-verified-here)**
 
 - ## What is not verified here
@@ -341,9 +397,11 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Providers](../modules/srm.md#providers)**
 
 - **Unverified:** treat their values as opaque until you have confirmed them on your own server.
+
 **[Pools](../modules/srm.md#pools)**
 
 - **Unverified:** `Type` and `Category` are integers whose enumerations are not in the extracted schema; select `DISTINCT` on your own array before filtering on them.
+
 **[Thresholds](../modules/srm.md#thresholds)**
 
 - **Unverified:** the schema does not say what "application" means in that name; check for rows on your own server before building on it.
@@ -353,21 +411,27 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Hosts, clusters, datacenters and vCenters](../modules/vman.md#hosts-clusters-datacenters-and-vcenters)**
 
 - **Unverified:** `PollingTaskTypeID` is an integer whose enumeration is not in the extracted schema, so select `DISTINCT` on your own server before filtering on a specific value.
+
 **[Alarms](../modules/vman.md#alarms)**
 
 - **Unverified:** `AcknowledgedTime` sits beside them but its summary names no zone, so do not assume it matches; acknowledge an alarm at a known wall-clock time on your own server and read the column back before comparing it to either function.
+
 **[The virtual machine verbs change production state](../modules/vman.md#the-virtual-machine-verbs-change-production-state)**
 
 - `storageDestination` is a string and is optional; the schema does not record what form it takes, so **unverified**: confirm against your own server before relying on it, for example by checking the argument type in `Metadata.VerbArgument`.
+
 **[Discovery verbs](../modules/vman.md#discovery-verbs)**
 
 - **Unverified:** whether `CreateDiscoveryJob` accepts 6 in practice.
+
 **[Elsewhere](../modules/vman.md#elsewhere)**
 
 - **Unverified:** the extracted schema records no parameters for any of them, so read the signature from `Metadata.VerbArgument` on your own server before calling one.
+
 **[Orphaned files on datastores](../modules/vman.md#orphaned-files-on-datastores)**
 
 - **Unverified:** the schema documents the column but not the rule behind it.
+
 **[Gotchas](../modules/vman.md#gotchas)**
 
 - **Unverified:** whether a live server resolves it anyway by matching case-insensitively.
@@ -377,12 +441,15 @@ Read this before relying on this repository for something load-bearing. If you h
 **[IP SLA operations](../modules/vnqm.md#ip-sla-operations)**
 
 - None of the three carries a description in the schema, so the readings of `LifeTimeUtc` and `IsAutoConfigured` given here are inferences and are listed in [what is not verified here](../modules/vnqm.md#what-is-not-verified-here).
+
 **[Two different status columns on the same row](../modules/vnqm.md#two-different-status-columns-on-the-same-row)**
 
 - The specific integers each lookup contains are not recorded in the schema, so enumerate them on your own server rather than hard-coding a number.
+
 **[MOS, jitter and the other quality metrics](../modules/vnqm.md#mos-jitter-and-the-other-quality-metrics)**
 
 - They are listed in [what is not verified here](../modules/vnqm.md#what-is-not-verified-here) with a query that shows you the observed range on your own server.
+
 **[What is not verified here](../modules/vnqm.md#what-is-not-verified-here)**
 
 - ## What is not verified here
@@ -428,9 +495,11 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Resolving status on a live server](../schema/status-codes.md#resolving-status-on-a-live-server)**
 
 - The published 2026.2 schema gives no summary text for any of these twelve, so the names and types above are verified but their meanings beyond the obvious are unverified.
+
 **[`Status` versus `PolledStatus`](../schema/status-codes.md#status-versus-polledstatus)**
 
 - How the two differ is **not verified**: the published 2026.2 schema attaches no summary text to either property, and neither the OrionSDK documentation nor any SolarWinds sample script in this repository's sources explains it.
+
 **[Other status-shaped properties to know before writing a filter](../schema/status-codes.md#other-status-shaped-properties-to-know-before-writing-a-filter)**
 
 - `ChildStatus` — `System.Int32` — `Orion.Nodes` — Declared with no summary, so what it rolls up is **unverified**. Compare it against `Status` on your own server before filtering on it
@@ -458,6 +527,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Where the trap does not reach](../swql/date-and-time.md#where-the-trap-does-not-reach)**
 
 - That reading is an inference from the generated T-SQL above and is **unverified** here.
+
 **[`DateTime` literals and parameters](../swql/date-and-time.md#datetime-literals-and-parameters)**
 
 - If you must use a literal, the ISO 8601 form `'2026-01-01T00:00:00'` is the conventional choice for unambiguity, but its acceptance by SWIS is **unverified** here: no published SolarWinds example uses it.
@@ -467,6 +537,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[`UNION(q)`](../swql/functions.md#unionq)**
 
 - `UNION ALL` is **unverified**: only `UNION` is documented.
+
 **[`ChangeTimeZone` is not in the official reference](../swql/functions.md#changetimezone-is-not-in-the-official-reference)**
 
 - **Treat it as unverified.**
@@ -476,15 +547,19 @@ Read this before relying on this repository for something load-bearing. If you h
 **[SWQL gotchas](../swql/gotchas.md#swql-gotchas)**
 
 - Where something is widely believed but could not be verified from the schema, the official docs or SolarWinds' own samples, it is marked **unverified** and comes with a query you can run on your own server to settle it.
+
 **[1. The empty result set is usually a permissions answer](../swql/gotchas.md#1-the-empty-result-set-is-usually-a-permissions-answer)**
 
 - The schema publishes no summary for either, so what exactly `IsSwisLimitation` gates is **unverified** here; the name and the surrounding entity make it the first thing to look at when a limitation appears to affect the web console but not an API query.
+
 **[6. To-many navigation multiplies rows and poisons aggregates](../swql/gotchas.md#6-to-many-navigation-multiplies-rows-and-poisons-aggregates)**
 
 - Two counts rather than one because `Count(n)` is the only counting signature in SolarWinds' [documented function reference](https://solarwinds.github.io/OrionSDK/docs/swql-functions/); `COUNT(DISTINCT column)` is standard T-SQL and may well work, but it is **unverified** here.
+
 **[8.4 `Orion.Nodes.Flows` is declared twice](../swql/gotchas.md#84-orionnodesflows-is-declared-twice)**
 
 - **Unverified:** treat `n.Flows` as ambiguous and write the target entity out in an explicit join instead.
+
 **[10. String comparison, collation and case](../swql/gotchas.md#10-string-comparison-collation-and-case)**
 
 - T-SQL's `LIKE` also accepts `[abc]` character classes and SWQL compiles to T-SQL, so those may pass through, but nothing in the SWQL documentation says so and it is **unverified** here: test `WHERE n.Caption LIKE 'core-sw-0[12]'` in SWQL Studio before relying on it. - **Compare Uris with `UriEquals`, not `=`.** The documented description is "Returns true if SWIS Uri `a` refers to the same entit...
@@ -494,21 +569,27 @@ Read this before relying on this repository for something load-bearing. If you h
 **[How this page marks its evidence](../swql/language-reference.md#how-this-page-marks-its-evidence)**
 
 - Where a construct could not be corroborated at all, it is marked **unverified** with a one-line note on how to confirm it on your own server rather than being quietly dropped or quietly asserted.
+
 **[CROSS JOIN](../swql/language-reference.md#cross-join)**
 
 - **Unverified.** `CROSS` does not appear in SolarWinds' documentation, in the SDK samples, or in SWQL Studio's keyword list, and this repository has no evidence that SWQL accepts it.
+
 **[Comparison operators](../swql/language-reference.md#comparison-operators)**
 
 - `<>` — Not equal — **Unverified.** The standard SQL spelling, but it appears in no SolarWinds documentation page, no SDK sample and no SWQL Studio source available here, and SWQL Studio's keyword list covers keywords, not operators. Confirm it on your own server with `SELECT TOP 1 NodeID FROM Orion.Nodes WHERE Status <> 1`; a parse error is the answer. `!=` is the form SolarWinds itself writes
+
 **[Other WITH options](../swql/language-reference.md#other-with-options)**
 
 - `WITH SCHEMAONLY` — **Unverified.** It appears in community usage and in this repository's own validator keyword list, but not in any SolarWinds documentation, sample or source available here. Confirm on your own server by running a query with and without it and comparing the response
+
 **[UNION](../swql/language-reference.md#union)**
 
 - **`UNION ALL` is unverified.** The official reference documents only `UNION`.
+
 **[CASE](../swql/language-reference.md#case)**
 
 - Whether the simple form, `CASE Severity WHEN 2 THEN ...`, is also accepted **is unverified here**.
+
 **[Subqueries in FROM](../swql/language-reference.md#subqueries-in-from)**
 
 - **Unverified.** Nothing in the sources available here shows a derived table (`FROM (SELECT ...) x`).

@@ -1020,6 +1020,19 @@ class TestUnverifiedIndex(unittest.TestCase):
         text = "see [the reference](https://solarwinds.github.io/OrionSDK/docs/)."
         self.assertEqual(self.mod.requalify_links(text, "docs/swql/functions.md"), text)
 
+    def test_a_heading_after_an_entry_is_separated_by_a_blank_line(self):
+        # A bold line straight after a "- " bullet is a lazy continuation of that list
+        # item, so every section heading rendered inside the entry above it instead of
+        # over the ones below. It read as a wall of bullets on the rendered page.
+        page = open(os.path.join(ROOT, "docs", "reference", "unverified.md")).read()
+        lines = page.split("\n")
+        glued = [
+            i + 1
+            for i in range(len(lines) - 1)
+            if lines[i].startswith("- ") and lines[i + 1].startswith("**[")
+        ]
+        self.assertEqual(glued, [], f"headings absorbed into the entry above: {glued}")
+
 
 class TestRightsClaims(unittest.TestCase):
     """A right named in prose has to be one the schema declares.
