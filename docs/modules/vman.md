@@ -509,14 +509,19 @@ A worked call, with the confirmation this class of verb deserves:
 Import-Module SwisPowerShell
 $swis = Connect-Swis -Hostname orion.example.com -Trusted
 
-# Identify the target explicitly rather than trusting a name to be unique.
-$vm = Get-SwisData $swis @"
+# Identify the target explicitly rather than trusting a name to be unique. TOP 2 is
+# deliberate: it is enough to detect a duplicate without fetching the whole estate.
+$targetName = 'lab-build-01'
+$matches = @(Get-SwisData $swis @"
 SELECT TOP 2 vm.VirtualMachineID, vm.Name, vm.PowerState, vm.Host.HostName AS HostName
 FROM Orion.VIM.VirtualMachines vm
 WHERE vm.Name = @name
-"@ @{ name = 'lab-build-01' }
+"@ @{ name = $targetName })
 
-if ($vm.Count -ne 1) { throw "Expected exactly one VM named 'lab-build-01', found $($vm.Count)." }
+if ($matches.Count -ne 1) {
+    throw "Expected exactly one VM named '$targetName', found $($matches.Count)."
+}
+$vm = $matches[0]
 
 Write-Host "About to power off $($vm.Name) (id $($vm.VirtualMachineID)) on $($vm.HostName)."
 if ((Read-Host "Type the VM name to confirm") -ne $vm.Name) { throw "Not confirmed." }
@@ -645,7 +650,9 @@ ORDER BY h.VmRunningCount DESC
 
 `h.VmCount` is maintained by the module, so this does not need a join to
 `Orion.VIM.VirtualMachines` at all. Counting VMs yourself and comparing the two is a
-reasonable consistency check when polling looks suspect.
+reasonable consistency check when polling looks suspect. Note that `h.Cluster.Name` is still
+an inner join, so standalone hosts drop out of this list; swap it for `h.DataCenter.Name`
+when you want every host.
 
 ### Datastore capacity and how long it has left
 
@@ -700,10 +707,12 @@ query the summary columns on `Orion.VIM.VirtualMachines` and leave `Orion.VIM.Sn
 
 ### Orphaned files on datastores
 
-This is the verified answer to "what is orphaned", and it is about **files**, not virtual
-machines. `Orion.VIM.DiskFiles.Orphaned` is a boolean the module sets on datastore files that
-no registered virtual machine references, which is what accumulates after a VM is removed
-from inventory or a migration is interrupted.
+The schema's answer to "what is orphaned" is about **files**, not virtual machines.
+`Orion.VIM.DiskFiles.Orphaned` is a `System.Boolean` and it is the only column in the module
+with that name. **Unverified:** the schema documents the column but not the rule behind it.
+The usual reading is that it marks datastore files no registered virtual machine references,
+which is what accumulates after a VM is removed from inventory or a migration is interrupted.
+Confirm against a file you already know the history of before acting on the list.
 
 ```sql
 SELECT
