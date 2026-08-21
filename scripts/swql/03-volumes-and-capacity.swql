@@ -1,0 +1,103 @@
+-- Orion.Volumes: disk and filesystem capacity
+--
+-- Key property VolumeID, NetObject prefix "V". Sizes are in bytes.
+-- VolumeType distinguishes "Fixed Disk" from swap, RAM disk and mount points; most
+-- capacity reporting wants fixed disks only.
+
+
+-- Volumes running out of space, the single most requested report.
+SELECT
+    v.Node.Caption AS NodeName,
+    v.Caption AS VolumeName,
+    v.VolumeType,
+    v.VolumePercentUsed,
+    v.VolumeSize,
+    v.VolumeSpaceUsed,
+    v.VolumeSpaceAvailable
+FROM Orion.Volumes v
+WHERE v.VolumePercentUsed > 85
+  AND v.VolumeType = 'Fixed Disk'
+  AND v.UnManaged = FALSE
+ORDER BY v.VolumePercentUsed DESC
+
+
+-- Same thing in gigabytes, which is what people actually want to read.
+SELECT TOP 50
+    v.Node.Caption AS NodeName,
+    v.Caption AS VolumeName,
+    Round(v.VolumeSize / 1073741824, 2) AS SizeGB,
+    Round(v.VolumeSpaceUsed / 1073741824, 2) AS UsedGB,
+    Round(v.VolumeSpaceAvailable / 1073741824, 2) AS FreeGB,
+    Round(v.VolumePercentUsed, 1) AS PercentUsed
+FROM Orion.Volumes v
+WHERE v.VolumeType = 'Fixed Disk'
+ORDER BY v.VolumePercentUsed DESC
+
+
+-- Total provisioned and used capacity per node.
+SELECT TOP 50
+    v.Node.Caption AS NodeName,
+    COUNT(v.VolumeID) AS VolumeCount,
+    Round(SUM(v.VolumeSize) / 1073741824, 2) AS TotalGB,
+    Round(SUM(v.VolumeSpaceUsed) / 1073741824, 2) AS UsedGB
+FROM Orion.Volumes v
+WHERE v.VolumeType = 'Fixed Disk'
+GROUP BY v.Node.Caption
+ORDER BY SUM(v.VolumeSize) DESC
+
+
+-- Estate-wide capacity totals.
+SELECT
+    COUNT(v.VolumeID) AS VolumeCount,
+    Round(SUM(v.VolumeSize) / 1099511627776, 2) AS TotalTB,
+    Round(SUM(v.VolumeSpaceUsed) / 1099511627776, 2) AS UsedTB,
+    Round(SUM(v.VolumeSpaceAvailable) / 1099511627776, 2) AS FreeTB
+FROM Orion.Volumes v
+WHERE v.VolumeType = 'Fixed Disk'
+
+
+-- What volume types exist, which is worth checking before filtering on one.
+SELECT
+    v.VolumeType,
+    COUNT(v.VolumeID) AS VolumeCount
+FROM Orion.Volumes v
+GROUP BY v.VolumeType
+ORDER BY COUNT(v.VolumeID) DESC
+
+
+-- Disk I/O pressure.
+SELECT TOP 50
+    v.Node.Caption AS NodeName,
+    v.Caption AS VolumeName,
+    v.DiskQueueLength,
+    v.TotalDiskIOPS,
+    v.DiskReads,
+    v.DiskWrites,
+    v.DiskTransfer
+FROM Orion.Volumes v
+WHERE v.DiskQueueLength > 2
+ORDER BY v.DiskQueueLength DESC
+
+
+-- Volumes that have stopped responding.
+SELECT
+    v.Node.Caption AS NodeName,
+    v.Caption AS VolumeName,
+    v.VolumeResponding,
+    v.Status,
+    v.MinutesSinceLastSync
+FROM Orion.Volumes v
+WHERE v.VolumeResponding = 'N'
+  AND v.UnManaged = FALSE
+ORDER BY v.Node.Caption
+
+
+-- Volumes on nodes that are currently down, which explains a burst of volume alerts.
+SELECT
+    v.Node.Caption AS NodeName,
+    v.Caption AS VolumeName,
+    v.Status AS VolumeStatus,
+    v.Node.Status AS NodeStatus
+FROM Orion.Volumes v
+WHERE v.Node.Status = 2
+ORDER BY v.Node.Caption

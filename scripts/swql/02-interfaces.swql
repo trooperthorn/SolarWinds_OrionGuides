@@ -1,0 +1,134 @@
+-- Orion.NPM.Interfaces: interface inventory and utilization (requires NPM)
+--
+-- Key property InterfaceID, NetObject prefix "I". Each interface belongs to one node
+-- through the Node navigation property, which is a to-one relationship and therefore
+-- behaves as an inner join: interfaces whose node has been removed will not appear.
+
+
+-- Interface inventory with the owning node. Dot-walking Node avoids writing the join.
+SELECT TOP 100
+    i.InterfaceID,
+    i.Node.Caption AS NodeName,
+    i.Name,
+    i.InterfaceAlias,
+    i.InterfaceType,
+    i.InterfaceTypeName,
+    i.InterfaceSpeed,
+    i.AdminStatus,
+    i.OperStatus
+FROM Orion.NPM.Interfaces i
+ORDER BY i.Node.Caption, i.Name
+
+
+-- Operationally down interfaces that are administratively up. An interface that is
+-- admin-down was turned off deliberately and is usually not interesting.
+SELECT
+    i.Node.Caption AS NodeName,
+    i.Name,
+    i.InterfaceAlias,
+    i.Status,
+    s.StatusName
+FROM Orion.NPM.Interfaces i
+JOIN Orion.StatusInfo s ON i.Status = s.StatusId
+WHERE i.AdminStatus = 1
+  AND i.OperStatus <> 1
+  AND i.UnManaged = FALSE
+ORDER BY i.Node.Caption, i.Name
+
+
+-- Busiest interfaces right now. PercentUtil is the higher of the two directions.
+SELECT TOP 50
+    i.Node.Caption AS NodeName,
+    i.Name,
+    i.InPercentUtil,
+    i.OutPercentUtil,
+    i.PercentUtil,
+    i.InterfaceSpeed,
+    i.Inbps,
+    i.Outbps
+FROM Orion.NPM.Interfaces i
+WHERE i.PercentUtil > 70
+ORDER BY i.PercentUtil DESC
+
+
+-- Interfaces with errors or discards today. These often precede a user complaint.
+SELECT TOP 50
+    i.Node.Caption AS NodeName,
+    i.Name,
+    i.InErrorsToday,
+    i.OutErrorsToday,
+    i.InDiscardsToday,
+    i.OutDiscardsToday,
+    i.CRCAlignErrorsToday,
+    i.LateCollisionsToday
+FROM Orion.NPM.Interfaces i
+WHERE i.InErrorsToday > 0
+   OR i.OutErrorsToday > 0
+   OR i.InDiscardsToday > 0
+   OR i.OutDiscardsToday > 0
+ORDER BY i.InErrorsToday + i.OutErrorsToday DESC
+
+
+-- Peak traffic today against the provisioned speed, for capacity conversations.
+SELECT TOP 50
+    i.Node.Caption AS NodeName,
+    i.Name,
+    i.InterfaceSpeed,
+    i.MaxInBpsToday,
+    i.MaxInBpsTime,
+    i.MaxOutBpsToday,
+    i.MaxOutBpsTime
+FROM Orion.NPM.Interfaces i
+WHERE i.InterfaceSpeed > 0
+ORDER BY i.MaxInBpsToday DESC
+
+
+-- How many interfaces each node is monitoring. Useful before a licence review.
+SELECT TOP 50
+    n.Caption,
+    COUNT(i.InterfaceID) AS MonitoredInterfaces
+FROM Orion.Nodes n
+JOIN Orion.NPM.Interfaces i ON i.NodeID = n.NodeID
+GROUP BY n.Caption
+ORDER BY COUNT(i.InterfaceID) DESC
+
+
+-- Interface type mix across the estate.
+SELECT
+    i.InterfaceTypeName,
+    COUNT(i.InterfaceID) AS InterfaceCount
+FROM Orion.NPM.Interfaces i
+GROUP BY i.InterfaceTypeName
+ORDER BY COUNT(i.InterfaceID) DESC
+
+
+-- Duplex mismatches, a classic cause of slow-but-not-down complaints.
+SELECT
+    i.Node.Caption AS NodeName,
+    i.Name,
+    i.DuplexMode,
+    i.InterfaceSpeed
+FROM Orion.NPM.Interfaces i
+WHERE i.DuplexMode = 2
+ORDER BY i.Node.Caption
+
+
+-- Interfaces marked unpluggable, which report Up or Unplugged rather than Up or Down.
+SELECT
+    i.Node.Caption AS NodeName,
+    i.Name,
+    i.UnPluggable,
+    i.Status
+FROM Orion.NPM.Interfaces i
+WHERE i.UnPluggable = TRUE
+ORDER BY i.Node.Caption
+
+
+-- Walking the other way: every interface on one node, found by node caption.
+SELECT
+    n.Caption AS NodeName,
+    n.Interfaces.Name AS InterfaceName,
+    n.Interfaces.OperStatus,
+    n.Interfaces.InterfaceSpeed
+FROM Orion.Nodes n
+WHERE n.Caption = @nodeCaption

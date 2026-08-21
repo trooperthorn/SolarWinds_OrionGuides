@@ -1,0 +1,113 @@
+-- SAM application monitoring: Orion.APM.Application and Orion.APM.Component
+--
+-- An application is a template applied to a node; a component is one monitored item
+-- inside it (a service, a process, a port check, a script). Key properties are
+-- ApplicationID and ComponentID, with NetObject prefixes "AA" and "AM".
+--
+-- Orion.APM.Component has no direct navigation to a node. Reach the node through the
+-- application: c.Application.Node.
+
+
+-- Application inventory with the node each one runs against.
+SELECT TOP 100
+    a.ApplicationID,
+    a.Name AS ApplicationName,
+    a.Node.Caption AS NodeName,
+    a.Status,
+    a.StatusDescription,
+    a.UnManaged
+FROM Orion.APM.Application a
+ORDER BY a.Node.Caption, a.Name
+
+
+-- Applications that are not up, with a readable status.
+SELECT
+    a.Node.Caption AS NodeName,
+    a.Name AS ApplicationName,
+    s.StatusName,
+    a.StatusDescription
+FROM Orion.APM.Application a
+JOIN Orion.StatusInfo s ON a.Status = s.StatusId
+WHERE a.Status <> 1
+  AND a.UnManaged = FALSE
+ORDER BY s.Ranking, a.Node.Caption
+
+
+-- Component-level detail for failing applications. This is what you want when an
+-- application is red and you need to know which part of it broke.
+SELECT
+    c.Application.Node.Caption AS NodeName,
+    c.Application.Name AS ApplicationName,
+    c.Name AS ComponentName,
+    c.ComponentType,
+    c.Status,
+    c.StatusDescription
+FROM Orion.APM.Component c
+WHERE c.Status <> 1
+  AND c.Disabled = FALSE
+  AND c.UnManaged = FALSE
+ORDER BY c.Application.Node.Caption, c.Application.Name, c.ComponentOrder
+
+
+-- Every component of one named application.
+SELECT
+    c.ComponentID,
+    c.Name AS ComponentName,
+    c.ComponentType,
+    c.ComponentOrder,
+    c.Status,
+    c.Disabled
+FROM Orion.APM.Component c
+WHERE c.Application.Name = @applicationName
+ORDER BY c.ComponentOrder
+
+
+-- Which application templates are in use, and how widely.
+SELECT
+    a.ApplicationTemplateID,
+    a.Name AS ApplicationName,
+    COUNT(a.ApplicationID) AS AssignedInstances
+FROM Orion.APM.Application a
+GROUP BY a.ApplicationTemplateID, a.Name
+ORDER BY COUNT(a.ApplicationID) DESC
+
+
+-- Component count per application, to spot templates that have grown unwieldy.
+SELECT TOP 50
+    a.Node.Caption AS NodeName,
+    a.Name AS ApplicationName,
+    COUNT(c.ComponentID) AS ComponentCount
+FROM Orion.APM.Application a
+JOIN Orion.APM.Component c ON c.ApplicationID = a.ApplicationID
+GROUP BY a.Node.Caption, a.Name
+ORDER BY COUNT(c.ComponentID) DESC
+
+
+-- Disabled components. These are silently not being monitored, which is worth auditing.
+SELECT
+    c.Application.Node.Caption AS NodeName,
+    c.Application.Name AS ApplicationName,
+    c.Name AS ComponentName,
+    c.UserNotes
+FROM Orion.APM.Component c
+WHERE c.Disabled = TRUE
+ORDER BY c.Application.Node.Caption
+
+
+-- Applications recently added or changed.
+SELECT TOP 50
+    a.Name AS ApplicationName,
+    a.Node.Caption AS NodeName,
+    a.Created,
+    a.LastModified
+FROM Orion.APM.Application a
+ORDER BY a.LastModified DESC
+
+
+-- Walking from the node side: every application on one node.
+SELECT
+    n.Caption AS NodeName,
+    n.Applications.Name AS ApplicationName,
+    n.Applications.Status
+FROM Orion.Nodes n
+WHERE n.Caption = @nodeCaption

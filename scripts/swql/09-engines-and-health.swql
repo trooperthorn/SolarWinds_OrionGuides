@@ -1,0 +1,134 @@
+-- Platform health: Orion.Engines and licence/element accounting
+--
+-- Orion.Engines is one row per polling engine, including the primary server. It is the
+-- first place to look when polling is falling behind, and the source of the element
+-- counts that licensing is based on.
+--
+-- ServerType distinguishes the primary from additional polling engines.
+
+
+-- Every engine with its load and licence position.
+SELECT
+    e.EngineID,
+    e.ServerName,
+    e.IP,
+    e.ServerType,
+    e.EngineVersion,
+    e.Elements,
+    e.LicensedElements,
+    e.Nodes,
+    e.Interfaces,
+    e.Volumes,
+    e.PollingCompletion
+FROM Orion.Engines e
+ORDER BY e.EngineID
+
+
+-- Engines that are not keeping up. PollingCompletion below 100 means the engine could
+-- not finish its polling cycle in the time available.
+SELECT
+    e.ServerName,
+    e.ServerType,
+    e.PollingCompletion,
+    e.Elements,
+    e.LicensedElements,
+    e.AvgCPUUtil,
+    e.MemoryUtil
+FROM Orion.Engines e
+WHERE e.PollingCompletion < 100
+ORDER BY e.PollingCompletion
+
+
+-- Engines whose keep-alive has gone stale, which usually means the service is stopped.
+-- MinutesSinceKeepAlive is maintained by the platform.
+SELECT
+    e.ServerName,
+    e.ServerType,
+    e.KeepAlive,
+    e.MinutesSinceKeepAlive,
+    e.MinutesSinceRestart
+FROM Orion.Engines e
+WHERE e.MinutesSinceKeepAlive > 5
+ORDER BY e.MinutesSinceKeepAlive DESC
+
+
+-- Element headroom per engine, the number to watch before adding more monitoring.
+SELECT
+    e.ServerName,
+    e.Elements,
+    e.LicensedElements,
+    e.LicensedElements - e.Elements AS Headroom,
+    Round((e.Elements * 100.0) / e.LicensedElements, 1) AS PercentUsed
+FROM Orion.Engines e
+WHERE e.LicensedElements > 0
+ORDER BY e.Elements DESC
+
+
+-- Node distribution across engines. A badly balanced estate shows up here first.
+SELECT
+    e.ServerName AS EngineName,
+    e.ServerType,
+    COUNT(n.NodeID) AS NodeCount
+FROM Orion.Engines e
+LEFT JOIN Orion.Nodes n ON n.EngineID = e.EngineID
+GROUP BY e.ServerName, e.ServerType
+ORDER BY COUNT(n.NodeID) DESC
+
+
+-- Which engine polls a given node, reached through the Engine navigation property.
+SELECT
+    n.Caption,
+    n.IPAddress,
+    n.Engine.ServerName AS EngineName,
+    n.Engine.ServerType,
+    n.PollInterval,
+    n.NextPoll,
+    n.NextRediscovery
+FROM Orion.Nodes n
+WHERE n.Caption = @nodeCaption
+
+
+-- Engine software versions, which should match across the estate after an upgrade.
+SELECT
+    e.EngineVersion,
+    e.PackageName,
+    COUNT(e.EngineID) AS EngineCount
+FROM Orion.Engines e
+GROUP BY e.EngineVersion, e.PackageName
+ORDER BY COUNT(e.EngineID) DESC
+
+
+-- Evaluation licences and how long they have left.
+SELECT
+    e.ServerName,
+    e.Evaluation,
+    e.EvalDaysLeft,
+    e.PackageName,
+    e.LicensedElements
+FROM Orion.Engines e
+WHERE e.Evaluation = TRUE
+ORDER BY e.EvalDaysLeft
+
+
+-- Estate totals, for a capacity or renewal conversation.
+SELECT
+    COUNT(e.EngineID) AS EngineCount,
+    SUM(e.Nodes) AS TotalNodes,
+    SUM(e.Interfaces) AS TotalInterfaces,
+    SUM(e.Volumes) AS TotalVolumes,
+    SUM(e.Elements) AS TotalElements,
+    SUM(e.LicensedElements) AS TotalLicensedElements
+FROM Orion.Engines e
+
+
+-- Nodes whose polling is overdue relative to the schedule the engine set for them.
+SELECT TOP 50
+    n.Caption,
+    n.Engine.ServerName AS EngineName,
+    n.NextPoll,
+    n.PollInterval,
+    n.SkippedPollingCycles
+FROM Orion.Nodes n
+WHERE n.SkippedPollingCycles > 0
+  AND n.UnManaged = FALSE
+ORDER BY n.SkippedPollingCycles DESC

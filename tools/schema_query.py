@@ -192,16 +192,33 @@ def cmd_show(schema: Schema, args):
 
 def cmd_props(schema: Schema, args):
     rec = schema.get(args.entity)
-    props = rec["properties"]
+    props = [dict(p, declaredOn=rec["entity"]) for p in rec["properties"]]
+
+    if not args.no_inherited:
+        # An entity's page lists only what it declares. Uri and InstanceType come from
+        # System.Entity, UnManaged from System.ManagedEntity, and they are all queryable,
+        # so include ancestors unless explicitly excluded.
+        seen = {p["name"].lower() for p in props}
+        for anc in reversed(rec["inheritance"]):
+            arec = schema.entities.get(anc)
+            if not arec:
+                continue
+            for p in arec["properties"]:
+                if p["name"].lower() not in seen:
+                    seen.add(p["name"].lower())
+                    props.append(dict(p, declaredOn=anc))
+
     if args.grep:
         g = args.grep.lower()
         props = [p for p in props if g in f"{p['name']} {p['summary']} {p['type']}".lower()]
 
     def render(_):
-        print(f"{rec['entity']} properties ({len(props)} shown)")
+        scope = "declared only" if args.no_inherited else "including inherited"
+        print(f"{rec['entity']} properties ({len(props)} shown, {scope})")
         for p in props:
             s = f"  {p['summary']}" if p["summary"] else ""
-            print(f"  {p['name']:<42} {p['type']:<28}{s}")
+            origin = "" if p["declaredOn"] == rec["entity"] else f"  [from {p['declaredOn']}]"
+            print(f"  {p['name']:<42} {p['type']:<28}{s}{origin}")
 
     emit(props, args.json, render)
 
@@ -386,9 +403,10 @@ def main() -> None:
     p.add_argument("--limit", type=int, default=60)
     p.set_defaults(fn=cmd_show)
 
-    p = sub.add_parser("props", help="list an entity's properties")
+    p = sub.add_parser("props", help="list an entity's properties, inherited ones included")
     p.add_argument("entity")
     p.add_argument("--grep")
+    p.add_argument("--no-inherited", action="store_true", help="only properties this entity declares")
     p.set_defaults(fn=cmd_props)
 
     p = sub.add_parser("verbs", help="list verbs across the schema")

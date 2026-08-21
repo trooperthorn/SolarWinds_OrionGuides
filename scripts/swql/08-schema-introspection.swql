@@ -1,0 +1,180 @@
+-- Schema introspection with the Metadata.* entities
+--
+-- SWIS describes itself. The Metadata namespace is the authoritative answer to "what
+-- exists on THIS server at THIS version", which matters because the schema varies with
+-- the platform release and with which modules are licensed and installed.
+--
+-- Use this file when the extracted data in data/schema/ disagrees with what you see, or
+-- when you are targeting a version this repository does not document.
+
+
+-- Every entity the server exposes, with its capabilities. CanCreate, CanUpdate and
+-- CanDelete tell you whether the CRUD interface will accept the entity at all.
+SELECT
+    e.FullName,
+    e.BaseType,
+    e.CanCreate,
+    e.CanRead,
+    e.CanUpdate,
+    e.CanDelete,
+    e.CanInvoke
+FROM Metadata.Entity e
+WHERE e.IsInternal = FALSE
+ORDER BY e.FullName
+
+
+-- Find an entity when you only remember part of the name.
+SELECT
+    e.FullName,
+    e.BaseType,
+    e.Summary
+FROM Metadata.Entity e
+WHERE e.FullName LIKE @namePattern
+ORDER BY e.FullName
+
+
+-- Entity counts by namespace, the live equivalent of data/schema/2026.2/manifest.json.
+SELECT
+    e.Namespace,
+    COUNT(e.FullName) AS EntityCount
+FROM Metadata.Entity e
+GROUP BY e.Namespace
+ORDER BY COUNT(e.FullName) DESC
+
+
+-- All properties of one entity, with the flags that decide how you can use each one.
+-- IsKey identifies the primary key, IsNavigable marks a relationship, IsInherited shows
+-- which members come from a base entity.
+SELECT
+    p.Name,
+    p.Type,
+    p.IsKey,
+    p.IsNullable,
+    p.IsNavigable,
+    p.IsInherited,
+    p.IsMetric,
+    p.Units,
+    p.Summary
+FROM Metadata.Property p
+WHERE p.Entity.FullName = @entityName
+ORDER BY p.Name
+
+
+-- The key properties of an entity. You need these to build a URI and to call CRUD.
+SELECT
+    p.Entity.FullName AS EntityName,
+    p.Name AS KeyProperty,
+    p.Type
+FROM Metadata.Property p
+WHERE p.Entity.FullName = @entityName
+  AND p.IsKey = TRUE
+
+
+-- Which entities expose a property of a given name. Handy when you know the column but
+-- not the table.
+SELECT
+    p.Entity.FullName AS EntityName,
+    p.Name,
+    p.Type
+FROM Metadata.Property p
+WHERE p.Name = @propertyName
+  AND p.IsInherited = FALSE
+ORDER BY p.Entity.FullName
+
+
+-- Every verb on the server, with the entity that owns it.
+SELECT
+    v.Entity.FullName AS EntityName,
+    v.Name AS VerbName,
+    v.CanInvoke,
+    v.Summary
+FROM Metadata.Verb v
+WHERE v.IsInternal = FALSE
+ORDER BY v.Entity.FullName, v.Name
+
+
+-- A verb's arguments IN ORDER. This is the definitive answer to "what do I pass to
+-- Invoke". Position matters: the REST and PowerShell clients both send a positional
+-- array, so ordering by Position is not optional.
+SELECT
+    a.EntityName,
+    a.VerbName,
+    a.Position,
+    a.Name AS ArgumentName,
+    a.Type,
+    a.IsOptional,
+    a.Summary
+FROM Metadata.VerbArgument a
+WHERE a.EntityName = @entityName
+  AND a.VerbName = @verbName
+ORDER BY a.Position
+
+
+-- Which entities support a verb of a given name, for example everything that can be
+-- unmanaged.
+SELECT
+    v.Entity.FullName AS EntityName,
+    v.Name AS VerbName
+FROM Metadata.Verb v
+WHERE v.Name = @verbName
+ORDER BY v.Entity.FullName
+
+
+-- Verbs that take complex XML arguments. XmlTemplate shows the shape SWIS expects,
+-- which is otherwise very hard to guess.
+SELECT
+    a.EntityName,
+    a.VerbName,
+    a.Position,
+    a.Name AS ArgumentName,
+    a.Type,
+    a.XmlTemplate
+FROM Metadata.VerbArgument a
+WHERE a.XmlTemplate IS NOT NULL
+ORDER BY a.EntityName, a.VerbName, a.Position
+
+
+-- Relationships involving an entity, with cardinality. SourcePropertyName and
+-- TargetPropertyName are the navigation property names you can dot-walk.
+SELECT
+    r.Name,
+    r.SourceType,
+    r.TargetType,
+    r.SourcePropertyName,
+    r.TargetPropertyName,
+    r.SourceCardinalityMin,
+    r.SourceCardinalityMax,
+    r.TargetCardinalityMin,
+    r.TargetCardinalityMax
+FROM Metadata.Relationship r
+WHERE r.SourceType = @entityName
+   OR r.TargetType = @entityName
+ORDER BY r.Name
+
+
+-- Entities that can be created through CRUD.
+SELECT
+    e.FullName,
+    e.BaseType
+FROM Metadata.Entity e
+WHERE e.CanCreate = TRUE
+  AND e.IsInternal = FALSE
+ORDER BY e.FullName
+
+
+-- Obsolete entities and why they were retired. Check this before building an automation
+-- on an entity you found in an old script.
+SELECT
+    e.FullName,
+    e.ObsolescenceReason
+FROM Metadata.Entity e
+WHERE e.IsObsolete = TRUE
+ORDER BY e.FullName
+
+
+-- The SWQL functions this server supports, which is the live version of
+-- data/reference/swql-functions.json.
+SELECT
+    f.Name
+FROM Metadata.Functions f
+ORDER BY f.Name

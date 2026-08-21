@@ -1,0 +1,128 @@
+-- Events and auditing: Orion.Events, Orion.EventTypes, Orion.AuditingEvents
+--
+-- Orion.Events records what the platform observed (a node went down, an alert fired).
+-- Orion.AuditingEvents records what a person or an API client did (someone unmanaged a
+-- node, changed a threshold, logged in). When you are answering "why did this change",
+-- you almost always want the auditing table, not the events table.
+--
+-- Both tables grow without bound, so always constrain them by time.
+
+
+-- Recent events with their type name. Orion.Events stores EventType as an integer;
+-- Orion.EventTypes turns it into a name.
+SELECT TOP 200
+    e.EventTime,
+    et.Name AS EventTypeName,
+    e.Message,
+    e.NetObjectValue,
+    e.Acknowledged
+FROM Orion.Events e
+JOIN Orion.EventTypes et ON e.EventType = et.EventType
+WHERE e.EventTime > AddDay(-1, GetDate())
+ORDER BY e.EventTime DESC
+
+
+-- Events for one node over the last week. Orion.Events navigates to nodes through the
+-- Nodes property, which is plural even though it resolves to a single node.
+SELECT TOP 200
+    e.EventTime,
+    et.Name AS EventTypeName,
+    e.Message
+FROM Orion.Events e
+JOIN Orion.EventTypes et ON e.EventType = et.EventType
+WHERE e.Nodes.Caption = @nodeCaption
+  AND e.EventTime > AddDay(-7, GetDate())
+ORDER BY e.EventTime DESC
+
+
+-- Which event types are the noisiest in the last 24 hours.
+SELECT
+    et.Name AS EventTypeName,
+    COUNT(e.EventID) AS EventCount
+FROM Orion.Events e
+JOIN Orion.EventTypes et ON e.EventType = et.EventType
+WHERE e.EventTime > AddDay(-1, GetDate())
+GROUP BY et.Name
+ORDER BY COUNT(e.EventID) DESC
+
+
+-- Unacknowledged events, oldest first.
+SELECT TOP 100
+    e.EventTime,
+    et.Name AS EventTypeName,
+    e.Message
+FROM Orion.Events e
+JOIN Orion.EventTypes et ON e.EventType = et.EventType
+WHERE e.Acknowledged = FALSE
+  AND e.EventTime > AddDay(-7, GetDate())
+ORDER BY e.EventTime
+
+
+-- Event volume per day for the last fortnight, using DateTrunc to bucket by day.
+SELECT
+    DateTrunc('day', e.EventTime) AS Day,
+    COUNT(e.EventID) AS EventCount
+FROM Orion.Events e
+WHERE e.EventTime > AddDay(-14, GetDate())
+GROUP BY DateTrunc('day', e.EventTime)
+ORDER BY DateTrunc('day', e.EventTime) DESC
+
+
+-- Which polling engine reported the events, useful when one engine misbehaves.
+SELECT
+    e.Engine.ServerName AS EngineName,
+    COUNT(e.EventID) AS EventCount
+FROM Orion.Events e
+WHERE e.EventTime > AddDay(-1, GetDate())
+GROUP BY e.Engine.ServerName
+ORDER BY COUNT(e.EventID) DESC
+
+
+-- The audit trail: who changed what. TimeLoggedUtc is already UTC, so compare it
+-- against GetUtcDate() rather than GetDate().
+SELECT TOP 200
+    a.TimeLoggedUtc,
+    a.AccountID,
+    a.AuditEventMessage,
+    a.NetworkNode,
+    a.NetObjectType,
+    a.NetObjectID
+FROM Orion.AuditingEvents a
+WHERE a.TimeLoggedUtc > AddDay(-7, GetUtcDate())
+ORDER BY a.TimeLoggedUtc DESC
+
+
+-- Audit entries for one account.
+SELECT TOP 100
+    a.TimeLoggedUtc,
+    a.AuditEventMessage,
+    a.NetObjectType,
+    a.NetObjectID
+FROM Orion.AuditingEvents a
+WHERE a.AccountID = @accountId
+  AND a.TimeLoggedUtc > AddDay(-30, GetUtcDate())
+ORDER BY a.TimeLoggedUtc DESC
+
+
+-- Who unmanaged something recently. Filtering on the message text is crude but it is
+-- the practical way to find maintenance-window changes.
+SELECT TOP 100
+    a.TimeLoggedUtc,
+    a.AccountID,
+    a.AuditEventMessage,
+    a.NetObjectType,
+    a.NetObjectID
+FROM Orion.AuditingEvents a
+WHERE a.AuditEventMessage LIKE '%nmanage%'
+  AND a.TimeLoggedUtc > AddDay(-30, GetUtcDate())
+ORDER BY a.TimeLoggedUtc DESC
+
+
+-- Audit activity per account over the last month, to see who is making changes.
+SELECT
+    a.AccountID,
+    COUNT(a.AuditEventID) AS ChangeCount
+FROM Orion.AuditingEvents a
+WHERE a.TimeLoggedUtc > AddDay(-30, GetUtcDate())
+GROUP BY a.AccountID
+ORDER BY COUNT(a.AuditEventID) DESC

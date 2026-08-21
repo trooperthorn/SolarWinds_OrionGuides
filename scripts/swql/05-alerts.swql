@@ -1,0 +1,151 @@
+-- Alerting: Orion.AlertActive, Orion.AlertObjects, Orion.AlertConfigurations, Orion.AlertHistory
+--
+-- The alerting model has three parts and they are easy to confuse:
+--
+--   Orion.AlertConfigurations  the definition: name, trigger, severity, enabled flag
+--   Orion.AlertObjects         one row per (definition, triggering entity) pair; this is
+--                              the join table that ties a definition to what it fired on
+--   Orion.AlertActive          one row per currently firing alert, keyed to an AlertObject
+--   Orion.AlertHistory         the audit trail of triggers, acknowledgements and resets
+--
+-- Almost every useful alert query goes through Orion.AlertObjects, because that is the
+-- only place that knows which entity an alert is about.
+
+
+-- Currently active alerts with the object that triggered them. The everyday query.
+SELECT
+    aa.AlertActiveID,
+    ao.AlertConfigurations.Name AS AlertName,
+    ao.EntityCaption AS TriggeringObject,
+    ao.EntityType,
+    ao.RelatedNodeCaption AS NodeName,
+    aa.TriggeredDateTime,
+    aa.TriggeredMessage,
+    aa.Acknowledged
+FROM Orion.AlertActive aa
+JOIN Orion.AlertObjects ao ON aa.AlertObjectID = ao.AlertObjectID
+ORDER BY aa.TriggeredDateTime DESC
+
+
+-- Unacknowledged alerts only, sorted by severity then age. This is the triage view.
+SELECT
+    ao.AlertConfigurations.Name AS AlertName,
+    ao.AlertConfigurations.Severity,
+    ao.EntityCaption AS TriggeringObject,
+    ao.RelatedNodeCaption AS NodeName,
+    aa.TriggeredDateTime,
+    MinuteDiff(aa.TriggeredDateTime, GetUtcDate()) AS AgeMinutes
+FROM Orion.AlertActive aa
+JOIN Orion.AlertObjects ao ON aa.AlertObjectID = ao.AlertObjectID
+WHERE aa.Acknowledged = FALSE
+ORDER BY ao.AlertConfigurations.Severity DESC, aa.TriggeredDateTime
+
+
+-- Who acknowledged what, and when.
+SELECT
+    ao.AlertConfigurations.Name AS AlertName,
+    ao.EntityCaption AS TriggeringObject,
+    aa.AcknowledgedBy,
+    aa.AcknowledgedDateTime,
+    aa.AcknowledgedNote
+FROM Orion.AlertActive aa
+JOIN Orion.AlertObjects ao ON aa.AlertObjectID = ao.AlertObjectID
+WHERE aa.Acknowledged = TRUE
+ORDER BY aa.AcknowledgedDateTime DESC
+
+
+-- Alert definitions and whether they are switched on. Disabled alerts are a common
+-- explanation for "why did nobody get paged".
+SELECT
+    ac.AlertID,
+    ac.Name,
+    ac.Description,
+    ac.ObjectType,
+    ac.Enabled,
+    ac.Severity,
+    ac.Frequency,
+    ac.CreatedBy,
+    ac.LastEdit
+FROM Orion.AlertConfigurations ac
+ORDER BY ac.Enabled, ac.Name
+
+
+-- Definitions that are currently disabled.
+SELECT
+    ac.Name,
+    ac.ObjectType,
+    ac.Severity,
+    ac.LastEdit,
+    ac.CreatedBy
+FROM Orion.AlertConfigurations ac
+WHERE ac.Enabled = FALSE
+ORDER BY ac.Name
+
+
+-- Noisiest alert definitions by number of currently active instances.
+SELECT
+    ao.AlertConfigurations.Name AS AlertName,
+    COUNT(aa.AlertActiveID) AS ActiveCount
+FROM Orion.AlertActive aa
+JOIN Orion.AlertObjects ao ON aa.AlertObjectID = ao.AlertObjectID
+GROUP BY ao.AlertConfigurations.Name
+ORDER BY COUNT(aa.AlertActiveID) DESC
+
+
+-- Alerts that have fired most often overall, using the running counter on AlertObjects.
+SELECT TOP 50
+    ao.AlertConfigurations.Name AS AlertName,
+    ao.EntityCaption AS TriggeringObject,
+    ao.TriggeredCount,
+    ao.LastTriggeredDateTime
+FROM Orion.AlertObjects ao
+WHERE ao.TriggeredCount > 0
+ORDER BY ao.TriggeredCount DESC
+
+
+-- Alert history for the last day. EventType here distinguishes triggered, acknowledged,
+-- reset and note entries.
+SELECT TOP 200
+    ah.TimeStamp,
+    ah.EventType,
+    ah.Message,
+    ah.AlertObjects.AlertConfigurations.Name AS AlertName,
+    ah.AlertObjects.EntityCaption AS TriggeringObject
+FROM Orion.AlertHistory ah
+WHERE ah.TimeStamp > AddDay(-1, GetDate())
+ORDER BY ah.TimeStamp DESC
+
+
+-- Every alert currently firing against one specific node.
+SELECT
+    ao.AlertConfigurations.Name AS AlertName,
+    ao.EntityCaption AS TriggeringObject,
+    ao.EntityType,
+    aa.TriggeredDateTime,
+    aa.Acknowledged
+FROM Orion.AlertActive aa
+JOIN Orion.AlertObjects ao ON aa.AlertObjectID = ao.AlertObjectID
+WHERE ao.RelatedNodeCaption = @nodeCaption
+ORDER BY aa.TriggeredDateTime DESC
+
+
+-- Alerts grouped by the type of object they fired on.
+SELECT
+    ao.EntityType,
+    COUNT(aa.AlertActiveID) AS ActiveAlerts
+FROM Orion.AlertActive aa
+JOIN Orion.AlertObjects ao ON aa.AlertObjectID = ao.AlertObjectID
+GROUP BY ao.EntityType
+ORDER BY COUNT(aa.AlertActiveID) DESC
+
+
+-- The NetObject id of each triggering entity, which is what you pass to verbs such as
+-- Unmanage when scripting a response to an alert.
+SELECT
+    ao.AlertConfigurations.Name AS AlertName,
+    ao.EntityCaption,
+    ao.EntityNetObjectId,
+    ao.EntityUri
+FROM Orion.AlertActive aa
+JOIN Orion.AlertObjects ao ON aa.AlertObjectID = ao.AlertObjectID
+WHERE aa.Acknowledged = FALSE

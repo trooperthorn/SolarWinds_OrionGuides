@@ -1,0 +1,170 @@
+-- Orion.Nodes: the core inventory table
+--
+-- Orion.Nodes is the root of most queries. Its key property is NodeID, and its
+-- NetObject prefix is "N", so node 42 is addressed as "N:42" in alert macros,
+-- view URLs, and the netObjectId argument of verbs such as Unmanage.
+--
+-- Every query here is checked by tools/validate_swql.py against the 2026.2 schema.
+
+
+-- Basic inventory. Always bound the result set: there is no SELECT * in SWQL, and
+-- an unbounded query on a large installation will hurt the database.
+SELECT TOP 100
+    n.NodeID,
+    n.Caption,
+    n.IPAddress,
+    n.DNS,
+    n.SysName,
+    n.Vendor,
+    n.MachineType,
+    n.Location,
+    n.Contact
+FROM Orion.Nodes n
+ORDER BY n.Caption
+
+
+-- Status by name rather than by magic number. Status is an integer; joining to
+-- Orion.StatusInfo turns it into something a human can read. See
+-- docs/schema/status-codes.md for the full code list.
+SELECT
+    n.Caption,
+    n.IPAddress,
+    n.Status AS StatusId,
+    s.StatusName,
+    s.ShortDescription
+FROM Orion.Nodes n
+JOIN Orion.StatusInfo s ON n.Status = s.StatusId
+ORDER BY s.Ranking, n.Caption
+
+
+-- Everything that is currently down.
+-- Status 2 is Down. Excluding unmanaged objects avoids counting nodes that are
+-- down only because someone put them in a maintenance window.
+SELECT
+    n.Caption,
+    n.IPAddress,
+    n.NodeID,
+    n.DetailsUrl
+FROM Orion.Nodes n
+WHERE n.Status = 2
+  AND n.UnManaged = FALSE
+ORDER BY n.Caption
+
+
+-- Count nodes by status name. The classic dashboard query.
+SELECT
+    s.StatusName,
+    COUNT(n.NodeID) AS NodeCount
+FROM Orion.Nodes n
+JOIN Orion.StatusInfo s ON n.Status = s.StatusId
+GROUP BY s.StatusName
+ORDER BY COUNT(n.NodeID) DESC
+
+
+-- Nodes in a maintenance window right now, with the window boundaries.
+-- UnManaged, UnManageFrom and UnManageUntil are inherited from System.ManagedEntity;
+-- they are queryable on Orion.Nodes even though the entity does not declare them.
+SELECT
+    n.Caption,
+    n.UnManageFrom,
+    n.UnManageUntil,
+    HourDiff(GetUtcDate(), n.UnManageUntil) AS HoursRemaining
+FROM Orion.Nodes n
+WHERE n.UnManaged = TRUE
+ORDER BY n.UnManageUntil
+
+
+-- Nodes that have stopped reporting. MinutesSinceLastSync is maintained by the
+-- platform, which avoids doing date arithmetic against LastSync yourself and
+-- sidesteps the UTC pitfalls described in docs/swql/date-and-time.md.
+SELECT
+    n.Caption,
+    n.IPAddress,
+    n.LastSync,
+    n.MinutesSinceLastSync,
+    n.SkippedPollingCycles
+FROM Orion.Nodes n
+WHERE n.MinutesSinceLastSync > 30
+  AND n.UnManaged = FALSE
+ORDER BY n.MinutesSinceLastSync DESC
+
+
+-- Resource pressure across the estate. Filtering before ordering keeps the work small.
+SELECT TOP 50
+    n.Caption,
+    n.CPULoad,
+    n.PercentMemoryUsed,
+    n.CPUCount,
+    n.TotalMemory,
+    n.ResponseTime,
+    n.PercentLoss
+FROM Orion.Nodes n
+WHERE n.CPULoad > 80
+   OR n.PercentMemoryUsed > 90
+ORDER BY n.CPULoad DESC
+
+
+-- How each node is polled. ObjectSubType distinguishes ICMP, SNMP, WMI and Agent
+-- nodes; SNMPVersion is only meaningful for the SNMP ones.
+SELECT
+    n.ObjectSubType AS PollingMethod,
+    n.SNMPVersion,
+    COUNT(n.NodeID) AS NodeCount
+FROM Orion.Nodes n
+GROUP BY n.ObjectSubType, n.SNMPVersion
+ORDER BY COUNT(n.NodeID) DESC
+
+
+-- Nodes still using SNMPv1 or v2c, which send the community string in clear text.
+SELECT
+    n.Caption,
+    n.IPAddress,
+    n.SNMPVersion,
+    n.EngineID
+FROM Orion.Nodes n
+WHERE n.ObjectSubType = 'SNMP'
+  AND n.SNMPVersion < 3
+ORDER BY n.Caption
+
+
+-- Uptime and last reboot. SystemUpTime is in seconds.
+SELECT TOP 50
+    n.Caption,
+    n.LastBoot,
+    n.SystemUpTime / 86400 AS UptimeDays,
+    n.MachineType,
+    n.IOSVersion
+FROM Orion.Nodes n
+WHERE n.LastBoot IS NOT NULL
+ORDER BY n.LastBoot DESC
+
+
+-- Node URIs, which every CRUD and Invoke call needs. Uri is inherited from
+-- System.Entity. See docs/swis/uris.md.
+SELECT TOP 20
+    n.Caption,
+    n.NodeID,
+    n.Uri,
+    n.DetailsUrl
+FROM Orion.Nodes n
+ORDER BY n.NodeID
+
+
+-- Parameterized lookup. Bind values with @name rather than concatenating strings:
+-- it reuses query plans and removes an injection class. Send the parameter in the
+-- POST body of /Query, as shown in docs/swis/rest-api.md.
+SELECT
+    n.NodeID,
+    n.Caption,
+    n.IPAddress,
+    n.Status
+FROM Orion.Nodes n
+WHERE n.Caption LIKE @captionPattern
+
+
+-- Multi-valued parameter for an IN clause. Pass ids as a JSON array.
+SELECT
+    n.NodeID,
+    n.Caption
+FROM Orion.Nodes n
+WHERE n.NodeID IN @ids

@@ -1,0 +1,123 @@
+-- Groups and containers: Orion.Groups, Orion.Container, Orion.ContainerMembers
+--
+-- A group is a container. Orion.Groups inherits from Orion.Container and declares almost
+-- nothing of its own, so most of the useful properties (Name, Owner, RollupType,
+-- StatusCalculator, PollingEnabled) come from Orion.Container through inheritance.
+--
+-- Membership lives in Orion.ContainerMembers, one row per member. Because a member can
+-- be any entity type, the row identifies it with MemberEntityType plus MemberPrimaryID
+-- rather than with a typed foreign key.
+
+
+-- All groups with their status and rollup configuration.
+SELECT
+    g.ContainerID,
+    g.Name,
+    g.Owner,
+    g.RollupType,
+    g.StatusCalculator,
+    g.PollingEnabled,
+    g.Status,
+    g.LastChanged
+FROM Orion.Groups g
+WHERE g.IsDeleted = FALSE
+ORDER BY g.Name
+
+
+-- Group membership: what is in each group, and what type each member is.
+SELECT
+    cm.Container.Name AS GroupName,
+    cm.Name AS MemberName,
+    cm.MemberEntityType,
+    cm.MemberPrimaryID,
+    cm.Status AS MemberStatus,
+    cm.MemberUri
+FROM Orion.ContainerMembers cm
+ORDER BY cm.Container.Name, cm.Name
+
+
+-- Members of one named group.
+SELECT
+    cm.Name AS MemberName,
+    cm.MemberEntityType,
+    cm.EntityDisplayName,
+    cm.Status,
+    cm.DetailsUrl
+FROM Orion.ContainerMembers cm
+WHERE cm.Container.Name = @groupName
+ORDER BY cm.Name
+
+
+-- Group sizes, largest first.
+SELECT
+    cm.Container.Name AS GroupName,
+    COUNT(cm.MemberPrimaryID) AS MemberCount
+FROM Orion.ContainerMembers cm
+GROUP BY cm.Container.Name
+ORDER BY COUNT(cm.MemberPrimaryID) DESC
+
+
+-- What kinds of object are grouped, across the whole installation.
+SELECT
+    cm.MemberEntityType,
+    COUNT(cm.MemberPrimaryID) AS MemberCount
+FROM Orion.ContainerMembers cm
+GROUP BY cm.MemberEntityType
+ORDER BY COUNT(cm.MemberPrimaryID) DESC
+
+
+-- Groups that are not currently up, with the count of members that are also not up.
+SELECT
+    cm.Container.Name AS GroupName,
+    cm.Container.Status AS GroupStatus,
+    COUNT(cm.MemberPrimaryID) AS UnhealthyMembers
+FROM Orion.ContainerMembers cm
+WHERE cm.Container.Status <> 1
+  AND cm.Status <> 1
+GROUP BY cm.Container.Name, cm.Container.Status
+ORDER BY COUNT(cm.MemberPrimaryID) DESC
+
+
+-- Which groups contain a given node. Members are identified by entity type and primary
+-- id, so match on both rather than on the id alone.
+SELECT
+    cm.Container.Name AS GroupName,
+    cm.Name AS MemberName,
+    cm.MemberEntityType
+FROM Orion.ContainerMembers cm
+WHERE cm.MemberEntityType = 'Orion.Nodes'
+  AND cm.MemberPrimaryID = @nodeId
+
+
+-- Empty groups, which usually mean a dynamic query that stopped matching anything.
+SELECT
+    g.Name,
+    g.Owner,
+    g.LastChanged
+FROM Orion.Groups g
+WHERE g.IsDeleted = FALSE
+  AND g.ContainerID NOT IN (SELECT cm.ContainerID FROM Orion.ContainerMembers cm)
+ORDER BY g.Name
+
+
+-- Groups with polling disabled, which stops their status from updating.
+SELECT
+    g.Name,
+    g.PollingEnabled,
+    g.UnManageFrom,
+    g.UnManageUntil
+FROM Orion.Groups g
+WHERE g.PollingEnabled = FALSE
+  AND g.IsDeleted = FALSE
+ORDER BY g.Name
+
+
+-- Dependencies: which objects the platform will suppress alerts for when a parent fails.
+SELECT
+    d.Name,
+    d.ParentUri,
+    d.ChildUri,
+    d.ParentEntityType,
+    d.ChildEntityType
+FROM Orion.Dependencies d
+ORDER BY d.Name
