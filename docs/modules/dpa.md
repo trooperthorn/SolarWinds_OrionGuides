@@ -100,8 +100,9 @@ the pair too, under slightly different names:
 | Entity family | DPA-side column | Platform-side column |
 |---|---|---|
 | `Orion.DPA.DatabaseInstance` | `DatabaseInstanceID` | `GlobalDatabaseInstanceID` |
-| `DPA.Deadlock`, `DPA.BlockingChain`, `DPA.BlockingOverview`, `DPA.PerformanceOverview`, `DPA.TrendDataDimension`, `DPA.DetailDataDimension`, `DPA.ProblemSummary`, `DPA.ProblemSQLStatement`, `DPA.ResourceData`, `DPA.ResourceDefinition`, `DPA.SQLQueryInfo`, `DPA.SqlServerQueryHash`, `DPA.DatabaseClient` | `DatabaseId` | `GlobalDatabaseId` |
-| `DPA.WaitData`, `DPA.TimeSeriesData`, `DPA.TimeSeriesDefinition` | `DatabaseInstanceId` | `GlobalDatabaseInstanceID` |
+| `DPA.Deadlock`, `DPA.BlockingChain`, `DPA.BlockingOverview`, `DPA.PerformanceOverview`, `DPA.TrendDataDimension`, `DPA.DetailDataDimension`, `DPA.ProblemSummary`, `DPA.ProblemSQLStatement`, `DPA.ResourceData`, `DPA.ResourceDefinition`, `DPA.SQLQueryInfo`, `DPA.SqlServerQueryHash`, `DPA.DatabaseClient`, `DPA.ExpertAdviceInfo` | `DatabaseId` | `GlobalDatabaseId` |
+| `DPA.WaitData` | `DatabaseInstanceId` | `GlobalDatabaseInstanceID` |
+| `DPA.TimeSeriesData`, `DPA.TimeSeriesDefinition` | `DatabaseInstanceID` | `GlobalDatabaseInstanceID` |
 
 Three different spellings for the same two concepts, so check the entity before writing the
 join. When you join a `DPA.*` entity to `Orion.DPA.DatabaseInstance` by hand, join the
@@ -128,8 +129,9 @@ DB2, Sybase"), `Version`, `VersionSuffix`, `DefaultDatabase`, `OracleSID`, `Serv
 **State.** `MonitorStatus` (0 to 7) and `MonitorStatusText`, `IsLicensed`,
 `OverallAlarmLevel` ("Max from performance overview"), `Status` (`System.Int32`, so it
 joins to [`Orion.StatusInfo`](../reference/status-codes.md) cleanly), `StatusDescription`,
-`DetailsUrl`, `ModernIcon`, and the inherited `UnManaged`, `UnManageFrom` and
-`UnManageUntil`.
+`DetailsUrl`, `ModernIcon`, and `UnManaged`, `UnManageFrom` and `UnManageUntil`, which the
+entity re-declares on its own page even though they also arrive from
+`System.ManagedEntity`.
 
 Note that `Type` is a display string, not a code. `'SQL Server'` has a space in it.
 
@@ -239,11 +241,11 @@ result set and never store it.
 `DPA.TrendDataDimension` and `DPA.DetailDataDimension` both slice wait time by a dimension,
 and both enumerate the dimensions in their schema descriptions: SQL (1), WAIT (2),
 PROGRAM (3), DATABASE_INSTANCE (4), MACHINE (5), DB_USER (6), OS_USER (7), FILE (8),
-DRIVE (9), PLAN (10), ACTION (11), MODULE (12), PARTITION (13), OBJECT (14),
-PROCEDURE (15), and on the trend entity three additional virtual dimensions,
-TOP_WAIT (18), TRENDING_UP_WAIT (19) and TRENDING_DOWN_WAIT (20). The column holding the
-dimension is called `Id` on `DPA.TrendDataDimension` and `DimensionId` on
-`DPA.DetailDataDimension`.
+DRIVE (9), PLAN (10), ACTION (11), MODULE (12), PARTITION (13), OBJECT (14) and
+PROCEDURE (15). The two lists then diverge: the detail entity adds SESSION (16), and the
+trend entity adds three virtual dimensions instead, TOP_WAIT (18), TRENDING_UP_WAIT (19)
+and TRENDING_DOWN_WAIT (20). The column holding the dimension is called `Id` on
+`DPA.TrendDataDimension` and `DimensionId` on `DPA.DetailDataDimension`.
 
 `DPA.WaitData` is the PerfStack-facing version, one row per dimension entry per interval,
 with `PrimaryDimension`, `PrimaryDimensionValue`, `WaitTime`, `TotalWaitPercentage`,
@@ -382,8 +384,8 @@ ORDER BY di.DisplayName
 ```
 
 Filtering `UnManaged = FALSE` is the difference between "actually in trouble" and "in a
-maintenance window", and it works here because `Orion.DPA.DatabaseInstance` inherits from
-`System.ManagedEntity` even though it does not declare those columns itself.
+maintenance window", and it works here because `Orion.DPA.DatabaseInstance` both inherits
+from `System.ManagedEntity` and re-declares those three columns itself.
 
 ### 2. Which databases are alarming, and on what
 
@@ -410,11 +412,16 @@ ORDER BY po.WaitTimeSecs DESC
 ```
 
 `WaitTimeAlarmLevel` is documented as taking only Normal (2), Critical (5) or Unknown (3),
-which is narrower than the other alarm columns. `WaitTimeCategory` runs -1 to 10 with
-DOWN(-1) and IDLE(0) at the bottom; the schema description is truncated in the extracted
-data, so the meaning of the upper values is **unverified** here. `WaitTimeSecs` is "Total
-wait time today in seconds", which means this query ranks by today's accumulated wait and
-will look different at 09:00 and at 17:00.
+which is narrower than the other alarm columns, and the schema says it is derived from
+`WaitTimeCategory`: -1 becomes Unknown, 0 to 5 become Normal, 6 to 10 become Critical.
+`WaitTimeCategory` itself is the one alarm column the schema does enumerate. It runs -1 to
+10 as DOWN(-1), IDLE(0), LOW(1) up to HIGH(5), then LOW_ABNORMAL(6) up to
+HIGH_ABNORMAL(10). The two halves answer different questions: LOW to HIGH compares this
+instance's wait time today against the other monitored instances, while the abnormal half
+compares it against its own history, so an instance can be HIGH without being abnormal and
+LOW_ABNORMAL without being the worst on the page. `WaitTimeSecs` is "Total wait time today
+in seconds", which means this query ranks by today's accumulated wait and will look
+different at 09:00 and at 17:00.
 
 ### 3. Deadlocks in a window, attributed to an instance
 
@@ -669,9 +676,10 @@ objects it corresponds to.
 
 **Three spellings of the same two ids.** `DatabaseInstanceID` /
 `GlobalDatabaseInstanceID` on the platform entity, `DatabaseId` / `GlobalDatabaseId` on most
-`DPA.*` entities, `DatabaseInstanceId` / `GlobalDatabaseInstanceID` on `DPA.WaitData`,
-`DPA.TimeSeriesData` and `DPA.TimeSeriesDefinition`. Look the entity up rather than
-copying a column name from the query above it.
+`DPA.*` entities, `DatabaseInstanceId` / `GlobalDatabaseInstanceID` on `DPA.WaitData`, and
+`DatabaseInstanceID` / `GlobalDatabaseInstanceID` on `DPA.TimeSeriesData` and
+`DPA.TimeSeriesDefinition`, which differ from `DPA.WaitData` only in the case of the final
+letter. Look the entity up rather than copying a column name from the query above it.
 
 **Several `DPA.*` entities require `WHERE` clause inputs.** They are requests, not tables.
 `DPA.ResourceData` needs `DatabaseId`; `DPA.SQLQueryInfo` needs `DatabaseId` and the hash;
@@ -693,11 +701,14 @@ the federation schema with `RefreshSchema` after a DPA version change.
 **`Type` is a display string.** `'SQL Server'`, `'Oracle'`, `'DB2'`, `'Sybase'`,
 `'Unknown'`. Comparing it to `'SQLServer'` or `'MSSQL'` silently matches nothing.
 
-**Alarm levels have no lookup entity.** `OverallAlarmLevel` and the five per-subsystem
-levels on `DPA.PerformanceOverview` are bare integers whose lookup table the schema
-references but does not publish. `Orion.DPA.DatabaseInstance.Status` is different: it is a
-normal platform status integer and joins to
-[`Orion.StatusInfo`](../reference/status-codes.md).
+**Alarm levels have no lookup entity.** `OverallAlarmLevel` and five of the six
+per-subsystem levels on `DPA.PerformanceOverview` — `CPUAlarmLevel`, `MemoryAlarmLevel`,
+`DiskAlarmLevel`, `SessionAlarmLevel` and `QueriesAlarmLevel` — are bare integers whose
+lookup table the schema references but does not publish. The sixth,
+`WaitTimeAlarmLevel`, is the exception: its three values are spelled out in place, as is
+the `WaitTimeCategory` range it is derived from.
+`Orion.DPA.DatabaseInstance.Status` is different again: it is a normal platform status
+integer and joins to [`Orion.StatusInfo`](../reference/status-codes.md).
 
 **Account limitations filter silently.** As everywhere, two accounts running the same query
 can legitimately get different rows. See [../platform/architecture.md](../platform/architecture.md).
@@ -708,7 +719,7 @@ can legitimately get different rows. See [../platform/architecture.md](../platfo
 |---|---|---|
 | The `DPA.*` entity types are served from the DPA server rather than the Orion database | Strongly implied by `JSwisAddress`, `JSwisObjectUriBase`, the `SWISf.RemoteSWIS` navigation and the `RefreshSchema` summary, but not stated as such in the schema | `SELECT DpaServerId, JSwisAddress, JSwisObjectUriBase, IntegrationStatusDescription FROM Orion.DPA.DpaServer`, then compare `Uri` values returned by a `DPA.*` query against `JSwisObjectUriBase` |
 | The valid strings for `DPA.WaitData.PrimaryDimension` | The schema points at a code class that is not in the extracted data | `SELECT TOP 50 PrimaryDimension, COUNT(PrimaryDimensionValue) AS Entries FROM DPA.WaitData WHERE GlobalDatabaseInstanceID = @id AND Time >= @start GROUP BY PrimaryDimension` |
-| The meaning of `DPA.PerformanceOverview.WaitTimeCategory` values 1 to 10 | The description is truncated in the extracted data at "DOWN(-1), IDLE(0), LOW(1" | Read the full property summary from your own server: `SELECT Name, Type, Summary FROM Metadata.Property WHERE Entity.FullName = 'DPA.PerformanceOverview'` |
+| The alarm-level integers other than `WaitTimeAlarmLevel` on `DPA.PerformanceOverview` | No lookup entity is published for them: the descriptions point at `DPA.AlarmLevel`, which the 2026.2 schema does not contain. Only `WaitTimeAlarmLevel` and `WaitTimeCategory` are enumerated in place | `SELECT OverallAlarmLevel, CPUAlarmLevel, MemoryAlarmLevel, DiskAlarmLevel, SessionAlarmLevel, QueriesAlarmLevel, COUNT(DatabaseId) AS Instances FROM DPA.PerformanceOverview GROUP BY OverallAlarmLevel, CPUAlarmLevel, MemoryAlarmLevel, DiskAlarmLevel, SessionAlarmLevel, QueriesAlarmLevel` |
 | The `MonitorStatus` values 0 to 7 | The description references a lookup entity the schema does not publish | Select `MonitorStatus` and `MonitorStatusText` together and build the mapping from your own data |
 | The `RelationshipType` integers on `Orion.DPA.DatabaseInstanceApplicationRelationship` | Not enumerated | `SELECT RelationshipType, RelationshipTypeName, COUNT(ApplicationID) AS Links FROM Orion.DPA.DatabaseInstanceApplicationRelationship GROUP BY RelationshipType, RelationshipTypeName` |
 | Whether the three `DatabaseInstanceApplication*` subtypes really accept `create` | Their `/Create` paths exist in the Swagger contract but the rendered schema publishes no access control table for them | `SELECT FullName, CanCreate, CanUpdate, CanDelete FROM Metadata.Entity WHERE FullName LIKE 'Orion.DPA.DatabaseInstanceApplication%'` |

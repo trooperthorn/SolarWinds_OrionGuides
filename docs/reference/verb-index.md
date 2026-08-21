@@ -73,9 +73,9 @@ ORDER BY Position
 | `Orion.APM.ApplicationCustomProperties` | `ModifyCustomProperty` | `(propertyName, description, size, values, usageFlags, mandatory, defaultValue, sourceId?, sourceName?)` | `System.Void` |  | Modify application custom property. |
 | `Orion.APM.ApplicationTemplate` | `DeleteTemplate` | `(applicationTemplateId)` | `System.Void` |  | Delete existed application template. |
 | `Orion.APM.ApplicationTemplate` | `ExportTemplate` | `(templateId)` | `string` |  | Export existed application template to stream. |
-| `Orion.APM.ApplicationTemplate` | `GetTestComponentStatus` | `(jobs)` | `array` |  | Returns list of status of template components test. |
+| `Orion.APM.ApplicationTemplate` | `GetTestComponentStatus` | `(jobs)` | `array<SolarWinds.APM.Common.Models.TestComp…` |  | Returns list of status of template components test. |
 | `Orion.APM.ApplicationTemplate` | `ImportTemplate` | `(templateData)` | `number` |  | Import application template |
-| `Orion.APM.ApplicationTemplate` | `StartTestComponents` | `(nodeId, templateUniqueId, credentialId)` | `array` |  | Start application template components test. |
+| `Orion.APM.ApplicationTemplate` | `StartTestComponents` | `(nodeId, templateUniqueId, credentialId)` | `array<SolarWinds.APM.Common.Models.TestComp…` |  | Start application template components test. |
 | `Orion.APM.ApplicationTemplate` | `UpdateApplicationTemplateSettings` | `(applicationTemplateId, settings)` | `System.Void` |  | Update application template settings. |
 | `Orion.APM.Component` | `CalculateBaselineThresholds` | `(componentId, thresholdName)` | `SolarWinds.APM.Common.Models.Threshold` |  | Calculates and sets baseline thresholds for component threshold |
 | `Orion.APM.Exchange.Application` | `GetConfigurationResult` | `(executionKey)` | `SolarWinds.Data.Providers.APM.Verbs.Applica…` | `manageNodes` | It is getting the result of exchange configuration. As a parameter it require executionKey retu… |
@@ -149,7 +149,7 @@ ORDER BY Position
 | `Orion.AlertActive` | `ClearAlert` | `(alertObjectIds)` | `boolean` | `clearEvents` | Delete active alert from database. Manual alert reset |
 | `Orion.AlertActive` | `Unacknowledge` | `(alertObjectIds)` | `boolean` | `clearEvents` | Unacknowledge active alerts, based on array of alert active ids. |
 | `Orion.AlertConfigurations` | `Export` | `(alertId, stripSensitiveData?, protectionPassword?)` | `string` | `admin`, `manageAlerts` | This verb exports alert definition |
-| `Orion.AlertConfigurations` | `GetComplexPropertiesByAlertID` | `(alertId)` | `array` | `admin`, `manageAlerts` | This verb get parsed alert's addition fields |
+| `Orion.AlertConfigurations` | `GetComplexPropertiesByAlertID` | `(alertId)` | `array<System.Collections.Generic.KeyValuePa…` | `admin`, `manageAlerts` | This verb get parsed alert's addition fields |
 | `Orion.AlertConfigurations` | `Import` | `(alertXml, stripSensitiveInformation?, protectionPassword?)` | `SolarWinds.Orion.Core.Common.Alerting.Alert…` | `admin`, `manageAlerts` | This verb imports alert into system from alert xml |
 | `Orion.AlertConfigurations` | `MigrateAdvancedAlert` | `()` | `unknown` | `admin` |  |
 | `Orion.AlertConfigurations` | `MigrateAdvancedAlertFromXML` | `()` | `unknown` | `admin` |  |
@@ -162,7 +162,7 @@ ORDER BY Position
 | `Orion.AlertStatus` | `Acknowledge` | `()` | `unknown` | `clearEvents` |  |
 | `Orion.AlertStatus` | `AcknowledgeAlert` | `()` | `unknown` |  |  |
 | `Orion.AlertStatus` | `AddNote` | `()` | `unknown` | `clearEvents` |  |
-| `Orion.AlertSuppression` | `GetAlertSuppressionState` | `(entityUris)` | `array` | `everyone` | Get Alert Suppression State for provided list of entities. |
+| `Orion.AlertSuppression` | `GetAlertSuppressionState` | `(entityUris)` | `array<SolarWinds.Orion.Core.Common.Models.A…` | `everyone` | Get Alert Suppression State for provided list of entities. |
 | `Orion.AlertSuppression` | `ResumeAlerts` | `(entityUris)` | `System.Void` | `allowUnmanage` | Alerts for entities defined in entityUris array will be triggered as usual. |
 | `Orion.AlertSuppression` | `SuppressAlerts` | `(entityUris, suppressFrom?, suppressUntil?, allowOverlapping?, reason?)` | `System.Void` | `allowUnmanage` | Do not trigger any alerts for entities defined in entityUris array during the suppressFrom-supp… |
 | `Orion.AssetInventory.Polling` | `DisablePollingForNodes` | `(nodeIds)` | `System.Void` | `manageNodes` |  |
@@ -248,7 +248,7 @@ ORDER BY Position
 | `Orion.Discovery` | `CancelDiscovery` | `(profileId)` | `System.Void` |  |  |
 | `Orion.Discovery` | `CreateCorePluginConfiguration` | `(context)` | `string` |  | Creates a new configuration for a plugin. |
 | `Orion.Discovery` | `DeleteDiscoveryProfile` | `(profileId)` | `System.Void` |  | Deletes discovery profile by its profileId. |
-| `Orion.Discovery` | `GetDiscoveryProfileResourcesResult` | `(profileId)` | `array` |  | Retrieves the list of discovered resources for a specific discovery profile |
+| `Orion.Discovery` | `GetDiscoveryProfileResourcesResult` | `(profileId)` | `array<SolarWinds.Orion.Core.Models.V1.Disco…` |  | Retrieves the list of discovered resources for a specific discovery profile |
 | `Orion.Discovery` | `GetDiscoveryProgress` | `(profileId)` | `string` |  |  |
 | `Orion.Discovery` | `GetImportDiscoveryResultsProgress` | `(importId)` | `SolarWinds.Orion.Core.Models.Discovery.Disc…` |  | Get the progress of ImportDiscoveryResults |
 | `Orion.Discovery` | `ImportDiscoveryResults` | `(cfg)` | `string` |  | Import discovery results for set of discovered nodes |
@@ -265,12 +265,12 @@ ORDER BY Position
 | `Orion.EOC.Sites` | `RefreshSchema` | `(remoteSwisUri)` | `System.Void` |  |  |
 | `Orion.ESI.IncidentIntegration` | `SetIncidentIntegrationState` | `(enabled)` | `System.Void` |  | Sets the state of incident integration respectd by Orion web UI. True is enabled, false means d… |
 | `Orion.Environment` | `AuthorizeWindowsAccountForDatabase` | `(account)` | `boolean` | `admin` | Adds provided user to Orion database with db_owner permissions. |
-| `Orion.Environment` | `CanInstall` | `(productId, productVersion, family, serverRole)` | `array` |  |  |
+| `Orion.Environment` | `CanInstall` | `(productId, productVersion, family, serverRole)` | `array<System.Collections.Generic.KeyValuePa…` |  |  |
 | `Orion.Environment` | `GetConnectionString` | `()` | `string` | `admin` | Returns connection string |
 | `Orion.Environment` | `GetDatabaseAccessCredential` | `()` | `SolarWinds.Orion.Core.Common.Models.Databas…` | `admin` | Returns credential used to access Orion database when system is configured to use Windows authe… |
-| `Orion.Environment` | `GetOrionServerCertificate` | `()` | `array` | `admin` | Returns Orion certificate |
+| `Orion.Environment` | `GetOrionServerCertificate` | `()` | `array<number>` | `admin` | Returns Orion certificate |
 | `Orion.Environment` | `GetProxySettings` | `()` | `SolarWinds.Data.Providers.Orion.Models.Prox…` | `admin` | Get the current internet Proxy settings |
-| `Orion.Environment` | `GetSqlServerIpAddresses` | `()` | `array` | `admin` | Returns array of IP addresses of current SQL server |
+| `Orion.Environment` | `GetSqlServerIpAddresses` | `()` | `array<string>` | `admin` | Returns array of IP addresses of current SQL server |
 | `Orion.Environment` | `StartPreStaging` | `()` | `System.Void` | `admin` | Pre-download all bits required for upgrade |
 | `Orion.Environment` | `UninstallAll` | `()` | `System.Void` | `admin` | Uninstalls all SolarWinds products |
 | `Orion.Events` | `Acknowledge` | `(eventIDs)` | `boolean` | `clearEvents` | Marks the specified event as acknowledged, typically used to clear events from active monitorin… |
@@ -283,8 +283,8 @@ ORDER BY Position
 | `Orion.Firewall.L2LTunnel` | `RemoveFavorite` | `(entityId)` | `SolarWinds.Orion.NetMan.Firewalls.Common.Mo…` | `manageNodes` |  |
 | `Orion.Firewall.L2LTunnel` | `SetFavorite` | `(entityId)` | `SolarWinds.Orion.NetMan.Firewalls.Common.Mo…` | `manageNodes` |  |
 | `Orion.Frequencies` | `DeleteFrequencies` | `(frequencyIds)` | `boolean` | `admin`, `manageAlerts`, `manageReports` |  |
-| `Orion.Frequencies` | `SaveReportFrequencies` | `(frequencies)` | `array` | `admin`, `manageReports` |  |
-| `Orion.Frequencies` | `SaveTimePeriodFrequencies` | `(frequencies)` | `array` | `admin`, `manageAlerts` |  |
+| `Orion.Frequencies` | `SaveReportFrequencies` | `(frequencies)` | `array<number>` | `admin`, `manageReports` |  |
+| `Orion.Frequencies` | `SaveTimePeriodFrequencies` | `(frequencies)` | `array<number>` | `admin`, `manageAlerts` |  |
 | `Orion.GroupCustomProperties` | `CreateCustomProperty` | `(PropertyName, Description, ValueType, Size, ValidRange, Parser, Header, Alignment, Format, Units, Usages?, Mandatory?, Default?, SourceId?, SourceName?, DisplayName?)` | `System.Void` |  |  |
 | `Orion.GroupCustomProperties` | `CreateCustomPropertyWithValues` | `(PropertyName, Description, ValueType, Size, ValidRange, Parser, Header, Alignment, Format, Units, Value, Usages?, Mandatory?, Default?, SourceId?, SourceName?, DisplayName?)` | `System.Void` |  |  |
 | `Orion.GroupCustomProperties` | `DeleteCustomProperty` | `(PropertyName)` | `System.Void` |  |  |
@@ -312,12 +312,12 @@ ORDER BY Position
 | `Orion.HardwareHealth.HardwareItemBase` | `EnableSensors` | `(hardwareItems)` | `System.Void` | `manageNodes` | Enable sensors for given Hardware Health Items. |
 | `Orion.HardwareHealth.HardwareItemThreshold` | `ClearThresholds` | `(sensorIds)` | `System.Void` | `manageNodes` | Clear thresholds for given sensors. |
 | `Orion.HardwareHealth.HardwareItemThreshold` | `SetThreshold` | `(sensorId, warningThreshold, criticalThreshold)` | `System.Void` | `manageNodes` | Sets thresholds for given sensors. |
-| `Orion.Licensing.Licenses` | `ActivateOffline` | `(LicenseToActivate)` | `array` |  |  |
-| `Orion.Licensing.Licenses` | `ActivateOnline` | `(LicenseKey, LicenseVersion, ProductName, FirstName, LastName, Email, Phone)` | `array` |  |  |
+| `Orion.Licensing.Licenses` | `ActivateOffline` | `(LicenseToActivate)` | `array<System.Collections.Generic.KeyValuePa…` |  |  |
+| `Orion.Licensing.Licenses` | `ActivateOnline` | `(LicenseKey, LicenseVersion, ProductName, FirstName, LastName, Email, Phone)` | `array<System.Collections.Generic.KeyValuePa…` |  |  |
 | `Orion.Licensing.Licenses` | `AddLicenseFilter` | `(ProductName, LicenseVersion, Tag, LicenseType, ApplicationMode)` | `boolean` |  |  |
-| `Orion.Licensing.Licenses` | `Deactivate` | `(LicenseKey, LicenseVersion, ProductName, ProvideReceipt)` | `array` |  |  |
+| `Orion.Licensing.Licenses` | `Deactivate` | `(LicenseKey, LicenseVersion, ProductName, ProvideReceipt)` | `array<System.Collections.Generic.KeyValuePa…` |  |  |
 | `Orion.Licensing.Licenses` | `FindValidAssignments` | `(LicenseKey, LicenseVersion, ProductName)` | `System.Data.DataTable` |  |  |
-| `Orion.Licensing.Licenses` | `GetAvailableAssignments` | `(LicenseVersion, ProductName)` | `array` |  |  |
+| `Orion.Licensing.Licenses` | `GetAvailableAssignments` | `(LicenseVersion, ProductName)` | `array<System.Collections.Generic.KeyValuePa…` |  |  |
 | `Orion.Licensing.Licenses` | `GetEvaluationState` | `(ProductName, LicenseVersion)` | `string` |  |  |
 | `Orion.Licensing.Licenses` | `ReAssignExactlyTo` | `(LicenseKey, LicenseVersion, ProductName, ServersOrPools)` | `System.Void` |  |  |
 | `Orion.Licensing.Licenses` | `RemoveLicenseFilter` | `(ProductName, LicenseVersion)` | `boolean` |  |  |
@@ -345,7 +345,7 @@ ORDER BY Position
 | `Orion.NPM.Interfaces` | `AddInterfacesOnNode` | `(nodeId, interfacesToAdd, pollers)` | `SolarWinds.Interfaces.Common.Models.Discove…` | `manageNodes` | Add provided interface to node. |
 | `Orion.NPM.Interfaces` | `CreateInterfacesPluginConfiguration` | `(context)` | `string` | `manageNodes` | Create interface plugin configuration based on provided input data. |
 | `Orion.NPM.Interfaces` | `DiscoverInterfacesOnNode` | `(nodeId)` | `SolarWinds.Interfaces.Common.Models.Discove…` | `manageNodes` | Run lite discovery process for search interfaces on node and returns list of interfaces. |
-| `Orion.NPM.Interfaces` | `GetSupportedMetrics` | `(netObjectId)` | `array` | `admin`, `allowRealTimePolling` | Returns list of metrics to poll on Interface entity |
+| `Orion.NPM.Interfaces` | `GetSupportedMetrics` | `(netObjectId)` | `array<string>` | `admin`, `allowRealTimePolling` | Returns list of metrics to poll on Interface entity |
 | `Orion.NPM.Interfaces` | `Remanage` | `(netObjectId)` | `System.Void` | `allowUnmanage` | Manage interface immediately. |
 | `Orion.NPM.Interfaces` | `SetBandwidth` | `(netObjectId, inBandwidth, outBandwidth, customBandwidth)` | `System.Void` | `manageNodes` | Sets the custom bandwidth (InBandwidth and OutBandwidth) for the interface. When customBandwidt… |
 | `Orion.NPM.Interfaces` | `SetPowerLevel` | `(interfaceId, powerLevel)` | `System.Void` | `manageNodes` | Set interface power level. |
@@ -361,22 +361,22 @@ ORDER BY Position
 | `Orion.Netflow.IPAddressGroupsManagement` | `SetIPRanges` | `(ipGroupId, ipRanges, autoResolveApplicationConflicts)` | `SolarWinds.Netflow.Contracts.IPGroups.Manag…` |  |  |
 | `Orion.Netflow.IPAddressGroupsManagement` | `SetIpGroupsAsModified` | `()` | `System.Void` |  |  |
 | `Orion.Netflow.IPGroupExternalRelation` | `CreateFromIPAMGroup` | `(externalIpGroupId)` | `System.Void` |  |  |
-| `Orion.Netflow.InterfaceSources` | `DisableFlowInterfaceSources` | `(interfaceIds)` | `array` |  |  |
-| `Orion.Netflow.InterfaceSources` | `EnableFlowInterfaceSources` | `(interfaceIds)` | `array` |  |  |
+| `Orion.Netflow.InterfaceSources` | `DisableFlowInterfaceSources` | `(interfaceIds)` | `array<number>` |  |  |
+| `Orion.Netflow.InterfaceSources` | `EnableFlowInterfaceSources` | `(interfaceIds)` | `array<number>` |  |  |
 | `Orion.Netflow.InterfaceSources` | `SetExporterFlowDirection` | `(configurations)` | `boolean` |  |  |
-| `Orion.Netflow.NodeSources` | `DisableFlowNodeSources` | `(nodeIds)` | `array` |  |  |
-| `Orion.Netflow.NodeSources` | `EnableFlowNodeSources` | `(nodeIds)` | `array` |  |  |
+| `Orion.Netflow.NodeSources` | `DisableFlowNodeSources` | `(nodeIds)` | `array<number>` |  |  |
+| `Orion.Netflow.NodeSources` | `EnableFlowNodeSources` | `(nodeIds)` | `array<number>` |  |  |
 | `Orion.Netflow.NodeSources` | `SetAutoDetectedSamplingRate` | `(nodeId)` | `boolean` |  |  |
 | `Orion.Netflow.NodeSources` | `SetManualSamplingRate` | `(nodeId, samplingRate)` | `boolean` |  |  |
 | `Orion.NetworkAtlas` | `GetNAVersion` | `()` | `string` |  | Returns version of the installed Network Atlas. |
 | `Orion.Nodes` | `GetCountOfElementsPerEngineForLicensing` | `()` | `SolarWinds.Orion.Core.Models.Licensing.Coun…` | `manageNodes` | Returns count of used elements (per engine) for licensing |
-| `Orion.Nodes` | `GetListResourcesResult` | `(jobId, nodeId)` | `array` | `manageNodes` | Get the result of List Resources discovery |
-| `Orion.Nodes` | `GetListResourcesResultByEngine` | `(jobId, engineId)` | `array` | `manageNodes` | Get the result of List Resources discovery |
+| `Orion.Nodes` | `GetListResourcesResult` | `(jobId, nodeId)` | `array<SolarWinds.Orion.Core.Models.V1.Disco…` | `manageNodes` | Get the result of List Resources discovery |
+| `Orion.Nodes` | `GetListResourcesResultByEngine` | `(jobId, engineId)` | `array<SolarWinds.Orion.Core.Models.V1.Disco…` | `manageNodes` | Get the result of List Resources discovery |
 | `Orion.Nodes` | `GetScheduledListResourcesStatus` | `(jobId, nodeId)` | `string` | `manageNodes` | Get current result of discovery job |
 | `Orion.Nodes` | `GetScheduledListResourcesStatusByEngine` | `(jobId, engineId)` | `string` | `manageNodes` | Get current result of discovery job |
-| `Orion.Nodes` | `GetSupportedMetrics` | `(netObjectId)` | `array` | `admin`, `allowRealTimePolling` | Returns list of metrics to poll on Node entity |
+| `Orion.Nodes` | `GetSupportedMetrics` | `(netObjectId)` | `array<string>` | `admin`, `allowRealTimePolling` | Returns list of metrics to poll on Node entity |
 | `Orion.Nodes` | `ImportListResourcesResult` | `(jobId, nodeId)` | `boolean` | `manageNodes` | Import all results found during discovery |
-| `Orion.Nodes` | `ImportSelectedListResourcesResult` | `(jobId, nodeId, resources)` | `array` | `manageNodes` | Import selected result of discovery |
+| `Orion.Nodes` | `ImportSelectedListResourcesResult` | `(jobId, nodeId, resources)` | `array<System.Collections.Generic.KeyValuePa…` | `manageNodes` | Import selected result of discovery |
 | `Orion.Nodes` | `PollNow` | `(netObjectId)` | `System.Void` | `manageNodes` | It will poll node instance and update its information |
 | `Orion.Nodes` | `PollStatusNow` | `(netObjectId)` | `System.Void` | `manageNodes` | It will poll node status and update it |
 | `Orion.Nodes` | `RediscoverNow` | `(netObjectId)` | `System.Void` | `manageNodes` | It will rediscover node instance and update its information |
@@ -436,8 +436,8 @@ ORDER BY Position
 | `Orion.Orchestrators.Info` | `ValidatePrismaAuthentication` | `(engineId, clientId, clientSecret, tsgId)` | `SolarWinds.Orion.Orchestrators.Common.Model…` | `manageNodes` |  |
 | `Orion.Orchestrators.Info` | `ValidateVeloCloudAuthentication` | `(engineId, endpoint, username?, password?, apiToken?)` | `SolarWinds.Orion.Orchestrators.Common.Model…` | `manageNodes` |  |
 | `Orion.Orchestrators.Info` | `ValidateViptelaAuthentication` | `(engineId, endpoint, username, password, certificateThumbprint)` | `SolarWinds.Orion.Orchestrators.Common.Model…` | `manageNodes` |  |
-| `Orion.PM.DatabaseHelper` | `GetAccountsList` | `(serverName, username, password, authenticationType)` | `array` |  |  |
-| `Orion.PM.DatabaseHelper` | `GetListOfDatabases` | `(serverName, username, password, authenticationType)` | `array` |  |  |
+| `Orion.PM.DatabaseHelper` | `GetAccountsList` | `(serverName, username, password, authenticationType)` | `array<string>` |  |  |
+| `Orion.PM.DatabaseHelper` | `GetListOfDatabases` | `(serverName, username, password, authenticationType)` | `array<string>` |  |  |
 | `Orion.PM.DatabaseHelper` | `GetLoginNameFromCurrentSqlSession` | `(serverName, account, password, authenticationType)` | `string` |  |  |
 | `Orion.PM.DatabaseHelper` | `TestUserAndPassword` | `(serverName, account, password, authenticationType, encryptConnection)` | `string` |  |  |
 | `Orion.PM.DatabaseHelper` | `UpdateUserAccount` | `(serverName, database, user, userPassword, authenticationType, encryptConnection, account, accountPassword, accountType)` | `string` | `admin` |  |
@@ -488,7 +488,7 @@ ORDER BY Position
 | `Orion.SCM.ServerConfiguration` | `EnableFimDriverWatching` | `(nodeId)` | `System.Void` |  | On target node enable polling through FIM driver if it was previously disabled by DisableFimDri… |
 | `Orion.SCM.ServerConfiguration` | `PollNow` | `(nodeIds)` | `System.Void` |  | On target nodes triggers refreshing of watchers, polls the current results of file, registry an… |
 | `Orion.SCM.ServerConfiguration` | `PollNowWithNotification` | `(nodeId, elementIds, timeout, state)` | `System.Void` |  | Executes PollNow and triggers Orion.SCM.OneTimePollFinished indication once all results are col… |
-| `Orion.SEM.Events` | `GetEventDetails` | `(connectionId, eventId)` | `array` |  |  |
+| `Orion.SEM.Events` | `GetEventDetails` | `(connectionId, eventId)` | `array<System.Collections.Generic.KeyValuePa…` |  |  |
 | `Orion.SEM.Settings` | `AddConnection` | `(host, displayName, username, encryptedPassword)` | `number` |  |  |
 | `Orion.SEM.Settings` | `AddTrackedTags` | `(tags)` | `boolean` |  |  |
 | `Orion.SEM.Settings` | `DeleteConnectionById` | `(id)` | `boolean` |  |  |
@@ -521,7 +521,7 @@ ORDER BY Position
 | `Orion.SRM.BusinessLayer` | `DeleteCredentials` | `(ids)` | `System.Void` |  | Deletes one or more credentials |
 | `Orion.SRM.BusinessLayer` | `DeleteProviders` | `(providerIds)` | `System.Void` |  | Deletes one or more storage providers |
 | `Orion.SRM.BusinessLayer` | `DiscoveryImport` | `(engineId, providers, arrays)` | `System.Void` |  | Imports discovered storage arrays into SRM |
-| `Orion.SRM.BusinessLayer` | `DiscoveryResponder` | `(ipAddress, port, userName, password, templateId)` | `array` |  | Handles discovery response operations |
+| `Orion.SRM.BusinessLayer` | `DiscoveryResponder` | `(ipAddress, port, userName, password, templateId)` | `array<SolarWinds.SRM.Common.Models.ArraySna…` |  | Handles discovery response operations |
 | `Orion.SRM.BusinessLayer` | `DropManualE2EMapping` | `(volumeIds)` | `System.Void` |  | Removes manual end-to-end mapping |
 | `Orion.SRM.BusinessLayer` | `GetAllArrays` | `()` | `System.Collections.Generic.IEnumerable~Sola…` |  | Gets information about all storage arrays |
 | `Orion.SRM.BusinessLayer` | `GetAllEngines` | `()` | `System.Collections.Generic.IEnumerable~Sola…` |  | Gets information about all polling engines |
@@ -529,18 +529,18 @@ ORDER BY Position
 | `Orion.SRM.BusinessLayer` | `GetArrayProvider` | `(arrayId)` | `SolarWinds.SRM.Common.Models.ProviderInfo` |  | Gets the provider information for a storage array |
 | `Orion.SRM.BusinessLayer` | `GetArraysByVendorId` | `(storageArrayIds)` | `System.Collections.Generic.IEnumerable~Sola…` |  | Gets all arrays from a specific vendor |
 | `Orion.SRM.BusinessLayer` | `GetCredential` | `(credentialID, credType)` | `SolarWinds.Orion.Core.SharedCredentials.Cre…` |  | Retrieves credential information by ID |
-| `Orion.SRM.BusinessLayer` | `GetCredentialNames` | `(credType)` | `array` |  | Gets the names of all available credentials |
+| `Orion.SRM.BusinessLayer` | `GetCredentialNames` | `(credType)` | `array<System.Collections.Generic.KeyValuePa…` |  | Gets the names of all available credentials |
 | `Orion.SRM.BusinessLayer` | `GetCredentialType` | `(id)` | `SolarWinds.SRM.Common.Enums.CredentialType` |  | Gets the type of a specific credential |
 | `Orion.SRM.BusinessLayer` | `GetDeviceGroup` | `(groupId)` | `SolarWinds.SRM.Common.Models.DeviceGroup` |  | Gets information about a specific device group |
 | `Orion.SRM.BusinessLayer` | `GetDiscoveryJobResult` | `(discoveryId)` | `SolarWinds.SRM.Common.Models.DiscoveryResul…` |  | Retrieves the result of a discovery job |
 | `Orion.SRM.BusinessLayer` | `GetEngine` | `(engineId)` | `SolarWinds.SRM.Common.Models.PollingEngine` |  | Gets information about a specific polling engine |
 | `Orion.SRM.BusinessLayer` | `GetLicenseInfo` | `()` | `SolarWinds.SRM.Common.Models.LicenseEntity` |  | Gets current license information for SRM |
-| `Orion.SRM.BusinessLayer` | `GetLicensedObjects` | `()` | `array` |  | Gets the list of licensed objects in SRM |
+| `Orion.SRM.BusinessLayer` | `GetLicensedObjects` | `()` | `array<string>` |  | Gets the list of licensed objects in SRM |
 | `Orion.SRM.BusinessLayer` | `GetNetObjectCaption` | `(tableName, idFieldName, id)` | `string` |  | Gets the caption of a network object |
 | `Orion.SRM.BusinessLayer` | `GetPrimaryEngineID` | `()` | `number` |  | Gets the ID of the primary polling engine |
-| `Orion.SRM.BusinessLayer` | `GetPropertyAvailability` | `(templateString, templateProperties, categories)` | `array` |  | Gets availability information for object properties |
+| `Orion.SRM.BusinessLayer` | `GetPropertyAvailability` | `(templateString, templateProperties, categories)` | `array<SolarWinds.SRM.Common.TemplatePropert…` |  | Gets availability information for object properties |
 | `Orion.SRM.BusinessLayer` | `GetProviderArrays` | `(providerId)` | `System.Collections.Generic.IEnumerable~Sola…` |  | Gets all arrays associated with a specific provider |
-| `Orion.SRM.BusinessLayer` | `GetProviders` | `(providerIds)` | `array` |  | Gets all configured storage providers |
+| `Orion.SRM.BusinessLayer` | `GetProviders` | `(providerIds)` | `array<SolarWinds.SRM.Common.Models.Provider…` |  | Gets all configured storage providers |
 | `Orion.SRM.BusinessLayer` | `GetRestConfiguration` | `(groupId)` | `string` |  | Gets REST configuration for API communication |
 | `Orion.SRM.BusinessLayer` | `GetSetting` | `(field)` | `string` |  | Gets a specific SRM setting value |
 | `Orion.SRM.BusinessLayer` | `GetStorageArrayProperty` | `(storageArrayId, propertyName)` | `string` |  | Gets a specific property of a storage array |
@@ -600,7 +600,7 @@ ORDER BY Position
 | `Orion.SRM.StorageArrays` | `AddAllArrays` | `(deviceGroupId, providersIds, engineIp?)` | `boolean` |  | Adds all arrays within given provider. Returns true if success |
 | `Orion.SRM.StorageArrays` | `AddExternalProvider` | `(ipAddress, credentialsId)` | `number` |  | Adds external provider. Receives credential ID, returns provider ID. |
 | `Orion.SRM.StorageArrays` | `AddSmisCredentials` | `(displayName, userName, password, interopNamespace, arrayNamespace, httpPort?, httpsPort?, useSsl?)` | `number` |  | Adds smis credentials. Returns credentials ID |
-| `Orion.SRM.StorageArrays` | `GetLicensedArrays` | `()` | `array` |  | Will return list of Storage Array IDs which are licensed. |
+| `Orion.SRM.StorageArrays` | `GetLicensedArrays` | `()` | `array<string>` |  | Will return list of Storage Array IDs which are licensed. |
 | `Orion.SRM.StorageControllerCustomProperties` | `CreateCustomProperty` | `(PropertyName, Description, ValueType, Size, ValidRange, Parser, Header, Alignment, Format, Units, Usages?, Mandatory?, Default?, SourceId?, SourceName?, DisplayName?)` | `System.Void` |  |  |
 | `Orion.SRM.StorageControllerCustomProperties` | `CreateCustomPropertyWithValues` | `(PropertyName, Description, ValueType, Size, ValidRange, Parser, Header, Alignment, Format, Units, Value, Usages?, Mandatory?, Default?, SourceId?, SourceName?, DisplayName?)` | `System.Void` |  |  |
 | `Orion.SRM.StorageControllerCustomProperties` | `DeleteCustomProperty` | `(PropertyName)` | `System.Void` |  |  |
@@ -621,7 +621,7 @@ ORDER BY Position
 | `Orion.SRM.VolumeCustomProperties` | `DeleteCustomProperty` | `(PropertyName)` | `System.Void` |  |  |
 | `Orion.SRM.VolumeCustomProperties` | `ModifyCustomProperty` | `(PropertyName, Description, Size, Values, Usages?, Mandatory?, Default?, SourceId?, SourceName?, propertyDisplayName?)` | `System.Void` |  |  |
 | `Orion.SRM.VolumeCustomProperties` | `ValidateCustomProperty` | `(PropertyName, Description, ValueType, Size, Value, Usages?, propertyDisplayName?)` | `SolarWinds.Orion.Core.Common.Models.CustomP…` |  |  |
-| `Orion.SSO` | `ValidateUserToken` | `(token, expiration)` | `array` |  |  |
+| `Orion.SSO` | `ValidateUserToken` | `(token, expiration)` | `array<System.Collections.Generic.KeyValuePa…` |  |  |
 | `Orion.SecObs.Users` | `CheckPermission` | `(scope)` | `boolean` |  |  |
 | `Orion.SecObs.Vulnerabilities.NodeCve` | `SetStates` | `(nodeVulnerabilities, state, comment)` | `string` |  |  |
 | `Orion.SecObs.Vulnerabilities.Nodes` | `Add` | `(nodes)` | `string` | `manageNodes` |  |
@@ -643,10 +643,10 @@ ORDER BY Position
 | `Orion.Stacks.Relation` | `ProcessUi` | `(config, includeTracing?)` | `SolarWinds.AppStack.Contract.Models.UiRespo…` |  |  |
 | `Orion.Stacks.Relation` | `Traverse` | `(keys, includeRelations?)` | `SolarWinds.AppStack.Contract.Models.Relianc…` |  |  |
 | `Orion.SwisFeature` | `HttpsCertificateThumbprint` | `()` | `string` | `admin` | Get thumbprint of Swis RestApi certificate. |
-| `Orion.TechnologyPollingAssignments` | `DisableAssignments` | `(technologyPollingID)` | `array` | `admin` |  |
-| `Orion.TechnologyPollingAssignments` | `DisableAssignmentsOnNetObjects` | `(technologyPollingID, netObjectIDs)` | `array` | `admin` |  |
-| `Orion.TechnologyPollingAssignments` | `EnableAssignments` | `(technologyPollingID)` | `array` | `admin` |  |
-| `Orion.TechnologyPollingAssignments` | `EnableAssignmentsOnNetObjects` | `(technologyPollingID, netObjectIDs)` | `array` | `admin` |  |
+| `Orion.TechnologyPollingAssignments` | `DisableAssignments` | `(technologyPollingID)` | `array<number>` | `admin` |  |
+| `Orion.TechnologyPollingAssignments` | `DisableAssignmentsOnNetObjects` | `(technologyPollingID, netObjectIDs)` | `array<number>` | `admin` |  |
+| `Orion.TechnologyPollingAssignments` | `EnableAssignments` | `(technologyPollingID)` | `array<number>` | `admin` |  |
+| `Orion.TechnologyPollingAssignments` | `EnableAssignmentsOnNetObjects` | `(technologyPollingID, netObjectIDs)` | `array<number>` | `admin` |  |
 | `Orion.UDT.NodeCapabilityDashboard` | `PollNow` | `(nodeIdJobType)` | `System.Void` | `manageNodes` |  |
 | `Orion.UDT.Port` | `AdministrativeEnable` | `()` | `unknown` | `manageNodes` |  |
 | `Orion.UDT.Port` | `AdministrativeShutdown` | `()` | `unknown` | `manageNodes` |  |
@@ -690,7 +690,7 @@ ORDER BY Position
 | `Orion.Views` | `AddViewToGroup` | `(viewID, targetViewID, viewIcon, viewCondition?)` | `System.Void` |  | Adds an existing view as a subview to another view and enables subviews on target if needed |
 | `Orion.Views` | `CloneView` | `(sourceViewID, title)` | `number` |  | Creates a clone of an existing view |
 | `Orion.Views` | `CloneViewContents` | `(sourceViewID, destinationViewID)` | `System.Void` |  | Creates a copy of all resources including properties of source view to a destination view |
-| `Orion.Volumes` | `GetSupportedMetrics` | `(netObjectId)` | `array` | `admin`, `allowRealTimePolling` | Returns list of metrics to poll on Volume entity |
+| `Orion.Volumes` | `GetSupportedMetrics` | `(netObjectId)` | `array<string>` | `admin`, `allowRealTimePolling` | Returns list of metrics to poll on Volume entity |
 | `Orion.Volumes` | `Remanage` | `(netObjectId)` | `System.Void` | `allowUnmanage` | Remanages specified volume |
 | `Orion.Volumes` | `StartRealTimePolling` | `(netObjectId, owner, properties, pollingExpiration?, pollingFrequency?)` | `boolean` | `admin`, `allowRealTimePolling` | Starts realtime polling on Volume entity |
 | `Orion.Volumes` | `StopRealTimePolling` | `(netObjectId, owner, properties)` | `boolean` | `admin`, `allowRealTimePolling` | Stops realtime polling on Volume entity |
@@ -712,7 +712,7 @@ ORDER BY Position
 | `Orion.WirelessHeatMap.Map` | `PollAPSignalStrengthNow` | `(heatmapId)` | `System.Data.DataTable` |  |  |
 | `Orion.WirelessHeatMap.Map` | `PollRPSignalStrengthNow` | `(heatmapId, clientIdVsMapPointIdMap)` | `System.Data.DataTable` |  |  |
 | `Orion.WirelessHeatMap.Map` | `SetMapError` | `(mapId, started, errorCode)` | `System.Void` |  |  |
-| `Orion.WirelessHeatMap.Map` | `StartClientSignalPoll` | `(heatmapId, clientIdVsMapPointIdMap)` | `array` |  |  |
+| `Orion.WirelessHeatMap.Map` | `StartClientSignalPoll` | `(heatmapId, clientIdVsMapPointIdMap)` | `array<System.Collections.Generic.KeyValuePa…` |  |  |
 | `Orion.WirelessHeatMap.Map` | `UpdateMapGenerationProgress` | `(mapId, progress, errorCode)` | `System.Void` |  |  |
 | `Orion.WirelessHeatMap.Map` | `UpdateWirelessHeatMap` | `(mapId, projectId, name, scale, scaleUnit, width, height)` | `number` |  |  |
 | `Orion.WirelessHeatMap.MapPoint` | `DeleteMapPoint` | `(mapId, entityType, instanceId)` | `System.Void` |  |  |
@@ -730,7 +730,7 @@ ORDER BY Position
 | `Cirrus.ApproveQueue` | `DeclineRequest` | `(ticket)` | `System.Void` |  | Declines the request. For valid Orion user with at least Engineer NCM role. |
 | `Cirrus.ApproveQueue` | `DeleteRequest` | `(ticketId)` | `System.Void` |  | Deletes the request. For valid Orion user with at least WebUploader NCM role. |
 | `Cirrus.ApproveQueue` | `GetApprovalMode` | `()` | `SolarWinds.NCM.Contracts.InformationService…` |  | Gets the NCM approvals mode. For valid Orion user with at least WebViewer NCM role. |
-| `Cirrus.ApproveQueue` | `GetApprovalUsers` | `()` | `array` |  | Gets users who should review operations. For valid Orion user with at least Engineer NCM role. |
+| `Cirrus.ApproveQueue` | `GetApprovalUsers` | `()` | `array<SolarWinds.NCM.Contracts.InformationS…` |  | Gets users who should review operations. For valid Orion user with at least Engineer NCM role. |
 | `Cirrus.ApproveQueue` | `GetRequest` | `(requestId)` | `SolarWinds.NCM.Contracts.InformationService…` |  | Gets the request data. For valid Orion user with at least WebViewer NCM role. |
 | `Cirrus.ApproveQueue` | `GetTicketStatus` | `(ticketId)` | `SolarWinds.NCM.Contracts.InformationService…` |  | Gets the ticket status. For valid Orion user with at least WebUploader NCM role. |
 | `Cirrus.ApproveQueue` | `GetUserApproveRole` | `(userId)` | `SolarWinds.NCM.Contracts.InformationService…` |  | Gets the approval role for the user. For valid Orion user with at least WebViewer NCM role. |
@@ -740,26 +740,26 @@ ORDER BY Position
 | `Cirrus.ConfigArchive` | `CancelTransfers` | `(TransferTickets)` | `System.Void` |  | Cancels transfers specified in parameter.             Valid for Orion manage node users with at… |
 | `Cirrus.ConfigArchive` | `CloneConfig` | `(parentConfigID, title, comments, configText)` | `System.Void` |  | Clones the config.             Valid for Orion manage node users with at least WebUploader NCM… |
 | `Cirrus.ConfigArchive` | `CompareConfigs` | `(configId1, configId2, settings)` | `SolarWinds.Orion.DiffEngine.Contract.Models…` |  | Compares the configs..             Valid for Orion manage node users with at least WebDownloade… |
-| `Cirrus.ConfigArchive` | `ConfigSearch` | `(searchString, configType, coreNodeIdList, matchWholeWord, searchOnlyMostRecent?, startTime?, endTime?)` | `array` |  | Searches for the config (Verb ConfigSearch will be removed. Please use the ConfigSearch2 verb i… |
-| `Cirrus.ConfigArchive` | `ConfigSearch2` | `(searchTerm)` | `array` |  | Searches for the config.             Valid for Orion manage node users with at least WebViewer… |
+| `Cirrus.ConfigArchive` | `ConfigSearch` | `(searchString, configType, coreNodeIdList, matchWholeWord, searchOnlyMostRecent?, startTime?, endTime?)` | `array<string>` |  | Searches for the config (Verb ConfigSearch will be removed. Please use the ConfigSearch2 verb i… |
+| `Cirrus.ConfigArchive` | `ConfigSearch2` | `(searchTerm)` | `array<string>` |  | Searches for the config.             Valid for Orion manage node users with at least WebViewer… |
 | `Cirrus.ConfigArchive` | `DeleteConfigs` | `(ConfigIds, UserName)` | `System.Void` |  | Removes the config.             Valid for Orion manage node users with at least WebUploader NCM… |
 | `Cirrus.ConfigArchive` | `Diff` | `(configId1, configId2)` | `System.Data.DataTable` |  | Runs the comparer.             Valid for Orion manage node users with at least WebViewer NCM ro… |
-| `Cirrus.ConfigArchive` | `DownloadConfig` | `(nodeId, configType)` | `array` |  | Downloads config file for the particular node.             Valid for Orion manage node users wi… |
-| `Cirrus.ConfigArchive` | `DownloadConfigOnNodes` | `(nodes, deviceTemplateXML, configType)` | `array` |  | Downloads config file for the particular nodes.             Valid for Orion manage node users w… |
-| `Cirrus.ConfigArchive` | `ExecuteScript` | `(nodeId, script, Reboot?)` | `array` |  | Executes script on the particular node.             Valid for Orion manage node users with at l… |
-| `Cirrus.ConfigArchive` | `ExecuteScriptOnNodes` | `(nodes, deviceTemplateXML, script)` | `array` |  | Executes script on the particular nodes.             Valid for Orion manage node users with at… |
-| `Cirrus.ConfigArchive` | `ExecuteScriptPerNode` | `(nodesScript, reboot?)` | `array` |  | Executes scripts per nodes.             Valid for Orion manage node users with at least WebUplo… |
+| `Cirrus.ConfigArchive` | `DownloadConfig` | `(nodeId, configType)` | `array<string>` |  | Downloads config file for the particular node.             Valid for Orion manage node users wi… |
+| `Cirrus.ConfigArchive` | `DownloadConfigOnNodes` | `(nodes, deviceTemplateXML, configType)` | `array<string>` |  | Downloads config file for the particular nodes.             Valid for Orion manage node users w… |
+| `Cirrus.ConfigArchive` | `ExecuteScript` | `(nodeId, script, Reboot?)` | `array<string>` |  | Executes script on the particular node.             Valid for Orion manage node users with at l… |
+| `Cirrus.ConfigArchive` | `ExecuteScriptOnNodes` | `(nodes, deviceTemplateXML, script)` | `array<string>` |  | Executes script on the particular nodes.             Valid for Orion manage node users with at… |
+| `Cirrus.ConfigArchive` | `ExecuteScriptPerNode` | `(nodesScript, reboot?)` | `array<string>` |  | Executes scripts per nodes.             Valid for Orion manage node users with at least WebUplo… |
 | `Cirrus.ConfigArchive` | `GetConfigTypes` | `()` | `string` |  | Gets all available config types.             Valid for Orion manage node users with at least We… |
-| `Cirrus.ConfigArchive` | `GetInterfaceConfigSnippets` | `(coreNodeId)` | `array` |  | Gets interface config snippets.             Valid for Orion manage node users with at least Web… |
-| `Cirrus.ConfigArchive` | `GetPermissionsByRole` | `(role)` | `array` |  | Gets all permissions for specified role.             Valid for Orion manage node users with at… |
+| `Cirrus.ConfigArchive` | `GetInterfaceConfigSnippets` | `(coreNodeId)` | `array<string>` |  | Gets interface config snippets.             Valid for Orion manage node users with at least Web… |
+| `Cirrus.ConfigArchive` | `GetPermissionsByRole` | `(role)` | `array<string>` |  | Gets all permissions for specified role.             Valid for Orion manage node users with at… |
 | `Cirrus.ConfigArchive` | `ImportBinaryConfig` | `(nodeId, title, comments, binaryConfig)` | `System.Void` |  | Imports binary config.             Valid for Orion manage node users with at least WebUploader… |
 | `Cirrus.ConfigArchive` | `ImportConfig` | `(nodeId, title, comments, configText)` | `System.Void` |  | Imports binary config.             Valid for Orion manage node users with at least WebUploader… |
-| `Cirrus.ConfigArchive` | `ReExecute` | `(tickets)` | `array` |  | Re-executes script             Valid for Orion manage node users with at least WebDownloader NC… |
+| `Cirrus.ConfigArchive` | `ReExecute` | `(tickets)` | `array<string>` |  | Re-executes script             Valid for Orion manage node users with at least WebDownloader NC… |
 | `Cirrus.ConfigArchive` | `RunIndexOptimization` | `()` | `System.Void` | `system` | Runs index optimization.             Valid for Orion manage node users with at least WebViewer… |
 | `Cirrus.ConfigArchive` | `SetClearBaseline` | `(ConfigIds)` | `System.Void` |  | Sets clear baseline.             Valid for Orion manage node users with at least WebUploader NC… |
 | `Cirrus.ConfigArchive` | `UpdateConfig` | `(configID, title, comments, configText, updateConfigText, UserName)` | `System.Void` |  | Updates config.             Valid for Orion manage node users with at least WebUploader NCM rol… |
-| `Cirrus.ConfigArchive` | `UploadConfig` | `(nodeId, configType, ConfigText, RebootDevice)` | `array` |  | Uploads config.             Valid for Orion manage node users with at least WebUploader NCM rol… |
-| `Cirrus.ConfigArchive` | `UploadConfigPerNode` | `(nodesScript, configType, reboot?)` | `array` |  | Uploads config.             Valid for Orion manage node users with at least WebUploader NCM rol… |
+| `Cirrus.ConfigArchive` | `UploadConfig` | `(nodeId, configType, ConfigText, RebootDevice)` | `array<string>` |  | Uploads config.             Valid for Orion manage node users with at least WebUploader NCM rol… |
+| `Cirrus.ConfigArchive` | `UploadConfigPerNode` | `(nodesScript, configType, reboot?)` | `array<string>` |  | Uploads config.             Valid for Orion manage node users with at least WebUploader NCM rol… |
 | `Cirrus.ConfigArchive` | `ValidateBinaryConfigStorage` | `(path, networkShareUserName, networkSharePassword)` | `SolarWinds.NCM.Contracts.InformationService…` |  | Validates binary config storage.             Valid for Orion manage node users with at least Ad… |
 | `Cirrus.ConfigSnippets` | `AddSnippet` | `(snippet)` | `number` |  | Adds snippet.             Valid for Orion manage node users with at least WebUploader NCM role. |
 | `Cirrus.ConfigSnippets` | `AddTags` | `(snippetIds, tags)` | `number` |  | Adds tags.             Valid for Orion manage node users with at least WebUploader NCM role. |
@@ -767,8 +767,8 @@ ORDER BY Position
 | `Cirrus.ConfigSnippets` | `DeleteSnippets` | `(snippetIds)` | `number` |  | Removes specified snippets.             Valid for Orion manage node users with at least WebUplo… |
 | `Cirrus.ConfigSnippets` | `DeleteTags` | `(snippetIds, tags)` | `number` |  | Removes specified tags.             Valid for Orion manage node users with at least WebUploader… |
 | `Cirrus.ConfigSnippets` | `GetSnippet` | `(snippetId)` | `SolarWinds.NCM.Contracts.InformationService…` |  | Gets snippet.             Valid for Orion manage node users with at least WebUploader NCM role. |
-| `Cirrus.ConfigSnippets` | `GetTagsList` | `()` | `array` |  | Gets tag list.             Valid for Orion manage node users with at least WebUploader NCM role. |
-| `Cirrus.ConfigSnippets` | `GetTagsListForSnippets` | `(snippetIds)` | `array` |  | Gets tag list for snippet.             Valid for Orion manage node users with at least WebUploa… |
+| `Cirrus.ConfigSnippets` | `GetTagsList` | `()` | `array<string>` |  | Gets tag list.             Valid for Orion manage node users with at least WebUploader NCM role. |
+| `Cirrus.ConfigSnippets` | `GetTagsListForSnippets` | `(snippetIds)` | `array<string>` |  | Gets tag list for snippet.             Valid for Orion manage node users with at least WebUploa… |
 | `Cirrus.ConfigSnippets` | `ImportSnippets` | `(snippets)` | `System.Void` |  | Imports snippets.             Valid for Orion manage node users with at least WebUploader NCM r… |
 | `Cirrus.ConfigSnippets` | `SaveSnippetAsCopy` | `(snippet)` | `number` |  | Saves snippet as copy.             Valid for Orion manage node users with at least WebUploader… |
 | `Cirrus.ConfigSnippets` | `UpdateSnippet` | `(snippet)` | `number` |  | Updates snippet.             Valid for Orion manage node users with at least WebUploader NCM ro… |
@@ -795,7 +795,7 @@ ORDER BY Position
 | `Cirrus.Nodes` | `DeleteEOSData` | `(nodeIds)` | `System.Void` |  | Deletes EOS data from NCM nodes.             Valid for Orion manage node users with at least En… |
 | `Cirrus.Nodes` | `DeleteOverLicenseNodes` | `()` | `System.Void` |  | Deletes random nodes which are above the current licence.             For valid Orion user with… |
 | `Cirrus.Nodes` | `ExecuteConfigChangeReportAction` | `(nodeId, comparisonType)` | `string` |  | Executes and makes config change report.             Valid for Orion manage node users with at… |
-| `Cirrus.Nodes` | `GetAllConnectionProfiles` | `()` | `array` |  | Retrieve list of all connection profiles created in NCM.             User needs Orion node mana… |
+| `Cirrus.Nodes` | `GetAllConnectionProfiles` | `()` | `array<SolarWinds.NCM.Contracts.InformationS…` |  | Retrieve list of all connection profiles created in NCM.             User needs Orion node mana… |
 | `Cirrus.Nodes` | `GetConnectionProfile` | `(id)` | `SolarWinds.NCM.Contracts.InformationService…` |  | Retrieve single connection profile.             User needs Orion node management rights with NC… |
 | `Cirrus.Nodes` | `GetNode` | `(nodeId)` | `SolarWinds.NCM.Contracts.InformationService…` |  | Fetches an NCMNode model object for the given node.             Valid for Orion manage node use… |
 | `Cirrus.Nodes` | `GetPageableEosDataTable` | `(nodeIds, startRowNumber, pageSize)` | `System.Data.DataTable` |  | Gets paged EOS data.             Valid for Orion manage node users with at least Engineer NCM r… |
@@ -812,7 +812,7 @@ ORDER BY Position
 | `Cirrus.PolicyReports` | `DeletePolicies` | `(policyIds, deleteChildren)` | `number` |  | Deletes compliance policies.             If compliance only for administrators option enabled t… |
 | `Cirrus.PolicyReports` | `DeletePolicyReports` | `(policyReportIds, deleteChildren)` | `number` |  | Deletes policy report definitions.             If compliance only for administrators option ena… |
 | `Cirrus.PolicyReports` | `DeletePolicyRules` | `(ruleIds)` | `number` |  | Deletes compliance policy rules.             If compliance only for administrators option enabl… |
-| `Cirrus.PolicyReports` | `GenerateRemediationScriptForNodes` | `(nodeIds, reportId, policyId, ruleId, script)` | `array` |  | Generates remediation scripts.             If compliance only for administrators option enabled… |
+| `Cirrus.PolicyReports` | `GenerateRemediationScriptForNodes` | `(nodeIds, reportId, policyId, ruleId, script)` | `array<SolarWinds.NCM.Contracts.InformationS…` |  | Generates remediation scripts.             If compliance only for administrators option enabled… |
 | `Cirrus.PolicyReports` | `GetComplianceColumnsInJSON` | `(reportId)` | `string` |  | Gets data about compliance reports.             If compliance only for administrators option en… |
 | `Cirrus.PolicyReports` | `GetComplianceDataTable` | `(reportId, includePolicies)` | `System.Data.DataTable` |  | Gets data about compliance reports.             If compliance only for administrators option en… |
 | `Cirrus.PolicyReports` | `GetPagablePoliciesList` | `(pageSize, startRowNumber, sortColumn, sortDirection, groupByColumn, groupByValue, searchValue)` | `System.Data.DataTable` |  | Gets paged data about compliance policies.             If compliance only for administrators op… |
@@ -844,9 +844,9 @@ ORDER BY Position
 | `Cirrus.Settings` | `GetCoreInstallPath` | `()` | `string` | `system` | Gets core installation path..             For valid Orion user with at least WebViewer NCM role. |
 | `Cirrus.Settings` | `GetDefaultPath` | `()` | `string` | `system` | Gets default path.             For valid Orion user with at least WebViewer NCM role. |
 | `Cirrus.Settings` | `GetRegExById` | `(regexId)` | `SolarWinds.NCM.Contracts.ConfigComparison.R…` |  | Gets RegEx by id.             For valid Orion user with at least WebViewer NCM role. |
-| `Cirrus.Settings` | `GetRegExes` | `()` | `array` |  | Gets all RegExes.             For valid Orion user with at least WebViewer NCM role. |
+| `Cirrus.Settings` | `GetRegExes` | `()` | `array<SolarWinds.NCM.Contracts.ConfigCompar…` |  | Gets all RegExes.             For valid Orion user with at least WebViewer NCM role. |
 | `Cirrus.Settings` | `GetSetting` | `(settingName, defaultValue, engineId)` | `string` |  | Gets settings having value associated with the specified settingName. If the settingName is not… |
-| `Cirrus.Settings` | `NetworkingSelfTest` | `()` | `array` | `admin` | Cross tests connection between all pollers. Only for Orion administrators. |
+| `Cirrus.Settings` | `NetworkingSelfTest` | `()` | `array<SolarWinds.NCM.Contracts.Diagnostics.…` | `admin` | Cross tests connection between all pollers. Only for Orion administrators. |
 | `Cirrus.Settings` | `SaveRegExPattern` | `(regExId, title, enabled, regExPattern, comment, isBlock, blockEndRegEx)` | `string` |  | Saves RegEx pattern.             For valid Orion user with at least Administrator NCM role. |
 | `Cirrus.Settings` | `SaveSetting` | `(settingName, settingValue, engineId)` | `System.Void` |  | Saves settings.             For valid Orion user with at least WebViewer NCM role. |
 | `Cirrus.Settings` | `SaveUserLevelLoginCreds` | `(accountId, userName, password, enableLevel, enablePassword)` | `System.Void` |  | Saves user level login credentials.             For valid Orion user with at least WebDownloade… |
@@ -864,7 +864,7 @@ ORDER BY Position
 | --- | --- | --- | --- | --- | --- |
 | `Cortex.Orion.CiscoAci.Apic` | `AssignAciPolling` | `(nodeId)` | `System.Void` |  |  |
 | `Cortex.Orion.CiscoAci.Apic` | `TestAciCredentials` | `(hostOrIpAddress, userName, password, certificateIdentity)` | `SolarWinds.Orion.Common.Models.CredentialsV…` |  |  |
-| `Cortex.Orion.Interface` | `Core.AddToCortex` | `(OrionId)` | `array` | `admin`, `allowRealTimePolling` |  |
+| `Cortex.Orion.Interface` | `Core.AddToCortex` | `(OrionId)` | `array<System.Collections.Generic.KeyValuePa…` | `admin`, `allowRealTimePolling` |  |
 | `Cortex.Orion.Interface` | `Core.AssignToEngine` | `()` | `unknown` | `admin` |  |
 | `Cortex.Orion.Interface` | `Core.GetSupportedMetrics` | `()` | `unknown` | `admin`, `allowRealTimePolling` |  |
 | `Cortex.Orion.Interface` | `Core.InventoryNow` | `()` | `unknown` | `admin` |  |
@@ -886,9 +886,9 @@ ORDER BY Position
 | `Cortex.Orion.NetMan.CloudMonitoring.CloudAccount` | `Core.SetPolling` | `()` | `unknown` | `admin` |  |
 | `Cortex.Orion.NetMan.CloudMonitoring.CloudAccount` | `Core.StartRealTimePolling` | `()` | `unknown` | `admin` |  |
 | `Cortex.Orion.NetMan.CloudMonitoring.CloudAccount` | `Core.StopRealTimePolling` | `()` | `unknown` | `admin` |  |
-| `Cortex.Orion.NetMan.CloudMonitoring.CloudAccount` | `Orion.NetMan.CloudMonitoring.CreateOrUpdateCloudAccount` | `(OrionCloudAccountId, Name, StatisticsPollingInterval, VirtualNetworkGatewaysPollingEnabled, MonitorApiRequestsEnabled, CloudAccountType)` | `array` | `admin` |  |
-| `Cortex.Orion.NetMan.CloudMonitoring.CloudAccount` | `Orion.NetMan.CloudMonitoring.GetCloudAccountState` | `(OrionCloudAccountId)` | `array` | `admin` |  |
-| `Cortex.Orion.NetMan.CloudMonitoring.CloudAccount` | `Orion.NetMan.CloudMonitoring.RemoveCloudAccount` | `(OrionCloudAccountId)` | `array` | `admin` |  |
+| `Cortex.Orion.NetMan.CloudMonitoring.CloudAccount` | `Orion.NetMan.CloudMonitoring.CreateOrUpdateCloudAccount` | `(OrionCloudAccountId, Name, StatisticsPollingInterval, VirtualNetworkGatewaysPollingEnabled, MonitorApiRequestsEnabled, CloudAccountType)` | `array<System.Collections.Generic.KeyValuePa…` | `admin` |  |
+| `Cortex.Orion.NetMan.CloudMonitoring.CloudAccount` | `Orion.NetMan.CloudMonitoring.GetCloudAccountState` | `(OrionCloudAccountId)` | `array<System.Collections.Generic.KeyValuePa…` | `admin` |  |
+| `Cortex.Orion.NetMan.CloudMonitoring.CloudAccount` | `Orion.NetMan.CloudMonitoring.RemoveCloudAccount` | `(OrionCloudAccountId)` | `array<System.Collections.Generic.KeyValuePa…` | `admin` |  |
 | `Cortex.Orion.NetMan.CloudMonitoring.VirtualNetwork` | `Core.AssignToEngine` | `()` | `unknown` | `admin` |  |
 | `Cortex.Orion.NetMan.CloudMonitoring.VirtualNetwork` | `Core.GetSupportedMetrics` | `()` | `unknown` | `admin` |  |
 | `Cortex.Orion.NetMan.CloudMonitoring.VirtualNetwork` | `Core.InventoryNow` | `()` | `unknown` | `admin` |  |
@@ -915,7 +915,7 @@ ORDER BY Position
 | `Cortex.Orion.NetMan.Firewalls.Firewall` | `Orion.NetMan.Firewalls.EnablePolling` | `(nodeId, firewallType)` | `System.Void` | `admin` |  |
 | `Cortex.Orion.NetMan.Firewalls.Firewall` | `Orion.NetMan.Firewalls.IsPollingEnabled` | `(nodeId, firewallType)` | `boolean` | `admin` |  |
 | `Cortex.Orion.NetMan.Firewalls.Firewall` | `TestFirewallCredentials` | `(hostOrIpAddress, userName, password, certificateIdentity)` | `SolarWinds.Orion.Common.Models.CredentialsV…` | `admin` |  |
-| `Cortex.Orion.Node` | `Core.AddToCortex` | `(OrionId)` | `array` | `admin`, `allowRealTimePolling` |  |
+| `Cortex.Orion.Node` | `Core.AddToCortex` | `(OrionId)` | `array<System.Collections.Generic.KeyValuePa…` | `admin`, `allowRealTimePolling` |  |
 | `Cortex.Orion.Node` | `Core.AssignToEngine` | `()` | `unknown` | `admin` |  |
 | `Cortex.Orion.Node` | `Core.GetSupportedMetrics` | `()` | `unknown` | `admin`, `allowRealTimePolling` |  |
 | `Cortex.Orion.Node` | `Core.InventoryNow` | `()` | `unknown` | `admin` |  |
@@ -937,7 +937,7 @@ ORDER BY Position
 | `Cortex.Orion.Virtualization.VSan` | `Core.SetPolling` | `()` | `unknown` | `admin` |  |
 | `Cortex.Orion.Virtualization.VSan` | `Core.StartRealTimePolling` | `()` | `unknown` | `admin` |  |
 | `Cortex.Orion.Virtualization.VSan` | `Core.StopRealTimePolling` | `()` | `unknown` | `admin` |  |
-| `Cortex.Orion.Volume` | `Core.AddToCortex` | `(OrionId)` | `array` | `admin`, `allowRealTimePolling` |  |
+| `Cortex.Orion.Volume` | `Core.AddToCortex` | `(OrionId)` | `array<System.Collections.Generic.KeyValuePa…` | `admin`, `allowRealTimePolling` |  |
 | `Cortex.Orion.Volume` | `Core.AssignToEngine` | `()` | `unknown` | `admin` |  |
 | `Cortex.Orion.Volume` | `Core.GetSupportedMetrics` | `()` | `unknown` | `admin`, `allowRealTimePolling` |  |
 | `Cortex.Orion.Volume` | `Core.InventoryNow` | `()` | `unknown` | `admin` |  |
@@ -962,7 +962,7 @@ ORDER BY Position
 | `IPAM.DhcpDnsManagement` | `CreateIpv6Reservation` | `(ipAddressToReserve, dhcpServerIpAddress, reservationName, duid, iaid?)` | `string` |  |  |
 | `IPAM.DhcpDnsManagement` | `DeleteDhcpServer` | `(groupId, removeCorrespondingSubnets?, removeScopesFromServer?)` | `string` |  |  |
 | `IPAM.DhcpDnsManagement` | `DeleteDnsServer` | `(groupId, removeZonesFromServer?)` | `string` |  |  |
-| `IPAM.DhcpDnsManagement` | `GetAandPTRrecordsForDnsZone` | `(zoneName, dnsServerIp)` | `array` |  |  |
+| `IPAM.DhcpDnsManagement` | `GetAandPTRrecordsForDnsZone` | `(zoneName, dnsServerIp)` | `array<SolarWinds.IPAM.Contract.APtrRecordsP…` |  |  |
 | `IPAM.DhcpDnsManagement` | `RemoveIpReservation` | `(ipRemoveReservation, dhcpServerIpAddress)` | `string` |  |  |
 | `IPAM.DhcpDnsManagement` | `RemoveIpv6Reservation` | `(ipRemoveReservation, dhcpServerIpAddress)` | `string` |  |  |
 | `IPAM.DhcpDnsManagement` | `StartDhcpCredentialsTest` | `(nodeId, dhcpServerType, credentialId, credentials)` | `string` |  |  |
@@ -972,8 +972,8 @@ ORDER BY Position
 | `IPAM.DhcpDnsManagement` | `UpdateDhcpServer` | `(dhcpServerId, propertiesToUpdate)` | `string` |  |  |
 | `IPAM.DhcpDnsManagement` | `UpdateDnsServer` | `(dnsServerId, propertiesToUpdate)` | `string` |  |  |
 | `IPAM.GroupManagement` | `CreateGroup` | `(groupName, comments, parentGroupId)` | `System.Void` |  |  |
-| `IPAM.GroupManagement` | `GetAllGroupNodesByName` | `(groupName)` | `array` |  |  |
-| `IPAM.GroupManagement` | `GetGroupsByName` | `(groupName)` | `array` |  |  |
+| `IPAM.GroupManagement` | `GetAllGroupNodesByName` | `(groupName)` | `array<SolarWinds.IPAM.Contract.GetGroupNode…` |  |  |
+| `IPAM.GroupManagement` | `GetGroupsByName` | `(groupName)` | `array<SolarWinds.IPAM.Contract.GetGroupNode…` |  |  |
 | `IPAM.GroupManagement` | `RemoveGroup` | `(groupId)` | `System.Void` |  |  |
 | `IPAM.GroupsCustomProperties` | `CreateCustomProperty` | `(PropertyName, Description, ValueType, Size, ValidRange, Parser, Header, Alignment, Format, Units, Usages?, Mandatory?, Default?, SourceId?, SourceName?, DisplayName?)` | `System.Void` |  |  |
 | `IPAM.GroupsCustomProperties` | `CreateCustomPropertyWithValues` | `(PropertyName, Description, ValueType, Size, ValidRange, Parser, Header, Alignment, Format, Units, Value, Usages?, Mandatory?, Default?, SourceId?, SourceName?, DisplayName?)` | `System.Void` |  |  |
@@ -1016,7 +1016,7 @@ ORDER BY Position
 | `IPAM.SubnetManagement` | `StartIpReservationForGroup` | `(subnetAddress, subnetCidr, hierarchyGroup, reservationTimeInMinutes?, addressToStart?)` | `string` |  |  |
 | `IPAM.SupernetManagement` | `CreateSupernet` | `(supernetName, address, cidr, description, parentGroupId)` | `System.Void` |  |  |
 | `IPAM.SupernetManagement` | `EditSupernet` | `(id, name, cidr, description)` | `System.Void` |  |  |
-| `IPAM.SupernetManagement` | `GetSupernetsByName` | `(supernetName)` | `array` |  |  |
+| `IPAM.SupernetManagement` | `GetSupernetsByName` | `(supernetName)` | `array<SolarWinds.IPAM.Contract.GetGroupNode…` |  |  |
 
 ## NCM
 
@@ -1045,7 +1045,7 @@ ORDER BY Position
 | `NCM.FirmwareStorage` | `ValidateFirmwareStorage` | `(path, networkShareUserName, networkSharePassword)` | `SolarWinds.NCM.Contracts.InformationService…` |  | Validates firmware operation storage. For valid Orion user with Administrator NCM role. |
 | `NCM.OneTimeOperations` | `BulkDeleteOneTimeOperations` | `(ids)` | `number` |  | Deletes one time operations in bulk. |
 | `NCM.OneTimeOperations` | `UpdateOneTimeOperation` | `(id, status, scriptContent, reboot)` | `boolean` |  | Updates one time operation details. |
-| `NCM.SecurityPolicy` | `GetSecurityPolicyAppIds` | `(nodeId, policyName)` | `array` |  | Gets list of security policy IDs for the node. |
+| `NCM.SecurityPolicy` | `GetSecurityPolicyAppIds` | `(nodeId, policyName)` | `array<string>` |  | Gets list of security policy IDs for the node. |
 | `NCM.SwisEntityTemplate` | `Ping` | `()` | `boolean` |  |  |
 | `NCM.VulnerabilitiesAnnouncements` | `GetSettings` | `()` | `SolarWinds.SecObs.Common.Models.Vulnerabili…` |  | Gets all vulnerabilities settings.             For valid Orion user with at least Administrator… |
 | `NCM.VulnerabilitiesAnnouncements` | `InitVulnerabilitySchedule` | `()` | `System.Void` |  | Initializes vulnerability schedule.             For valid Orion user with at least Administrato… |
@@ -1112,7 +1112,7 @@ ORDER BY Position
 
 | Entity | Verb | Signature | Returns | Requires | Description |
 | --- | --- | --- | --- | --- | --- |
-| `Metadata.Entity` | `GetAliases` | `(query)` | `array` |  |  |
+| `Metadata.Entity` | `GetAliases` | `(query)` | `array<System.Collections.Generic.KeyValuePa…` |  |  |
 | `Metadata.Entity` | `GetSchemaLoadTime` | `()` | `string` |  |  |
 
 ## SOC

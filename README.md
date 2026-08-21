@@ -188,10 +188,10 @@ checks eight things:
 
 | Check | Catches |
 | --- | --- |
-| `test_tools.py` | Regressions in the tools' own judgement, across 142 tests |
+| `test_tools.py` | Regressions in the tools' own judgement, across 156 tests |
 | `validate_swql.py` | A query naming an entity, property, column or navigation that does not exist |
 | `check_data.py` | Extraction that degraded quietly, and reference pages that fell behind |
-| `check_entity_references.py` | An invented entity, member, NetObject prefix or right, or a wrong property type |
+| `check_entity_references.py` | An invented entity, member, NetObject prefix, right or type member, or a wrong property type |
 | `check_counts.py` | A number in a sentence that the extracted data contradicts |
 | `check_signatures.py` | A verb signature with its arguments wrong or out of order, or a function call with the wrong number |
 | `check_examples.py` | A documented command that does not run, or whose shown output is not what it prints |

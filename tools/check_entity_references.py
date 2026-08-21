@@ -8,7 +8,7 @@ trust: a reader who finds one invented name stops believing the rest.
     python tools/check_entity_references.py
     python tools/check_entity_references.py --strict     # non-zero exit on any unknown
 
-Four things are checked, each a name or fact that looks right and fails on a live server:
+Five things are checked, each a name or fact that looks right and fails on a live server:
 
   - **Entity and member names.** A token shaped like a SWIS entity name must exist, and
     ``Orion.Nodes.Foo`` must fail even though ``Orion.Nodes`` is real.
@@ -20,6 +20,10 @@ Four things are checked, each a name or fact that looks right and fails on a liv
   - **Rights.** "requires the ``manageNodes`` right" is checked against the rights the
     schema actually declares, since an invented one sends a reader chasing a permission
     that does not exist.
+  - **Type members.** A table headed ``| Member |`` documents the shape of a type a verb
+    returns or takes, and the type is named in the sentence above it. Each row is checked
+    against ``types.json``. Nothing could check these until those definitions were
+    extracted, so a page could describe a return shape that did not exist.
 
 Documentation legitimately names entities that do not exist, when warning readers off a
 form they would otherwise assume, or when explaining a rename. Four things are accepted:
@@ -314,6 +318,80 @@ def right_claims(text: str, rights: set[str]) -> list[str]:
             if m.group("right").lower() not in lowered]
 
 
+# A table documenting the members of a type a verb returns or takes:
+#
+#   `Orion.NPM.Interfaces.CreateInterfacesPluginConfiguration` takes an
+#   `InterfacesDiscoveryPluginContext`:
+#
+#   | Member | Type | Notes |
+#   |:---|:---|:---|
+#   | `UseDefaults` | boolean | ... |
+#
+# The type is named in the sentence introducing the table, by its short name. Only the
+# paragraph immediately above is read: searching further back picks up an unrelated type
+# mentioned earlier on the page and scores the table against the wrong member set.
+MEMBER_TABLE_ROW_RE = re.compile(r"^\s*\|(?P<cells>.+)\|\s*$")
+MEMBER_TABLE_RULE_RE = re.compile(r"^[\s|:\-]+$")
+MEMBER_NAME_RE = re.compile(r"^`([A-Za-z_]\w*)`\s*$")
+
+
+def load_types(version: str) -> dict[str, list[str]]:
+    """Short type name to member names, for types named uniquely by their short name."""
+    path = os.path.join(ROOT, "data", "schema", version, "types.json")
+    if not os.path.isfile(path):
+        return {}
+    with open(path, encoding="utf-8") as fh:
+        records = json.load(fh)
+    by_short: dict[str, list[str]] = defaultdict(list)
+    for full, record in records.items():
+        if record.get("members"):
+            by_short[re.split(r"[.\-]", full)[-1]].append(full)
+    return {
+        short: [m["name"] for m in records[fulls[0]]["members"]]
+        for short, fulls in by_short.items()
+        if len(fulls) == 1
+    }
+
+
+def member_table_claims(text: str, types: dict[str, list[str]]) -> tuple[int, list[tuple[str, str]]]:
+    """Return (tables resolved to a type, [(type, member) the type does not declare])."""
+    problems: list[tuple[str, str]] = []
+    resolved = 0
+    lines = text.splitlines()
+    for i in range(len(lines) - 1):
+        header = MEMBER_TABLE_ROW_RE.match(lines[i])
+        if not header or not (MEMBER_TABLE_RULE_RE.match(lines[i + 1]) and "|" in lines[i + 1]):
+            continue
+        if "member" not in [c.strip().lower() for c in header.group("cells").split("|")]:
+            continue
+
+        # A markdown table is always preceded by a blank line, so skip the blanks first
+        # and then take the paragraph above it. Breaking on the first blank line instead
+        # leaves the lead empty and the check silently inert.
+        k = i - 1
+        while k >= 0 and not lines[k].strip():
+            k -= 1
+        lead = []
+        while k >= 0 and lines[k].strip() and len(lead) < 8:
+            lead.append(lines[k])
+            k -= 1
+        named = [t for t in types if re.search(rf"`{re.escape(t)}`", " ".join(lead))]
+        if len(named) != 1:
+            continue
+        resolved += 1
+        members = {m.lower() for m in types[named[0]]}
+
+        for j in range(i + 2, len(lines)):
+            row = MEMBER_TABLE_ROW_RE.match(lines[j])
+            if not row:
+                break
+            cells = [c.strip() for c in row.group("cells").split("|")]
+            m = MEMBER_NAME_RE.match(cells[0]) if cells else None
+            if m and m.group(1).lower() not in members:
+                problems.append((named[0], m.group(1)))
+    return resolved, problems
+
+
 def netobject_claims(text: str, prefixes: dict[str, list[str]]) -> list[str]:
     """Return the NetObject prefixes used in the text that the reference does not list."""
     unknown = []
@@ -366,6 +444,17 @@ NEGATION_AFTER_RE = re.compile(
 BEFORE_WINDOW = 160
 AFTER_WINDOW = 60
 
+# The same denial, made after an intervening noun phrase: "a `DPA.AlarmLevel` entity that
+# the 2026.2 schema does not publish". Anchoring on the name alone misses these, and the
+# phrasing is a natural one. Kept deliberately narrow, to a denial that names the schema or
+# says outright that the thing does not exist, so an unrelated negation later in the
+# sentence cannot launder an invented name.
+NEGATION_AFTER_CLAUSE_RE = re.compile(
+    r"\b(?:schema|contract|documentation)\s+does\s+not\s+\w+"
+    r"|\bdoes\s+not\s+exist\b|\bis\s+not\s+(?:in|part of)\s+the\b"
+    r"|\bnot\s+published\s+(?:in|by)\b|\bno\s+longer\s+exists\b", re.I)
+AFTER_CLAUSE_WINDOW = 120
+
 
 def negated_nearby(text: str, start: int, end: int) -> bool:
     """True when the surrounding sentence says the name does not exist."""
@@ -375,7 +464,10 @@ def negated_nearby(text: str, start: int, end: int) -> bool:
     if NEGATION_BEFORE_RE.search(before):
         return True
     after = text[end:end + AFTER_WINDOW].split("\n\n", 1)[0]
-    return bool(NEGATION_AFTER_RE.search(after))
+    if NEGATION_AFTER_RE.search(after):
+        return True
+    clause = text[end:end + AFTER_CLAUSE_WINDOW].split("\n\n", 1)[0]
+    return bool(NEGATION_AFTER_CLAUSE_RE.search(clause))
 
 
 def main() -> None:
@@ -457,6 +549,9 @@ def main() -> None:
     wrong_types: list[tuple[str, str, str, str]] = []
     bad_netobjects: list[tuple[str, str]] = []
     netobject_prefixes = load_netobject_prefixes()
+    bad_members: list[tuple[str, str, str]] = []
+    known_types = load_types(args.version)
+    member_rows_checked = 0
     bad_rights: list[tuple[str, str]] = []
     known_rights = load_rights(args.version)
     rights_checked = 0
@@ -503,11 +598,18 @@ def main() -> None:
             for name in right_claims(text, known_rights):
                 bad_rights.append((rel, name))
 
+        if known_types:
+            resolved, problems = member_table_claims(text, known_types)
+            member_rows_checked += resolved
+            for type_name, member in problems:
+                bad_members.append((rel, type_name, member))
+
     print(
         f"{len(files) - skipped} authored file(s), {checked} entity reference(s) checked "
         f"({skipped} generated file(s) skipped, {negated} absent name(s) named inside a "
         f"negation and accepted); {types_checked} property-type, "
-        f"{netobjects_checked} NetObject and {rights_checked} rights claim(s) checked"
+        f"{netobjects_checked} NetObject and {rights_checked} rights claim(s) checked; "
+        f"{member_rows_checked} member table(s) resolved against types.json"
     )
 
     if wrong_types:
@@ -529,8 +631,14 @@ def main() -> None:
             print(f"  - {rel}: {name}", file=sys.stderr)
         print(f"      Known rights: {', '.join(sorted(known_rights))}", file=sys.stderr)
 
+    if bad_members:
+        print(f"\n{len(bad_members)} member(s) the type does not declare:", file=sys.stderr)
+        for rel, type_name, member in bad_members:
+            print(f"  - {rel}: {type_name} has no member {member!r}", file=sys.stderr)
+        print("      Members come from data/schema/<version>/types.json.", file=sys.stderr)
+
     if not unknown:
-        if not wrong_types and not bad_netobjects and not bad_rights:
+        if not wrong_types and not bad_netobjects and not bad_rights and not bad_members:
             print("every entity named in the documentation exists in the schema")
             return
         if args.strict:

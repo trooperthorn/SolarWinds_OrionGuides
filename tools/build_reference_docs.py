@@ -154,6 +154,16 @@ def verb_index(verbs, manifest, version) -> str:
         out.append(f"| [{ns}](#{ns.lower()}) | {len(recs)} |")
     out.append("")
 
+    def return_type(v):
+        """The return type, with the element type when the verb returns an array.
+
+        A bare "array" is not an answer: 65 verbs return one, and the type that matters is
+        one level down. The shape of these is in data/schema/<version>/types.json.
+        """
+        base = v.get("returns", "?")
+        items = v.get("returnsItems")
+        return f"{base}<{items}>" if base == "array" and items else base
+
     for ns, recs in sorted(by_ns.items(), key=lambda kv: -len(kv[1])):
         out.append(f"## {ns}\n")
         out.append("| Entity | Verb | Signature | Returns | Requires | Description |")
@@ -168,7 +178,7 @@ def verb_index(verbs, manifest, version) -> str:
             rights = sorted({ac["right"] for ac in v.get("accessControl", [])})
             out.append(
                 f"| `{v['entity']}` | `{v['name']}` | `{esc(sig)}` "
-                f"| `{trim(v.get('returns', '?'), 44)}` "
+                f"| `{trim(return_type(v), 44)}` "
                 f"| {', '.join(f'`{r}`' for r in rights)} "
                 f"| {trim(v.get('summary', ''), 96)} |"
             )

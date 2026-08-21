@@ -18,9 +18,10 @@ and the advice on it is the advice this page starts with.
 `Orion.OLM.LogEntry` is almost certainly the largest thing you can query on the
 installation. Two facts from the schema make the scale concrete:
 
-- Its key, `LogEntryID`, is a **`System.Int64`**. So is `LogEntryFieldValueID` on
-  `Orion.OLM.LogEntryFieldValue`. Nothing else in the module needs 64 bits, and nothing in
-  most modules does.
+- Its key, `LogEntryID`, is a **`System.Int64`**, and it stays 64 bits on the three
+  entities that carry it as a foreign key. So is `LogEntryFieldValueID` on
+  `Orion.OLM.LogEntryFieldValue`. No other column in the module needs 64 bits, and nothing
+  in most modules does.
 - `Orion.OLM.LogEntryType` carries `RetentionPeriodInDays` per type, which exists because
   keeping everything forever is not an option.
 
@@ -302,7 +303,9 @@ order and never travel on the wire.
 | `Orion.OLM.LogEntry` | `UidExtractDate` | `uniqueId` | string |
 
 `EnableLogMonitoring` takes a plain node id, not a NetObject string. It is the licensing
-switch: it is what puts a node into `Orion.OLM.Nodes`.
+switch: it is what puts a node into `Orion.OLM.Nodes`. That entity publishes `read` to
+everyone and `read, invoke` to `manageNodes` and to nothing else, so both of its verbs
+require the `manageNodes` right rather than `admin`.
 
 ```powershell
 $swis = Connect-Swis -Hostname orion.example.com -Credential $cred
@@ -329,9 +332,11 @@ $summary = Invoke-SwisVerb $target Orion.OLM.ProcessingRule ImportRules @($json)
 ```
 
 `ImportRules` returns
-`SolarWinds.Orion.LogMgmt.RuleProcessing.Models.ImportRuleSummary`, whose fields are not
-published in the extracted contract, so inspect the returned object rather than assuming a
-shape. Whether an import replaces or merges the existing rules is likewise
+`SolarWinds.Orion.LogMgmt.RuleProcessing.Models.ImportRuleSummary`, which the contract does
+publish: `Total`, `Imported`, `Failed`, `Skipped`, an `Errors` collection pairing a rule
+GUID with its messages, and an `ErrorDetail`. Read `Failed` and `Skipped` rather than
+trusting the call not to throw, because a partially applied import is a success as far as
+the transport is concerned. Whether an import replaces or merges the existing rules is
 **not stated** in the schema; test it against a non-production installation first.
 
 The three `Orion.OLM.LogEntry` verbs are all documented as "For internal use only." Their
@@ -649,8 +654,10 @@ licensed nodes. A source with a null `NodeID` is unattributed traffic.
 **Log Analyzer permissions do not follow node permissions.** `Orion.OLM.LogProfile`,
 `Orion.OLM.LogProfileAgentAssignment` and `Orion.OLM.HealthIssues` require `admin` or
 `system`. `Orion.OLM.ProcessingRule` and its actions require `manageAlerts`, `admin` or
-`system`. Only `Orion.OLM.MessageSources` accepts `manageNodes`. An account that manages
-nodes all day will be refused almost everywhere in this module.
+`system`. Only two entities accept `manageNodes`: `Orion.OLM.MessageSources`, for its full
+CRUD, and `Orion.OLM.Nodes`, where `manageNodes` is the *only* right the schema grants
+`invoke` to. An account that manages nodes all day can turn log monitoring on and fix an
+unmatched source, and will be refused almost everywhere else in this module.
 
 **`Orion.OLM.AlertMessage` cannot be selected from.** It inherits `System.Indication`: it is
 an event published to alerting, not a table. If you want the messages behind an alert, query
@@ -683,7 +690,7 @@ permissions problem as a collection problem.
 | The full list of `Orion.OLM.LogEntryType.Type` values | SolarWinds' export page names `Syslog` and `Traps`; the schema enumerates nothing, and installations that collect log files or VMware events have more | `SELECT LogEntryTypeID, Type, Name, RetentionPeriodInDays FROM Orion.OLM.LogEntryType ORDER BY Type` |
 | The `ActionType` integers on `Orion.OLM.ProcessingRuleActions` | The description names "tag assignment, alerting action" without numbering them | `SELECT ActionType, COUNT(RuleActionId) AS Actions FROM Orion.OLM.ProcessingRuleActions GROUP BY ActionType` |
 | The `Status` integers on `Orion.OLM.MessageSources` and `Orion.OLM.Nodes` | Documented as "license status" with no value list. `Orion.OLM.Nodes.LicenseStatus` gives the text for its own column; the source entity has no text column | `SELECT Status, COUNT(MessageSourceID) AS Sources FROM Orion.OLM.MessageSources GROUP BY Status`, and the same shape against `Orion.OLM.Nodes` alongside `LicenseStatus` |
-| What `ImportRules` does to rules that already exist | Not stated. The verb returns an `ImportRuleSummary` whose fields are not published in the extracted contract | Export first, import into a non-production installation, and compare |
+| What `ImportRules` does to rules that already exist | Not stated. The returned `ImportRuleSummary` counts `Imported`, `Failed` and `Skipped` but the contract does not say which existing rules become which | Export first, import into a non-production installation, and compare |
 | That `LogEntryID` encodes the receipt date | Inferred from `UidMinForDate`, `UidMaxForDate` and `UidExtractDate` plus the `System.Int64` key. All three verbs are marked internal | `Invoke-SwisVerb $swis Orion.OLM.LogEntry UidExtractDate @($someLogEntryId)` on a test system, and compare against that entry's `DateTime` |
 | The field names available in `Orion.OLM.LogEntryFieldValue` | Defined by the installation's parsing rules, not by the schema | `SELECT TOP 50 Name, COUNT(LogEntryFieldValueID) AS Occurrences FROM Orion.OLM.LogEntryFieldValue WHERE Event.DateTime >= @startUtc GROUP BY Name` |
 | The severity strings in `Orion.OLM.HealthIssues.Severity` | The description gives "warn, error" as examples, not as the full set | `SELECT Severity, COUNT(ID) AS Issues FROM Orion.OLM.HealthIssues GROUP BY Severity` |

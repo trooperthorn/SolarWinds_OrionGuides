@@ -1056,6 +1056,72 @@ class TestRightsClaims(unittest.TestCase):
         self.assertEqual(self.cer.right_claims(text, self.rights), [])
 
 
+@requires_data
+class TestMemberTables(unittest.TestCase):
+    """A table documenting a type's members is checked against the extracted contract.
+
+    The type is named in the sentence introducing the table, by its short name. These
+    document the shape of what a verb returns or takes, which nothing else could check
+    until the type definitions were extracted.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_entity_references as cer
+
+        cls.cer = cer
+        cls.types = cer.load_types(VERSION)
+
+    TABLE = ("`Orion.NPM.Interfaces.CreateInterfacesPluginConfiguration` takes an\n"
+             "`InterfacesDiscoveryPluginContext`:\n"
+             "\n"
+             "| Member | Type | Notes |\n"
+             "|:---|:---|:---|\n"
+             "| `UseDefaults` | boolean | ok |\n"
+             "| `AutoImportStatus` | array | ok |\n")
+
+    def test_types_load_with_unique_short_names(self):
+        self.assertGreater(len(self.types), 100)
+        self.assertIn("InterfacesDiscoveryPluginContext", self.types)
+
+    def test_a_correct_table_reports_nothing(self):
+        resolved, problems = self.cer.member_table_claims(self.TABLE, self.types)
+        self.assertEqual(resolved, 1)
+        self.assertEqual(problems, [])
+
+    def test_an_invented_member_is_caught(self):
+        bad = self.TABLE.replace("`AutoImportStatus`", "`AutoImportStatuses`")
+        _, problems = self.cer.member_table_claims(bad, self.types)
+        self.assertEqual(problems,
+                         [("InterfacesDiscoveryPluginContext", "AutoImportStatuses")])
+
+    def test_the_lead_paragraph_is_found_across_the_blank_line(self):
+        # A markdown table is always preceded by a blank line. Stopping the backward scan
+        # at the first blank line leaves the lead empty and makes the whole check inert,
+        # which is how it was first written.
+        resolved, _ = self.cer.member_table_claims(self.TABLE, self.types)
+        self.assertEqual(resolved, 1)
+
+    def test_a_table_with_no_type_named_above_it_is_skipped(self):
+        text = self.TABLE.replace("`InterfacesDiscoveryPluginContext`", "some context")
+        resolved, problems = self.cer.member_table_claims(text, self.types)
+        self.assertEqual((resolved, problems), (0, []))
+
+    def test_the_real_pages_are_consistent(self):
+        import glob as _glob
+
+        total = 0
+        for path in _glob.glob(os.path.join(ROOT, "docs", "**", "*.md"), recursive=True):
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+            if "GENERATED FILE" in text[:400]:
+                continue
+            resolved, problems = self.cer.member_table_claims(text, self.types)
+            total += resolved
+            self.assertEqual(problems, [], path)
+        self.assertGreaterEqual(total, 4)
+
+
 class TestDotNetTypeNames(unittest.TestCase):
     """Verb signatures quoted in the documentation carry escaped .NET generics."""
 
@@ -1228,6 +1294,25 @@ class TestSignatureNegation(unittest.TestCase):
         text = "A standalone negation: `IsNull(x)` is not a thing."
         start, end = self.span(text, "IsNull")
         self.assertTrue(self.negated(text, start, end))
+
+    def test_a_denial_after_an_intervening_clause_is_detected(self):
+        # "a `DPA.AlarmLevel` entity that the 2026.2 schema does not publish" is a denial,
+        # but the negation does not start immediately after the name, so the anchored
+        # pattern alone misses it.
+        import check_entity_references as cer
+
+        text = ("Each description points at a `DPA.AlarmLevel` entity that the 2026.2 "
+                "schema does not publish.")
+        start = text.index("DPA.AlarmLevel")
+        self.assertTrue(cer.negated_nearby(text, start, start + len("DPA.AlarmLevel")))
+
+    def test_an_unrelated_later_negation_does_not_launder_a_name(self):
+        import check_entity_references as cer
+
+        text = ("Use `Orion.Invented` for this. Some other thing does not matter here at "
+                "all, and neither does the rest of this sentence.")
+        start = text.index("Orion.Invented")
+        self.assertFalse(cer.negated_nearby(text, start, start + len("Orion.Invented")))
 
     def test_an_ordinary_call_is_not_read_as_negated(self):
         text = "Use `Round(v.Percent, 1)` to round the value."

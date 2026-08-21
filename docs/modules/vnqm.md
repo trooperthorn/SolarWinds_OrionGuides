@@ -265,18 +265,19 @@ navigable from an operation, though the navigation property names are not consis
 is reached as `Orion.IpSla.Operations.Stats`.
 
 Because they inherit `System.StatisticsEntity`, every one of them also has
-`ObservationTimestamp`, `ObservationFrequency` and `Weight` without declaring them. One
-redeclares anyway: `Orion.IpSla.IcmpPathJitterOperationStats` declares its own `Weight`, and
-the extracted type on that redeclaration is a bare `int` rather than the inherited
-`System.Double`. It is the only `Orion.IpSla.` entity that does this, it makes no difference
-to a SWQL query, and it is the same class of trap for a typed client as the `SipStats*`
-widening further down this page.
+`ObservationTimestamp`, `ObservationFrequency` and `Weight` without declaring them.
 The schema documents `Weight` as how long the row's value was collected over, in seconds, so
 a row covering an hour carries 3600 and a row covering twenty seconds carries 20. That is
 what makes `SUM(metric * Weight) / SUM(Weight)` the correct way to aggregate across intervals
 of different lengths, and plain `AVG` the wrong way. The declared `RecordTime` column and the
 inherited `ObservationTimestamp` are two separate columns, so check which one your data
 actually populates before writing a predicate against it.
+
+One of the seven redeclares anyway. `Orion.IpSla.IcmpPathJitterOperationStats` declares its
+own `Weight`, and the extracted type on that redeclaration is a bare `int` rather than the
+inherited `System.Double`. It is the only `Orion.IpSla.` entity that does this, it makes no
+difference to a SWQL query, and it is the same class of trap for a typed client as the
+`SipStats*` widening further down this page.
 
 **`Orion.IpSla.OperationStats` is new in 2026.2.** It appears in the new-entity list of
 [../reference/schema-changes-2026.1-to-2026.2.md](../reference/schema-changes-2026.1-to-2026.2.md),

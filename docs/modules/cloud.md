@@ -240,12 +240,12 @@ Four entities hang off an instance by `System.Hosting`, so they die with it:
 |---|---|---|
 | `Statistics` | `Orion.Cloud.InstanceStatistics` | Min, max and average for IOPS and disk throughput, per interval |
 | `MetricsStatus` | `Orion.Cloud.InstanceStatus` | A separate status integer per metric: `CpuLoadStatus`, `MemoryStatus`, `IOPSTotalStatus`, `DiskReadStatus` and six more |
-| `MetricsStatusMacro` | `Orion.Cloud.InstanceStatusMacro` | The same set as readable names, plus `MetricsWithStatusFormatted` |
+| `MetricsStatusMacro` | `Orion.Cloud.InstanceStatusMacro` | The same set as readable names, plus four pre-rendered summaries: `MetricsWithStatusFormatted` and `MetricsWithProblemFormatted`, each with an `...Html` twin |
 | `Thresholds` | `Orion.Cloud.InstanceThresholds` | Declares nothing; inherits the generic threshold shape through `Orion.Virtualization.InstanceThresholds` and `Orion.Thresholds` |
 
 `Orion.Cloud.InstanceStatus.MemoryStatus` carries a description worth reading twice:
 "Managed status calculated from related Node `PercentMemoryUsed`, if this instance is
-mapped to a node". Memory is not something a cloud provider reports for a VM by default, so
+mapped to Node". Memory is not something a cloud provider reports for a VM by default, so
 this metric only exists when the instance has been paired with a monitored node.
 
 ### How a cloud instance becomes a node
@@ -303,10 +303,15 @@ own instance types.
 `Orion.Cloud.Vpcs` is the virtual network: `Name`, `Region`, `Status`, `InternalId`,
 `RequestInventory`, `PollState_Value`, `AgentId`, `AgentOsType`, `EngineId`, `Id`,
 `RelatedCloudAccount` and `Provider`. `Orion.Cloud.VirtualNetworkAddressSpaces` holds its
-prefixes, `Orion.Cloud.NetworkInterfaces` maps a `VirtualMachineId` to a `SubnetId` and
-`AddressSpace`, and `Orion.Cloud.SecurityGroups` maps a `VirtualMachineId` to a
-`SecurityGroupId` and `SecurityGroupName`. The last three declare no navigation properties,
-so join them on `VirtualMachineId` yourself.
+prefixes as `Id`, `VirtualNetworkId` and `AddressPrefix`, `Orion.Cloud.NetworkInterfaces`
+maps a `VirtualMachineId` to a `SubnetId` and `AddressSpace`, and
+`Orion.Cloud.SecurityGroups` maps a `VirtualMachineId` to a `SecurityGroupId` and
+`SecurityGroupName`. None of the three declares a navigation property, so join them
+yourself: the two instance-scoped ones on `VirtualMachineId`, and
+`Orion.Cloud.VirtualNetworkAddressSpaces` on `VirtualNetworkId`, which is not a machine id
+at all. It is a `System.Int64`, the same width as `Orion.Cloud.Vpcs.Id`, but no
+relationship declares that correspondence, so check it against your own rows before
+relying on it.
 
 ### Cost and events
 
@@ -316,10 +321,10 @@ so join them on `VirtualMachineId` yourself.
 pair, `Orion.Cloud.Aws.CostManagement` and `Orion.Cloud.Aws.CostManagementStatistics` and
 their Azure and GCP equivalents, carrying `ServiceName`, `DailyCost` and `PollDate`.
 
-`Orion.Cloud.EventsView` is a pre-joined event list: `EventID`, `EventTime`,
-`ProviderName`, `AccountName`, `NetObjectType`, `NetObjectID`, `EventType`, `Message`,
-`Acknowledged`, `EntityDetailsUrl` and `EntityStatus`. Both are time series in practice,
-so both get an explicit time bound.
+`Orion.Cloud.EventsView` is a pre-joined event list: `EventID`, `EventTime`, `ProviderId`
+and `ProviderName`, `AccountName`, `NetObjectType`, `NetObjectID`, `CategoryEntityType`,
+`InstanceType`, `EventType`, `Message`, `Acknowledged`, `EntityDetailsUrl` and
+`EntityStatus`. Both are time series in practice, so both get an explicit time bound.
 
 ## The `Local.` entities in the CRUD surface
 
@@ -392,7 +397,8 @@ GCP region lookup, and arguments are positional as everywhere in SWIS.
 Three things about this table matter more than the names.
 
 **`Unmanage` here does not look like `Unmanage` anywhere else.**
-`Orion.Nodes.Unmanage` takes a NetObject string plus a start and end time.
+`Orion.Nodes.Unmanage` takes five arguments: a NetObject string, a start and end time, an
+`isRelative` flag and an optional `allowOverlapping`.
 `Orion.Cloud.Instances.Unmanage` takes one number, `virtualMachineId`, and there is no
 window. Verify before calling:
 `python3 tools/schema_query.py verb Orion.Cloud.Instances Unmanage`.
@@ -781,8 +787,10 @@ ORDER BY ms.Instance.Name
 ```
 
 For the same information already rendered as names, read `Orion.Cloud.InstanceStatusMacro`,
-which carries `CpuLoadStatusName`, `MemoryStatusName` and the rest, plus a single
-`MetricsWithStatusFormatted` string.
+which carries `CpuLoadStatusName`, `MemoryStatusName` and the rest, plus four whole-instance
+summary strings: `MetricsWithStatusFormatted` and `MetricsWithProblemFormatted`, each with
+an `...Html` twin. None of the four carries a description in the schema, so select one and
+look at it before deciding which you want.
 
 ### 10. Cloud events in a window
 
@@ -873,7 +881,7 @@ platform integer and joins to `Orion.StatusInfo`.
 `PollingIntervalInSeconds` doubles them.
 
 **`MemoryStatus` requires a paired node.** It is "calculated from related Node
-`PercentMemoryUsed`, if this instance is mapped to a node". An unpaired instance will never
+`PercentMemoryUsed`, if this instance is mapped to Node". An unpaired instance will never
 have it.
 
 **Not everything cloud is under `Orion.Cloud.`.** `Orion.CloudMonitoring.` holds the VPN
