@@ -211,6 +211,29 @@ def main() -> None:
     if claims and not wrong:
         c.note(f"{claims} namespace count(s) quoted in the module pages all match the schema")
 
+    # Status tables written by hand. The generated one under docs/reference cannot drift,
+    # but a narrative page that reproduces the table can, and a wrong rank quietly inverts
+    # what a reader believes about rollup severity.
+    status_path = os.path.join(ROOT, "data", "reference", "status-codes.json")
+    if os.path.isfile(status_path):
+        by_status = {s["status"]: (s["name"], s["rank"]) for s in load(status_path)}
+        row_re = re.compile(r"\|\s*(\d+)\s*\|\s*\*{0,2}([A-Za-z ]+?)\*{0,2}\s*\|\s*(\d+)\s*\|")
+        for path in sorted(glob.glob(os.path.join(ROOT, "docs", "**", "*.md"), recursive=True)):
+            if "reference" in os.path.relpath(path, ROOT).split(os.sep):
+                continue  # generated
+            text = open(path, encoding="utf-8", errors="replace").read()
+            if "status" not in os.path.basename(path).lower():
+                continue
+            for m in row_re.finditer(text):
+                sid, name, rank = int(m.group(1)), m.group(2).strip(), int(m.group(3))
+                expected = by_status.get(sid)
+                if expected and (expected[0].strip() != name or expected[1] != rank):
+                    c.fail(
+                        f"{os.path.relpath(path, ROOT)} says status {sid} is "
+                        f"{name!r} rank {rank}; the reference says "
+                        f"{expected[0]!r} rank {expected[1]}"
+                    )
+
     # Completeness of the authored reference pages against the extracted data. A function
     # reference that quietly drops a function is worse than one that never claimed to be
     # complete, because a reader takes its silence as "SWIS does not have that".
