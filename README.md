@@ -174,13 +174,24 @@ ORDER BY Position
 ```bash
 make data            # rebuild data/ from the OrionSDK sources
 make docs-reference  # regenerate the tables in docs/reference/
-make validate        # check every sample query and every sql block in the docs
-make check           # validate, plus consistency checks over the generated data
+make schema-diff FROM=2025.4 TO=2026.2
+make test            # the toolchain unit tests
+make validate        # every sample query and every sql block in the docs
+make check           # the whole gate
 ```
 
-`make check` is the gate. It verifies that extraction did not quietly degrade, that
-core entities and hand-verified verb signatures still resolve, and that no SWQL in the
-repository references anything the schema does not have.
+`make check` is what CI runs, and it is deliberately strict, because the value of this
+repository is that a reader does not have to verify it against a live server first. It
+checks six things:
+
+| Check | Catches |
+| --- | --- |
+| `test_tools.py` | Regressions in the tools' own judgement, across 50 tests |
+| `validate_swql.py` | A query naming an entity, property or navigation that does not exist |
+| `check_data.py` | Extraction that degraded quietly, and reference pages that fell behind |
+| `check_entity_references.py` | An invented entity or member name in prose rather than in a query |
+| `check_examples.py` | A documented command whose shown output is not what it prints |
+| `check_links.py` | A relative link to a file that does not exist |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
