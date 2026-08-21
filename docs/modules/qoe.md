@@ -110,8 +110,9 @@ them from a live server.
 ### Per-node assignment
 
 An application definition is global; watching it on a particular server is an assignment.
-`Orion.DPI.ApplicationAssignments` is keyed by `ApplicationID` and `NodeID` together, and it
-repeats the measurement columns at the node level: `Status`, `ART`, `NRT`, `Ingress`,
+`Orion.DPI.ApplicationAssignments` is identified by `ApplicationID` and `NodeID` together,
+which is the key pair the [netobject reference](../reference/netobject-types.md) records for
+it, and it repeats the measurement columns at the node level: `Status`, `ART`, `NRT`, `Ingress`,
 `IngressPerSec`, `Egress`, `EgressPerSec`, `DataVolume`, `DataVolumePerSec`, `Transactions`,
 `TransactionsPerMin`, `DetailsUrl`.
 
@@ -168,8 +169,12 @@ guess that `Mode` distinguishes those two deployment styles, but that is an infe
 ## Statistics and thresholds
 
 `Orion.DPI.QoeStatistics` is the history and the only QoE entity that inherits from
-`System.StatisticsEntity`. It is keyed in practice by `ApplicationID`, `NodeID`, `ProbeID`
-and `ObservationTimestamp`, and it carries min, average and max for every measure rather
+`System.StatisticsEntity`. Each row is one application, on one node, seen by one probe, in
+one interval, so `ApplicationID`, `NodeID`, `ProbeID` and `ObservationTimestamp` together
+are what identifies it. The extracted schema does not record which properties are formally
+keys, so confirm with
+`SELECT p.Name, p.Type FROM Metadata.Property p WHERE p.IsKey = TRUE AND p.Entity.FullName = 'Orion.DPI.QoeStatistics'`
+if you need the declared key. It carries min, average and max for every measure rather
 than a single value: `AvgART`, `MinART`, `MaxART`, `RecordCountART`, and the same pattern
 for `NRT`, `IngressPerSec`, `EgressPerSec` and `TransactionsPerMin`, plus the raw totals
 `Ingress`, `Egress`, `Transactions` and `RecordCount`. It navigates to `Application` and
@@ -267,7 +272,7 @@ New-SwisObject $swis Orion.DPI.ApplicationAssignments @{
 } | Out-Null
 ```
 
-The five remaining entities, `Orion.DPI.ApplicationCategories`,
+The seven remaining entities, `Orion.DPI.ApplicationCategories`,
 `Orion.DPI.ApplicationProtocols`, `Orion.DPI.QoeStatistics`,
 `Orion.DPI.QoeApplicationsStatistics`, `Orion.DPI.ApplicationsThresholds`,
 `Orion.DPI.ApplicationsThresholdsForAlerting` and
@@ -279,17 +284,19 @@ should be treated as read-only views.
 This is the question the module's naming invites, and the honest answer has two halves.
 
 **What the schema says.** There is no relationship between any `Orion.DPI.*` entity and any
-`Orion.APM.*` entity in the 2026.2 data. All 26 relationship edges touching `Orion.DPI.` stay
-inside the module except four, and those four go to `Orion.Nodes`:
-`Orion.DPI.ApplicationAssignments.Node`, `Orion.DPI.ProbeAssignments.Node`, and the two
-reverse edges `Orion.Nodes.DPIApplicationAssignment` and `Orion.Nodes.DPIProbeAssignment`.
-Confirm it:
+`Orion.APM.*` entity in the 2026.2 data. Of the 26 relationship edges declared on
+`Orion.DPI.` entities, all but four stay inside the module, and those four go to
+`Orion.Nodes`: `Orion.DPI.ApplicationAssignments.Node`, `Orion.DPI.ProbeAssignments.Node`,
+and the two reverse edges `Orion.Nodes.DPIApplicationAssignment` and
+`Orion.Nodes.DPIProbeAssignment`. The one further way out is inherited rather than declared:
+`Orion.DPI.Applications` picks up `AlertObject` from `System.ManagedEntity`, which every
+managed entity has. Confirm it:
 
 ```bash
 python3 tools/schema_query.py path Orion.DPI.Applications Orion.APM.Application
 ```
 
-The shortest routes it finds all go out through `Orion.AlertObjects` or through
+The shortest routes it finds all leave through that inherited `AlertObject` edge or through
 `ApplicationAssignment` and back down via `Orion.Nodes`. There is no direct hop.
 
 **What the reference data says.** `data/reference/netobject-types.json`, which is built from

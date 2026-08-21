@@ -343,6 +343,53 @@ class TestProseReferences(unittest.TestCase):
         self.assertFalse(self.ok("Orion.NodesX"))
 
 
+class TestNegationDetection(unittest.TestCase):
+    """Naming a form that does not exist, in order to warn readers off it, is good writing.
+
+    The checker has to accept those without also accepting an invented name asserted as
+    real, which is the whole point of the check.
+    """
+
+    def negated(self, text, token):
+        import check_entity_references as cer
+
+        start = text.index(token)
+        return cer.negated_nearby(text, start, start + len(token))
+
+    def test_negation_before_the_name(self):
+        self.assertTrue(self.negated("There is no `Orion.QoE.` namespace.", "Orion.QoE"))
+
+    def test_negation_after_the_name(self):
+        self.assertTrue(
+            self.negated("`Orion.APM.Component.Node` does not exist; use the application.",
+                         "Orion.APM.Component.Node")
+        )
+
+    def test_rather_than_counts_as_negation(self):
+        self.assertTrue(
+            self.negated("Use Orion.APM.Application rather than `Orion.SAM.Application`.",
+                         "Orion.SAM.Application")
+        )
+
+    def test_plain_assertion_is_not_negated(self):
+        # An invented name stated as fact is exactly what must still be reported.
+        self.assertFalse(
+            self.negated("Query `Orion.Bogus.Thing` to list the widgets.", "Orion.Bogus.Thing")
+        )
+
+    def test_negation_in_a_previous_paragraph_does_not_carry_over(self):
+        text = "There is no such thing.\n\nQuery `Orion.Bogus.Thing` for the widgets."
+        self.assertFalse(self.negated(text, "Orion.Bogus.Thing"))
+
+    def test_unrelated_not_after_the_name_is_not_enough(self):
+        # "not" appears, but it does not negate the name, so the forward pattern is
+        # deliberately anchored and should not fire.
+        self.assertFalse(
+            self.negated("`Orion.Bogus.Thing` returns rows that have not been polled.",
+                         "Orion.Bogus.Thing")
+        )
+
+
 @requires_data
 class TestPathFinding(unittest.TestCase):
     @classmethod

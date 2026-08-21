@@ -2,61 +2,27 @@
 #
 # tools/check_entity_references.py reports any entity-shaped token in the documentation
 # that the schema does not have. That is usually a mistake. Occasionally it is the point:
-# a page names the wrong form precisely to warn readers off it. Those go here, with a
-# reason, so the check stays useful instead of being widened until it catches nothing.
+# a page names the wrong form precisely to warn readers off it.
+#
+# Most of those need no entry here. The checker recognises a negation around the name,
+# which covers the usual phrasings: "there is no Orion.QoE namespace",
+# "Orion.APM.Component.Node does not exist", "use X rather than Orion.VMAN". This file is
+# for the ones phrased some other way.
 #
 # Before adding a line, confirm the name really is absent:
 #     python3 tools/schema_query.py find <name>
 #
+# To review everything, including names the negation heuristic accepted:
+#     python3 tools/check_entity_references.py --no-negation
+#
 # One name per line. Text after # is a comment.
 
 # The module is Server and Application Monitor, but its entities kept the original
-# engineering name APM. Deriving the entity name from the product name is a common
-# mistake, so the documentation states the wrong form explicitly to head it off.
-Orion.SAM
+# engineering name APM. docs/modules/sam.md calls deriving this form from the product
+# name "the single most common query mistake", which warns without negating the name in
+# a way the heuristic recognises.
 Orion.SAM.Application
 
-# Virtualization Manager entities are prefixed Orion.VIM. There is no Orion.VMAN
-# namespace, and the docs say so directly.
-Orion.VMAN
-
-# A placeholder used when describing the shape of entity names in general.
+# A placeholder used when describing the shape of entity names in general, as in
+# "an entity name looks like Orion.something".
 Orion.something
-
-# Frequently cited in older community material as the base entity to query across all
-# monitored object types. It does not exist in 2026.2; System.ManagedEntity is what
-# people mean. docs/swql/joins-and-navigation.md names it to correct the belief.
-Orion.NetObjects
-
-# Navigation properties that feel like they should exist and do not. The pages name them
-# to correct the assumption, which is more useful than staying silent about it.
-# Orion.NPM.Interfaces.StatusInfo and Orion.Volumes.StatusInfo are real; the node one is
-# not, and needs an explicit join to Orion.StatusInfo.
-Orion.Nodes.StatusInfo
-# The route from a component to its node is Component.Application.Node.
-Orion.APM.Component.Node
-
-# NetFlow Traffic Analyzer entities are prefixed Orion.Netflow. with a lowercase f.
-# docs/modules/nta.md names both wrong forms so readers stop guessing them.
-Orion.NTA
-Orion.NetFlow
-# There is no such entity; flow sources are enabled through a verb rather than by
-# updating a row, and nta.md says so.
-Orion.Netflow.FlowSources
-
-# Invoked by the SolarWinds sample SAM.AppInsightAutomation/SetupAppInsightApplication.ps1
-# but absent from both the 2026.2 schema and the Swagger contract. docs/modules/sam.md
-# marks it unverified and gives the Metadata.VerbArgument query to check a live server.
-Orion.APM.Application.SetupApplication
-
-# NCM's connection profiles are not an entity. They exist only as a contract type moved
-# through five verbs on Cirrus.Nodes, and docs/modules/ncm.md names the entity people
-# expect so they stop looking for it.
-Cirrus.ConnectionProfiles
-
-# SolarWinds' own Samples/PowerShell/NCM.ExecuteScript.ps1 invokes a verb called Execute
-# and polls an entity called Cirrus.TransferQueue. Neither exists in 2026.2: the verb is
-# Cirrus.ConfigArchive.ExecuteScript and the status entity is NCM.TransferResults.
-# docs/modules/ncm.md names both stale forms so readers recognise the broken sample.
-Cirrus.ConfigArchive.Execute
-Cirrus.TransferQueue

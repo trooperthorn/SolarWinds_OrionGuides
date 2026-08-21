@@ -437,6 +437,14 @@ subtraction: `DayDiff(earlier, later)` is positive.
 Rounding to the nearest whole unit is what makes `MonthDiff` return `1` for a 28-day span.
 If you need precision, difference in the smallest unit you can and divide.
 
+**A note on the examples below.** The workbook recorded these against a second date written
+as `KeepAlive + 28`, using bare integer addition to add days. That behaviour is attested by
+the recorded results but is not in the official function reference, so the queries here use
+the documented `AddDay(28, KeepAlive)` instead. The recorded results are unchanged, and the
+arithmetic behind each one is shown so you can check it rather than take it on trust. The
+evidence for integer addition itself is laid out in
+[date-and-time.md](date-and-time.md#integer-addition-adds-days).
+
 #### `MillisecondDiff(a, b)`
 
 Returns the number of milliseconds (rounded to the nearest integer) that `b` is later than

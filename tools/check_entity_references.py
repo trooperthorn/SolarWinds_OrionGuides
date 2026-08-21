@@ -11,14 +11,18 @@ ones the schema does not have.
     python tools/check_entity_references.py
     python tools/check_entity_references.py --strict     # non-zero exit on any unknown
 
-Documentation legitimately names entities that do not exist in the current version, when
-explaining a rename or a removal. Three things are therefore accepted:
+Documentation legitimately names entities that do not exist, when warning readers off a
+form they would otherwise assume, or when explaining a rename. Four things are accepted:
 
+  - a name inside a negation, which is the usual phrasing: "there is no Orion.QoE
+    namespace", "Orion.APM.Component.Node does not exist". Pass --no-negation to review
+    these rather than accept them.
   - anything recorded in data/reference/reconciliation.json as a known rename
   - anything named in a schema-change report under docs/reference/
   - anything listed in tools/entity-reference-allowlist.txt
 
-Everything else is reported.
+Everything else is reported. An invented name asserted as real, which is what this exists
+to catch, is not phrased as a negation and still gets through to the report.
 """
 
 from __future__ import annotations
@@ -193,12 +197,53 @@ def namespace_prefixes(entities: set[str]) -> set[str]:
 # to fit a table column, which look like broken entity names. Skip them.
 GENERATED_MARKER = "GENERATED FILE"
 
+# Good documentation names the wrong form on purpose: "there is no Orion.QoE namespace",
+# "Orion.APM.Component.Node does not exist". Those are the most useful sentences on some
+# pages, and reporting them trains authors to delete the warning rather than keep it.
+#
+# A negation shortly before the name is a reliable signal, because a name asserted as real
+# is not introduced that way. An invented name stated positively, which is what this check
+# exists to catch, still gets reported.
+# Before the name: "there is no Orion.QoE namespace", "use X rather than Orion.SAM".
+NEGATION_BEFORE_RE = re.compile(
+    r"\b(?:no|not|never|isn't|aren't|doesn't|don't|nothing|absent|missing|"
+    r"removed|renamed|wrong|mistake)\b|\b(?:instead of|rather than)\b",
+    re.I,
+)
+# After the name: "Orion.APM.Component.Node does not exist". This one has to be tighter,
+# because a permissive forward pattern would accept a real error that happens to sit in a
+# sentence containing "not". Only phrasings that negate the name itself count.
+NEGATION_AFTER_RE = re.compile(
+    r"^\W{0,4}(?:\*\*)?\s*(?:does not exist|do not exist|does not|do not|is not|are not|"
+    r"no longer|does n't|doesn't|don't|was removed|were removed|is absent|is gone|"
+    r"is a setting|is not an entity)\b",
+    re.I,
+)
+BEFORE_WINDOW = 160
+AFTER_WINDOW = 60
+
+
+def negated_nearby(text: str, start: int, end: int) -> bool:
+    """True when the surrounding sentence says the name does not exist."""
+    before = text[max(0, start - BEFORE_WINDOW):start]
+    # Stop at a paragraph break so a negation in a previous paragraph does not carry over.
+    before = before.rsplit("\n\n", 1)[-1]
+    if NEGATION_BEFORE_RE.search(before):
+        return True
+    after = text[end:end + AFTER_WINDOW].split("\n\n", 1)[0]
+    return bool(NEGATION_AFTER_RE.search(after))
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--version", default="2026.2")
     ap.add_argument("--root", default="docs")
     ap.add_argument("--strict", action="store_true", help="exit non-zero when anything is unknown")
+    ap.add_argument(
+        "--no-negation",
+        action="store_true",
+        help="report absent names even when the surrounding sentence says they do not exist",
+    )
     args = ap.parse_args()
 
     entities, namespaces, other_known = load_schema(args.version)
@@ -246,6 +291,7 @@ def main() -> None:
     unknown: dict[str, set[str]] = defaultdict(set)
     reasons: dict[str, str] = {}
     checked = 0
+    negated = 0
 
     skipped = 0
     for path in files:
@@ -264,12 +310,16 @@ def main() -> None:
             ok, reason = resolves(token, entities, prefixes, members)
             if ok:
                 continue
+            if not args.no_negation and negated_nearby(text, m.start(), m.end()):
+                negated += 1
+                continue
             unknown[token].add(rel)
             reasons[token] = reason
 
     print(
         f"{len(files) - skipped} authored file(s), {checked} entity reference(s) checked "
-        f"({skipped} generated file(s) skipped)"
+        f"({skipped} generated file(s) skipped, {negated} absent name(s) named inside a "
+        f"negation and accepted)"
     )
     if not unknown:
         print("every entity named in the documentation exists in the schema")

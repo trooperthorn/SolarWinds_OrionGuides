@@ -43,17 +43,24 @@ rather than `netObjectId` strings.
 
 ## Flow sources: what NTA is allowed to receive
 
-A device sends flow records to the collector whether or not NTA is expecting them. The
-source entities are how NTA records which senders it should accept, decode and bill against
-the licence. Three entities describe the same idea at different granularities, and knowing
-which one to use is most of the battle.
+A device sends flow records to the collector whether or not NTA is expecting them, because
+flow export is one-way UDP. The source entities are how NTA records which senders it should
+accept and decode. Four entities describe that idea at different granularities and for the
+two different collection methods, and knowing which one to use is most of the battle.
 
-| Entity | One row per | Key | Verbs | Create |
+| Entity | One row per | Identifier column | Verbs | Create |
 |---|---|---|---|---|
 | `Orion.Netflow.Source` | Node and interface pairing, with both flow and CBQoS state on one row | `NetflowSourceID` | none | no |
 | `Orion.Netflow.NodeSources` | Node | `NetflowNodeSourceID` | 4 | no |
 | `Orion.Netflow.InterfaceSources` | Exporting interface | `NetflowInterfaceSourceID` | 3 | no |
 | `Orion.Netflow.CBQoSSource` | Node and interface pairing, CBQoS only | `CBQoSSourceID` | none | **yes** |
+
+The extracted schema records property names and types but **not** which properties are
+formally keys, so the identifier columns above and in the lookup table further down are
+named from their shape rather than from a key declaration. The only NTA key the reference
+data does record is `MetricID` on `Orion.Netflow.CBQoSPolicyMetric`. If you need the formal
+keys, for instance to build a `Uri` by hand, ask your own server:
+`SELECT p.Entity.FullName AS EntityName, p.Name, p.Type FROM Metadata.Property p WHERE p.IsKey = TRUE AND p.Entity.FullName LIKE 'Orion.Netflow.%' ORDER BY p.Entity.FullName`.
 
 **`Orion.Netflow.Source`** is the widest read-side view. It carries `NodeID`,
 `InterfaceID`, `EngineID`, `Enabled`, `CBQoSEnabled`, `LastTimeFlow`, `LastTime`,
@@ -84,9 +91,10 @@ invoke under `manageNodes`, but like `Orion.Netflow.Source` it publishes no verb
 
 ### Enabling and disabling flow sources
 
-Flow sources are toggled with verbs, not with CRUD. Both verbs take an **array** of ids and
-return an array. SolarWinds' own `NTA.EnableDisableFlowSources.ps1` sample does node and
-interface level together, because enabling one without the other leaves you half configured:
+Flow sources are toggled with verbs, not with CRUD. Each of the four enable and disable
+verbs takes an **array** of ids and returns an array. SolarWinds' own
+`NTA.EnableDisableFlowSources.ps1` sample does the node level and the interface level
+together, because enabling one without the other leaves you half configured:
 
 ```powershell
 $swis = Connect-Swis -Hostname orion.example.com -Credential $cred
@@ -154,8 +162,10 @@ fastest way to see which nodes have been overridden.
 
 ### CBQoS sources
 
-Class-based QoS is polled over SNMP rather than pushed as flow records, so it has its own
-source entity and, unusually for NTA, its own lifecycle through **CRUD rather than verbs**.
+Class-based QoS data is polled from the device rather than pushed as flow records, which is
+the wording SolarWinds' own `NTA.ChangeSettings.ps1` sample uses for the global switch. It
+has its own source entity and, unusually for NTA, its own lifecycle through **CRUD rather
+than verbs**.
 `Orion.Netflow.CBQoSSource` supports create, read, update and delete under `manageNodes`.
 
 Creating one, adapted from `NTA.AddCBQoSSources.ps1`:
@@ -215,9 +225,10 @@ from the query above to enumerate every setting your server has, and read `Descr
 
 ## Flow records: one table and eleven views over it
 
-`Orion.Netflow.Flows` is the raw flow record at the finest granularity NTA retains. Each
-row is one direction of one conversation observed in one interval, and its columns divide
-into four groups.
+`Orion.Netflow.Flows` exposes flows as NTA received them, at the finest granularity
+available, which is how SolarWinds' own
+[NTA 4.0 Entity Model](https://solarwinds.github.io/OrionSDK/docs/netflow-traffic-analyzer/nta-4-0-entity-model/)
+describes it. Its columns divide into four groups.
 
 **Identity and volume.** `TimeStamp`, `ObservationTimestamp`, `NodeID`, `Bytes`, `Packets`,
 `TotalBytes`, `TotalPackets`, `IngressBytes`, `EgressBytes`, `IngressPackets`,
@@ -290,7 +301,7 @@ All twelve inherit from `System.StatisticsEntity`.
 
 ### Lookup entities
 
-| Entity | Key | Useful columns |
+| Entity | Identifier column | Useful columns |
 |---|---|---|
 | `Orion.Netflow.Applications` | `ApplicationID` | `Name`, `PortName`, `TCP`, `UDP`, `Multiport`, `MapTo`, `Enabled`, `Description` |
 | `Orion.Netflow.AdvancedApplications` | `ID` | `Name`, `Vendor`, `Category`, `SubCategory`, `ApplicationGroup`, `Icon` |
@@ -300,8 +311,8 @@ All twelve inherit from `System.StatisticsEntity`.
 | `Orion.Netflow.Countries` | `CountryCode` | `Name` |
 | `Orion.Netflow.TrafficClass` | `TrafficClassID` | `Name` |
 | `Orion.Netflow.Hostnames` | `ID` | `Hostname` |
-| `Orion.Netflow.IP2Country` | none declared | `Low`, `High`, `CountryCode`, the geolocation range table |
-| `Orion.Netflow.CorrelationPostDNS` | none declared | `IPAddress`, `Hostname`, `Domain`, plus sortable integer forms |
+| `Orion.Netflow.IP2Country` | a `Low` to `High` range | `Low`, `High`, `CountryCode`, the geolocation range table |
+| `Orion.Netflow.CorrelationPostDNS` | `IPAddress` | `IPAddress`, `Hostname`, `Domain`, plus sortable integer forms |
 
 `Multiport` and `MapTo` on `Orion.Netflow.Applications` carry no description in the
 published schema, so their semantics are **unverified** here. Read the values your server
