@@ -20,13 +20,13 @@ There are two transports into SWIS, and they listen on different ports.
 
 The REST base path is:
 
-```
+```text
 /SolarWinds/InformationService/v3/Json
 ```
 
 So a full REST base URL is:
 
-```
+```text
 https://<orion-server>:17774/SolarWinds/InformationService/v3/Json
 ```
 

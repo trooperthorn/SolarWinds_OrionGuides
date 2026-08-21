@@ -1,0 +1,54 @@
+name: validate
+
+# The promise this repository makes is that its SWQL is checkable against the schema.
+# This workflow is what keeps that promise true: it re-validates every sample query and
+# every sql block in the docs on each change, and verifies the extracted data is
+# internally consistent.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Consistency of the checked-in data: count floors, required core entities, and
+      # hand-verified verb signatures. Catches extraction that degraded quietly.
+      - name: Check extracted data
+        run: python3 tools/check_data.py --version 2026.2
+
+      # Every .swql file and every ```sql block, resolved against the real schema.
+      - name: Validate sample queries
+        run: python3 tools/validate_swql.py scripts/swql/
+
+      - name: Validate SWQL in documentation
+        run: python3 tools/validate_swql.py --docs docs
+
+      - name: Check generated reference docs are current
+        run: |
+          python3 tools/build_reference_docs.py --version 2026.2
+          if ! git diff --quiet -- docs/reference/; then
+            echo "::error::docs/reference/ is out of date. Run 'make docs-reference' and commit the result."
+            git diff --stat -- docs/reference/
+            exit 1
+          fi
+
+      - name: Check scripts parse
+        run: |
+          python3 -m compileall -q tools scripts/python
+          for f in scripts/curl/*.sh; do bash -n "$f"; done
+
+      - name: Check documentation links resolve
+        run: python3 tools/check_links.py

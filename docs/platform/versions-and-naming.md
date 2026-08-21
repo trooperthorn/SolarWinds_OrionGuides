@@ -68,7 +68,7 @@ precisely so that queries written years ago keep running.
 
 ## How version numbers work
 
-Since the 2020 releases, versions are **year.release**, sometimes with a patch component:
+Platform versions are **year.release**, sometimes with a patch component:
 
 ```text
 2026.2
@@ -82,13 +82,17 @@ A third component appears for patch releases, giving versions such as `2024.4.1`
 the SDK publishes schema for 2024.1, 2024.2, and 2024.4 but no 2024.3, and for 2025.1,
 2025.2, and 2025.4 but no 2025.3.
 
-Before this scheme, the platform used names like 2019.4 and 2020.2.6, and individual
-modules carried their own independent version numbers. Evidence of that older world is
-still visible in the SDK's documentation tree, which contains separate IP Address Manager
-API pages for versions 4.5.x, 4.6, 4.7, and 4.9 alongside pages for "2019.4 and higher
-versions" and "Observability 2022.2". Module-specific version numbers still turn up in
-older community material, so if you see a reference to "NPM 12.5" or "IPAM 4.7", it
-predates the unified year.release scheme.
+The year.release scheme predates the schema versions published in the SDK: SolarWinds'
+documentation tree still contains a page titled for IPAM "2019.4 and higher versions",
+so the scheme was in use by 2019.4 at the latest.
+
+Before it, individual modules carried their own independent version numbers, and the SDK
+documentation tree preserves the evidence: it holds separate IP Address Manager API pages
+for versions **4.5.x**, **4.6**, **4.7**, and **4.9**, each documenting a different API
+shape, alongside the "2019.4 and higher versions" page and an "Observability 2022.2" page.
+Module-specific numbers like these still turn up in older community material. If you see
+one, it predates the unified scheme, and you will have to translate it to a platform
+version before you can look up the matching schema.
 
 ## The SDK publishes a schema per version
 

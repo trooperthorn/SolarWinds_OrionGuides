@@ -54,7 +54,7 @@ For the narrative version with worked examples and the date/time pitfalls, see [
 | `DayOfYear(d)` | 2011.1 | Returns the day of year of d. January 1 is 1, February 1 is 32, etc. | `SELECT DayofYear(KeepAlive) as ColumnResult from orion.engines` |
 | `Downsample(d, p)` | 2018.3 | Rounds the supplied timestamp d to the defined time period p.  For example, a period of '00:15:00' would round to the nearest 15… |  |
 | `GetDate()` | 2011.1 | Returns the current date in local time at the Orion server. | `SELECT getdate() as ResultCoumn FROM Orion.Engines` |
-| `GetUtcDate()` | 2011.1 | Returns the current date and time in UTC. Please note [possible issues](possible-issues/#datetime-functions). | `SELECT GetUtcDate() as ResultColumn FROM Orion.Engines` |
+| `GetUtcDate()` | 2011.1 | Returns the current date and time in UTC. Please note possible issues. | `SELECT GetUtcDate() as ResultColumn FROM Orion.Engines` |
 | `Hour(d)` | 2011.1 | Returns the hour part of d (in 24 hour format). | `SELECT Hour(KeepAlive) as ColumnResult from orion.engines` |
 | `HourDiff(a, b)` | 2011.1 | Returns the number of hours (rounded to the nearest integer) that b is later than a. | `SELECT HourDiff(KeepAlive,KeepAlive+28) as ColumnResult from orion.engines` |
 | `Millisecond(d)` | 2011.1 | Returns the millisecond part of d. | `SELECT MilliSecond(KeepAlive) as ColumnResult from orion.engines` |

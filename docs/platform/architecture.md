@@ -71,15 +71,28 @@ The type hierarchy is real and useful. Every entity descends from `System.Entity
 status. Querying a base type returns rows from all its descendants:
 
 ```sql
-SELECT TOP 10 DisplayName, Status
+SELECT TOP 10 DisplayName, Status, StatusDescription
 FROM System.ManagedEntity
 ORDER BY DisplayName
 ```
+
+Neither `DisplayName` nor `Status` is declared on `System.ManagedEntity` itself.
+`DisplayName` comes from `System.Entity` at the root, and `Status` from
+`System.DashboardEntity` in between. Inherited properties are queryable exactly like
+declared ones, which is why `show` (declared properties) and `props` (declared plus
+inherited) give different answers for the same entity, and why `props` is what you want
+when composing a query.
+
+The schema summary for `Status` also tells you how to decode it: "for Orion.* entities,
+you can query `Orion.StatusInfo` to see what the different numbers mean". This repository
+carries the same mapping offline in
+[`data/reference/status-codes.json`](../../data/reference/status-codes.json).
 
 To see what descends from a base type in 2026.2 without a server:
 
 ```bash
 python3 tools/schema_query.py children System.ManagedEntity
+python3 tools/schema_query.py props System.ManagedEntity
 ```
 
 ### Read path and write path are different
@@ -93,13 +106,19 @@ The query interface is read-only. From
 Writes take one of two other routes:
 
 1. **CRUD**, addressed by SWIS URI. `Create` returns the URI of the new entity; read,
-   update, and delete take one or more URIs. Only entities with at least one key property
-   have URIs at all, which is why 250 of the 2067 entities in 2026.2 support create and the
-   rest do not.
+   update, and delete take one or more URIs. Two things limit what you can do this way.
+   First, SWIS defines no URI for an entity type without at least one key property, so
+   those types cannot be used with CRUD at all
+   ([SWIS URIs](https://solarwinds.github.io/OrionSDK/docs/uris/)). Second, an entity
+   declares which operations it supports: 250 of the 2067 entities in 2026.2 declare
+   `create`, and the rest do not.
 2. **Invoke verbs**, which are named operations that an entity declares. 2026.2 exposes
    958 verbs, 794 of them with typed parameters. Verbs exist because some changes are not
-   expressible as a row update: acknowledging an alert, unmanaging a node for a window, or
-   triggering an HA failover all need server-side logic and auditing.
+   expressible as a row update. `Orion.AlertActive.Acknowledge(alertObjectIds, notes)`
+   records who acknowledged an alert and when. `Orion.Nodes.Unmanage(netObjectId,
+   unmanageTime, remanageTime, isRelative, allowOverlapping)` puts a node into maintenance
+   mode for a window and requires the `allowUnmanage` right. `Orion.HA.Pools.Switchover`
+   triggers a failover. None of those are expressible as a column assignment.
 
 ## Primary server, additional polling engines, additional web servers
 
@@ -168,8 +187,9 @@ ORDER BY OrionServerId
 
 ## How nodes are assigned to polling engines
 
-Assignment is static and one-to-one: every node carries an `EngineID`, and all of that
-node's related monitoring work runs from that engine. The SDK's
+Assignment is static: every node carries an `EngineID` naming exactly one engine, and all
+of that node's related monitoring work runs from that engine. One engine polls many nodes,
+but a node is never split across engines. The SDK's
 [Polling Engine Load Balancing](https://solarwinds.github.io/OrionSDK/docs/polling-engine-load-balancing/)
 page states it plainly:
 
@@ -248,8 +268,10 @@ update in SWIS.
 
 ## The polling job engine
 
-Polling work is scheduled and executed as jobs on the assigned engine. The job engine
-itself is a Windows service and is not exposed as a SWIS entity, so you cannot query it
+Polling work is scheduled and executed as jobs on the assigned engine. The job engine is a
+service running on each engine, and it is not exposed as a SWIS entity: searching the
+2026.2 schema for "JobEngine" turns up only `Cirrus.NCM_JobEngineNCMJobs`, an NCM job
+queue, and nothing representing the engine itself. So you cannot query the scheduler
 directly. What you can query are the two numbers it produces, and they answer two
 different questions.
 
@@ -266,9 +288,11 @@ ORDER BY PollingCompletion
 
 **Is this engine within its license?** Polling engine licenses cover a polling rate
 expressed as abstract "job weight", proportional to the number of monitored elements and
-to how often they are polled. Exceed it and the platform stretches polling intervals
-across the board to fit, so a node configured for two-minute polling might actually be
-polled every three minutes. `Orion.PollingUsage` reports this:
+to how often they are polled. Exceed it and the platform stretches polling intervals across
+the board to fit. The SDK's worked example: a licence allowing 1000 job weight against a
+configuration worth 1500 multiplies every interval by 1.5, so a node configured for
+two-minute polling is actually polled every three minutes. Nothing warns you at the node
+level, which is why this is worth monitoring. `Orion.PollingUsage` reports it:
 
 ```sql
 SELECT EngineID, ScaleFactor, CurrentUsage, IsExceeded
@@ -344,9 +368,10 @@ Practical implications for anyone writing automation:
   contract, and no database credentials to manage.
 - Write through CRUD or verbs, never with `INSERT`/`UPDATE` against the tables. Direct
   writes bypass validation, auditing, and cache invalidation, and they are unsupported.
-- A SWQL query that a SWIS entity does not support is not a table you can go around it to
-  find. If `Metadata.Entity` does not list it, it is not part of the contract on that
-  server.
+- If SWIS does not expose the data you want, the answer is not to go find the table. A
+  database table is an implementation detail that can be restructured in the next release;
+  if `Metadata.Entity` does not list an entity, that data is not part of the supported
+  contract on that server, and code depending on it will break silently at some upgrade.
 
 ## High Availability pools
 
@@ -354,9 +379,14 @@ An HA pool pairs servers of the same type so one can take over from the other. T
 summary for `Orion.HA.Pools` is "High Availability pools. Pool unites pool members of the
 same type to provide high availability of Orion servers."
 
-A pool has a type (the property comment says `0` for main poller and `1` for additional
-poller), a master member, a virtual host name and virtual IP that clients follow across a
-failover, and DNS settings used to move that virtual host name:
+A pool has a type, a master member, a virtual host name and virtual IP that clients follow
+across a failover, and DNS settings used to move that virtual host name. The virtual
+address is the whole point: clients keep talking to one name, and the pool decides which
+physical server is behind it.
+
+`PoolType` is documented as "`0` - main poller, `1` - additional poller", but its declared
+type is `System.String`, not an integer, so compare it as a string. `DnsType` is one of
+`Microsoft`, `BIND`, or `Other`.
 
 ```sql
 SELECT PoolId,
@@ -383,16 +413,26 @@ SELECT m.PoolId,
        m.PoolMemberType,
        m.Status,
        m.LastHeartBeatTimestamp,
+       m.ReasonOfFail,
        m.StatusMessage
 FROM Orion.HA.PoolMembers m
 ORDER BY m.PoolId, m.PoolMemberId
 ```
 
-`PoolMemberType` is documented in the schema as one of `MainPoller`,
-`MainPollerStandby`, `AdditionalPoller`, `AdditionalPollerStandby` (the property comment is
-truncated in the published schema, so treat that list as the visible prefix rather than as
-exhaustive, and confirm the values present on your server with
-`SELECT DISTINCT PoolMemberType FROM Orion.HA.PoolMembers`).
+Two of those columns come with their value sets documented in the schema, which saves you
+guessing:
+
+- `PoolMemberType` is one of `MainPoller`, `MainPollerStandby`, `AdditionalPoller`,
+  `AdditionalPollerStandby`. The pairing of each role with its standby is what makes a
+  pool.
+- `ReasonOfFail` records why the member last failed: `0` ResourceFail, `1` FacilityFail,
+  `2` NotResponding, `3` SuicideRule, `4` Switchover, `5` Failback. Note that `4` and `5`
+  are deliberate operations rather than faults, so a non-zero `ReasonOfFail` is not by
+  itself a problem.
+
+`Status`, `PreferredStatus`, and `RepairStatus` are integers whose value sets the schema
+does not document. Read `StatusMessage` alongside them, since it carries the description of
+the last failure in text.
 
 Note the asymmetry in permissions: `Orion.HA.PoolMembers` is read-only, declaring only a
 `read` operation. Everything you change about a pool goes through verbs on

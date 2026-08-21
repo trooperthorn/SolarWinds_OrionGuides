@@ -10,7 +10,7 @@ published alongside the 2026.2 schema.
 
 ## Base URL and transport
 
-```
+```text
 https://<orion-server>:17774/SolarWinds/InformationService/v3/Json
 ```
 
@@ -314,7 +314,7 @@ python3 tools/schema_query.py verb Orion.Nodes Unmanage
 
 which prints, for 2026.2:
 
-```
+```text
 parameters (5):
   netObjectId: string (required)
   unmanageTime: string (required)

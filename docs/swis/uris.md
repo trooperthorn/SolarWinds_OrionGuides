@@ -31,13 +31,13 @@ made about the system identifier, the entity name and the key properties happens
 
 ## The format
 
-```
+```text
 swis://<system-identifier>/<endpoint>/<entity type>/<key filter>[/<nav property>[/<key filter>][…]]
 ```
 
 Worked through with a real example:
 
-```
+```text
 swis://abcdef/Orion/Orion.Nodes/NodeID=1/Interfaces/InterfaceID=2
 ```
 
@@ -114,7 +114,7 @@ opaque token.
 The key filter names the entity's key properties and their values. For most entities that is
 a single property:
 
-```
+```text
 swis://abcdef/Orion/Orion.Nodes/NodeID=1
 swis://abcdef/Orion/Orion.Pollers/PollerID=6
 swis://abcdef/Orion/Orion.Groups/ContainerID=9
@@ -125,7 +125,7 @@ swis://abcdef/Orion/Orion.Groups/ContainerID=9
 
 Composite keys are comma separated, with no spaces:
 
-```
+```text
 swis://abcdef/Orion/IPAM.Subnet/SubnetId=100,ParentId=2
 swis://abcdef/Orion/Orion.APM.ComponentTemplateSetting/ComponentTemplateID=17,Key=<setting-key>
 ```
@@ -197,7 +197,7 @@ for r in rows:
 Appending a navigation property name walks the relationship, and appending a key filter
 after it selects one instance from the other side.
 
-```
+```text
 swis://abcdef/Orion/Orion.Nodes/NodeID=1/Interfaces/InterfaceID=2
 ```
 
@@ -211,14 +211,14 @@ python3 tools/schema_query.py path Orion.Nodes Orion.NPM.Interfaces
 
 which prints:
 
-```
+```text
 Orion.Nodes.Interfaces
   Orion.Nodes --Interfaces--> Orion.NPM.Interfaces
 ```
 
 The same pattern works for volumes, which is what the official `BulkUpdate` example uses:
 
-```
+```text
 swis://dev-che-mjag-01./Orion/Orion.Nodes/NodeID=4/Volumes/VolumeID=1
 ```
 
@@ -241,7 +241,7 @@ from an interface back to its node. Both are real navigation properties.
 Custom property *values* live in a separate entity that hangs off the object, reached through
 a navigation property called `CustomProperties`. To read or write them, address that:
 
-```
+```text
 swis://abcdef/Orion/Orion.Nodes/NodeID=1/CustomProperties
 ```
 
@@ -249,7 +249,7 @@ swis://abcdef/Orion/Orion.Nodes/NodeID=1/CustomProperties
 leading to `Orion.NodesCustomProperties`. The pattern nests, so an interface's custom
 properties are reached by walking the node, then the interface, then `CustomProperties`:
 
-```
+```text
 swis://abcdef/Orion/Orion.Nodes/NodeID=8/Interfaces/InterfaceID=58/CustomProperties
 ```
 

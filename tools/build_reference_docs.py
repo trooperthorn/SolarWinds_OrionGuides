@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import os
 from collections import defaultdict
 
@@ -32,11 +33,18 @@ def load(path):
         return json.load(fh)
 
 
+# Descriptions lifted from the SolarWinds markdown can contain relative links such as
+# "[possible issues](possible-issues/#datetime-functions)", which are correct on their
+# site and broken here. Keep the link text and drop the target.
+MD_LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+
+
 def esc(text: str) -> str:
     """Escape a value for a markdown table cell."""
     if text is None:
         return ""
-    return str(text).replace("|", "\\|").replace("\n", " ").strip()
+    text = MD_LINK_RE.sub(r"\1", str(text))
+    return text.replace("|", "\\|").replace("\n", " ").strip()
 
 
 def trim(text: str, n: int) -> str:

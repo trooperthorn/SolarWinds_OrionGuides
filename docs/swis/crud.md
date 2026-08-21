@@ -119,7 +119,7 @@ PY
 
 which prints:
 
-```
+```text
 Orion.Nodes canCreate: True operations: ['create', 'delete', 'invoke', 'read', 'update']
 ```
 

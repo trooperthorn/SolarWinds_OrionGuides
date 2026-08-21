@@ -174,9 +174,28 @@ FROM NCM.ConfigArchive
 ORDER BY DownloadTime DESC
 ```
 
-Note that `Cirrus.Nodes.NodeID` is an NCM node ID and is not the same value as
-`Orion.Nodes.NodeID`. The bridge is `CoreNodeID`, which the netobject reference records as
-one of `Cirrus.Nodes`' key properties. Config transfer and search are documented at
+The single most important thing to know about NCM is that its node IDs are not the
+platform's node IDs, and they are not even the same data type. `Cirrus.Nodes.NodeID` is a
+`System.Guid`, documented as "Unique identifier and primary key of the NCM node".
+`Orion.Nodes.NodeID` is a `System.Int32`. The bridge is `Cirrus.Nodes.CoreNodeID`, a
+`System.Int32` documented as "Orion node ID".
+
+There is no navigation property between the two entities, so you join on that column
+explicitly:
+
+```sql
+SELECT TOP 10 n.Caption AS OrionNode,
+       n.IPAddress,
+       c.NodeID AS NcmNodeGuid,
+       c.LastInventory
+FROM Orion.Nodes n
+JOIN Cirrus.Nodes c ON c.CoreNodeID = n.NodeID
+ORDER BY n.Caption
+```
+
+Passing a `Cirrus.Nodes.NodeID` where an `Orion.Nodes.NodeID` is expected is the most
+common NCM automation bug, and because one value is a GUID it usually fails loudly rather
+than silently. Config transfer and search are documented at
 [NCM Config Transfer](https://solarwinds.github.io/OrionSDK/docs/network-configuration-manager/ncm-config-transfer/)
 and
 [NCM Config Search](https://solarwinds.github.io/OrionSDK/docs/network-configuration-manager/ncm-config-search/).
