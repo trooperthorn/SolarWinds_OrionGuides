@@ -846,8 +846,9 @@ bound parameters, which is what the queries above assume.
 
 **UCS status columns are not all integers.** `Orion.UCS.Chassis.Status` is a
 `System.Int32` inherited from `Orion.HardwareHealth.BMC.Chassis`, but
-`Orion.UCS.Blades.Status` and `Orion.UCS.Fabrics.Status` are `System.String`. Joining
-`Orion.StatusInfo` works for the first and fails for the other two.
+`Orion.UCS.Blades.Status` and `Orion.UCS.Fabrics.Status` are `System.String`.
+`Orion.StatusInfo.StatusId` is an integer, so the chassis joins to it cleanly and the other
+two do not; read their `Status` as the text it is.
 
 **F5 entities carry two statuses on purpose.** `F5Status` is what the device reports and
 `OrionStatus` is the mapped platform value. Alerting on the wrong one produces surprises,

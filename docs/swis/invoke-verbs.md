@@ -483,12 +483,39 @@ how many verbs require each:
 `Orion.DeletedAutoDependencies.RemoveIgnoredAutoDependencies`, declares it for `delete` and
 `invoke` together rather than for `invoke` alone.)
 
-A verb with an empty `accessControl` array does not mean "anybody can call it". It means the
-schema page did not publish a right for it. The operation may still be gated at a lower level,
-and NCM in particular enforces its own role model on top: many `Cirrus.*` and `NCM.*` verb
-summaries say things like "Valid for Orion manage node users with at least WebUploader NCM
-role", and that requirement is real even though it is prose rather than an `accessControl`
-entry.
+### Rights are declared at two levels, so check both
+
+A verb with an empty `accessControl` array does not mean "anybody can call it". Rights are
+declared on the verb **and** on the entity, and when the verb declares nothing the entity's
+`invoke` entry is what applies. **629 of the 958 verbs declare no right of their own, and 363
+of those belong to an entity that does declare an `invoke` right.**
+
+That is not a technicality. It is the difference between reading the table and knowing what
+your automation account needs:
+
+| Entity | Verb-level rights | Entity-level `invoke` rights |
+|:---|:---|:---|
+| `Orion.Discovery` | none on any of its 12 verbs | `manageNodes` |
+| `Orion.AgentManagement.Agent` | none on any of its 20 verbs | `manageNodes` |
+| `Orion.NodesCustomProperties` | none on any of its 5 verbs | `admin` |
+| `Orion.Container` | none on any of its 11 verbs | `manageNodes` or `allowOrionMapsManagement` |
+| `Orion.APM.Application` | none on `Unmanage` / `Remanage` | `manageNodes` or `allowUnmanage` |
+| `Orion.Netflow.NodeSources` | none | `manageNodes` |
+
+So creating a node custom property definition needs `admin`, even though nothing in the
+verb's own record says so.
+
+Check the entity as well as the verb:
+
+```bash
+python3 tools/schema_query.py verb Orion.NodesCustomProperties CreateCustomProperty
+python3 tools/schema_query.py show Orion.NodesCustomProperties      # look at "operations" / access control
+```
+
+When neither level declares anything, the operation can still be gated further down. NCM in
+particular enforces its own role model on top: many `Cirrus.*` and `NCM.*` verb summaries say
+things like "Valid for Orion manage node users with at least WebUploader NCM role", and that
+requirement is real even though it is prose rather than an `accessControl` entry.
 
 ### Rights are properties of the Orion account
 
