@@ -282,10 +282,13 @@ def export(swis, path):
 over REST, but a client that parses them into `datetime` objects will then fail to serialise
 them without it.
 
-The client used here is [`swis_client.py`](../../scripts/python/swis_client.py) in this
-repository, whose `query()` returns the whole envelope rather than just the rows, which is
-precisely what makes `totalRows` reachable. The official `orionsdk` package is the one to use
-in production.
+The loop above assumes a client whose `query()` hands back the whole envelope rather than just
+the rows, which is precisely what makes `totalRows` reachable. The official `orionsdk` package
+does that — its `query()` returns the parsed response, so `envelope["results"]` and
+`envelope["totalRows"]` are both there — and it is the one to use in production. This
+repository's [`swis_client.py`](../../scripts/python/swis_client.py) unwraps `results` and
+returns the row list instead, so against it you take the count from a separate `COUNT` query,
+exactly as the PowerShell example below does.
 
 ## A complete scheduled export
 
@@ -472,9 +475,13 @@ large installation is a genuine production risk, not a style preference.
 **Mind the timezone functions.** `GetUtcDate()` combined with `AddDay` and friends produces the
 wrong offset, because those compile to T-SQL `DATEADD`, which is timezone blind. The correct
 shape is `ToUtc(AddDay(-30, GetDate()))` for a UTC column and `AddDay(-30, GetDate())` for a
-local one. Which columns are which matters: `Orion.AuditingEvents.TimeLoggedUtc` and
-`Orion.AlertHistory.TimeStamp` are UTC, `Orion.Events.EventTime` and
-`Orion.ResponseTime.DateTime` are local. See
+local one. Which columns are which matters, and the schema only tells you for some of them:
+`Orion.AuditingEvents.TimeLoggedUtc` says UTC in its name, and `Orion.Events.EventTime`
+documents itself as local. `Orion.AlertHistory.TimeStamp` and `Orion.ResponseTime.DateTime`
+carry **no documented timezone** and are unverified here, so measure them once on your own
+server with the `MinuteDiff` probe in
+[../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before you
+write a narrow window against either. See
 [../swql/date-and-time.md](../swql/date-and-time.md).
 
 **Run off-peak, or against a replica.** A monthly aggregation over a month of statistics
@@ -601,7 +608,11 @@ ORDER BY COUNT(ah.AlertHistoryID) DESC
 
 `EventType = 0` is "triggered"; the other values cover reset, acknowledge and action outcomes,
 and including them turns a count of incidents into a count of activity. The value table is in
-[alerts.md](alerts.md). `ah.TimeStamp` is **UTC**, so the parameters must be too.
+[alerts.md](alerts.md). The parameters are named for UTC because that is the usual answer, but
+`ah.TimeStamp` carries **no documented timezone** in the schema and its name does not end in
+`Utc`, so this is unverified here: settle it on your own server with the `MinuteDiff` probe in
+[alerts.md](alerts.md#the-timezone-caveat-on-timestamp) before trusting a month boundary, and
+drop the `Utc` suffixes if the column turns out to be server-local.
 
 ### Estate summary by polling engine
 
@@ -643,8 +654,11 @@ FROM Orion.Report r
 ORDER BY r.Category, r.Name
 ```
 
-`LastRenderDuration` is the column to sort by when the console feels slow: a report that takes
-minutes to render is running an expensive query on every view.
+`LastRenderDuration` is the column to reach for when the console feels slow: a report that takes
+minutes to render is running an expensive query on every view. The schema types it
+`System.String` rather than a number or an interval, and what that string contains is not
+recorded and is unverified here, so read a few values before you sort on it and expect
+lexicographic order rather than numeric if you do.
 
 ### What is scheduled, and when
 

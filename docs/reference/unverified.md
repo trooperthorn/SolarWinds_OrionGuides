@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**132 statements across 42 pages.**
+**135 statements across 42 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -170,6 +170,15 @@ Read this before relying on this repository for something load-bearing. If you h
 **[`Orion.Reporting.ExecuteSQL`](../automation/reporting.md#orionreportingexecutesql)**
 
 - Whether account limitations are applied to its results is not recorded in the schema and is unverified here, which is another reason to prefer SWQL: with SWQL you know limitations apply, and can reason about it.
+**[Practical constraints](../automation/reporting.md#practical-constraints)**
+
+- `Orion.AlertHistory.TimeStamp` and `Orion.ResponseTime.DateTime` carry **no documented timezone** and are unverified here, so measure them once on your own server with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before you write a narrow window against either.
+**[Alert volume by definition](../automation/reporting.md#alert-volume-by-definition)**
+
+- The parameters are named for UTC because that is the usual answer, but `ah.TimeStamp` carries **no documented timezone** in the schema and its name does not end in `Utc`, so this is unverified here: settle it on your own server with the `MinuteDiff` probe in [alerts.md](../automation/alerts.md#the-timezone-caveat-on-timestamp) before trusting a month boundary, and drop the `Utc` suffixes if the column turns...
+**[The report inventory itself](../automation/reporting.md#the-report-inventory-itself)**
+
+- The schema types it `System.String` rather than a number or an interval, and what that string contains is not recorded and is unverified here, so read a few values before you sort on it and expect lexicographic order rather than numeric if you do.
 
 ## [building-integrations.md](../guides/building-integrations.md)
 

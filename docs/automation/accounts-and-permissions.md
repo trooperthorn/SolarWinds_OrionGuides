@@ -157,10 +157,10 @@ user right".
 Two naming details to know before you generate a client from the contract. The schema spells
 the SAML verb `CreateSamlAccount`, while SolarWinds' prose writes it `CreateSAMLAccount`; the
 schema spelling is what the REST path uses. And the parameter is `accountID` on
-`CreateOrionAccount`, `CreateVirtualAccount` and `UpdateAccount` but `accountId` on
-`ChangePassword`, `ResetPassword` and `CreateOneTimeLoginToken`. Neither matters to a
-positional caller, because **argument names never travel on the wire**, but both matter to
-anything that generates named parameters from the Swagger contract.
+`CreateOrionAccount`, `CreateVirtualAccount`, `UpdateAccount` and `DeleteAccount` but
+`accountId` on `ChangePassword`, `ResetPassword` and `CreateOneTimeLoginToken`. Neither
+matters to a positional caller, because **argument names never travel on the wire**, but both
+matter to anything that generates named parameters from the Swagger contract.
 
 ### Creating an account
 
@@ -261,7 +261,7 @@ unverified here. Treat it as a bearer secret: it is a way to sign in as that acc
 ## The rights that gate verbs
 
 Verbs declare the right they require, and a permission failure is far more often a missing
-right than a bug in the call. Across 2026.2, 329 of the 958 verbs declare one.
+right than a bug in the call. Across 2026.2, 329 of the 1021 verbs declare one.
 
 ```bash
 python3 tools/schema_query.py verb Orion.Nodes PollNow

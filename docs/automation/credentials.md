@@ -136,7 +136,7 @@ repository cannot verify them against the extracted data.
 | `SolarWinds.Orion.Core.SharedCredentials.Credentials.UsernameWithOauth2Credentials` | OAuth 2.0 with the password grant type | `Orion` | 2024.2 |
 | `SolarWinds.CloudMonitoring.Contract.Credentials.AwsCredentials` | AWS cloud account access key and secret | `CLM` | 2023.4 |
 | `SolarWinds.CloudMonitoring.Contract.Credentials.AzureCredentials` | Azure subscription, tenant, client id and secret | `CLM` | 2023.4 |
-| `SolarWinds.CloudMonitoring.Contract.Credentials.GcpCredential` | GCP service account key material | `CLM` | 2025.2 |
+| `SolarWinds.Orion.Core.SharedCredentials.Credentials.GcpCredential` | GCP service account key material | `CLM` | 2025.2 |
 
 Note what is and is not in that list. There is no distinct "Windows" credential type: a
 Windows or Active Directory service account used for WMI polling is a
@@ -249,7 +249,7 @@ $credentialId = Invoke-SwisVerb $swis 'Orion.Credential' 'CreateSNMPv3Credential
 )
 ```
 
-The comments are doing real work there. Ten positional arguments of which six are strings that
+The comments are doing real work there. Ten positional arguments of which eight are strings that
 would all coerce successfully in the wrong order is exactly the shape of call that fails
 silently, and a credential that authenticates against nothing looks identical to a device that
 is down.
