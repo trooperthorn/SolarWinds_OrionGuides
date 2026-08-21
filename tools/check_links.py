@@ -70,6 +70,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=".", help="directory to scan (default: repository root)")
     ap.add_argument("--check-anchors", action="store_true", help="also verify #fragments resolve")
+    ap.add_argument("--orphans", action="store_true", help="also report pages nothing links to")
     args = ap.parse_args()
 
     scan_root = os.path.join(ROOT, args.root)
@@ -127,6 +128,39 @@ def main() -> None:
                     broken.append(f"{rel_path}: '{target}#{fragment}' - anchor not found")
 
     print(f"{len(files)} markdown file(s), {checked} relative link(s) checked")
+
+    # A page nothing links to is invisible: it will not be found by a reader browsing from
+    # the top, and it quietly falls out of date because nobody revisits it.
+    if args.orphans:
+        linked = set()
+        for path in files:
+            text = INLINE_CODE_RE.sub("", FENCE_RE.sub("", open(path, encoding="utf-8", errors="replace").read()))
+            for m in LINK_RE.finditer(text):
+                target = m.group("target").split("#")[0].strip()
+                if not target or target.startswith(EXTERNAL_PREFIXES):
+                    continue
+                resolved = os.path.normpath(os.path.join(os.path.dirname(path), target))
+                if os.path.isdir(resolved):
+                    resolved = os.path.join(resolved, "README.md")
+                linked.add(os.path.abspath(resolved))
+
+        # Two things are reachable by convention rather than by a link: a README is the
+        # index for its own directory, and everything under .github is wired up by GitHub
+        # itself (issue and pull request templates).
+        orphans = [
+            os.path.relpath(p, ROOT)
+            for p in files
+            if os.path.abspath(p) not in linked
+            and os.path.basename(p) != "README.md"
+            and ".github" not in os.path.relpath(p, ROOT).split(os.sep)
+        ]
+        if orphans:
+            print(f"\n{len(orphans)} page(s) nothing links to:", file=sys.stderr)
+            for o in sorted(orphans):
+                print(f"  - {o}", file=sys.stderr)
+            print("Add each to the index for its section, or to a sibling page.", file=sys.stderr)
+            broken.extend(f"orphan page: {o}" for o in orphans)
+
     if broken:
         print(f"\n{len(broken)} broken link(s):", file=sys.stderr)
         for b in broken:

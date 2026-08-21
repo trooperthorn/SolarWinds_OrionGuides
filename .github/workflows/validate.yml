@@ -82,4 +82,4 @@ jobs:
         run: python3 tools/check_examples.py
 
       - name: Check documentation links resolve
-        run: python3 tools/check_links.py
+        run: python3 tools/check_links.py --orphans
