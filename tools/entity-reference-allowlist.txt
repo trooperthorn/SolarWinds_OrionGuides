@@ -27,3 +27,24 @@ Orion.something
 # monitored object types. It does not exist in 2026.2; System.ManagedEntity is what
 # people mean. docs/swql/joins-and-navigation.md names it to correct the belief.
 Orion.NetObjects
+
+# Navigation properties that feel like they should exist and do not. The pages name them
+# to correct the assumption, which is more useful than staying silent about it.
+# Orion.NPM.Interfaces.StatusInfo and Orion.Volumes.StatusInfo are real; the node one is
+# not, and needs an explicit join to Orion.StatusInfo.
+Orion.Nodes.StatusInfo
+# The route from a component to its node is Component.Application.Node.
+Orion.APM.Component.Node
+
+# NetFlow Traffic Analyzer entities are prefixed Orion.Netflow. with a lowercase f.
+# docs/modules/nta.md names both wrong forms so readers stop guessing them.
+Orion.NTA
+Orion.NetFlow
+# There is no such entity; flow sources are enabled through a verb rather than by
+# updating a row, and nta.md says so.
+Orion.Netflow.FlowSources
+
+# Invoked by the SolarWinds sample SAM.AppInsightAutomation/SetupAppInsightApplication.ps1
+# but absent from both the 2026.2 schema and the Swagger contract. docs/modules/sam.md
+# marks it unverified and gives the Metadata.VerbArgument query to check a live server.
+Orion.APM.Application.SetupApplication

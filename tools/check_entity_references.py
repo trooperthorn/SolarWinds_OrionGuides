@@ -132,30 +132,50 @@ def load_allowed(entities: set[str]) -> set[str]:
     return allowed
 
 
-def resolves(token: str, entities: set[str], prefixes: set[str]) -> bool:
-    """True when the token names something real.
+def resolves(token: str, entities: set[str], prefixes: set[str], members=None) -> tuple[bool, str]:
+    """Return (ok, reason). Reason is filled in only when the token does not resolve.
 
-    Three shapes count as real, and all three appear constantly in the prose:
+    Four shapes count as real, and all four appear constantly in the prose:
 
     - the entity itself, ``Orion.Nodes``
-    - an entity plus property or navigation segments, ``Orion.Nodes.Interfaces.Name``
-    - a namespace prefix, ``Orion.APM``, which pages use when describing a family of
-      entities rather than one entity
+    - a namespace prefix, ``Orion.APM``, used when describing a family of entities
+    - a partial name, as in "entities beginning ``Orion.NPM.CustomPoller``"
+    - an entity plus member segments, ``Orion.Nodes.Interfaces.Name``
+
+    The last one is checked properly when a member lookup is supplied: writing
+    ``Orion.Nodes.Foo`` should fail even though ``Orion.Nodes`` is real, because a
+    property attributed to the wrong entity is exactly as misleading as an invented one.
     """
     if token in prefixes:
-        return True
-    # Prose often names a partial entity, as in "entities beginning Orion.NPM.CustomPoller".
-    # A string prefix of a real name is legitimate; a wholly invented name still is not.
+        return True, ""
     if any(e.startswith(token) for e in entities):
-        return True
+        return True, ""
+
     parts = token.split(".")
-    for drop in range(0, MAX_TRAILING_SEGMENTS + 1):
+    for drop in range(1, MAX_TRAILING_SEGMENTS + 1):
         if drop >= len(parts) - 1:
             break
-        candidate = ".".join(parts[: len(parts) - drop])
-        if candidate in entities:
-            return True
-    return False
+        base = ".".join(parts[: len(parts) - drop])
+        if base not in entities:
+            continue
+        trailing = parts[len(parts) - drop:]
+        if members is None:
+            return True, ""
+        # Walk the member chain the same way a query would.
+        current = base
+        for i, seg in enumerate(trailing):
+            props, navs = members(current)
+            key = seg.lower()
+            if key in navs:
+                current = navs[key]
+                continue
+            if key in props:
+                if i == len(trailing) - 1:
+                    return True, ""
+                return False, f"{current}.{seg} is a property, so .{trailing[i+1]} cannot follow it"
+            return False, f"{current} has no member named '{seg}'"
+        return True, ""
+    return False, "not an entity, namespace, or member of one"
 
 
 def namespace_prefixes(entities: set[str]) -> set[str]:
@@ -186,6 +206,36 @@ def main() -> None:
     prefixes = namespace_prefixes(entities)
     token_re = entity_token_re(namespaces)
 
+    # Reuse the validator's inheritance-aware member lookup so a member reference in
+    # prose is held to the same standard as one inside a query.
+    members = None
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from validate_swql import SchemaIndex
+
+        index = SchemaIndex(args.version)
+
+        # Verbs are members too. Naming one as Orion.Nodes.Unmanage is the normal way to
+        # write it in prose, so the lookup has to include them or every verb reference in
+        # the documentation is reported as a missing property.
+        verbs_by_entity: dict[str, set[str]] = {}
+        for name, rec in index.entities.items():
+            chain = (rec.get("inheritance") or []) + [name]
+            names = set()
+            for anc in chain:
+                arec = index.entities.get(anc)
+                if arec:
+                    names.update(v["name"].lower() for v in arec.get("verbs") or [])
+            verbs_by_entity[name] = names
+
+        def members(entity):
+            props, navs = index.members(entity)
+            verbs = verbs_by_entity.get(entity, set())
+            return {**props, **{v: "verb" for v in verbs}}, navs
+
+    except Exception as exc:  # pragma: no cover
+        print(f"note: member checking unavailable ({exc}); names checked as entities only")
+
     scan_root = os.path.join(ROOT, args.root)
     files = []
     for dirpath, dirnames, filenames in os.walk(scan_root):
@@ -194,6 +244,7 @@ def main() -> None:
     files.sort()
 
     unknown: dict[str, set[str]] = defaultdict(set)
+    reasons: dict[str, str] = {}
     checked = 0
 
     skipped = 0
@@ -210,9 +261,11 @@ def main() -> None:
             checked += 1
             if token in entities or token in allowed:
                 continue
-            if resolves(token, entities, prefixes):
+            ok, reason = resolves(token, entities, prefixes, members)
+            if ok:
                 continue
             unknown[token].add(rel)
+            reasons[token] = reason
 
     print(
         f"{len(files) - skipped} authored file(s), {checked} entity reference(s) checked "
@@ -225,9 +278,13 @@ def main() -> None:
     print(f"\n{len(unknown)} name(s) not found in the {args.version} schema:", file=sys.stderr)
     for token in sorted(unknown):
         where = ", ".join(sorted(unknown[token])[:3])
+        detail = reasons.get(token) or ""
         near = sorted((e for e in entities if token.split(".")[-1].lower() in e.lower()), key=len)[:2]
         hint = f"  (did you mean {', '.join(near)}?)" if near else ""
-        print(f"  - {token}{hint}\n      in: {where}", file=sys.stderr)
+        print(f"  - {token}{hint}", file=sys.stderr)
+        if detail:
+            print(f"      {detail}", file=sys.stderr)
+        print(f"      in: {where}", file=sys.stderr)
     print(
         f"\nIf a name is deliberate (explaining a rename or a removal), add it to\n"
         f"{os.path.relpath(ALLOWLIST, ROOT)} with a comment saying why.",
