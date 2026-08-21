@@ -100,6 +100,10 @@ an abstract description.
 Specifics:
 
 - Every SWQL example must be runnable, with real verified names.
+- Counts are checked. `tools/check_counts.py` reads sentences like "`Orion.Nodes` declares
+  102 properties" and compares them against `data/`. If you mean a subset rather than a
+  total, say so in the sentence: "two of its verbs", not "two verbs". The checker skips
+  subset phrasings, and a reader needs the distinction anyway.
 - Link the official SolarWinds documentation where it already says something well, rather
   than paraphrasing it loosely.
 - Cross-link sibling pages with relative links.

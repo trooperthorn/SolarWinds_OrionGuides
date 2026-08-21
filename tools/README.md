@@ -22,16 +22,19 @@ source workbook. Four tools build, two consume, six guard.
 **Guard**
 
 Accuracy is the product, so most of the toolchain exists to keep it honest. Each of these
-was written after a specific mistake got through.
+was written after a specific mistake got through. `check_counts.py` came from a page that
+said six entities declared no operations and then listed five, when the real figure was
+ten of twenty-one.
 
 | Script | Catches |
 | --- | --- |
 | [validate_swql.py](validate_swql.py) | A query naming an entity, property or navigation that does not exist |
 | [check_entity_references.py](check_entity_references.py) | The same, in prose rather than in a query |
+| [check_counts.py](check_counts.py) | A number in a sentence that the extracted data contradicts |
 | [check_examples.py](check_examples.py) | A documented command whose shown output is not what it prints |
 | [check_data.py](check_data.py) | Extraction that degraded quietly, and reference pages that fell behind |
 | [check_links.py](check_links.py) | A relative link to a file that no longer exists |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 50 tests |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 62 tests |
 
 Beyond names and links, `check_data.py` also holds the documentation to its own claims:
 the entity count each module page quotes for its namespace, the status tables written by

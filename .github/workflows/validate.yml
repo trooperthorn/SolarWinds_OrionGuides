@@ -89,6 +89,11 @@ jobs:
       - name: Check entity names in prose exist
         run: python3 tools/check_entity_references.py --version 2026.2 --strict
 
+      # Counts go stale silently: rebuilding for another platform version changes them
+      # and nothing about the sentence looks wrong afterwards.
+      - name: Check numeric claims against the schema
+        run: python3 tools/check_counts.py --version 2026.2
+
       # A page that shows a command and its output is making a claim that rots like any
       # other. Run the documented invocations and compare.
       - name: Check documented tool output matches reality

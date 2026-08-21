@@ -414,5 +414,79 @@ class TestPathFinding(unittest.TestCase):
         self.assertNotIn("Node", self.adjacency("Orion.APM.Component"))
 
 
+class TestCountClaims(unittest.TestCase):
+    """Numeric claims about the schema are checked against the schema.
+
+    The design constraint is precision rather than recall. Prose counts subsets far more
+    often than totals, so the tests that matter most here are the ones asserting that a
+    true sentence about a subset is left alone.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_counts
+
+        cls.mod = check_counts
+        cls.schema = check_counts.Schema(VERSION)
+
+    def claims(self, sentence):
+        return list(self.mod.claims_in(sentence, self.schema))
+
+    def verdicts(self, sentence):
+        return [(claimed == actual) for _, claimed, actual, _, _ in self.claims(sentence)]
+
+    def test_number_word_parsing(self):
+        self.assertEqual(self.mod.to_int("seven"), 7)
+        self.assertEqual(self.mod.to_int("twenty-five"), 25)
+        self.assertEqual(self.mod.to_int("2,067"), 2067)
+
+    def test_number_word_is_not_matched_inside_a_compound(self):
+        # "Twenty-five entities inherit from X" must read as 25, not as a stray "five".
+        # Getting this wrong turns a correct page into a reported error.
+        sentence = "Twenty-five entities inherit from `System.CustomPropertiesEntity` in 2026.2."
+        self.assertEqual(self.verdicts(sentence), [True])
+
+    def test_declared_property_count(self):
+        self.assertEqual(self.verdicts("`Orion.Nodes` declares 102 properties."), [True])
+
+    def test_inherited_property_count_also_accepted(self):
+        # Both readings are legitimate and the prose does not always say which it means.
+        self.assertEqual(self.verdicts("`Orion.Nodes` declares 113 properties."), [True])
+
+    def test_wrong_property_count_is_caught(self):
+        self.assertEqual(self.verdicts("`Orion.Nodes` declares 99 properties."), [False])
+
+    def test_parenthesised_count(self):
+        self.assertEqual(self.verdicts("`Orion.VIM.Luns` (7 properties) is the block device."), [True])
+
+    def test_inheritance_count(self):
+        sentence = "174 entities inherit from `System.ManagedEntity`."
+        self.assertEqual(self.verdicts(sentence), [True])
+
+    def test_wrong_inheritance_count_is_caught(self):
+        self.assertEqual(self.verdicts("9 entities inherit from `System.ManagedEntity`."), [False])
+
+    def test_verb_arity(self):
+        self.assertEqual(self.verdicts("`Orion.Nodes.Unmanage` takes five arguments."), [True])
+
+    def test_wrong_verb_arity_is_caught(self):
+        self.assertEqual(self.verdicts("`Orion.Nodes.Unmanage` takes two arguments."), [False])
+
+    def test_subset_phrasing_is_not_treated_as_a_total(self):
+        # True sentences about entities with many more verbs than the number given. Each
+        # one of these was a false positive before the subset guard existed.
+        for sentence in (
+            "There are two verbs on `Cirrus.ConfigArchive`: `Diff` and `CompareConfigs`.",
+            "Both inherit from `System.CustomPropertiesEntity` and carry the standard "
+            "four verbs, `CreateCustomProperty` and the rest.",
+            "`Orion.AlertConfigurations` carries three verbs whose names say what that is.",
+        ):
+            self.assertEqual(self.claims(sentence), [], f"should be skipped: {sentence}")
+
+    def test_unknown_entity_is_ignored(self):
+        # Inventing a name is check_entity_references.py's job, not this one's.
+        self.assertEqual(self.claims("`Orion.Nope` declares 5 properties."), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
