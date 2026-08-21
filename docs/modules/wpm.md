@@ -380,7 +380,7 @@ rather than requiring you to know which of the 17 properties are mandatory.
 `Unmanage` on the platform that takes a NetObject string also takes a fifth
 `allowOverlapping` argument. This one does not. A shared wrapper written against
 `Orion.Nodes.Unmanage` sends an extra argument and fails here. The
-[verb catalogue](../swis/verb-catalog.md) lists all seven `Unmanage` verbs side by side, and
+[verb catalogue](../swis/verb-catalog.md) lists all six `Unmanage` verbs side by side, and
 they genuinely do not share a signature.
 
 ```powershell
@@ -906,7 +906,7 @@ has the introspection queries.
   for the removal of `DateTimeUtc` from the timing entities.
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) and
   [../swis/verb-catalog.md](../swis/verb-catalog.md) for positional arguments and for the
-  seven `Unmanage` verbs that do not share a signature.
+  six `Unmanage` verbs that do not share a signature.
 - [../swql/performance.md](../swql/performance.md) for choosing between the detail, rolled-up
   and report tiers.
 - [`../../scripts/swql/15-voip-and-web-transactions.swql`](../../scripts/swql/15-voip-and-web-transactions.swql)

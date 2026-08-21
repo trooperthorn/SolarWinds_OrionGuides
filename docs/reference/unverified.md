@@ -8,9 +8,18 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**30 statements across 16 pages.**
+**34 statements across 19 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
+
+## [custom-properties.md](../automation/custom-properties.md)
+
+**[The one structural fact to hold on to](../automation/custom-properties.md#the-one-structural-fact-to-hold-on-to)**
+
+- They are created per installation, they are not in the published schema, and so this repository cannot verify them.
+**[CreateCustomProperty](../automation/custom-properties.md#createcustomproperty)**
+
+- They are not recorded in the schema data.
 
 ## [hardware-health.md](../modules/hardware-health.md)
 
@@ -94,6 +103,18 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The tree is rooted at System.Entity](../schema/entity-model.md#the-tree-is-rooted-at-systementity)**
 
 - Treat it as unverified.
+
+## [key-entities.md](../schema/key-entities.md)
+
+**[Orion.AlertStatus](../schema/key-entities.md#orionalertstatus)**
+
+- Their signatures are **unverified**, so confirm them on your own server with `Metadata.VerbArgument` before calling them.
+
+## [netobject-types.md](../schema/netobject-types.md)
+
+**[Entries that no longer resolve in 2026.2](../schema/netobject-types.md#entries-that-no-longer-resolve-in-20262)**
+
+- Which of the two applies cannot be verified from the schema alone, so ask your own server before concluding they are gone:
 
 ## [status-codes.md](../schema/status-codes.md)
 

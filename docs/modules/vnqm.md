@@ -59,7 +59,7 @@ WHERE FullName LIKE 'Orion.IpSla.%'
 ORDER BY FullName
 ```
 
-### The eight NetObject types
+### The nine NetObject types
 
 Nine VNQM entities carry a NetObject prefix in
 [`data/reference/netobject-types.json`](../../data/reference/netobject-types.json), and the
@@ -574,7 +574,7 @@ The practical consequences:
   VNQM part of the web console, or on the router itself and then discovered. There is no
   `Orion.IpSla.Operations` create verb to call and no CRUD create to fall back on.
 - **`Orion.IpSla.Operations` inherits `UnManaged` but exposes no `Unmanage` verb.** Only
-  seven entities across the whole platform publish `Unmanage`, and none of them is a VNQM
+  six entities across the whole platform publish `Unmanage`, and none of them is a VNQM
   entity. To take an IP SLA operation out of alerting scope through the API you have two
   verified routes: unmanage the **node** that hosts it with
   `Orion.Nodes.Unmanage(netObjectId, unmanageTime, remanageTime, isRelative, allowOverlapping)`,
