@@ -35,7 +35,17 @@ ten of twenty-one.
 | [check_examples.py](check_examples.py) | A documented command that does not run, or whose shown output is wrong |
 | [check_data.py](check_data.py) | Extraction that degraded quietly, and reference pages that fell behind |
 | [check_links.py](check_links.py) | A relative link or #anchor that no longer resolves |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 158 tests |
+| [check_gate.py](check_gate.py) | A check above that has stopped checking, by seeding errors it must catch |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 174 tests |
+
+`check_gate.py` is the one that watches the others. A checker that quietly stops reading
+what it claims to read still exits zero, which makes it indistinguishable from a working
+one until something depends on it. So it seeds a real defect of each kind into a real page
+-- a renamed entity, a count off by one, an argument inserted mid-signature, a stale
+pasted output -- requires the check that owns it to object, and restores the page from
+memory rather than from git, so it is safe to run with uncommitted work. Three checks in
+this repository were passing over work they never did, and none of them looked any
+different from the outside.
 
 Beyond names and links, `check_data.py` also holds the documentation to its own claims:
 the entity count each module page quotes for its namespace, the status tables written by

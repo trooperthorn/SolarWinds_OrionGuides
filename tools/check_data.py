@@ -245,6 +245,33 @@ def main() -> None:
         if quoted:
             c.note(f"{quoted} sample-query count(s) quoted in the docs all match the {real} on disk")
 
+    # The test count, which two READMEs quote. It is the one figure in this repository that
+    # a reader can check in a second and that nothing was checking, so it was the one most
+    # likely to be quietly wrong: every commit that adds a test invalidates it.
+    try:
+        suite = open(os.path.join(ROOT, "tools", "test_tools.py"), encoding="utf-8").read()
+        tests = len(re.findall(r"^\s{4}def (test_\w+)", suite, re.M))
+    except Exception as exc:  # pragma: no cover
+        tests = 0
+        c.note(f"test count not checked ({exc})")
+
+    if tests:
+        test_claim = re.compile(r"(?:across |: )(\d+)\s+tests\b")
+        quoted = 0
+        for rel in ("README.md", os.path.join("tools", "README.md")):
+            path = os.path.join(ROOT, rel)
+            if not os.path.isfile(path):
+                continue
+            text = open(path, encoding="utf-8", errors="replace").read()
+            for m in test_claim.finditer(text):
+                quoted += 1
+                c.require(
+                    int(m.group(1)) == tests,
+                    f"{rel} says {m.group(1)} tests; test_tools.py defines {tests}",
+                )
+        if quoted:
+            c.note(f"{quoted} test-count claim(s) match the {tests} defined in test_tools.py")
+
     # The netObjectId split. Three pages now tell a reader that the argument name is not the
     # contract, because 9 of the 21 verbs taking one declare it as a number and want a bare
     # id rather than "N:42". That is the sort of correction that gets undone by a rebuild

@@ -1500,6 +1500,39 @@ class TestTableClaims(unittest.TestCase):
         )
 
 
+class TestGateSelfTest(unittest.TestCase):
+    """The seeded errors must still be seedable, and must not be left in the tree.
+
+    check_gate.py runs the checkers, so it is the slow part of the gate. These are the
+    cheap halves of it: a seed anchored on text a page no longer contains tests nothing
+    and would pass, and a mutation left behind would be a defect committed by the tool
+    meant to prevent them.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_gate
+
+        cls.mod = check_gate
+
+    def test_every_seed_still_matches_its_page(self):
+        for label, rel, old, _new, _cmd in self.mod.CASES:
+            with self.subTest(label):
+                text = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+                self.assertIn(old, text, f"{label}: seed no longer in {rel}")
+
+    def test_no_mutation_is_left_in_the_tree(self):
+        for label, rel, _old, new, _cmd in self.mod.CASES:
+            with self.subTest(label):
+                text = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+                self.assertNotIn(new, text, f"{label}: mutation left in {rel}")
+
+    def test_each_seed_actually_changes_the_page(self):
+        for label, _rel, old, new, _cmd in self.mod.CASES:
+            with self.subTest(label):
+                self.assertNotEqual(old, new)
+
+
 class TestOutputPairing(unittest.TestCase):
     """A command block pairs with the output block directly under it, and no further.
 
