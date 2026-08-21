@@ -21,13 +21,20 @@ unmanage. The object moves to status `9`, `Unmanaged`, whose rank in `Orion.Stat
 `499`, and it stops contributing to availability calculations for the window.
 
 **If you want data but not alerts, use alert suppression instead.** `Orion.AlertSuppression`
-exists for exactly this and takes entity URIs rather than NetObject ids:
+exists for exactly this. It takes entity **URIs** rather than NetObject ids, which is the
+first thing to notice when switching between the two:
 
-| Verb | Signature |
-|:---|:---|
-| `Orion.AlertSuppression.SuppressAlerts` | `(entityUris, suppressFrom)` |
-| `Orion.AlertSuppression.ResumeAlerts` | `(entityUris)` |
-| `Orion.AlertSuppression.GetAlertSuppressionState` | `(entityUris)` |
+| Verb | Signature | Right |
+|:---|:---|:---|
+| `Orion.AlertSuppression.SuppressAlerts` | `(entityUris, suppressFrom?, suppressUntil?, allowOverlapping?, reason?)` | `allowUnmanage` |
+| `Orion.AlertSuppression.ResumeAlerts` | `(entityUris)` | `allowUnmanage` |
+| `Orion.AlertSuppression.GetAlertSuppressionState` | `(entityUris)` | `everyone` |
+
+Only `entityUris` is required on `SuppressAlerts` in 2026.2; the other four are optional.
+SolarWinds'
+[`AlertSuppression.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/AlertSuppression.ps1)
+sample calls it with two arguments, `@($entityUris, [DateTime]::UtcNow)`, which still works
+because positions 2 to 4 are optional.
 
 The trade is exact: unmanage stops polling and therefore stops alerts as a side effect;
 suppression stops alerts and keeps polling. Choose by whether you want the chart to have a

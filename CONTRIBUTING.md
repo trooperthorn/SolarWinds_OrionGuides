@@ -57,6 +57,16 @@ Generated files carry a banner saying so. An edit to one will be overwritten by 
 build, so fix the generator instead. That is usually the better fix anyway: it corrects
 every row rather than one.
 
+One of them is generated from the prose rather than from `data/`:
+`docs/reference/unverified.md` collects every statement the guides mark as unverified. If
+your change adds, removes or rewords one of those, regenerate it in the same commit:
+
+```bash
+make docs-reference
+```
+
+CI regenerates and diffs, so a stale index fails the build the way a stale lockfile would.
+
 ## Adding sample queries
 
 Sample queries live in `scripts/swql/` grouped by subject. Each file opens with a comment

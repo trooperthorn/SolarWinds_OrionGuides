@@ -855,10 +855,10 @@ Seventeen in 2026.2. Regenerate this list for your version with
 | `PollNow` | `(netObjectId)` | `manageNodes` |
 | `PollStatusNow` | `(netObjectId)` | `manageNodes` |
 | `RediscoverNow` | `(netObjectId)` | `manageNodes` |
-| `GetSupportedMetrics` | `(netObjectId)` returns array | |
-| `StartRealTimePolling` | `(netObjectId, owner, properties, pollingExpiration, pollingFrequency)` returns boolean | |
-| `StopRealTimePolling` | `(netObjectId, owner, properties)` returns boolean | |
-| `GetCountOfElementsPerEngineForLicensing` | `()` | |
+| `GetSupportedMetrics` | `(netObjectId)` returns array | `allowRealTimePolling` or `admin` |
+| `StartRealTimePolling` | `(netObjectId, owner, properties, pollingExpiration, pollingFrequency)` returns boolean | `allowRealTimePolling` or `admin` |
+| `StopRealTimePolling` | `(netObjectId, owner, properties)` returns boolean | `allowRealTimePolling` or `admin` |
+| `GetCountOfElementsPerEngineForLicensing` | `()` | `manageNodes` |
 | `ScheduleListResources` | `(nodeId)` returns string | `manageNodes` |
 | `ScheduleListResourcesForAddress` | `(ipAddress, port, credentialsType, credentialProperties, engineId, preferredSnmpVersion)` returns string | `manageNodes` |
 | `GetScheduledListResourcesStatus` | `(jobId, nodeId)` returns string | `manageNodes` |
@@ -868,8 +868,7 @@ Seventeen in 2026.2. Regenerate this list for your version with
 | `ImportListResourcesResult` | `(jobId, nodeId)` returns boolean | `manageNodes` |
 | `ImportSelectedListResourcesResult` | `(jobId, nodeId, resources)` returns array | `manageNodes` |
 
-Blank cells are verbs where the schema records no entity-independent required right; the
-entity-level access control still applies.
+Where two rights are listed, the schema records the verb as invokable by either.
 
 ## Related pages
 

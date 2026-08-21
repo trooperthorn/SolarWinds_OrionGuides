@@ -291,11 +291,19 @@ query; fetch it for a single step you are actually looking at.
 
 **These entities changed shape in 2026.2.** Per
 [../reference/schema-changes-2026.1-to-2026.2.md](../reference/schema-changes-2026.1-to-2026.2.md),
-all six timing entities and both agent status entities **lost `DateTimeUtc`**, and several
-lost `Archive`, `RecordCount`, `Screenshot`, `RawHtml`, `ErrorMessage` and `ScreenshotId` as
-well. `Timestamp` is the column that survived. A WPM report written against an earlier
-release that selects `DateTimeUtc` fails outright after the upgrade, and that is the single
-most likely thing to break here.
+ten `Orion.SEUM.` entities **lost `DateTimeUtc`**: all six timing entities, both agent status
+entities, and `Orion.SEUM.StepResponseTimeLargeData` and
+`Orion.SEUM.StepResponseTimeDetailLargeData`. Several of them also lost `Archive`,
+`RecordCount`, `Screenshot`, `RawHtml`, `ErrorMessage` and `ScreenshotId`. `Timestamp` is the
+column that survived, and `ObservationTimestamp` is still there as an inherited member of
+`System.StatisticsEntity` on the eight statistics entities. A WPM report written against an
+earlier release that selects `DateTimeUtc` fails outright after the upgrade, and that is the
+single most likely thing to break here.
+
+`Orion.SEUM.StepResponseTimeDetail` is the one to check first, because it lost
+`ErrorMessage` and `ScreenshotId` as well: a step-failure report built on the detail tier
+loses two of its columns, while the same report built on `Orion.SEUM.StepResponseTime`,
+which kept both, does not.
 
 ## Locations, which the schema calls agents
 
@@ -639,7 +647,7 @@ of a customer, weight it by the sample count instead, which is exactly what `Wei
 SELECT TOP 50
     rt.Transaction.Agent.Name AS LocationName,
     SUM(rt.PercentAvailability * rt.Weight) / SUM(rt.Weight) AS WeightedAvailability,
-    SUM(rt.Weight) AS TotalSamples
+    SUM(rt.Weight) AS TotalWeight
 FROM Orion.SEUM.ResponseTimeReport rt
 WHERE rt.Timestamp >= @startUtc
   AND rt.Timestamp < @endUtc
@@ -831,7 +839,7 @@ with no relationship to this one. The NetObject reference calls `Orion.SEUM.Agen
 you want; `RelySteps` is `System.Reliance` and answers a different question. The reverse pair
 is `Transaction` and `RelyTransactions`.
 
-**`DateTimeUtc` was removed from all six timing entities in 2026.2.** So were `Archive`,
+**`DateTimeUtc` was removed from ten `Orion.SEUM.` entities in 2026.2.** So were `Archive`,
 `RecordCount` and, on some of them, `Screenshot`, `RawHtml`, `ErrorMessage` and
 `ScreenshotId`. `Timestamp` is the column that remains. This is the most likely upgrade
 breakage in the module and it is recorded in
