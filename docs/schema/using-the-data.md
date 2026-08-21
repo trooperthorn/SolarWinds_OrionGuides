@@ -116,7 +116,7 @@ declares no access control rather than that the entity is unusable. `counts.prop
 counts **declared** properties only; `Orion.Nodes` resolves to 113 once inheritance is
 applied. `file` points at the namespace file holding the full record.
 
-### entities/&lt;Namespace&gt;.json
+### The `entities/` files
 
 The full records, one file per namespace, same array shape. Fifteen fields on every entity,
 plus `keyHints` and `keyHintSource` on the 79 that have them:
@@ -452,8 +452,9 @@ jq -r 'group_by(.entity)[] | "\(length)\t\(.[0].entity)"' data/schema/2026.2/ver
 
 ## The tools
 
-Eight scripts in [tools/](../../tools/README.md), none needing anything beyond the Python
-standard library except `openpyxl` for reading the source workbook. Three matter here.
+Everything lives in [tools/](../../tools/README.md), and nothing there needs anything beyond
+the Python standard library except `openpyxl`, which is used only to read the source
+workbook. Three scripts matter for this page: two that build the data and one that reads it.
 
 ### build_schema_data.py
 
@@ -549,13 +550,15 @@ starting point:
   relationships together, which is what makes `Orion.NPM.Interfaces.Node` a one-hop answer
   rather than a detour.
 
-The other five scripts are [validate_swql.py](../../tools/validate_swql.py), which checks
+The rest of the toolchain is [validate_swql.py](../../tools/validate_swql.py), which checks
 SWQL against the schema and is the CI gate, [diff_schema.py](../../tools/diff_schema.py),
 which reports what changed between two versions,
 [build_reference_docs.py](../../tools/build_reference_docs.py), which regenerates the
 enumerated tables under `docs/reference/`,
 [check_entity_references.py](../../tools/check_entity_references.py), which catches invented
-entity names in prose, and [check_links.py](../../tools/check_links.py).
+entity names in prose, [check_examples.py](../../tools/check_examples.py), which re-runs
+every documented command and compares the output against what the page claims, and
+[check_links.py](../../tools/check_links.py).
 
 ## Regenerating for a different platform version
 

@@ -2,14 +2,16 @@
 """Run the tool invocations shown in the documentation and check the output matches.
 
 A page that shows a command and its output is making a claim, and that claim rots the
-same way any other does. This finds every ``python3 tools/...`` invocation in a bash
-block that is immediately followed by an output block, runs it, and compares.
+same way any other does. This finds every runnable invocation in a bash block that is
+immediately followed by an output block, runs it, and compares.
 
     python tools/check_examples.py
     python tools/check_examples.py --verbose
 
-Only the repository's own tools are executed. Anything touching a live Orion server, a
-network, or a shell pipeline is skipped, since there is nothing here to run it against.
+Two kinds of command are executed: this repository's own tools, and ``jq`` against the
+checked-in data. Both are read-only, offline, and deterministic. Anything touching a live
+Orion server, a network, or a shell pipeline is skipped, since there is nothing here to
+run it against.
 
 Documentation usually shows the first few lines of a long output, so a shown block passes
 when its lines appear in order at the start of the real output. Elisions written as
@@ -30,12 +32,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # A bash block, then optional prose-free whitespace, then an output block. The output
 # block is fenced with no language or with text/console, which is how these are written.
 PAIR_RE = re.compile(
-    r"```bash\n(?P<cmd>.*?)```\s*\n+```(?:text|console|)\n(?P<out>.*?)```",
+    r"```bash\n(?P<cmd>.*?)```\s*\n+```(?:text|console|json|)\n(?P<out>.*?)```",
     re.S,
 )
 
-# Only invocations of this repository's tools are safe and meaningful to run.
+# Two kinds of invocation are safe and meaningful to run: this repository's own tools,
+# and jq against the checked-in data. Both are read-only, offline, and deterministic.
 RUNNABLE_RE = re.compile(r"^\s*python3?\s+(?:tools/[\w./-]+\.py)\b")
+JQ_RE = re.compile(r"^\s*jq\b")
 ELISION_RE = re.compile(r"^\s*(?:\.\.\.|…)\s*$")
 
 
@@ -45,10 +49,13 @@ def runnable(cmd: str) -> str | None:
     if len(lines) != 1:
         return None
     line = lines[0].strip()
-    if not RUNNABLE_RE.match(line):
+    if not (RUNNABLE_RE.match(line) or JQ_RE.match(line)):
         return None
-    # A pipeline or redirect means the shown output is not the tool's own.
+    # A pipeline or redirect means the shown output is not the command's own.
     if any(ch in line for ch in "|><&;$`"):
+        return None
+    # jq is only safe to run against files in this repository.
+    if JQ_RE.match(line) and not re.search(r"\b(?:data|docs|scripts)/[\w./-]+", line):
         return None
     return line
 

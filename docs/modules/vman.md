@@ -166,7 +166,7 @@ matters, because none of the `Orion.VIM.*` entities publishes an unmanage verb o
 ## Virtual machines
 
 `Orion.VIM.VirtualMachines` is the widest entity in the module: 76 declared properties on top
-of nine inherited from `Orion.Virtualization.Instance` and the usual `System.ManagedEntity`
+of eight inherited from `Orion.Virtualization.Instance` and the usual `System.ManagedEntity`
 set. It is also the only VIM entity with meaningful verbs.
 
 Its inheritance chain is worth knowing, because three of the columns people reach for most
@@ -357,7 +357,7 @@ them **also declare a `DateTime` column**, and that is the one to filter on for 
 | `Orion.VIM.DatastoreStatistics` | Datastores | `DateTime` |
 | `Orion.VIM.HostStorageStatistics` | Host storage adapters | `ObservationTimestamp` |
 | `Orion.VIM.ClusterStorageStatistics` | Cluster storage | `ObservationTimestamp` |
-| `Orion.VIM.VirtualDisksStatistics` | Individual VMDKs | see `props` |
+| `Orion.VIM.VirtualDisksStatistics` | Individual VMDKs | `ObservationTimestamp` |
 
 Check before you assume:
 
@@ -532,7 +532,10 @@ Invoke-SwisVerb $swis Orion.VIM.VirtualMachines GetManagementActionBatchResult @
 
 `Orion.VIM.Discovery` is a verb-only entity: zero properties, six verbs, and an access
 control declaration requiring the `manageNodes` right for both `read` and `invoke`. It is the
-only VIM entity that declares a required right.
+only VIM entity that names `manageNodes`; every other VIM entity that restricts anything uses
+`admin` or `everyone`. A read-only account cannot even list this entity, which is a rare
+shape in the schema and worth knowing when a query fails with a permission error rather than
+an empty result.
 
 | Verb | Positional parameters |
 |---|---|

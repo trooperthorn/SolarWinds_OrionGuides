@@ -141,8 +141,8 @@ recorded in the extracted schema. **Unverified:** treat their values as opaque a
 ### Storage arrays
 
 `Orion.SRM.StorageArrays` is the centre of the module. It has 65 properties, 24 outgoing
-relationships and all four of SRM's non-custom-property verbs, and almost every useful query
-either starts here or joins back to here for a name.
+relationships and four of SRM's seven non-custom-property verbs, and almost every useful
+query either starts here or joins back to here for a name.
 
 Identity and inventory: `StorageArrayID` (the key), `ID` (the array's own identifier
 string), `Name`, `UserCaption`, `Caption`, `DisplayName`, `IPAddress`, `Vendor`,

@@ -311,30 +311,17 @@ The name says what it is. A hint is SolarWinds' prose, not a schema declaration,
 absence of one means nothing at all: most entities simply have no description on the
 property. Treat it as a strong starting point and confirm it.
 
-### The authoritative answer
-
-For a specific server, the schema declares keys properly and you can ask it:
-
-```sql
-SELECT Name, Type, IsKey, IsNullable
-FROM Metadata.Property
-WHERE Entity.FullName = 'Orion.Nodes'
-  AND IsKey = TRUE
-```
-
-That is the only source that is both complete and current for the version in front of you.
-See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
-
-Some entities carry the answer on themselves. `Orion.Nodes` declares `OrionIdPrefix` and
-`OrionIdColumn`, which is the schema telling you the NetObject prefix and the key column
-rather than you having to look them up. Both properties exist in 2026.2; their values are a
+Some entities also carry the answer on themselves. `Orion.Nodes` declares `OrionIdPrefix`
+and `OrionIdColumn`, which is the schema naming the NetObject prefix and the key column
+rather than making you look them up. Both properties exist in 2026.2; their values are a
 runtime matter, so select them on your own server rather than trusting a value quoted
 anywhere.
 
-### Finding keys on a live server
+### The authoritative answer
 
-For anything the workbook does not cover, or on any version, the server is the authority.
-`Metadata.Property` has an `IsKey` flag:
+For a specific server, the schema declares keys properly and `Metadata.Property` has an
+`IsKey` flag. This is the only source that is both complete and current for the version in
+front of you, and it covers entities the workbook never mentioned:
 
 ```sql
 SELECT p.Name, p.Type, p.IsKey, p.CanCreate, p.CanUpdate
