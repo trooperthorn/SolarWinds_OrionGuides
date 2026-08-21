@@ -497,13 +497,17 @@ from the Swagger contract is not.
 
 ```powershell
 Invoke-SwisVerb $swis 'Orion.SEUM.TransactionCustomProperties' 'CreateCustomProperty' `
-    @('BusinessService', 'Owning business service', 'System.String', 200,
-      '', '', '', '', '', '') | Out-Null
+    @('BusinessService', 'Owning business service', 'string', 128,
+      $null, $null, $null, $null, $null, $null) | Out-Null
 ```
 
-Ten required arguments even when eight of them are empty strings is the contract; the
-optional six can be omitted. The same verbs on `Orion.NodesCustomProperties` are covered in
-[../swis/invoke-verbs.md](../swis/invoke-verbs.md).
+All ten required arguments have to be sent even though positions 4 to 9 are unused, which is
+the same shape SolarWinds' own
+[Managing Custom Properties](https://solarwinds.github.io/OrionSDK/docs/managing-custom-properties/)
+page uses for `Orion.NodesCustomProperties`. The six optional arguments can be omitted
+entirely. The parameter-by-parameter walkthrough is in
+[../swis/invoke-verbs.md](../swis/invoke-verbs.md), and it applies unchanged here because the
+signature is identical.
 
 ### Access control
 

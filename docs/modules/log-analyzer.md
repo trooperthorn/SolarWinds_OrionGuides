@@ -328,9 +328,10 @@ $json = Invoke-SwisVerb $swis Orion.OLM.ProcessingRule ExportRules @('', ',')
 $summary = Invoke-SwisVerb $target Orion.OLM.ProcessingRule ImportRules @($json)
 ```
 
-`ImportRules` returns `SolarWinds.Orion.Core.Common.Models.ImportRuleSummary`, whose fields
-are not published in the extracted contract, so inspect the returned object rather than
-assuming a shape. Whether an import replaces or merges the existing rules is likewise
+`ImportRules` returns
+`SolarWinds.Orion.LogMgmt.RuleProcessing.Models.ImportRuleSummary`, whose fields are not
+published in the extracted contract, so inspect the returned object rather than assuming a
+shape. Whether an import replaces or merges the existing rules is likewise
 **not stated** in the schema; test it against a non-production installation first.
 
 The three `Orion.OLM.LogEntry` verbs are all documented as "For internal use only." Their
@@ -682,7 +683,7 @@ permissions problem as a collection problem.
 | The `Status` integers on `Orion.OLM.MessageSources` and `Orion.OLM.Nodes` | Documented as "license status" with no value list. `Orion.OLM.Nodes.LicenseStatus` gives the text for its own column; the source entity has no text column | `SELECT Status, COUNT(MessageSourceID) AS Sources FROM Orion.OLM.MessageSources GROUP BY Status`, and the same shape against `Orion.OLM.Nodes` alongside `LicenseStatus` |
 | What `ImportRules` does to rules that already exist | Not stated. The verb returns an `ImportRuleSummary` whose fields are not published in the extracted contract | Export first, import into a non-production installation, and compare |
 | That `LogEntryID` encodes the receipt date | Inferred from `UidMinForDate`, `UidMaxForDate` and `UidExtractDate` plus the `System.Int64` key. All three verbs are marked internal | `Invoke-SwisVerb $swis Orion.OLM.LogEntry UidExtractDate @($someLogEntryId)` on a test system, and compare against that entry's `DateTime` |
-| The field names available in `Orion.OLM.LogEntryFieldValue` | Defined by the installation's parsing rules, not by the schema | `SELECT TOP 50 Name, COUNT(LogEntryFieldValueID) AS Values FROM Orion.OLM.LogEntryFieldValue WHERE Event.DateTime >= @startUtc GROUP BY Name` |
+| The field names available in `Orion.OLM.LogEntryFieldValue` | Defined by the installation's parsing rules, not by the schema | `SELECT TOP 50 Name, COUNT(LogEntryFieldValueID) AS Occurrences FROM Orion.OLM.LogEntryFieldValue WHERE Event.DateTime >= @startUtc GROUP BY Name` |
 | The severity strings in `Orion.OLM.HealthIssues.Severity` | The description gives "warn, error" as examples, not as the full set | `SELECT Severity, COUNT(ID) AS Issues FROM Orion.OLM.HealthIssues GROUP BY Severity` |
 
 ## Related pages

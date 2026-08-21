@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**36 statements across 20 pages.**
+**38 statements across 21 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -44,6 +44,15 @@ Read this before relying on this repository for something load-bearing. If you h
 **[DHCP and DNS server management](../modules/ipam.md#dhcp-and-dns-server-management)**
 
 - Treat the `credentials` and `propertiesToUpdate` key/value arrays as unverified in content and inspect `Metadata.VerbArgument.XmlTemplate` on your own server for the keys they expect.
+
+## [log-analyzer.md](../modules/log-analyzer.md)
+
+**[Verbs](../modules/log-analyzer.md#verbs)**
+
+- The three `Orion.OLM.LogEntry` verbs are all documented as "For internal use only." Their names and signatures are consistent with `LogEntryID` encoding a timestamp, so that a date range can be turned into an id range without touching the `DateTime` column, but that is an inference from the names and is **not verified**.
+**[What is not verified here](../modules/log-analyzer.md#what-is-not-verified-here)**
+
+- ## What is not verified here
 
 ## [ncm.md](../modules/ncm.md)
 

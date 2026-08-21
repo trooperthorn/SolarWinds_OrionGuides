@@ -102,6 +102,27 @@ version 2026.2. The status codes, NetObject prefixes, and some function examples
 from a community workbook, which is older; `reconciliation.json` records exactly where
 the two disagree.
 
+## Where this repository is uncertain
+
+`docs/reference/unverified.md` collects every statement the guides decline to assert,
+gathered from the pages themselves so it cannot drift from them. It covers the things the
+schema does not record: behaviour only a running server exhibits, values that are
+installation data rather than schema, and places where SolarWinds' own documentation and
+their published contract disagree.
+
+**Read it before answering something load-bearing from this repository alone.** If a user
+asks about one of those things, say it is unverified here and give them the `Metadata.*`
+query that settles it, rather than filling the gap with a plausible answer.
+
+Two smaller gaps worth knowing:
+
+- The rendered schema does not mark key properties. 79 entities carry a `keyHints` field
+  recovered from SolarWinds' own property prose, and `data/reference/netobject-types.json`
+  covers 115 more from the workbook. Neither is complete; `Metadata.Property.IsKey` is.
+- Custom properties are installation data, so an entity such as
+  `Orion.NodesCustomProperties` declares only `NodeID` here while carrying a column per
+  custom property on a real server.
+
 ## Facts you can state without looking up
 
 - The documented version here is **2026.2**. Other versions have different schemas.

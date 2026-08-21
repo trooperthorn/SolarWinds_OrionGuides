@@ -48,7 +48,7 @@ sample sets, and every name in it is a real `Orion.Nodes` property in 2026.2.
 | `Community` | `System.String` | SNMPv2c read community. `RWCommunity` is the read/write one. |
 | `DNS` | `System.String` | Set explicitly, even to an empty string, rather than leaving it out. |
 | `SysName` | `System.String` | Same. Polling fills it in later. |
-| `Caption` | `System.String` | Display name. If omitted it defaults to empty and gets filled by the first poll. |
+| `Caption` | `System.String` | Display name. The sample notes that it defaults to an empty string. |
 | `DynamicIP` | `System.Boolean` | Whether the address is expected to change. |
 | `PollInterval` | `System.Int32` | Status poll interval in seconds. The sample notes 120 as the default. |
 | `RediscoveryInterval` | `System.Int32` | Minutes between rediscoveries. The sample notes 30. |
@@ -73,7 +73,9 @@ python3 tools/schema_query.py props Orion.Nodes --grep interval
 | `NetObjectType` | `"N"` for a node |
 | `NetObjectID` | The `NodeID` |
 
-`PollerID` is assigned by the create, and `Enabled` defaults on.
+`PollerID` is assigned by the create. The sixth property, `Enabled`, is a
+`System.Boolean` that neither official sample sets; read it back after creating a poller to
+see what your server defaulted it to, and set it explicitly if you care.
 
 The poller type names are not entities and are not in the schema data. They come from
 SolarWinds' [Poller Types](https://solarwinds.github.io/OrionSDK/docs/poller-types/)
