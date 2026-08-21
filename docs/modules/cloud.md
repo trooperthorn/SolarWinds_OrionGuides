@@ -217,12 +217,13 @@ It is a virtualisation instance first and a cloud instance second, which is why 
 `NetworkReceiveRate` with [VMAN](vman.md), and why its verbs are keyed on
 `virtualMachineId` rather than on a cloud instance id.
 
-Its own 27 properties divide into identity (`Name`, `InstanceId`, `Type`, `Image`,
-`ImageId`, `Platform`, `Provider`, `Region`, `CloudAccountId`), placement (`SubnetId`,
-`VpcId`, `VnetId`, `KeyPairName`, `AutoScalingGroupName`, `PublicDNSName`,
-`PrivateDNSName`), state (`State`, `StatusLED`, `LastPoll`, `LastSuccessfulPoll`) and
-performance (`IOPSTotal`, `IOPSRead`, `IOPSWrite`, `DiskReadInBytesPerSecond`,
-`DiskWriteInBytesPerSecond`).
+It declares 27 properties of its own. Twenty-five of them fall into four groups: identity
+(`Name`, `InstanceId`, `Type`, `Image`, `ImageId`, `Platform`, `Provider`, `Region`,
+`CloudAccountId`), placement (`SubnetId`, `VpcId`, `VnetId`, `KeyPairName`,
+`AutoScalingGroupName`, `PublicDNSName`, `PrivateDNSName`), state (`State`, `StatusLED`,
+`LastPoll`, `LastSuccessfulPoll`) and performance (`IOPSTotal`, `IOPSRead`, `IOPSWrite`,
+`DiskReadInBytesPerSecond`, `DiskWriteInBytesPerSecond`). The remaining two,
+`OrionIdColumn` and `ModernIcon`, are presentation details.
 
 **`InstanceId` and `VirtualMachineID` are not the same id.** `InstanceId` is the provider's
 string, the `i-0abc...` form. `VirtualMachineID` is the platform's integer, inherited from
@@ -323,9 +324,9 @@ so both get an explicit time bound.
 ## The `Local.` entities in the CRUD surface
 
 If you read SolarWinds' Swagger contract for 2026.2 rather than the rendered schema, you
-will find fifteen `/Create/Local.Orion.Cloud.*` paths alongside the ordinary ones:
-`Local.Orion.Cloud.Accounts` variants for all three providers, `Local.Orion.Cloud.Regions`
-and its three provider forms, `Local.Orion.Cloud.ResourseTags` and its Aws and Azure forms,
+will find fifteen `/Create/Local.Orion.Cloud.*` paths alongside the ordinary ones: an
+`Accounts` form for each of the three providers, `Local.Orion.Cloud.Regions` plus its three
+provider forms, `Local.Orion.Cloud.ResourseTags` plus its Aws and Azure forms,
 `Local.Orion.Cloud.SelectedCloudRegions`, `Local.Orion.Cloud.CloudJobSettings`,
 `Local.Orion.Cloud.TagFilter`, `Local.Orion.Cloud.Gcp.ProjectDetails` and
 `Local.Orion.Cloud.Gcp.BigQueryDataset`.
@@ -369,7 +370,7 @@ on that server at all.
 
 ## Verbs
 
-Fourteen verbs across four entities. Every one of them takes a single argument except the
+Fourteen verbs across five entities. Every one of them takes a single argument except the
 GCP region lookup, and arguments are positional as everywhere in SWIS.
 
 ### Instance management
