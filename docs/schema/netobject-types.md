@@ -46,7 +46,9 @@ value an alert action hands to a script.
 (`System.Int32`) and `NetObjectType` (`System.String`), and `Orion.Events` inherits both.
 `Orion.AuditingEvents` declares its own `NetObjectID` and `NetObjectType`. In these
 entities the prefix and the id are stored in **separate columns**, so you filter on
-`NetObjectType = 'N'` rather than parsing a combined string.
+`NetObjectType` directly instead of parsing a combined string. Which values your server
+actually stores in that column is a data question, so group by it once before writing a
+filter, as in the audit query below.
 
 **Web console URLs.** Detail pages address objects the same way, which is why
 `DetailsUrl` on an entity such as `Orion.Nodes` resolves to a page for that specific
@@ -55,8 +57,9 @@ object.
 ## Building the string in SWQL
 
 Fifteen entities in 2026.2 publish their own prefix as a queryable property,
-`OrionIdPrefix`, paired with `OrionIdColumn` naming the key column. They are
-`Orion.Nodes`, `Orion.NPM.Interfaces`, `Orion.Volumes`, `Orion.UDT.Port`,
+`OrionIdPrefix`. Fourteen of the fifteen also carry `OrionIdColumn`, which names the key
+column the prefix applies to; `Orion.Cloud.Aws.Instances` has the prefix but not the
+column. The fifteen are `Orion.Nodes`, `Orion.NPM.Interfaces`, `Orion.Volumes`, `Orion.UDT.Port`,
 `Orion.VIM.Clusters`, `Orion.VIM.DataCenters`, `Orion.VIM.Datastores`, `Orion.VIM.Hosts`,
 `Orion.VIM.VCenters`, `Orion.VIM.VirtualMachines`, `Orion.Cloud.Aws.Instances`,
 `Orion.Cloud.Aws.Volumes`, `Orion.Cloud.Azure.ApplicationGateway`,
@@ -124,7 +127,7 @@ They solve the same problem at different layers and are not interchangeable.
 | Scope | The Orion object model | The SWIS data layer |
 | Used by | Verb `netObjectId` arguments, alert macros, console URLs | CRUD (`GET`/`POST`/`DELETE` on `/{uri}`), group member definitions, `BulkUpdate` |
 | Covers | Only entities that have a prefix | Every entity with a key |
-| Composite keys | Cannot express them | Expresses them (`ContainerID=3,MemberPrimaryID=7`) |
+| Composite keys | Cannot express them | Expresses them, comma separated, as in `IPAM.Subnet/SubnetId=100,ParentId=2` |
 
 Group membership makes the difference concrete: a static group member is defined by URI,
 not by NetObject string, as in

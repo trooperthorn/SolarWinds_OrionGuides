@@ -125,6 +125,7 @@ Lookup tables. Most are generated from the extracted data and must not be edited
 | [reference/status-codes.md](reference/status-codes.md) | Status ids, names, ranks and meanings |
 | [reference/swql-function-index.md](reference/swql-function-index.md) | Every SWQL function with signature and example |
 | [reference/glossary.md](reference/glossary.md) | The vocabulary, defined |
+| [reference/unverified.md](reference/unverified.md) | Every statement these guides decline to assert, collected |
 | [reference/schema-changes-2026.1-to-2026.2.md](reference/schema-changes-2026.1-to-2026.2.md) | What changed, and what breaks |
 | [reference/schema-changes-2025.4-to-2026.2.md](reference/schema-changes-2025.4-to-2026.2.md) | The same across two releases |
 

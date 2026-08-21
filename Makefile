@@ -65,6 +65,7 @@ data: sdk
 # keeps a 2067-row entity table from drifting out of step with the schema.
 docs-reference:
 	@$(PYTHON) tools/build_reference_docs.py --version $(VERSION)
+	@$(PYTHON) tools/build_unverified_index.py
 
 # Upgrade impact: what changed between two published versions, and which of those changes
 # can break code that already works.

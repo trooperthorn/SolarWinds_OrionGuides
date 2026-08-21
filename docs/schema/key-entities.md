@@ -1020,11 +1020,13 @@ to record ownership, location, criticality, change window, or anything else the 
 does not model.
 
 **The pattern.** Every entity that supports custom properties has a partner entity named
-`<Entity>CustomProperties`, reachable through a `CustomProperties` navigation. There are 29
-such entities in 2026.2, among them `Orion.NodesCustomProperties`,
+`<Entity>CustomProperties`, reachable through a `CustomProperties` navigation. They are
+identifiable by inheritance rather than by name: 25 entities inherit from
+`System.CustomPropertiesEntity` in 2026.2, among them `Orion.NodesCustomProperties`,
 `Orion.NPM.InterfacesCustomProperties`, `Orion.VolumesCustomProperties`,
 `Orion.APM.ApplicationCustomProperties`, `Orion.GroupCustomProperties`,
 `Orion.VIM.VirtualMachinesCustomProperties` and `Orion.AlertConfigurationsCustomProperties`.
+List them all with `python3 tools/schema_query.py children System.CustomPropertiesEntity`.
 
 ### Orion.NodesCustomProperties
 
@@ -1236,7 +1238,7 @@ Machine". NetObject prefix `VVM`.
 Looking only at the `Orion.VIM.VirtualMachines` page and concluding it has no `Name` is a
 common mistake.
 
-**Size.** 76 declared properties, 99 including inherited ones, 30 source relationships,
+**Size.** 76 declared properties, 99 including inherited ones, 29 source relationships,
 5 target relationships, 7 verbs.
 
 ### Properties worth knowing
