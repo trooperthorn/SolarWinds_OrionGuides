@@ -28,7 +28,7 @@ help:
 	@echo "make docs-reference  regenerate the generated tables in docs/reference/"
 	@echo "make test            run the toolchain unit tests"
 	@echo "make validate        check sample queries and docs code blocks against the schema"
-	@echo "make check           validate + data consistency + entity references + links"
+	@echo "make check           tests + queries + data + entity names + examples + links"
 	@echo "make schema-diff     compare two versions (FROM=2025.4 TO=2026.2)"
 	@echo "make clean           remove $(SDK_DIR)"
 
@@ -89,6 +89,7 @@ test:
 check: test validate
 	@$(PYTHON) tools/check_data.py --version $(VERSION)
 	@$(PYTHON) tools/check_entity_references.py --version $(VERSION) --strict
+	@$(PYTHON) tools/check_examples.py
 	@$(PYTHON) tools/check_links.py
 
 clean:

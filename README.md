@@ -73,19 +73,26 @@ Orion.Nodes.Unmanage
 
 Joining across the model is the part people lose the most time to, so it has its own
 command. It searches the relationship graph in both directions, because a navigation
-property can be declared at either end:
+property can be declared at either end. That is what makes this a single hop rather than
+a three-hop detour:
 
 ```bash
-python3 tools/schema_query.py path Orion.APM.Component Orion.Nodes
+python3 tools/schema_query.py path Orion.NPM.Interfaces Orion.Nodes
 ```
 
 ```
-3 path(s) from Orion.APM.Component to Orion.Nodes, shortest first
+1 path(s) from Orion.NPM.Interfaces to Orion.Nodes, shortest first
 
-  Orion.APM.Component.Application.Node
-    Orion.APM.Component --Application--> Orion.APM.Application
-    Orion.APM.Application --Node--> Orion.Nodes
+  Orion.NPM.Interfaces.Node
+    Orion.NPM.Interfaces --Node--> Orion.Nodes
+
+    SELECT TOP 10 a.DisplayName, a.Node.DisplayName
+    FROM Orion.NPM.Interfaces a
 ```
+
+Where several routes exist it lists them all, shortest first, and you pick the one that
+matches your intent. A component reaches a node through its application, but it can also
+reach one through an alert object, and only you know which you meant.
 
 And before a query goes anywhere near a live server:
 

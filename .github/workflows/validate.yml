@@ -76,5 +76,10 @@ jobs:
       - name: Check entity names in prose exist
         run: python3 tools/check_entity_references.py --version 2026.2 --strict
 
+      # A page that shows a command and its output is making a claim that rots like any
+      # other. Run the documented invocations and compare.
+      - name: Check documented tool output matches reality
+        run: python3 tools/check_examples.py
+
       - name: Check documentation links resolve
         run: python3 tools/check_links.py

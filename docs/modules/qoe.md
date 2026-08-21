@@ -3,23 +3,28 @@
 Quality of Experience is the platform's packet-inspection capability. Where
 [NTA](nta.md) works from flow records the network devices export, QoE works from the packets
 themselves: a probe watches traffic, recognises which application a conversation belongs to,
-and measures how long the application took to answer and how much of that time was the
-network's fault. The two numbers it reports for every application are `ART` and `NRT`, and
-separating them is the point of the feature. A slow application whose `NRT` is low is a
-server problem; the same slowness with a high `NRT` is a network problem.
+and measures how it is performing. The schema's evidence for that shape is concrete. Every
+QoE entity that reports a measurement reports the same pair of numbers, `ART` and `NRT`,
+alongside byte and transaction counters, and both numbers have their own warning and
+critical thresholds on `Orion.DPI.ApplicationsThresholdsForAlerting`. Two response-time
+measures with separate thresholds is what lets you separate a slow server from a slow
+network, and it is the reason to reach for this module rather than for
+[SAM](sam.md) or [NTA](nta.md).
 
-QoE is a smaller module than most, and it is documented less than most. This page states
-what the 2026.2 schema actually declares and marks clearly where the schema stops and
-inference would begin. That distinction matters more here than on a larger page, because
-several QoE columns carry no description at all and there is no SolarWinds SDK page for the
-module to fall back on.
+What `ART` and `NRT` stand for is a different question, and the schema does not answer it:
+neither column carries a description. The
+[unverified list](#what-is-not-verified-here) at the end of this page says so plainly, along
+with everything else here that the 2026.2 data does not establish. That section is longer
+than it would be for a larger module, because QoE is thinly documented: many of its columns
+carry no description, and there is no SolarWinds SDK page and no SDK sample script for the
+module at all. This page states what the schema declares and marks where the schema stops.
 
 ## Namespace and how many entities
 
-QoE contributes exactly **14 entities**, all under `Orion.DPI.`, where DPI stands for deep
-packet inspection. There is no `Orion.QoE.` namespace, and the module code and the namespace
-prefix do not match, which is normal for this platform and explained in
-[../platform/modules.md](../platform/modules.md).
+QoE contributes exactly **14 entities**, all under `Orion.DPI.`, for deep packet inspection,
+which is how [../platform/modules.md](../platform/modules.md) describes the prefix. There is
+no `Orion.QoE.` namespace, and the module code and the namespace prefix do not match, which
+is normal for this platform and explained on that same page.
 
 | Group | Entities |
 |---|---|

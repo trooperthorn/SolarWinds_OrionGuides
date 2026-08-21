@@ -23,17 +23,13 @@ python3 tools/schema_query.py show Orion.Nodes
 
 ```text
   sourceRelationships (135) - this entity is the source; property leads to the target
-    Applications                    -> Orion.APM.Application      System.Hosting
-    Interfaces                      -> Orion.NPM.Interfaces       System.Hosting
-    Volumes                         -> Orion.Volumes              System.Hosting
-    CustomProperties                -> Orion.NodesCustomProperties System.Hosting
-    NodeProperties                  -> NCM.NodeProperties         System.Hosting
-    Agent                           -> Orion.AgentManagement.Agent System.Reference
-    ...
-
-  targetRelationships (26) - this entity is the target; property leads back to the source
-    Engine                          -> Orion.Engines              System.Reference
-    VendorInfo                      -> Orion.Vendors              System.Reference
+    Inventory                                  -> Orion.ADM.NodeInventory                      System.Hosting
+    ChildNodeToNodeLinks                       -> Orion.APM.NodeToNodeLink                     System.Reference
+    ParentNodeToNodeLinks                      -> Orion.APM.NodeToNodeLink                     System.Reference
+    OutApplicationTcpConnections               -> Orion.APM.ApplicationTcpConnection           System.Reference
+    InApplicationTcpConnections                -> Orion.APM.ApplicationTcpConnection           System.Reference
+    Agent                                      -> Orion.AgentManagement.Agent                  System.Reference
+    Anomalies                                  -> Orion.AIIM.Orion_Nodes_Anomalies             System.Hosting
     ...
 ```
 
