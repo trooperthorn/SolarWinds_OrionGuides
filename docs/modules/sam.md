@@ -397,10 +397,18 @@ table, but they never travel on the wire, so the order is the entire contract.
 | `CreateApplication` | `nodeId`, `applicationTemplateId`, `credentialSetId`, `skipIfDuplicate`, `applicationSettings` (optional) | number | `manageNodes` |
 | `DeleteApplication` | `applicationId` | void | `manageNodes` |
 | `PollNow` | `applicationId` | void | `manageNodes` |
-| `Unmanage` | `netObjetId`, `unmanageTime`, `remanageTime`, `isRelative`, `allowOverlapping` (optional) | void | `allowUnmanage` |
-| `Remanage` | `netObjetId` | void | `allowUnmanage` |
+| `Unmanage` | `netObjetId`, `unmanageTime`, `remanageTime`, `isRelative`, `allowOverlapping` (optional) | void | see below |
+| `Remanage` | `netObjetId` | void | see below |
 | `TriggerInstantTemplateGroupAssignment` | none | void | `manageNodes` |
 | `TriggerScheduledTemplateGroupAssignment` | none | void | `manageNodes` |
+
+`Unmanage` and `Remanage` are the two verbs that record no right of their own in the
+schema. `Orion.APM.Application` as an entity declares `invoke` against both `manageNodes`
+and `allowUnmanage`, and `allowUnmanage` is the right the equivalent `Orion.Nodes.Unmanage`
+verb names explicitly, so `allowUnmanage` is very likely the one these two need. *That
+attribution is an inference, not a recorded fact.* Confirm it on your own server by
+granting an account `allowUnmanage` without `manageNodes` and trying the call, or read the
+entity's declaration back with `schema_query.py show Orion.APM.Application`.
 
 `CreateApplication` returns the new `ApplicationID`, or **`-1` when `skipIfDuplicate` is
 true and the template is already assigned to that node**. Check for `-1` rather than

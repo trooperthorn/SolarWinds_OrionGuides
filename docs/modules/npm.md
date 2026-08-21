@@ -7,10 +7,11 @@ the interfaces and their traffic, the wireless infrastructure serving clients, t
 adjacencies the device maintains, the multicast trees it participates in, arbitrary SNMP
 values you decide to collect yourself, and the hop-by-hop path from a probe to a service.
 
-NPM is the oldest module in the suite and it shows in the schema. It has more shapes for the
-same idea than any other module, several generations of wireless entities live side by side,
-and two families that once lived under `Orion.NPM.` have been moved out to namespaces of
-their own. This page maps that out so you can pick the right entity the first time.
+NPM has a long history and the schema records all of it. Four families model wireless in
+overlapping ways, two families that older documentation places under `Orion.NPM.` have been
+moved out to namespaces of their own, and the interface entity carries duplicate property
+names inherited from successive generations of the product. This page maps that out so you
+can pick the right entity the first time.
 
 ## Namespaces and how many entities
 
@@ -156,8 +157,8 @@ layers.
 own, existing to carry a relationship to the matching assignment entity:
 `Orion.NPM.NodeCustomPollers` and `Orion.NPM.InterfaceCustomPollers`.
 
-**The assignment.** `Orion.NPM.CustomPollerAssignment` is an abstract parent with two
-concrete children:
+**The assignment.** `Orion.NPM.CustomPollerAssignment` is the shared parent, declaring both
+`NodeID` and `InterfaceID`, and it has two children that each fix one of them:
 
 | Entity | Assigned to | NetObject prefix | Key |
 |---|---|---|---|
@@ -176,6 +177,10 @@ and `ModernIcon`. Use `props`, not `show`, when you want the full picture:
 ```bash
 python3 tools/schema_query.py props Orion.NPM.CustomPollerAssignmentOnNode
 ```
+
+Whether the parent entity is itself queryable, or is abstract and exists only to be
+inherited from, is not recorded in the extracted schema. Ask the server that matters:
+`SELECT FullName, IsAbstract FROM Metadata.Entity WHERE FullName LIKE 'Orion.NPM.CustomPollerAssignment%'`.
 
 **The results.** `Orion.NPM.CustomPollerStatusOnNode` and
 `Orion.NPM.CustomPollerStatusOnInterface` hold the latest polled value per assignment, with
