@@ -281,10 +281,10 @@ list on each build. The findings are recorded in
 | --- | --- | --- |
 | `Orion.F5.Device` | `F5` | Renamed to `Orion.F5.System.Device` |
 | `Orion.F5.Nodes` | `FN` | No successor identified |
-| `Orion.F5.Pools` | `FP` | Renamed to `Orion.F5.GTM.Pool` |
-| `Orion.F5.VirtualServers` | `FVS` | Renamed to `Orion.F5.GTM.VirtualServer` |
+| `Orion.F5.Pools` | `FP` | Two candidates: `Orion.F5.GTM.Pool` and `Orion.F5.LTM.Pool` |
+| `Orion.F5.VirtualServers` | `FVS` | Three candidates: `Orion.F5.GTM.VirtualServer`, `Orion.F5.LTM.VirtualServer`, `Orion.F5.Map.VirtualServer` |
 | `Orion.NPM.UCSBlades` | `UCSB` | Renamed to `Orion.UCS.Blades` |
-| `Orion.NPM.UCSChassis` | `NCH` | Renamed to `Orion.UCS.Chassis` |
+| `Orion.NPM.UCSChassis` | `NCH` | Two candidates: `Orion.UCS.Chassis` and `Orion.HardwareHealth.HardwareInfoForUCSChassis` |
 | `Orion.NPM.UCSFabrics` | `UCSF` | Renamed to `Orion.UCS.Fabrics` |
 | `Orion.NPM.UCSFans` | `UCSFAN` | No successor identified |
 | `Orion.NPM.UCSManagers` | `UCSM` | No successor identified |
@@ -296,6 +296,11 @@ Two of these are pure capitalisation changes that look like nothing and fail lik
 everything: `Orion.SRM.FIleServerIdentification` has a capital `I` where the current name
 has a lowercase `l`, and `Orion.VIM.LUNs` became `Orion.VIM.Luns`. Entity names are matched
 exactly by SWIS, so both spellings fail on a live server.
+
+Where a row above lists more than one candidate, the reconciliation could not pick a single
+successor and neither can this page: the workbook records one old name and one prefix, and
+2026.2 spreads that name across several entities. Pick the one holding the data you
+actually want, and confirm it exists on your server before writing a report against it.
 
 Whether a replacement exists at all also depends on licensing. The entries with no
 successor may be genuinely removed, or may simply be absent from the published schema
@@ -312,16 +317,27 @@ ORDER BY FullName
 
 ### Other places the workbook and the schema disagree
 
-Four more cells in the table above name a property that the 2026.2 schema does not have.
-They are listed here rather than silently corrected, because the workbook is the source
-for the prefixes and its other columns should be treated as hints:
+Six more cells in the table above name a property that the 2026.2 schema does not have
+under that spelling. They are listed here rather than silently corrected, because the
+workbook is the source for the prefixes and its other columns should be treated as hints:
 
 | Cell | Workbook value | 2026.2 schema |
 | --- | --- | --- |
 | `Orion.SRM.StorageArrays` key | `ArrayID` | `StorageArrayID` exists; `ArrayID` does not |
 | `Orion.VIM.Hosts` key | `CluserID` | Misspelling of `ClusterID` |
+| `Orion.VIM.Hosts` key | `DatacenterID` | The schema spells it `DataCenterID`, with a capital `C` |
+| `Orion.AgentManagement.Agent` key | `PollingEngineID` | The schema spells it `PollingEngineId`, with a lowercase `d` |
 | `Orion.APM.Application` caption column | `ApplicationName` | The entity has `Name` and `DisplayName` |
-| `Orion.SRM.StorageArrays` caption column | `ArrayName` | The entity has `Name` and `DisplayName` |
+| `Orion.SRM.StorageArrays` caption column | `ArrayName` | The entity has `Name`, `Caption` and `DisplayName` |
+
+The last two of the four key rows differ from the schema only in capitalisation. SWQL
+identifiers are generally matched case-insensitively, so those two may well work on a live
+server; the spelling in the right-hand column is the one the published schema carries, and
+the one to fall back on if a query comes back complaining about an unknown column.
+
+One parent-entity cell is stale in the same way the entity column is: the workbook records
+`Orion.VIM.Datastores` as hanging off `Orion.VIM.LUNs`, which in 2026.2 is
+`Orion.VIM.Luns`.
 
 The caption column is a field the JSON carries but this table does not render; it is the
 property a UI would use as the object's label. Read it from

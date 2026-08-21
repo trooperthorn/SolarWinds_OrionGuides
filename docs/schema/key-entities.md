@@ -80,7 +80,7 @@ are writing your first query against a new server, write it here.
 | `ObjectSubType` | `System.String` | Polling method. `Orion.NPM.Interfaces.ObjectSubType` documents the equivalent values as None, SNMP, WMI, ICMP, Agent |
 | `Status` | `System.Int32` | The status integer. See [status-codes.md](status-codes.md) |
 | `PolledStatus` | `System.Int32` | A second status integer, node-only, undocumented relationship to `Status` |
-| `StatusDescription` | `System.String` | Text form, inherited from `System.ManagedEntity` |
+| `StatusDescription` | `System.String` | Text form. `Orion.Nodes` redeclares it with no summary of its own, so the documentation comes from the `System.ManagedEntity` declaration |
 | `UnManaged`, `UnManageFrom`, `UnManageUntil` | `System.Boolean`, `System.DateTime` | Maintenance window state, inherited |
 | `Vendor`, `MachineType`, `SysObjectID`, `SysName` | `System.String` | What the device is |
 | `Location`, `Contact` | `System.String` | SNMP sysLocation and sysContact |
@@ -98,7 +98,12 @@ are writing your first query against a new server, write it here.
 | `DetailsUrl` | `System.String` | Link to the node's page in the web console |
 | `Uri` | `System.String` | The SWIS URI, which is what CRUD addresses |
 
-For the other 60-odd, including the buffer-miss counters and the cloud instance fields:
+That is 55 names in the left-hand column, but they do not all come out of the same pot: 51
+are among the 102 `Orion.Nodes` declares, and four are inherited rather than declared,
+namely `Uri` and the `UnManage*` trio. Four more declared properties, `IPAddressType`,
+`IP`, `IP_Address` and `DNS`, are named in passing in the third column, which leaves 47 of
+the 102 unmentioned on this page. For those, including the buffer-miss counters and the
+cloud instance fields:
 
 ```bash
 python3 tools/schema_query.py show Orion.Nodes
@@ -134,16 +139,16 @@ There is also no direct navigation to `Cirrus.Nodes`; see [Cirrus.Nodes](#cirrus
 | `Unmanage` | `netObjectId: string`, `unmanageTime: string`, `remanageTime: string`, `isRelative: boolean`, `allowOverlapping: boolean` (optional) | `allowUnmanage` |
 | `Remanage` | `netObjectId: string` | `allowUnmanage` |
 | `PollNow` | `netObjectId: string` | `manageNodes` |
-| `PollStatusNow` | `netObjectId: string` | |
-| `RediscoverNow` | `netObjectId: string` | |
-| `GetSupportedMetrics` | `netObjectId: number` | |
-| `StartRealTimePolling` | `netObjectId: number`, `owner: string`, `properties: array`, `pollingExpiration: System.TimeSpan`, `pollingFrequency: System.TimeSpan` | |
-| `StopRealTimePolling` | `netObjectId: number`, `owner: string`, `properties: array` | |
-| `ScheduleListResources` | `nodeId: number` | |
-| `GetScheduledListResourcesStatus` | `jobId: string`, `nodeId: number` | |
-| `GetListResourcesResult` | `jobId: string`, `nodeId: number` | |
-| `ImportSelectedListResourcesResult` | `jobId: string`, `nodeId: number`, `resources: array` | |
-| `ImportListResourcesResult` | `jobId: string`, `nodeId: number` | |
+| `PollStatusNow` | `netObjectId: string` | `manageNodes` |
+| `RediscoverNow` | `netObjectId: string` | `manageNodes` |
+| `GetSupportedMetrics` | `netObjectId: number` | `allowRealTimePolling` or `admin` |
+| `StartRealTimePolling` | `netObjectId: number`, `owner: string`, `properties: array`, `pollingExpiration: System.TimeSpan`, `pollingFrequency: System.TimeSpan` | `allowRealTimePolling` or `admin` |
+| `StopRealTimePolling` | `netObjectId: number`, `owner: string`, `properties: array` | `allowRealTimePolling` or `admin` |
+| `ScheduleListResources` | `nodeId: number` | `manageNodes` |
+| `GetScheduledListResourcesStatus` | `jobId: string`, `nodeId: number` | `manageNodes` |
+| `GetListResourcesResult` | `jobId: string`, `nodeId: number` | `manageNodes` |
+| `ImportSelectedListResourcesResult` | `jobId: string`, `nodeId: number`, `resources: array` | `manageNodes` |
+| `ImportListResourcesResult` | `jobId: string`, `nodeId: number` | `manageNodes` |
 
 The remaining four are `GetCountOfElementsPerEngineForLicensing`,
 `ScheduleListResourcesForAddress`, `GetScheduledListResourcesStatusByEngine` and
@@ -352,9 +357,9 @@ Resource Monitor: `RelyLUN`, `RelyFileShare`, `RelyStorageArray`, `RelyPool`,
 | --- | --- | --- |
 | `Unmanage` | `netObjectId: string`, `unmanageTime: string`, `remanageTime: string`, `isRelative: boolean`, `allowOverlapping: boolean` | `allowUnmanage` |
 | `Remanage` | `netObjectId: string` | `allowUnmanage` |
-| `GetSupportedMetrics` | `netObjectId: number` | |
-| `StartRealTimePolling` | `netObjectId: number`, `owner: string`, `properties: array`, `pollingExpiration: System.TimeSpan`, `pollingFrequency: System.TimeSpan` | |
-| `StopRealTimePolling` | `netObjectId: number`, `owner: string`, `properties: array` | |
+| `GetSupportedMetrics` | `netObjectId: number` | `allowRealTimePolling` or `admin` |
+| `StartRealTimePolling` | `netObjectId: number`, `owner: string`, `properties: array`, `pollingExpiration: System.TimeSpan`, `pollingFrequency: System.TimeSpan` | `allowRealTimePolling` or `admin` |
+| `StopRealTimePolling` | `netObjectId: number`, `owner: string`, `properties: array` | `allowRealTimePolling` or `admin` |
 
 The string form takes `V:` prefixed ids.
 
@@ -527,10 +532,10 @@ This is a narrow entity, so the table below is nearly all of it.
 | `CreateApplication` | `nodeId: number`, `applicationTemplateId: number`, `credentialSetId: number`, `skipIfDuplicate: boolean`, `applicationSettings: array` | `manageNodes` |
 | `DeleteApplication` | `applicationId: number` | `manageNodes` |
 | `PollNow` | `applicationId: number` | `manageNodes` |
-| `Unmanage` | `netObjetId: string`, `unmanageTime: string`, `remanageTime: string`, `isRelative: boolean`, `allowOverlapping: boolean` | |
-| `Remanage` | `netObjetId: string` | |
-| `TriggerInstantTemplateGroupAssignment` | none | |
-| `TriggerScheduledTemplateGroupAssignment` | none | |
+| `Unmanage` | `netObjetId: string`, `unmanageTime: string`, `remanageTime: string`, `isRelative: boolean`, `allowOverlapping: boolean` | none on the verb; the entity's `invoke` rule is `allowUnmanage` |
+| `Remanage` | `netObjetId: string` | none on the verb; the entity's `invoke` rule is `allowUnmanage` |
+| `TriggerInstantTemplateGroupAssignment` | none | `manageNodes` |
+| `TriggerScheduledTemplateGroupAssignment` | none | `manageNodes` |
 
 `netObjetId` is spelled that way in the contract, missing the `c`. It is a real,
 documented quirk, not a transcription error here. Positional callers are unaffected;

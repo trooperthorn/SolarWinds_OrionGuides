@@ -59,8 +59,8 @@ authority. See [`data/reference/status-codes.json`](../../data/reference/status-
 and [using-the-data.md](using-the-data.md).
 
 The wording in the Meaning column is the source's own, typos included, so that it can be
-matched against the original. Six rows have no description at all in the source
-(16, 17, 19, 22, 24, 25, 27), and the ids 13, 18, 20, 21 and 23 are absent entirely. A
+matched against the original. Eight rows have no description at all in the source
+(16, 17, 19, 22, 24, 25, 26, 27), and the ids 13, 18, 20, 21 and 23 are absent entirely. A
 gap does not prove the id is unused on your server: query `Orion.StatusInfo` there before
 concluding anything, using the query at the end of this page.
 
@@ -335,8 +335,10 @@ nodes, applications, components, groups and everything else, use the explicit
 python3 tools/schema_query.py path Orion.Nodes Orion.StatusInfo
 ```
 
-which reports only indirect routes through `Orion.Volumes` and the virtualization
-entities, not a direct one.
+which reports five two-hop routes and no direct one: through `Orion.VIM.Hosts` (once as
+`Host`, once as `RelyHost`), `Orion.Volumes`, `Orion.APIPoller.ApiPoller` and
+`Orion.Cman.Container`. Every one of those resolves the *other* object's status, not the
+node's.
 
 ## `Status` versus `PolledStatus`
 
@@ -369,7 +371,7 @@ way to build a report that is subtly wrong.
 | --- | --- | --- | --- |
 | `Status` | `System.Int32` | `System.DashboardEntity`, inherited widely | The integer this page is about |
 | `PolledStatus` | `System.Int32` | `Orion.Nodes` only | Undocumented relationship to `Status` |
-| `ChildStatus` | `System.Int32` | `Orion.Nodes` | A rollup of contributors, not the node's own state |
+| `ChildStatus` | `System.Int32` | `Orion.Nodes` | Declared with no summary, so what it rolls up is **unverified**. Compare it against `Status` on your own server before filtering on it |
 | `CustomStatus` | `System.Boolean` | `Orion.Nodes` | A boolean flag, not a status code |
 | `GroupStatus` | `System.String` | `Orion.Nodes` | A string, so it is not a status integer at all |
 | `StatusDescription` | `System.String` | `System.ManagedEntity` | "Textual information about the status of this entity" |

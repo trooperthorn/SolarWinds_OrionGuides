@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**128 statements across 41 pages.**
+**130 statements across 41 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -122,6 +122,9 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The properties to set on create](../automation/node-management.md#the-properties-to-set-on-create)**
 
 - Which properties are required on create is **not recorded in the published schema**, and the Swagger contract does not mark them either, so the honest statement is: the set below is what SolarWinds' own [`CRUD.AddNode.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/CRUD.AddNode.ps1) sample sets, and every name in it is a real `Orion.Nodes` property in 2026.2.
+**[The pollers](../automation/node-management.md#the-pollers)**
+
+- **The two "no" rows are unverified here.** They come from the sample scripts rather than from the reference.
 **[SNMPv3](../automation/node-management.md#snmpv3)**
 
 - The accepted values for `AuthenticationMethod` and `PrivacyMethod` are not recorded in the published schema; the sample script names `None`, `MD5` and `SHA1` for authentication and `None`, `DES56`, `AES128`, `AES192` and `AES256` for privacy, which is worth treating as indicative rather than authoritative for your release.
@@ -412,6 +415,9 @@ Read this before relying on this repository for something load-bearing. If you h
 **[`Status` versus `PolledStatus`](../schema/status-codes.md#status-versus-polledstatus)**
 
 - How the two differ is **not verified**: the published 2026.2 schema attaches no summary text to either property, and neither the OrionSDK documentation nor any SolarWinds sample script in this repository's sources explains it.
+**[Other status-shaped properties to know before writing a filter](../schema/status-codes.md#other-status-shaped-properties-to-know-before-writing-a-filter)**
+
+- `ChildStatus` — `System.Int32` — `Orion.Nodes` — Declared with no summary, so what it rolls up is **unverified**. Compare it against `Status` on your own server before filtering on it
 
 ## [invoke-verbs.md](../swis/invoke-verbs.md)
 

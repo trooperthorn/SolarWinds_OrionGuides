@@ -78,19 +78,36 @@ python3 tools/schema_query.py props Orion.Nodes --grep interval
 `System.Boolean` that neither official sample sets; read it back after creating a poller to
 see what your server defaulted it to, and set it explicitly if you care.
 
-The poller type names are not entities and are not in the schema data. They come from
-SolarWinds' [Poller Types](https://solarwinds.github.io/OrionSDK/docs/poller-types/)
-reference, which lists every one with a description. The six from the official SNMP and WMI
-samples are:
+The poller type names are not entities and are not in the schema data. Most of them are
+listed with a description in SolarWinds' [Poller
+Types](https://solarwinds.github.io/OrionSDK/docs/poller-types/) reference, but that page is
+not exhaustive: two of the names the samples use do not appear on it at all. The six from the
+official SNMP and WMI samples are:
 
-| Purpose | SNMP sample | WMI sample |
-|:---|:---|:---|
-| Status | `N.Status.ICMP.Native` | `N.Status.ICMP.Native` |
-| Response time | `N.ResponseTime.ICMP.Native` | `N.ResponseTime.ICMP.Native` |
-| Details | `N.Details.SNMP.Generic` | `N.Details.WMI.Vista` |
-| Uptime | `N.Uptime.SNMP.Generic` | `N.Uptime.WMI.XP` |
-| CPU | `N.Cpu.SNMP.CiscoGen3` | `N.Cpu.WMI.Windows` |
-| Memory | `N.Memory.SNMP.CiscoGen3` | `N.Memory.WMI.Windows` |
+| Purpose | SNMP sample | WMI sample | On the Poller Types page? |
+|:---|:---|:---|:---|
+| Status | `N.Status.ICMP.Native` | `N.Status.ICMP.Native` | no |
+| Response time | `N.ResponseTime.ICMP.Native` | `N.ResponseTime.ICMP.Native` | no |
+| Details | `N.Details.SNMP.Generic` | `N.Details.WMI.Vista` | yes |
+| Uptime | `N.Uptime.SNMP.Generic` | `N.Uptime.WMI.XP` | yes |
+| CPU | `N.Cpu.SNMP.CiscoGen3` | `N.Cpu.WMI.Windows` | yes |
+| Memory | `N.Memory.SNMP.CiscoGen3` | `N.Memory.WMI.Windows` | yes |
+
+**The two "no" rows are unverified here.** They come from the sample scripts rather than from
+the reference. `N.ResponseTime.ICMP.Native` at least appears in SolarWinds' [How To Assign
+Specific Poller To A
+Node](https://solarwinds.github.io/OrionSDK/docs/network-performance-monitor/how-to-assign-specific-poller-to-a-node/)
+page; `N.Status.ICMP.Native` appears in neither that page nor the Poller Types reference. The
+nearest thing the reference does carry is `N.StatusAndResponseTime.ICMP.SendEcho`, a combined
+status-and-response-time ICMP poller. Confirm against your own server before scripting these
+names, because the types in use there are queryable:
+
+```sql
+SELECT DISTINCT p.PollerType
+FROM Orion.Pollers p
+WHERE p.NetObjectType = 'N'
+ORDER BY p.PollerType
+```
 
 The CPU and memory pollers in the SNMP column are Cisco-specific; pick the ones that match
 the device. See [pollers.md](pollers.md) for the fuller story of why this step exists.
@@ -521,15 +538,16 @@ SolarWinds'
 [`ChangeSNMPVersion.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/ChangeSNMPVersion.ps1)
 sample sets `SNMPV3Context`, `SNMPV3Username`, `SNMPV3PrivMethod`, `SNMPV3PrivKey`,
 `SNMPV3AuthMethod` and `SNMPV3AuthKey` directly on `Orion.Nodes`. **Those property names are
-not present on `Orion.Nodes` in the 2026.2 schema.** The only SNMP property the entity
-declares in this release is `SNMPVersion`.
+not present on `Orion.Nodes` in the 2026.2 schema.** The entity still carries the v1/v2c
+material, `Community` and `RWCommunity`, and `SNMPVersion` is the only property on it whose
+name mentions SNMP at all; no v3 credential fields remain.
 
 In 2026.2 the credential material lives on a separate hosted entity,
 `Orion.SNMPv3Credentials`, reached from a node through the `SNMPv3Credentials` navigation
 property. It declares 17 properties and supports `read` and `update` (no create, no delete),
 gated on `manageNodes`:
 
-| Read community | Read/write community | Type |
+| Read-only credential | Read/write credential | Type |
 |:---|:---|:---|
 | `Username` | `RWUsername` | `System.String` |
 | `Context` | `RWContext` | `System.String` |

@@ -62,8 +62,8 @@ being observed or not. It supports create, read, update, delete and invoke, all 
 the `admin` right, with read available to everyone. That is stricter than most modules,
 where node management is enough.
 
-It inherits from `System.ManagedEntity` through `System.DashboardEntity`, so it is a
-first-class monitored object: it has a `Status`, it can be unmanaged, it appears in
+It inherits from `System.ManagedEntity`, which itself descends from `System.DashboardEntity`,
+so it is a first-class monitored object: it has a `Status`, it can be unmanaged, it appears in
 `Orion.AlertObjects`, and `UnManaged`, `UnManageFrom` and `UnManageUntil` are queryable on
 it. Unusually, it also declares those three properties itself rather than only inheriting
 them.
@@ -183,14 +183,17 @@ are what identifies it. The extracted schema does not record which properties ar
 keys, so confirm with
 `SELECT p.Name, p.Type FROM Metadata.Property p WHERE p.IsKey = TRUE AND p.Entity.FullName = 'Orion.DPI.QoeStatistics'`
 if you need the declared key. It carries min, average and max for every measure rather
-than a single value: `AvgART`, `MinART`, `MaxART`, `RecordCountART`, and the same pattern
-for `NRT`, `IngressPerSec`, `EgressPerSec` and `TransactionsPerMin`, plus the raw totals
-`Ingress`, `Egress`, `Transactions` and `RecordCount`. It navigates to `Application` and
+than a single value: `AvgART`, `MinART`, `MaxART`, and the same three for `NRT`,
+`IngressPerSec`, `EgressPerSec` and `TransactionsPerMin`, plus the raw totals `Ingress`,
+`Egress`, `Transactions` and `RecordCount`. Only the two response-time measures get their
+own observation count, `RecordCountART` and `RecordCountNRT`; there is no per-measure
+`RecordCount` for throughput or transaction rate. It navigates to `Application` and
 `Probe`, but **not** to `Orion.Nodes` despite declaring `NodeID`.
 
 The `RecordCount*` columns matter more than they look. `AvgART` computed from three
-observations and `AvgART` computed from thirty thousand are not the same claim, and dividing
-by `RecordCountART` is how you weight an average correctly when you aggregate across rows.
+observations and `AvgART` computed from thirty thousand are not the same claim, so when you
+aggregate across rows, weight each `AvgART` by its `RecordCountART` and divide by the total
+of those counts rather than taking a plain average of averages.
 
 `Orion.DPI.QoeApplicationsStatistics` is a different thing despite the similar name: it does
 **not** inherit from `System.StatisticsEntity`, it declares no navigation properties, and it
@@ -292,8 +295,9 @@ should be treated as read-only views.
 This is the question the module's naming invites, and the honest answer has two halves.
 
 **What the schema says.** There is no relationship between any `Orion.DPI.*` entity and any
-`Orion.APM.*` entity in the 2026.2 data. Of the 26 relationship edges declared on
-`Orion.DPI.` entities, all but four stay inside the module, and those four go to
+`Orion.APM.*` entity in the 2026.2 data. Of the 26 relationship edges that touch an
+`Orion.DPI.` entity — twenty-four declared on the DPI entities themselves and two declared
+on `Orion.Nodes` — all but four stay inside the module, and those four go to
 `Orion.Nodes`: `Orion.DPI.ApplicationAssignments.Node`, `Orion.DPI.ProbeAssignments.Node`,
 and the two reverse edges `Orion.Nodes.DPIApplicationAssignment` and
 `Orion.Nodes.DPIProbeAssignment`. The one further way out is inherited rather than declared:

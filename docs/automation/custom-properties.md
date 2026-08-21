@@ -318,7 +318,8 @@ Skipping the read is the classic way to wipe an allowed-value list. If you pass
 Orion.NodesCustomProperties.DeleteCustomProperty(PropertyName) -> System.Void
 ```
 
-One argument on every `System.CustomPropertiesEntity` descendant. This drops the column and
+One required argument on 24 of the 25 `System.CustomPropertiesEntity` descendants; the
+exception is `Orion.APM.ApplicationCustomProperties`, covered below. This drops the column and
 every value in it across every node. It is not reversible and there is no per-object
 confirmation, so find out what you are about to lose first:
 
@@ -336,9 +337,10 @@ Check nothing depends on it before you delete: alert definitions, group definiti
 and account limitations can all be scoped by a custom property, and none of them will tell
 you in advance.
 
-`Orion.APM.ApplicationCustomProperties.DeleteCustomProperty` takes three arguments,
-`(propertyName, sourceId, sourceName)`, not one. Do not assume the signature carries across
-entities.
+`Orion.APM.ApplicationCustomProperties.DeleteCustomProperty` takes three parameters,
+`(propertyName, sourceId, sourceName)`, rather than one. Only `propertyName` is required, so a
+one-argument call still works there, but the parameter list is not the same list. Do not
+assume a signature carries across entities.
 
 ### The signatures are not identical across entities
 
@@ -473,14 +475,21 @@ node_uri = swis.query(
 swis.update(node_uri + "/CustomProperties", DataCentre="London", Owner="Network Engineering")
 ```
 
+Over raw REST the URI goes into the path **unencoded**, immediately after the base path, which
+is what the official examples show. `--path-as-is` stops curl collapsing the `//` in `swis://`:
+
 ```bash
-curl -sS -X POST \
+curl -sS -X POST --path-as-is \
   -u 'svc-automation:...' \
   --cacert /etc/ssl/certs/orion-swis.pem \
   -H 'Content-Type: application/json' \
   -d '{"DataCentre":"London"}' \
-  'https://orion.example.com:17774/SolarWinds/InformationService/v3/Json/swis%3A%2F%2Fabcdef%2FOrion%2FOrion.Nodes%2FNodeID%3D42%2FCustomProperties'
+  'https://orion.example.com:17774/SolarWinds/InformationService/v3/Json/swis://abcdef/Orion/Orion.Nodes/NodeID=42/CustomProperties'
 ```
+
+Percent-encoding the URI, or letting an HTTP client normalise the path for you, is the usual
+reason a Read, Update or Delete fails while `/Query` works. See
+[../swis/uris.md](../swis/uris.md#using-uris-in-rest-paths).
 
 The update is partial: properties you do not name are left alone, so setting one custom
 property does not clear the others.
@@ -676,7 +685,8 @@ ORDER BY cp.Field
   different order.
 - **Assuming one signature fits all entities.**
   `Orion.APM.ApplicationCustomProperties.CreateCustomProperty` has 15 parameters with
-  different names, and its `DeleteCustomProperty` takes three arguments rather than one.
+  different names, and its `DeleteCustomProperty` declares three, `(propertyName, sourceId,
+  sourceName)`, where every other custom-properties entity declares one.
 - **A `403` on the create.** Invoke on `Orion.NodesCustomProperties` requires `admin`, while
   setting a value only requires `manageNodes`. A service account that populates tags cannot
   necessarily define them.

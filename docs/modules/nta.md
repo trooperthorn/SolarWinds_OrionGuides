@@ -325,8 +325,9 @@ IP address groups are the operator's own naming of address space: "Datacenter A"
 WiFi", "Partner VPN". Four entities model them.
 
 `Orion.Netflow.IPAddressGroups` is the group itself, with `IPAddressGroupID`, `Name` and
-`Enabled`, and it has twenty navigation properties into the flow views because every flow
-entity can point at it from both ends. `Orion.Netflow.IPAddressGroupRanges` holds the
+`Enabled`, and it has twenty navigation properties: eighteen into the flow views, because
+every flow entity can point at it from both ends, plus `SegmentsCS` and `SegmentsPivot`
+into the two segment entities below. `Orion.Netflow.IPAddressGroupRanges` holds the
 address ranges: `IPRangeStart`, `IPRangeEnd`, `CIDRPrefix`, `IsIPv6`, `System`,
 `LowerBoundNormalized`, `UpperBoundNormalized`, plus a denormalised `IPAddressGroupName`.
 
@@ -557,8 +558,10 @@ The rules that follow from this:
    `ObservationTimestamp` on `Orion.Netflow.NodeStatistics`.
 2. **Use a half-open range**, `>= @startUtc AND < @endUtc`, so consecutive windows neither
    overlap nor leave a gap.
-3. **Narrow before you aggregate.** A `NodeID`, `InterfaceID` or `ApplicationID` filter in
-   the same `WHERE` clause costs nothing and cuts the scan further.
+3. **Narrow before you aggregate.** A `NodeID` or `ApplicationID` filter in the same
+   `WHERE` clause costs nothing and cuts the scan further. To narrow by interface, mind
+   which column exists: `Orion.Netflow.Flows` has `InterfaceIDRx` and `InterfaceIDTx`, not
+   `InterfaceID`, which only the two `FlowsByInterface*` entities carry.
 4. **Do not use `AddDay`, `AddHour` or the other date-math functions in a flow query.**
    SolarWinds states plainly in the
    [NTA 4.0 Entity Model](https://solarwinds.github.io/OrionSDK/docs/netflow-traffic-analyzer/nta-4-0-entity-model/)
@@ -693,9 +696,10 @@ ORDER BY SUM(cc.Bytes) DESC
 
 ### 6. Top autonomous systems, with the join written by hand
 
-`Orion.Netflow.FlowsByAS` adds the non-directional `ASID` column but publishes only
-`SourceAutonomousSystem` and `DestinationAutonomousSystem` navigation properties, neither of
-which follows `ASID`. This is the case where you write the join yourself.
+`Orion.Netflow.FlowsByAS` adds the non-directional `ASID` column, but the only autonomous
+system navigation properties it publishes are `SourceAutonomousSystem` and
+`DestinationAutonomousSystem`, neither of which follows `ASID`. This is the case where you
+write the join yourself.
 
 ```sql
 SELECT TOP 20
