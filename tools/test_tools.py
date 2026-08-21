@@ -567,6 +567,41 @@ class TestNetObjectPrefixes(unittest.TestCase):
         self.assertEqual(self.cer.netobject_claims("The prefix is `TSR:`.", self.prefixes), [])
 
 
+class TestRightsClaims(unittest.TestCase):
+    """A right named in prose has to be one the schema declares.
+
+    An invented right sends a reader to look for a permission that does not exist, which
+    is a worse outcome than no guidance at all.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import check_entity_references as cer
+
+        cls.cer = cer
+        cls.rights = cer.load_rights(VERSION)
+
+    def test_the_rights_the_guides_lean_on_are_real(self):
+        for right in ("manageNodes", "allowUnmanage", "allowRealTimePolling", "admin"):
+            self.assertIn(right, self.rights)
+
+    def test_real_right_passes(self):
+        self.assertEqual(
+            self.cer.right_claims("It requires the `manageNodes` right.", self.rights), [])
+
+    def test_invented_right_is_caught(self):
+        self.assertEqual(
+            self.cer.right_claims("It requires the `manageEverything` right.", self.rights),
+            ["manageEverything"])
+
+    def test_an_operation_named_as_a_right_is_not_reported(self):
+        # The guides write "an entity-level `invoke` right", meaning the right governing
+        # the invoke operation rather than a right called invoke. Reporting those would be
+        # noise, so the pattern only reads the "requires ..." form.
+        text = "363 belong to an entity that declares an `invoke` right of its own."
+        self.assertEqual(self.cer.right_claims(text, self.rights), [])
+
+
 class TestDotNetTypeNames(unittest.TestCase):
     """Verb signatures quoted in the documentation carry escaped .NET generics."""
 

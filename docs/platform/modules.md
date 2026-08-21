@@ -68,8 +68,8 @@ Beyond that table the schema also carries namespaces for cloud monitoring
 inventory (`Orion.AssetInventory.`, 23), Server Configuration Monitor (`Orion.SCM.`, 23),
 Patch Manager integration (`Orion.PM.`, 30), Access Rights Manager integration
 (`Orion.ARM.`, 9), Security Event Manager integration (`Orion.SEM.`, 14), anomaly
-detection (`Orion.AIIM.`, 16), and about seventy more smaller prefixes. To see the whole
-list for yourself:
+detection (`Orion.AIIM.`, 16), and 56 more smaller `Orion.*` prefixes: 76 in total, of
+which the twenty named above are the large ones. To see the whole list for yourself:
 
 ```bash
 python3 tools/schema_query.py stats
@@ -268,9 +268,12 @@ a navigation property named after the child (`VCenters.DataCenters`,
 both hosts and clusters, and here the casing bites: the entity is `Orion.VIM.Datastores`
 with a lowercase `s`, but the navigation property on both parents is `DataStores` with a
 capital `S`. Above all of them sits
-`Orion.Virtualization.Instance`, an abstract base that `Orion.VIM.VirtualMachines`
-inherits from, so a query against the base type returns instances from every supported
-hypervisor.
+`Orion.Virtualization.Instance`, the base type that `Orion.VIM.VirtualMachines` inherits
+from. Its four other descendants are cloud instances, not hypervisor VMs
+(`Orion.Cloud.Instances` plus the AWS, Azure and GCP variants), so a query against the
+base type returns virtual machines and cloud instances side by side. It is also where
+`VirtualMachineID` and `Name` are declared, which is why `show Orion.VIM.VirtualMachines`
+does not list them.
 
 Confirm the exact navigation property names before writing a join:
 
@@ -281,8 +284,9 @@ python3 tools/schema_query.py path Orion.VIM.VirtualMachines Orion.VIM.Hosts
 
 ## IPAM: IP Address Manager
 
-The only major module whose namespace is a bare top-level prefix rather than
-`Orion.something`. 77 entities, split between address management (`IPAM.Subnet`,
+One of only three modules whose namespace is a bare top-level prefix rather than
+`Orion.something`; the other two are NCM (`Cirrus.` and `NCM.`) and DPA (`DPA.`).
+77 entities, split between address management (`IPAM.Subnet`,
 `IPAM.IPNode`, `IPAM.IPInfo`, `IPAM.Conflict`), DHCP (`IPAM.DhcpScope`, `IPAM.DhcpLease`,
 `IPAM.DhcpRange`), and DNS (`IPAM.DnsZone`, `IPAM.DnsView`).
 
@@ -293,8 +297,9 @@ ORDER BY Address
 ```
 
 IPAM has the longest and most version-dependent API history of any module. SolarWinds
-publishes separate pages per generation (4.5.x, 4.6, 4.7, 4.9, 2019.4 and later, and the
-Observability 2022.2 revision). Start from
+publishes separate pages per generation: "Ipam 4.5 X Api", "Ipam 4.6 Api", "Ipam 4.7 Api",
+"Ipam 4.9 Api", "IPAM 2019.4+ API", "IPAM Observability 2022.2", and "IPAM vNext API".
+Start from
 [IPAM API](https://solarwinds.github.io/OrionSDK/docs/ip-address-manager/ipam-api/) and
 pick the page matching your version, because the verb signatures genuinely changed between
 them.
@@ -319,7 +324,8 @@ ORDER BY p.Node.Caption, p.Name
 
 ## VNQM: VoIP and Network Quality Manager, under the IpSla prefix
 
-140 entities, the largest module namespace after SAM. It covers two related things: IP SLA
+140 entities, tied with SAM (`Orion.APM.`) for the largest module namespace in the table
+above. It covers two related things: IP SLA
 operations configured on routers (`Orion.IpSla.Operations`, `Orion.IpSla.Sites`,
 `Orion.IpSla.Paths`) and Cisco call manager monitoring (`Orion.IpSla.CCMMonitoring`,
 `Orion.IpSla.CCMPhones`, `Orion.IpSla.CCMGateways`, `Orion.IpSla.VoipCallDetails`).
@@ -354,9 +360,15 @@ than a module installed into it, and the schema reflects that with two namespace
   is the monitored instance as the platform sees it, and the various
   `Orion.DPA.DatabaseInstanceApplication*` entities correlate DPA instances with SAM
   applications monitoring the same database.
-- `DPA.` (18 entities) is a federated pass-through to the DPA server itself:
+- `DPA.` (18 entities) surfaces data that lives on the DPA server itself:
   `DPA.PerformanceOverview`, `DPA.WaitData`, `DPA.BlockingChain`, `DPA.Deadlock`,
-  `DPA.SQLQueryInfo`, `DPA.ProblemSQLStatement`.
+  `DPA.SQLQueryInfo`, `DPA.ProblemSQLStatement`. Their summaries describe DPA's own
+  screens (`DPA.BlockingChain` is "trees of blocker-blockee relationship as in the
+  'Blockers' tab in the UI"), and most of them derive from `System.ExtensionEntity` rather
+  than `System.Entity` directly. Whether SWIS classifies them as federated entities is not
+  recorded in the extracted schema; that claim is unverified here. Confirm it on a live
+  server with `SELECT FullName, IsFederated FROM Metadata.Entity WHERE FullName LIKE
+  'DPA.%'`.
 
 ```sql
 SELECT TOP 10 DatabaseInstanceID, Name, Status, StatusDescription
@@ -366,11 +378,14 @@ ORDER BY Name
 
 Several `DPA.` entities require parameters in the `WHERE` clause and will fail without
 them. `DPA.ResourceData`, for example, documents `DatabaseId` as required, and
-`DPA.SQLQueryInfo` requires both `DatabaseId` and `Hash`. Check the entity summary before
-querying:
+`DPA.SQLQueryInfo` requires both `DatabaseId` and the SQL hash. Mind the spelling of that
+second one: the entity summary calls it "Hash", but the property you actually filter on is
+named `SqlHash`, so `WHERE Hash = ...` will not resolve. Check the entity summary and the
+property list before querying:
 
 ```bash
 python3 tools/schema_query.py show DPA.ResourceData
+python3 tools/schema_query.py show DPA.SQLQueryInfo
 ```
 
 ## Log Analyzer, under the OLM prefix

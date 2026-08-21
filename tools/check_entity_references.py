@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
-"""Check that entity names mentioned in prose actually exist in the schema.
+"""Check that names and simple facts stated in prose match the schema.
 
-validate_swql.py covers entity names inside queries. It does not see the ones in a
-sentence, a table cell, or a bullet, and those are just as easy to get wrong and just as
-damaging to trust: a reader who finds one invented name stops believing the rest.
-
-This scans every markdown file for tokens shaped like SWIS entity names, and reports the
-ones the schema does not have.
+validate_swql.py covers what is inside a query. It does not see the sentence, the table
+cell, or the bullet, and those are just as easy to get wrong and just as damaging to
+trust: a reader who finds one invented name stops believing the rest.
 
     python tools/check_entity_references.py
     python tools/check_entity_references.py --strict     # non-zero exit on any unknown
+
+Four things are checked, each a name or fact that looks right and fails on a live server:
+
+  - **Entity and member names.** A token shaped like a SWIS entity name must exist, and
+    ``Orion.Nodes.Foo`` must fail even though ``Orion.Nodes`` is real.
+  - **Property types.** "``Cirrus.Nodes.NodeID`` is a ``System.Guid``" is checked against
+    the declared type. The guides explain a whole class of silent join failure with two
+    such facts, so getting one backwards would make the explanation wrong.
+  - **NetObject prefixes.** A verb taking a netObjectId wants ``N:42`` rather than ``42``,
+    and an invented prefix is accepted by the call and acts on nothing.
+  - **Rights.** "requires the ``manageNodes`` right" is checked against the rights the
+    schema actually declares, since an invented one sends a reader chasing a permission
+    that does not exist.
 
 Documentation legitimately names entities that do not exist, when warning readers off a
 form they would otherwise assume, or when explaining a rename. Four things are accepted:
@@ -266,6 +276,40 @@ def load_netobject_prefixes() -> dict[str, list[str]]:
     return prefixes
 
 
+# "requires the `manageNodes` right", "requires `admin`". Deliberately narrow: the guides
+# also write "an entity-level `invoke` right", which names the operation a right governs
+# rather than a right called invoke, and reporting those would be noise.
+RIGHT_RE = re.compile(r"requires?\s+(?:the\s+)?`(?P<right>\w+)`(?:\s+right)?\b", re.I)
+
+
+def load_rights(version: str) -> set[str]:
+    """Every right name the schema declares, at entity or verb level."""
+    rights: set[str] = set()
+    ent_dir = os.path.join(ROOT, "data", "schema", version, "entities")
+    if not os.path.isdir(ent_dir):
+        return rights
+    for fname in sorted(os.listdir(ent_dir)):
+        if not fname.endswith(".json"):
+            continue
+        for rec in json.load(open(os.path.join(ent_dir, fname), encoding="utf-8")):
+            for entry in rec.get("accessControl") or []:
+                if entry.get("right"):
+                    rights.add(entry["right"])
+            for verb in rec.get("verbs") or []:
+                for entry in verb.get("accessControl") or []:
+                    if entry.get("right"):
+                        rights.add(entry["right"])
+    return rights
+
+
+def right_claims(text: str, rights: set[str]) -> list[str]:
+    """Return the rights named in the text that the schema does not declare."""
+    flat = " ".join(text.split())
+    lowered = {r.lower() for r in rights}
+    return [m.group("right") for m in RIGHT_RE.finditer(flat)
+            if m.group("right").lower() not in lowered]
+
+
 def netobject_claims(text: str, prefixes: dict[str, list[str]]) -> list[str]:
     """Return the NetObject prefixes used in the text that the reference does not list."""
     unknown = []
@@ -398,6 +442,9 @@ def main() -> None:
     wrong_types: list[tuple[str, str, str, str]] = []
     bad_netobjects: list[tuple[str, str]] = []
     netobject_prefixes = load_netobject_prefixes()
+    bad_rights: list[tuple[str, str]] = []
+    known_rights = load_rights(args.version)
+    rights_checked = 0
     netobjects_checked = 0
     types_checked = 0
     checked = 0
@@ -436,11 +483,16 @@ def main() -> None:
             for written in netobject_claims(text, netobject_prefixes):
                 bad_netobjects.append((rel, written))
 
+        if known_rights:
+            rights_checked += len(RIGHT_RE.findall(" ".join(text.split())))
+            for name in right_claims(text, known_rights):
+                bad_rights.append((rel, name))
+
     print(
         f"{len(files) - skipped} authored file(s), {checked} entity reference(s) checked "
         f"({skipped} generated file(s) skipped, {negated} absent name(s) named inside a "
-        f"negation and accepted); {types_checked} property-type and "
-        f"{netobjects_checked} NetObject claim(s) checked"
+        f"negation and accepted); {types_checked} property-type, "
+        f"{netobjects_checked} NetObject and {rights_checked} rights claim(s) checked"
     )
 
     if wrong_types:
@@ -456,8 +508,14 @@ def main() -> None:
             print(f"  - {rel}: {written}", file=sys.stderr)
         print("      Prefixes are in data/reference/netobject-types.json.", file=sys.stderr)
 
+    if bad_rights:
+        print(f"\n{len(bad_rights)} right(s) the schema does not declare:", file=sys.stderr)
+        for rel, name in bad_rights:
+            print(f"  - {rel}: {name}", file=sys.stderr)
+        print(f"      Known rights: {', '.join(sorted(known_rights))}", file=sys.stderr)
+
     if not unknown:
-        if not wrong_types and not bad_netobjects:
+        if not wrong_types and not bad_netobjects and not bad_rights:
             print("every entity named in the documentation exists in the schema")
             return
         if args.strict:

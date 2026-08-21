@@ -84,17 +84,20 @@ A third component appears for patch releases, giving versions such as `2024.4.1`
 the SDK publishes schema for 2024.1, 2024.2, and 2024.4 but no 2024.3, and for 2025.1,
 2025.2, and 2025.4 but no 2025.3.
 
-The scheme is older than the oldest schema the SDK publishes. SolarWinds' documentation
-tree contains an IPAM page titled "2019.4 and higher versions", so year.release was in use
-by 2019.4 at the latest, five releases before the earliest published schema.
+The scheme is much older than the oldest schema the SDK publishes. The SDK's own pages
+date features to "Orion Platform 2015.1", "2016.1", "2017.1", "2017.3", "2018.2" and
+"2018.4", so year.release was in use by 2015.1 at the latest, eight years before the
+earliest published schema (2023.1).
 
-Before it, individual modules carried their own independent version numbers, and the SDK
-documentation tree preserves the evidence: it holds separate IP Address Manager API pages
+Module-specific version numbers ran alongside it rather than purely before it. The SDK
+documentation tree preserves both halves: it holds separate IP Address Manager API pages
 for versions **4.5.x**, **4.6**, **4.7**, and **4.9**, each documenting a different API
-shape, alongside the "2019.4 and higher versions" page and an "Observability 2022.2" page.
-Module-specific numbers like these still turn up in older community material. If you see
-one, it predates the unified scheme, and you will have to translate it to a platform
-version before you can look up the matching schema.
+shape, alongside pages titled "IPAM 2019.4+ API", "IPAM Observability 2022.2" and "IPAM
+vNext API". The SDK's alerts page pins the two schemes together explicitly: the alerting
+entities are "new in Orion Platform 2015.1, which is the basis of NPM 11.5, SAM 6.2, and
+other early 2015 releases". Module-specific numbers like these still turn up in older
+community material. If you see one, you will have to translate it to a platform version
+before you can look up the matching schema.
 
 ## The SDK publishes a schema per version
 
