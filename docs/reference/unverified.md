@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**28 statements across 15 pages.**
+**30 statements across 16 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -94,6 +94,15 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The tree is rooted at System.Entity](../schema/entity-model.md#the-tree-is-rooted-at-systementity)**
 
 - Treat it as unverified.
+
+## [status-codes.md](../schema/status-codes.md)
+
+**[Resolving status on a live server](../schema/status-codes.md#resolving-status-on-a-live-server)**
+
+- The published 2026.2 schema gives no summary text for any of these twelve, so the names and types above are verified but their meanings beyond the obvious are unverified.
+**[`Status` versus `PolledStatus`](../schema/status-codes.md#status-versus-polledstatus)**
+
+- How the two differ is **not verified**: the published 2026.2 schema attaches no summary text to either property, and neither the OrionSDK documentation nor any SolarWinds sample script in this repository's sources explains it.
 
 ## [date-and-time.md](../swql/date-and-time.md)
 

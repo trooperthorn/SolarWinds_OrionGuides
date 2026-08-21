@@ -297,10 +297,10 @@ everything: `Orion.SRM.FIleServerIdentification` has a capital `I` where the cur
 has a lowercase `l`, and `Orion.VIM.LUNs` became `Orion.VIM.Luns`. Entity names are matched
 exactly by SWIS, so both spellings fail on a live server.
 
-Whether a replacement exists at all also depends on licensing. The four UCS and F5 entries
-with no successor may be genuinely removed, or may simply be absent from the published
-schema because that module is not part of the documented build. Ask your own server before
-concluding they are gone:
+Whether a replacement exists at all also depends on licensing. The entries with no
+successor may be genuinely removed, or may simply be absent from the published schema
+because that module is not part of the documented build, and which of the two it is cannot
+be verified from the schema alone. Ask your own server before concluding they are gone:
 
 ```sql
 SELECT FullName, BaseType, CanCreate, CanInvoke
