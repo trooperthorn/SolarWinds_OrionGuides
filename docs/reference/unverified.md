@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**34 statements across 19 pages.**
+**36 statements across 20 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -20,6 +20,15 @@ Read this before relying on this repository for something load-bearing. If you h
 **[CreateCustomProperty](../automation/custom-properties.md#createcustomproperty)**
 
 - They are not recorded in the schema data.
+
+## [dpa.md](../modules/dpa.md)
+
+**[2. Which databases are alarming, and on what](../modules/dpa.md#2-which-databases-are-alarming-and-on-what)**
+
+- `WaitTimeCategory` runs -1 to 10 with DOWN(-1) and IDLE(0) at the bottom; the schema description is truncated in the extracted data, so the meaning of the upper values is **unverified** here.
+**[What is not verified here](../modules/dpa.md#what-is-not-verified-here)**
+
+- ## What is not verified here
 
 ## [hardware-health.md](../modules/hardware-health.md)
 
