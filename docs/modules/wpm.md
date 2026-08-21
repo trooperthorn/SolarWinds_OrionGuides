@@ -501,8 +501,9 @@ Invoke-SwisVerb $swis 'Orion.SEUM.TransactionCustomProperties' 'CreateCustomProp
       $null, $null, $null, $null, $null, $null) | Out-Null
 ```
 
-All ten required arguments have to be sent even though positions 4 to 9 are unused, which is
-the same shape SolarWinds' own
+All ten required arguments have to be sent even though `ValidRange`, `Parser`, `Header`,
+`Alignment`, `Format` and `Units` are documented as unused and only have to be present. That
+is the same shape SolarWinds' own
 [Managing Custom Properties](https://solarwinds.github.io/OrionSDK/docs/managing-custom-properties/)
 page uses for `Orion.NodesCustomProperties`. The six optional arguments can be omitted
 entirely. The parameter-by-parameter walkthrough is in

@@ -34,8 +34,9 @@ surprise in Orion automation.
 
 ### The properties to set on create
 
-The schema does not publish a "required on create" flag, and neither does the Swagger
-contract, so the honest statement is: the set below is what SolarWinds' own
+Which properties are required on create is **not recorded in the published schema**, and
+the Swagger contract does not mark them either, so the honest statement is: the set below is
+what SolarWinds' own
 [`CRUD.AddNode.ps1`](https://github.com/solarwinds/OrionSDK/blob/master/Samples/PowerShell/CRUD.AddNode.ps1)
 sample sets, and every name in it is a real `Orion.Nodes` property in 2026.2.
 
@@ -540,7 +541,7 @@ gated on `manageNodes`:
 | `PrivacyKeyIsPassword` | `RWPrivacyKeyIsPassword` | `System.Boolean` |
 
 It also carries `NodeID`. The accepted values for `AuthenticationMethod` and `PrivacyMethod`
-are not published in the schema; the sample script names `None`, `MD5` and `SHA1` for
+are not recorded in the published schema; the sample script names `None`, `MD5` and `SHA1` for
 authentication and `None`, `DES56`, `AES128`, `AES192` and `AES256` for privacy, which is
 worth treating as indicative rather than authoritative for your release. Confirm what your
 server accepts from the web console's credential editor before scripting it.
@@ -584,8 +585,8 @@ Set-SwisObject $swis -Uri "$nodeUri/SNMPv3Credentials" -Properties @{
 
 The URI composition is standard for a hosted entity and matches the `CustomProperties`
 pattern documented on the official [URIs](https://solarwinds.github.io/OrionSDK/docs/uris/)
-page, but this repository has no live server to confirm it against for
-`SNMPv3Credentials` specifically. If your server rejects it, address the entity by its own
+page. It cannot be verified here for `SNMPv3Credentials` specifically, so treat this URI
+form as unverified. If your server rejects it, address the entity by its own
 key instead, and confirm the exact form the same way you would confirm anything else about
 your server:
 
@@ -609,9 +610,9 @@ Balancing](https://solarwinds.github.io/OrionSDK/docs/polling-engine-load-balanc
 
 Searching the verb data for `AssignToEngine` returns `Orion.AgentManagement.Agent.AssignToEngine(agentId, pollerId)`,
 which moves an *agent*, and a set of `Core.AssignToEngine` verbs on `Cortex.*` entities
-including `Cortex.Orion.Node`, which publish **no parameter list** in the extracted schema and
-require the `admin` right. Because their signatures are not published, do not call them from
-a script on the strength of this page; if you want to know what your server exposes, ask it:
+including `Cortex.Orion.Node`, whose parameter lists are **not recorded in the published schema** and
+which require the `admin` right. Because their signatures cannot be verified here, do not
+call them from a script on the strength of this page; if you want to know what your server exposes, ask it:
 
 ```sql
 SELECT Position, Name, Type, IsOptional
@@ -833,7 +834,8 @@ WHERE n.NodeID IN @ids
 
 The platform removes a node's dependent objects along with it rather than leaving orphans,
 which is why the operation is worth respecting. This page does not enumerate exactly which
-child rows go, because that is server behaviour rather than a schema fact; if it matters for
+child rows go: that is runtime behaviour and it cannot be verified from the schema. If it
+matters for
 your case, count the children before and after on a single test node:
 
 ```sql

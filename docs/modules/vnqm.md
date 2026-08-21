@@ -106,10 +106,12 @@ and `Description` is free text.
 the target is not a monitored node, which is why a report should prefer them over joining
 `Orion.Nodes` twice.
 
-**How it runs.** `Frequency` is the interval, `LifeTimeUtc` is how long the router keeps the
-operation alive, and `IsAutoConfigured` records whether VNQM created the operation itself
-rather than discovering one an engineer configured by hand. That flag matters before anybody
-starts deleting things.
+**How it runs.** `Frequency` is the test interval, `LifeTimeUtc` is a `System.DateTime` whose
+name points at the operation's lifetime on the router, and `IsAutoConfigured` is a boolean
+that separates operations VNQM set up itself from ones it discovered. That last flag matters
+before anybody starts deleting things. None of the three carries a description in the schema,
+so the readings of `LifeTimeUtc` and `IsAutoConfigured` given here are inferences and are
+listed in [what is not verified here](#what-is-not-verified-here).
 
 **How it is doing.** `OperationStateID`, `OperationStatusID`, `StatusMessage`,
 `DateChangedUtc`, `OperationResultID` and `OperationResultRecordTime`, plus `Deleted`, which
@@ -247,7 +249,8 @@ particular console resources and give you bare `OperationInstanceID` values.
 | `Orion.IpSla.NonMOSUdpJitterOperationStats` | UDP jitter operations that do not | the same minus MOS |
 | `Orion.IpSla.IcmpPathJitterOperationStats` | ICMP path jitter | the same minus MOS, but with the three round trip time columns declared as `System.Double` rather than `System.Int32` |
 | `Orion.IpSla.NonPathOperationStats` | everything else | round trip time only |
-| `Orion.IpSla.RpmOperationStats`, `Orion.IpSla.RpmTimestampOperationStats` | Juniper RPM operations | round trip time, jitter, packet loss |
+| `Orion.IpSla.RpmOperationStats` | operations of the RPM family, which the schema does not expand | round trip time, jitter, packet loss |
+| `Orion.IpSla.RpmTimestampOperationStats` | the timestamped variant of the same family | the above plus egress and ingress round trip time, egress and ingress jitter, and standard deviations of both round trip times: 33 columns |
 
 All seven of those entities inherit from `System.StatisticsEntity` and all seven are
 navigable from an operation, though the navigation property names are not consistent:
@@ -318,6 +321,12 @@ the result will reveal, so alias the column to something that names the metric.
   `OneWayDelayDS`.
 - On calls, the split is `OrigJitter` and `DestJitter`, with `OrigLatency` / `DestLatency`
   and `OrigPacketLoss` / `DestPacketLoss` alongside.
+- `Orion.IpSla.RpmTimestampOperationStats` uses a third vocabulary for the same idea:
+  `MinJitterEgress` / `MaxJitterEgress` / `AvgJitterEgress` against
+  `MinJitterIngress` / `MaxJitterIngress` / `AvgJitterIngress`, with matching
+  `...EgressRtt` and `...IngressRtt` columns and standard deviations of both. Three
+  vocabularies for one concept across one module is unusual and is the reason to look the
+  column up rather than reuse a name from a sibling entity.
 
 A one-way problem is invisible in the combined column and obvious in the SD/DS pair, which is
 the entire reason the directional columns exist. If you are diagnosing "calls are fine one
@@ -362,9 +371,11 @@ python3 tools/schema_query.py show Orion.IpSla.CCMMonitoring
 ### Regions
 
 `Orion.IpSla.CCMRegions` is small and structurally important: `RegionID`,
-`CCMMonitoringID`, `RegionIndex`, `RegionName`, `DetailsUrl`. A region in Cisco Unified
-Communications Manager is the unit that codec and bandwidth policy is set on, which is why
-call quality reported by region is a meaningful grouping rather than an arbitrary one.
+`CCMMonitoringID`, `RegionIndex`, `RegionName`, `DetailsUrl`. Regions are read from the call
+manager rather than defined in the platform, which is why grouping call quality by region is
+a meaningful cut rather than an arbitrary one: it follows the dial plan's own structure. What
+a region governs inside the call manager is that product's behaviour and not something this
+schema states.
 
 Its three outbound navigations are the interesting part:
 `Orion.IpSla.CCMRegions.CallDetailsAsOrigin` and
@@ -1106,6 +1117,9 @@ your own server.
 | `EndPointType` on `Orion.IpSla.VoipGatewayEndpoints` distinguishes PRI from other trunk kinds | Undocumented `System.Int32` | `SELECT ep.EndPointType, COUNT(ep.VoipGatewayEndpointID) AS Trunks FROM Orion.IpSla.VoipGatewayEndpoints ep GROUP BY ep.EndPointType` |
 | `CallOrigin` and `VoipGatewayChannelMediaTypeID` on `Orion.IpSla.VoipGatewayChannelStats` | Undocumented integers with no lookup entity in the module | `SELECT cs.CallOrigin, cs.VoipGatewayChannelMediaTypeID, SUM(cs.CallCount) AS Calls FROM Orion.IpSla.VoipGatewayChannelStats cs WHERE cs.RecordTime >= @startUtc GROUP BY cs.CallOrigin, cs.VoipGatewayChannelMediaTypeID` |
 | `Orion.IpSla.CCMPhones.Status` uses the platform status codes | The column is `System.Int32`, which matches `Orion.StatusInfo.StatusId`, and the status reference documents a VNQM meaning for code 0. The schema does not state the mapping for this specific entity | `SELECT p.Status, st.StatusName, COUNT(p.ID) AS Phones FROM Orion.IpSla.CCMPhones p JOIN Orion.StatusInfo st ON st.StatusId = p.Status GROUP BY p.Status, st.StatusName` and see whether the names are sensible for phones |
+| `LifeTimeUtc` on `Orion.IpSla.Operations` is the operation's lifetime on the router | Inferred from the name; the column has no description | `SELECT TOP 25 o.OperationName, o.Frequency, o.LifeTimeUtc, o.DateChangedUtc FROM Orion.IpSla.Operations o WHERE o.Deleted = FALSE` and see whether the values sit in the future |
+| `IsAutoConfigured` separates operations VNQM created from ones it discovered | Inferred from the name; the column has no description. The same flag exists on `Orion.IpSla.Sites` and `Orion.IpSla.AlertQos` | `SELECT o.IsAutoConfigured, COUNT(o.OperationInstanceID) AS Operations FROM Orion.IpSla.Operations o WHERE o.Deleted = FALSE GROUP BY o.IsAutoConfigured` and compare against what your team configured by hand |
+| `Orion.IpSla.RpmOperationStats` and `Orion.IpSla.RpmTimestampOperationStats` serve a non-Cisco operation family | The entity names are not expanded anywhere in the schema and neither carries a description | `SELECT s.OperationTypeID, COUNT(s.RecordTime) AS Samples FROM Orion.IpSla.RpmOperationStats s WHERE s.RecordTime >= @startUtc GROUP BY s.OperationTypeID` and resolve the ids through `Orion.IpSla.OperationTypes` |
 | The retention windows behind the `Detail` / `Hourly` / `Daily` rollups | Configured per installation and not in the schema | Compare `SELECT MIN(d.RecordTime) AS Oldest FROM Orion.IpSla.OperationResultsDetail d` against the same query on the `Hourly` and `Daily` entities |
 | The metric each `ThresholdTypeID` refers to | Not enumerated; the readable name is on the lookup entity | `SELECT t.ThresholdTypeID, t.ThresholdType, t.IsReverse FROM Orion.IpSla.ThresholdTypes t ORDER BY t.ThresholdTypeID` |
 | VNQM publishes no verbs on any release | Verified for 2026.2 only, from `data/schema/2026.2/verbs.json` | The `Metadata.Verb` query in [Verbs](#verbs), run against your own server |

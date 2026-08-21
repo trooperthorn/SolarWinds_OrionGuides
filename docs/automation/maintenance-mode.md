@@ -18,7 +18,8 @@ puts it plainly:
 
 That gap is the cost, and it is the reason to think for a second before reaching for
 unmanage. The object moves to status `9`, `Unmanaged`, whose rank in `Orion.StatusInfo` is
-`499`, and it stops contributing to availability calculations for the window.
+`499`, and it stops producing the data that availability and response-time charts are drawn
+from.
 
 **If you want data but not alerts, use alert suppression instead.** `Orion.AlertSuppression`
 exists for exactly this. It takes entity **URIs** rather than NetObject ids, which is the

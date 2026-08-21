@@ -125,7 +125,8 @@ Orion.NodesCustomProperties.CreateCustomProperty(
 The allowed `ValueType` strings and the "unused, pass null" descriptions for positions 4 to 9
 come from SolarWinds'
 [Managing Custom Properties](https://solarwinds.github.io/OrionSDK/docs/managing-custom-properties/)
-page, which is the authority for them. They are not recorded in the schema data.
+page, which is the authority for them. The allowed `ValueType` values and which parameters
+are ignored are not recorded in the schema data, so that page is where to check them.
 
 ```powershell
 Import-Module SwisPowerShell
@@ -175,9 +176,8 @@ Invoke-SwisVerb $swis 'Orion.NodesCustomProperties' 'CreateCustomProperty' @(
 ) | Out-Null
 ```
 
-`Usages` is typed `array<KeyValuePair<string,bool>>`. The schema does not publish how that
-serialises over REST and this repository has no live server to determine it, so the safe
-value is null. If you need it, define the property once through the web console and then read
+`Usages` is typed `array<KeyValuePair<string,bool>>`. How that serialises over REST is not
+recorded in the published schema and cannot be verified here, so the safe value is null. If you need it, define the property once through the web console and then read
 back what the platform stored, using the introspection queries below.
 
 ### CreateCustomPropertyWithValues
@@ -252,7 +252,8 @@ before relying on it:
 python3 tools/schema_query.py verbs --grep ValidateCustomProperty
 ```
 
-The shape of `CustomPropertyValidationResult` is not published in the schema data. Inspect
+The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it
+is unverified here. Inspect
 what your server returns rather than assuming field names.
 
 ### ModifyCustomProperty

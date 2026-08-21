@@ -16,6 +16,10 @@ run it against.
 Documentation usually shows the first few lines of a long output, so a shown block passes
 when its lines appear in order at the start of the real output. Elisions written as
 ``...`` or ``…`` on their own line allow a gap.
+
+PowerShell blocks cannot be executed here, so they get the strongest cheap check instead:
+their brackets have to balance. A block truncated when it was pasted, or one that lost a
+closing brace in an edit, fails the moment a reader runs it and is invisible until then.
 """
 
 from __future__ import annotations
@@ -95,6 +99,44 @@ def matches(shown: list[str], actual: list[str]) -> tuple[bool, str]:
     return True, ""
 
 
+PS_FENCE_RE = re.compile(r"```powershell\n(.*?)```", re.S)
+# @' ... '@ and @" ... "@. These must be removed before counting anything, because the
+# opening quote of a here-string otherwise pairs with a later one and swallows real code.
+PS_HERESTRING_RE = re.compile(r"@(['\"])\r?\n.*?\r?\n\1@", re.S)
+PS_STRING_RE = re.compile(r"'[^'\n]*'|\"[^\"\n]*\"")
+PS_COMMENT_RE = re.compile(r"(?m)^\s*#.*$")
+
+
+def check_powershell_balance(files: list[str]) -> tuple[int, list[str]]:
+    """Report PowerShell blocks whose brackets do not balance.
+
+    These cannot be executed here, so this is the strongest cheap check available: a
+    block that was truncated when it was pasted, or that lost a closing brace in an edit,
+    shows up as an imbalance and would fail the moment a reader ran it.
+    """
+    problems: list[str] = []
+    total = 0
+    for path in files:
+        rel = os.path.relpath(path, ROOT)
+        if "reference" in rel.split(os.sep):
+            continue  # generated
+        for i, block in enumerate(PS_FENCE_RE.findall(open(path, encoding="utf-8", errors="replace").read()), 1):
+            total += 1
+            stripped = PS_HERESTRING_RE.sub(" HERESTRING ", block)
+            stripped = PS_STRING_RE.sub("", stripped)
+            stripped = PS_COMMENT_RE.sub("", stripped)
+            for open_ch, close_ch, name in (("{", "}", "brace"), ("(", ")", "paren"), ("[", "]", "bracket")):
+                if stripped.count(open_ch) != stripped.count(close_ch):
+                    first = block.strip().splitlines()[0][:70] if block.strip() else ""
+                    problems.append(
+                        f"{rel} powershell block {i}: {name}s do not balance "
+                        f"({stripped.count(open_ch)} open, {stripped.count(close_ch)} close)\n"
+                        f"           starts: {first}"
+                    )
+                    break
+    return total, problems
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=".", help="directory to scan for markdown")
@@ -135,7 +177,13 @@ def main() -> None:
             else:
                 failures.append(f"{rel}: `{cmd}` output does not match\n           {why}")
 
-    print(f"{checked} documented tool invocation(s) checked, {skipped} skipped as not runnable")
+    ps_total, ps_problems = check_powershell_balance(files)
+    failures.extend(ps_problems)
+
+    print(
+        f"{checked} documented tool invocation(s) checked, {skipped} skipped as not "
+        f"runnable; {ps_total} PowerShell block(s) checked for balance"
+    )
     if failures:
         print(f"\n{len(failures)} mismatch(es):", file=sys.stderr)
         for f in failures:
