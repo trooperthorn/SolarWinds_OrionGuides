@@ -567,6 +567,68 @@ class TestNetObjectPrefixes(unittest.TestCase):
         self.assertEqual(self.cer.netobject_claims("The prefix is `TSR:`.", self.prefixes), [])
 
 
+class TestUnverifiedIndex(unittest.TestCase):
+    """The index of what this repository declines to assert is generated from the prose.
+
+    AGENTS.md and llms.txt both send a reader here before answering anything load-bearing,
+    so a statement the extractor drops or mangles is a statement that silently stops being
+    surfaced as uncertain.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import build_unverified_index
+
+        cls.mod = build_unverified_index
+
+    def test_bold_label_form_is_recognised(self):
+        # "**Unverified.** The standard SQL spelling..." marks a whole claim rather than
+        # qualifying one inside a sentence, and only the sentence forms were read before.
+        self.assertTrue(self.mod.MARKER_RE.search("**Unverified.** The standard SQL spelling"))
+
+    def test_sentence_forms_still_recognised(self):
+        for text in (
+            "Whether the simple form is accepted **is unverified here**.",
+            "This repository cannot verify them.",
+            "The accepted values are not recorded in the published schema.",
+        ):
+            self.assertTrue(self.mod.MARKER_RE.search(text), text)
+
+    def test_ordinary_prose_is_not_marked(self):
+        self.assertFalse(self.mod.MARKER_RE.search("Verify this on your own server first."))
+
+    def test_numbered_list_item_starts_a_new_sentence(self):
+        # Without the digit in the lookahead the "3." opening the next item was read as
+        # part of the previous sentence and trailed into the index.
+        para = "timings reported by `WITH QUERYSTATS`.\n3. **An injection class disappears.**"
+        first = self.mod.statements(para)[0]
+        self.assertTrue(first.endswith("`WITH QUERYSTATS`."), first)
+
+    def test_bold_markers_stay_balanced(self):
+        para = "**`UNION ALL` is unverified.** The official reference documents only `UNION`."
+        for s in self.mod.statements(para):
+            self.assertEqual(s.count("**") % 2, 0, s)
+
+    def test_a_table_yields_rows_not_one_blob(self):
+        # A table has no blank line between rows, so the whole thing is one paragraph.
+        para = (
+            "| Operator | Meaning | Evidence |\n"
+            "|:---|:---|:---|\n"
+            "| `=` | Equal | Used throughout |\n"
+            "| `<>` | Not equal | **Unverified.** Appears in no sample |\n"
+        )
+        rows = self.mod.statements(para)
+        self.assertEqual(len(rows), 3)  # header plus two data rows, no separator rule
+        marked = [r for r in rows if self.mod.MARKER_RE.search(r)]
+        self.assertEqual(len(marked), 1)
+        self.assertIn("`<>`", marked[0])
+        self.assertNotIn("Equal | Used throughout", marked[0])
+
+    def test_prose_paragraph_is_not_treated_as_a_table(self):
+        para = "One sentence here. A second one follows it."
+        self.assertEqual(len(self.mod.statements(para)), 2)
+
+
 class TestRightsClaims(unittest.TestCase):
     """A right named in prose has to be one the schema declares.
 

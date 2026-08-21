@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**93 statements across 33 pages.**
+**111 statements across 36 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -72,13 +72,13 @@ Read this before relying on this repository for something load-bearing. If you h
 - `AutoImportExpressionFilter` is present in the 2026.2 contract with members `Prop`, `Op` and `Val`, but no accepted property names or operators are documented and no sample uses it, so **its usage is unverified here**.
 **[Importing a staged discovery](../automation/discovery.md#importing-a-staged-discovery)**
 
-- The semantics of `SelectedDiscoveredResources` are unverified here.
+- **The semantics of `SelectedDiscoveredResources` are unverified here.**
 **[Checking a credential before you scan with it](../automation/discovery.md#checking-a-credential-before-you-scan-with-it)**
 
-- The keys it expects are not described in the schema or the Swagger contract**, and no SDK sample calls this verb, so the content is unverified here.
+- **The keys it expects are not described in the schema or the Swagger contract**, and no SDK sample calls this verb, so the content is unverified here.
 **[List Resources on an address that is not a node yet](../automation/discovery.md#list-resources-on-an-address-that-is-not-a-node-yet)**
 
-- Both are unverified here.** Check `Metadata.VerbArgument.XmlTemplate` on your own server.
+- **Both are unverified here.** Check `Metadata.VerbArgument.XmlTemplate` on your own server.
 **[What is not verified here](../automation/discovery.md#what-is-not-verified-here)**
 
 - ## What is not verified here
@@ -100,6 +100,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Pool members](../automation/high-availability.md#pool-members)**
 
 - `Status`, `PreferredStatus` and `RepairStatus` are integers whose value sets are **not documented in the published schema**.
+- This page follows that lead in query 2, but treat the mapping as **unverified**: confirm on your own server by reading the number next to `StatusMessage` before you build an alert on a specific value.
+**[The result object](../automation/high-availability.md#the-result-object)**
+
+- Read `Message` and treat `ErrorMessage` as **unverified**; if you want to know what your server returns, print the whole object once with `$result.InnerXml`.
 **[Safe in a controlled window, with a human deciding](../automation/high-availability.md#safe-in-a-controlled-window-with-a-human-deciding)**
 
 - The schema records **no description** for this verb, so its exact semantics when the two arrays are different lengths, or when a target is not in the same pool, are **not documented in the published schema** and are not verified here.
@@ -108,7 +112,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Which one the server accepts cannot be verified here; find out with `ValidateEditPool` before running the real call.
 - SolarWinds' sample joins `Orion.StatusInfo` on member `Status`, which is suggestive but is unverified here.
-- `SelectiveSwitchover` and `RepairPool` have no schema descriptions**, so their exact behaviour is not documented in the published schema and is not verified here.
+- **`SelectiveSwitchover` and `RepairPool` have no schema descriptions**, so their exact behaviour is not documented in the published schema and is not verified here.
 
 ## [node-management.md](../automation/node-management.md)
 
@@ -188,7 +192,7 @@ Read this before relying on this repository for something load-bearing. If you h
 - For an EC2 instance the obvious candidate is `Orion.Cloud.Instances.InstanceId`, which is also a `System.String`, but the schema does not declare that correspondence and the exact format of `ResourceId` per provider is **unverified here**.
 **[The `Local.` entities in the CRUD surface](../modules/cloud.md#the-local-entities-in-the-crud-surface)**
 
-- That reading is unverified.
+- **That reading is unverified.**
 **[Adding AWS accounts in bulk](../modules/cloud.md#adding-aws-accounts-in-bulk)**
 
 - It appears neither in the rendered schema for 2026.2 nor in the Swagger contract for 2026.2, both of which this repository extracts from, so it is **not verified here**.
@@ -198,6 +202,9 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [dpa.md](../modules/dpa.md)
 
+**[The wait-time entities](../modules/dpa.md#the-wait-time-entities)**
+
+- See the names in NormalizedDataDimension class." That class is not in the extracted data, so treat the exact strings as **unverified** and read them off your own server before hard-coding one:
 **[2. Which databases are alarming, and on what](../modules/dpa.md#2-which-databases-are-alarming-and-on-what)**
 
 - `WaitTimeCategory` runs -1 to 10 with DOWN(-1) and IDLE(0) at the bottom; the schema description is truncated in the extracted data, so the meaning of the upper values is **unverified** here.
@@ -273,8 +280,41 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Gotchas](../modules/sam.md#gotchas)**
 
-- This behaviour is unverified here*: neither the schema nor the contract records it.
-- This verb is not in the extracted 2026.2 schema and not in the Swagger contract*, so it is unverified here.
+- *This behaviour is unverified here*: neither the schema nor the contract records it.
+- *This verb is not in the extracted 2026.2 schema and not in the Swagger contract*, so it is unverified here.
+
+## [srm.md](../modules/srm.md)
+
+**[Providers](../modules/srm.md#providers)**
+
+- **Unverified:** treat their values as opaque until you have confirmed them on your own server.
+**[Pools](../modules/srm.md#pools)**
+
+- **Unverified:** `Type` and `Category` are integers whose enumerations are not in the extracted schema; select `DISTINCT` on your own array before filtering on them.
+**[Thresholds](../modules/srm.md#thresholds)**
+
+- **Unverified:** the schema does not say what "application" means in that name; check for rows on your own server before building on it.
+
+## [vman.md](../modules/vman.md)
+
+**[Hosts, clusters, datacenters and vCenters](../modules/vman.md#hosts-clusters-datacenters-and-vcenters)**
+
+- **Unverified:** `PollingTaskTypeID` is an integer whose enumeration is not in the extracted schema, so select `DISTINCT` on your own server before filtering on a specific value.
+**[The virtual machine verbs change production state](../modules/vman.md#the-virtual-machine-verbs-change-production-state)**
+
+- `storageDestination` is a string and is optional; the schema does not record what form it takes, so **unverified**: confirm against your own server before relying on it, for example by checking the argument type in `Metadata.VerbArgument`.
+**[Discovery verbs](../modules/vman.md#discovery-verbs)**
+
+- **Unverified:** whether `CreateDiscoveryJob` accepts 6 in practice.
+**[Elsewhere](../modules/vman.md#elsewhere)**
+
+- **Unverified:** the extracted schema records no parameters for any of them, so read the signature from `Metadata.VerbArgument` on your own server before calling one.
+**[Orphaned files on datastores](../modules/vman.md#orphaned-files-on-datastores)**
+
+- **Unverified:** the schema documents the column but not the rule behind it.
+**[Gotchas](../modules/vman.md#gotchas)**
+
+- **Unverified:** whether a live server resolves it anyway by matching case-insensitively.
 
 ## [vnqm.md](../modules/vnqm.md)
 
@@ -293,6 +333,12 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What is not verified here](../modules/wpm.md#what-is-not-verified-here)**
 
 - ## What is not verified here
+
+## [modules.md](../platform/modules.md)
+
+**[DPA: Database Performance Analyzer](../platform/modules.md#dpa-database-performance-analyzer)**
+
+- Whether SWIS classifies them as federated entities is not recorded in the extracted schema; that claim is unverified here.
 
 ## [entity-model.md](../schema/entity-model.md)
 
@@ -340,7 +386,7 @@ Read this before relying on this repository for something load-bearing. If you h
 - `UNION ALL` is **unverified**: only `UNION` is documented.
 **[`ChangeTimeZone` is not in the official reference](../swql/functions.md#changetimezone-is-not-in-the-official-reference)**
 
-- Treat it as unverified.
+- **Treat it as unverified.**
 
 ## [gotchas.md](../swql/gotchas.md)
 
@@ -353,24 +399,39 @@ Read this before relying on this repository for something load-bearing. If you h
 **[6. To-many navigation multiplies rows and poisons aggregates](../swql/gotchas.md#6-to-many-navigation-multiplies-rows-and-poisons-aggregates)**
 
 - Two counts rather than one because `Count(n)` is the only counting signature in SolarWinds' [documented function reference](https://solarwinds.github.io/OrionSDK/docs/swql-functions/); `COUNT(DISTINCT column)` is standard T-SQL and may well work, but it is **unverified** here.
+**[8.4 `Orion.Nodes.Flows` is declared twice](../swql/gotchas.md#84-orionnodesflows-is-declared-twice)**
+
+- **Unverified:** treat `n.Flows` as ambiguous and write the target entity out in an explicit join instead.
 
 ## [language-reference.md](../swql/language-reference.md)
 
 **[How this page marks its evidence](../swql/language-reference.md#how-this-page-marks-its-evidence)**
 
 - Where a construct could not be corroborated at all, it is marked **unverified** with a one-line note on how to confirm it on your own server rather than being quietly dropped or quietly asserted.
+**[CROSS JOIN](../swql/language-reference.md#cross-join)**
+
+- **Unverified.** `CROSS` does not appear in SolarWinds' documentation, in the SDK samples, or in SWQL Studio's keyword list, and this repository has no evidence that SWQL accepts it.
+**[Comparison operators](../swql/language-reference.md#comparison-operators)**
+
+- `<>` — Not equal — **Unverified.** The standard SQL spelling, but it appears in no SolarWinds documentation page, no SDK sample and no SWQL Studio source available here, and SWQL Studio's keyword list covers keywords, not operators. Confirm it on your own server with `SELECT TOP 1 NodeID FROM Orion.Nodes WHERE Status <> 1`; a parse error is the answer. `!=` is the form SolarWinds itself writes
+**[Other WITH options](../swql/language-reference.md#other-with-options)**
+
+- `WITH SCHEMAONLY` — **Unverified.** It appears in community usage and in this repository's own validator keyword list, but not in any SolarWinds documentation, sample or source available here. Confirm on your own server by running a query with and without it and comparing the response
 **[UNION](../swql/language-reference.md#union)**
 
-- `UNION ALL` is unverified.** The official reference documents only `UNION`.
+- **`UNION ALL` is unverified.** The official reference documents only `UNION`.
 **[CASE](../swql/language-reference.md#case)**
 
 - Whether the simple form, `CASE Severity WHEN 2 THEN ...`, is also accepted **is unverified here**.
+**[Subqueries in FROM](../swql/language-reference.md#subqueries-in-from)**
+
+- **Unverified.** Nothing in the sources available here shows a derived table (`FROM (SELECT ...) x`).
 
 ## [performance.md](../swql/performance.md)
 
 **[9. Bind parameters instead of building query text](../swql/performance.md#9-bind-parameters-instead-of-building-query-text)**
 
-- Whether SWIS actually reuses a plan across executions of the same parameterised query is **unverified** here; you can test it on your own server by running the same query with different parameter values and comparing the timings reported by `WITH QUERYSTATS`. 3.
+- Whether SWIS actually reuses a plan across executions of the same parameterised query is **unverified** here; you can test it on your own server by running the same query with different parameter values and comparing the timings reported by `WITH QUERYSTATS`.
 
 ---
 

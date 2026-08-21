@@ -29,6 +29,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MARKER_RE = re.compile(
     r"\b(?:is|are|remains?|treat\w*\s+\w+\s+as|marked)\s+\*{0,2}unverified\*{0,2}\b"
     r"|\*{0,2}unverified\*{0,2}\s+(?:here|in content)\b"
+    # A bold label opening a sentence or a table cell: "**Unverified.** The standard SQL
+    # spelling, but it appears in no SolarWinds documentation page". This is how a page
+    # marks a whole claim rather than qualifying one inside a sentence, and reading only
+    # the sentence forms meant those never reached the index.
+    r"|\*\*unverified[.:]?\*\*"
     r"|\bcould not (?:be )?verif\w+\b"
     r"|\bcannot (?:be )?verif\w+\b"
     r"|\bnot verified\b"
@@ -39,7 +44,41 @@ MARKER_RE = re.compile(
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*$", re.M)
 FENCE_RE = re.compile(r"```.*?```", re.S)
 # Sentence-ish split that tolerates the abbreviations and version numbers in this corpus.
-SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z`*\[])")
+# The digit in the lookahead is what starts a new sentence at a numbered list item: without
+# it the "3." opening the next item is read as part of the previous sentence and trails
+# into the index.
+SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z`*\[]|\d+\.\s)")
+# A list bullet or table pipe introducing the sentence. Written to require the whitespace
+# after the marker so that a leading "**" opening a bold span is left alone: stripping the
+# asterisks blindly closed nothing and left an unbalanced "**" mid-sentence.
+LEAD_MARKER_RE = re.compile(r"^\s*(?:[-*|]\s+)+")
+
+
+TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
+# The |:---|---:| separator under a table header carries no statement.
+TABLE_RULE_RE = re.compile(r"^[\s|:\-]+$")
+
+
+def statements(paragraph: str) -> list[str]:
+    """Split a paragraph into the units a statement can live in.
+
+    Ordinary prose splits into sentences. A markdown table does not: it has no blank line
+    between its rows, so the whole table is one paragraph, and flattening it produces a
+    single run of every row with the marked claim buried in the middle. Its rows are the
+    units instead, rendered with the cell boundaries kept as separators so the row still
+    reads as a statement about its subject.
+    """
+    lines = paragraph.splitlines()
+    rows = [l for l in lines if TABLE_ROW_RE.match(l) and not TABLE_RULE_RE.match(l)]
+    if len(rows) >= 2:
+        out = []
+        for row in rows:
+            cells = [c.strip() for c in row.strip().strip("|").split("|")]
+            cells = [c for c in cells if c]
+            if cells:
+                out.append(" — ".join(cells))
+        return out
+    return SENT_SPLIT_RE.split(" ".join(paragraph.split()))
 
 
 def slug(heading: str) -> str:
@@ -81,11 +120,17 @@ def collect(docs_root: str) -> dict[str, list[tuple[str, str]]]:
                         heading = h
                     else:
                         break
-                flat = " ".join(para.split())
-                # Keep the sentence carrying the marker, not the whole paragraph.
-                for sentence in SENT_SPLIT_RE.split(flat):
+                # Keep the sentence carrying the marker, not the whole paragraph. A table
+                # has no blank lines between its rows, so flattening one produces a single
+                # unreadable run of every row; take the row that carries the marker instead.
+                for sentence in statements(para):
                     if MARKER_RE.search(sentence):
-                        s = sentence.strip(" -*|")
+                        s = LEAD_MARKER_RE.sub("", sentence).strip(" |")
+                        # An odd count means the span was opened outside this sentence or
+                        # closed after it, so the stray marker would render as literal
+                        # asterisks in the index.
+                        if s.count("**") % 2:
+                            s = s.replace("**", "")
                         if len(s) > 400:
                             s = s[:397].rstrip() + "..."
                         if s and s not in seen:

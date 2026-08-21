@@ -242,7 +242,7 @@ cross join would be used for here.
 |:---|:---|:---|
 | `=` | Equal | Used throughout the official samples |
 | `!=` | Not equal | `WHERE Interfaces.Status != 1` in `Interface.Cleanup.ps1`; `WHERE ISNULL(Acknowledged,0)!=1` in the C# sample |
-| `<>` | Not equal | **Unverified.** The standard SQL spelling, but it appears in no SolarWinds documentation page, no SDK sample and no SWQL Studio source available here. SWQL Studio does not parse SWQL itself — it colours it with Scintilla's SQL lexer keyed off `Grammar.cs`, which lists keywords and not operators — so nothing in this repository settles it. Confirm on your own server with `SELECT TOP 1 NodeID FROM Orion.Nodes WHERE Status <> 1`; a parse error is the answer. `!=` is the form SolarWinds itself writes |
+| `<>` | Not equal | **Unverified.** The standard SQL spelling, but it appears in no SolarWinds documentation page, no SDK sample and no SWQL Studio source available here, and SWQL Studio's keyword list covers keywords, not operators. Confirm it on your own server with `SELECT TOP 1 NodeID FROM Orion.Nodes WHERE Status <> 1`; a parse error is the answer. `!=` is the form SolarWinds itself writes |
 | `>`, `<`, `>=`, `<=` | Ordering comparisons | Standard |
 
 ```sql
@@ -667,15 +667,16 @@ listed in [../reference/swql-function-index.md](../reference/swql-function-index
 ### System.Int32 and the other integer types
 
 On a managed entity `Status` is always an integer, never a name: it is declared
-`System.Int32` on `System.DashboardEntity` and no descendant redeclares it as anything
-else. Join `Orion.StatusInfo` to make it readable;
-[../reference/status-codes.md](../reference/status-codes.md) has the full table. Outside
-that hierarchy the name is not reserved and the type is not guaranteed — `Orion.AlertActive.Status`
-is a `System.Byte` and `Orion.Batching.Actions.Status` is a `System.String` — so check the
-type before assuming. Watch the
-width when joining: `Orion.ContainerMembers.MemberPrimaryID` is a `System.Int64` while
-`Orion.Nodes.NodeID` is a `System.Int32`, and `Orion.APM.Component.ComponentID` is
-`System.Int64` while `Orion.APM.Component.ApplicationID` is `System.Int32`.
+`System.Int32` on `System.DashboardEntity` and no descendant redeclares it as anything else.
+Join `Orion.StatusInfo` to make it readable;
+[../reference/status-codes.md](../reference/status-codes.md) has the full table.
+
+Outside that hierarchy the name is not reserved and the width is not guaranteed.
+`Orion.AlertActive.Status` is a `System.Byte` and `Orion.Batching.Actions.Status` is a
+`System.String`, so check the type before assuming. Watch the width when joining too:
+`Orion.ContainerMembers.MemberPrimaryID` is a `System.Int64` while `Orion.Nodes.NodeID` is a
+`System.Int32`, and `Orion.APM.Component.ComponentID` is `System.Int64` while
+`Orion.APM.Component.ApplicationID` is `System.Int32`.
 
 ### Arrays
 

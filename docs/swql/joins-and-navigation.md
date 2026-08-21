@@ -77,7 +77,11 @@ A navigation is either **to-one** or **to-many**, and it matters enormously.
 adding rows, and it behaves as an inner join: an interface whose node is missing produces no
 row at all.
 
-This is SolarWinds' own `Interface.Cleanup.ps1` sample, unchanged except for formatting:
+This is SolarWinds' own `Interface.Cleanup.ps1` sample, reformatted and given a short alias.
+The sample itself selects `Interfaces.Node.Caption`, `Interfaces.Caption`, `Interfaces.URI`
+and `Interfaces.Status` from `Orion.NPM.Interfaces AS Interfaces` with the same `WHERE`; the
+`TOP 100` and the `ORDER BY` are added here, because an unbounded interface query on a real
+installation is not something you want to run twice:
 
 ```sql
 SELECT TOP 100
@@ -219,8 +223,9 @@ Multiple paths are normal and they are not interchangeable. Here the first goes 
 alerting model and only returns components that have triggered an alert; the second is the
 structural containment path and returns every component. Read the hops before picking one.
 
-Two further paths in that same output go through `Orion.APM.ApplicationTcpConnection` to a
-`ClientNode` or `ServerNode`, which answer a completely different question again. The tool
+The remaining three paths in that same output are different questions again: two go through
+`Orion.APM.ApplicationTcpConnection` to a `ClientNode` or a `ServerNode`, and one is
+`Application.RelyNode`, a `System.Reliance` edge rather than the containment one. The tool
 gives you the options; the semantics are yours to choose.
 
 When there is no path, the tool says so and tells you what to do instead:
@@ -292,9 +297,10 @@ FROM System.ManagedEntity m
 ORDER BY m.DisplayName
 ```
 
-`Status` is inherited from `System.DashboardEntity`, whose schema summary says it plainly:
-"an int value denoting the up/down/warning/etc. status of this entity ... for Orion.\*
-entities, you can query Orion.StatusInfo to see what the different numbers mean."
+`Status` is inherited from `System.DashboardEntity`, where the property's own schema summary
+says it plainly: "An int value denoting the up/down/warning/etc. status of this entity. The
+interpretation of this int will be application-dependent, but for Orion.\* entities, you can
+query Orion.StatusInfo to see what the different numbers mean."
 
 "Everything currently in a maintenance window, of any type" is likewise a single query,
 because `UnManaged` is declared once on `System.ManagedEntity`:
@@ -335,7 +341,7 @@ The cost of a base-entity query is that you only get the base type's properties.
 `DisplayName` are there; `Orion.Nodes.IPAddress` is not, because most managed entities do not
 have one. When you need type-specific columns, select from the concrete entity.
 
-## Eight worked joins
+## Ten worked joins
 
 ### Example 1: nodes to interfaces
 
@@ -673,9 +679,11 @@ ORDER BY i.Node.Caption
 ```
 
 `Orion.Nodes` does **not**. There is no `Orion.Nodes.StatusInfo`, and
-`tools/schema_query.py path Orion.Nodes Orion.StatusInfo` only finds routes that detour
-through a volume or a virtualisation host, which are not what you want. For nodes, write the
-explicit join:
+`tools/schema_query.py path Orion.Nodes Orion.StatusInfo` finds only routes that detour
+through some other object's status: `Volumes.StatusInfo`, `Host.StatusInfo` and
+`RelyHost.StatusInfo` through a virtualisation host, `ApiPollers.StatusInfo`, and
+`Containers.StatusInfo` through a container-manager container. Every one of them returns the
+status of the thing at the far end, not of the node. For nodes, write the explicit join:
 
 ```sql
 SELECT
