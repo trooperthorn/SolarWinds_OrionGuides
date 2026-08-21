@@ -489,7 +489,8 @@ the target machine. Confirm before calling it, and see the note in
 | `Orion.APM.LicenseInfo.GetLicensedEntityCountFromAllEngines` | `entityPrefix` |
 | `Orion.APM.LicenseInfo.RefreshLicenseCache` | none |
 
-The custom property verbs require the `admin` right, unlike the rest of SAM, which needs
+`Orion.APM.ApplicationCustomProperties` is the one SAM entity whose declaration names the
+`admin` right for `read`, `update` and `invoke`, where the rest of the namespace names
 `manageNodes`. The custom property columns themselves are per-installation and therefore
 not in the extracted schema; discover them with `Metadata.Property` against
 `Orion.APM.ApplicationCustomProperties`, then read them as

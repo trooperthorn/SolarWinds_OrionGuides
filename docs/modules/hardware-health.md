@@ -32,7 +32,9 @@ below, and SolarWinds'
 
 Everything lives under `Orion.HardwareHealth.`, which holds **33 entities** in the 2026.2
 schema, with **9 verbs** declared across four of them. Twenty-four of the entities are the
-`Hardware*` core; the other eight are the `BMC.*` sub-family.
+`Hardware*` core, eight are the `BMC.*` sub-family, and the last is
+`Orion.HardwareHealth.NodeChildStatusHardwareHealth`, which is how hardware contributes to
+a node's rolled-up child status.
 
 ```bash
 python3 tools/schema_query.py find Orion.HardwareHealth
@@ -191,6 +193,7 @@ python3 tools/schema_query.py props Orion.HardwareHealth.BMC.Fans --grep status
 
 `Orion.HardwareHealth.BMC.Controllers` also navigates out to `Orion.UCS.Chassis`,
 `Orion.UCS.Fabrics`, and `Orion.UCS.Events`, which is how Cisco UCS gear is represented.
+The `Orion.UCS.` family itself is covered in [npm.md](npm.md).
 
 ## Verbs
 
@@ -541,8 +544,9 @@ rather than a monitoring gap.
 
 ## See also
 
-- [sam.md](sam.md) for Server and Application Monitor, one of the two modules that brings
-  hardware health with it.
+- [sam.md](sam.md) and [npm.md](npm.md) for the two modules that bring hardware health
+  with them.
+- [README.md](README.md) for the index of every module page.
 - [../platform/modules.md](../platform/modules.md) for the module and namespace map,
   including the note that this capability is attributed to "NPM / SAM".
 - [../reference/status-codes.md](../reference/status-codes.md) for what each `Status`

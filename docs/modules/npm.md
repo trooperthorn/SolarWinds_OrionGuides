@@ -202,17 +202,18 @@ official page describes. In PowerShell:
 ```powershell
 $swis = Connect-Swis -Hostname orion.example.com -Username admin -Password ''
 
-$customPollerId = Get-SwisData $swis @"
-SELECT CustomPollerID
-FROM Orion.NPM.CustomPollers
-WHERE UniqueName = @name
-"@ @{ name = 'ciscoEnvMonFanState' }
+$nodeId = 14
+$customPollerId = Get-SwisData $swis `
+    "SELECT CustomPollerID FROM Orion.NPM.CustomPollers WHERE UniqueName = @name" `
+    @{ name = 'ciscoEnvMonFanState' }
 
-New-SwisObject $swis Orion.NPM.CustomPollerAssignmentOnNode @{
-    NodeID         = 14
-    CustomPollerID = $customPollerId
-}
+New-SwisObject $swis Orion.NPM.CustomPollerAssignmentOnNode `
+    @{ NodeID = $nodeId; CustomPollerID = $customPollerId }
 ```
+
+Looking the poller up by `UniqueName` rather than pasting a GUID is the approach the
+official page takes, and it is what keeps the script readable to whoever maintains it next.
+`CustomPollerID` is a `System.Guid`, so it is not a value anyone will recognise on sight.
 
 Over REST, that is a `POST` to
 `/SolarWinds/InformationService/v3/Json/Create/Orion.NPM.CustomPollerAssignmentOnNode` with
@@ -268,9 +269,10 @@ Inside the recommended family the model is:
   `ControllerName`, `Name`, `SSID`, `Clients`, throughput counters and `LastReported`. Two
   specialisations exist, `.Thin` and `.Autonomous`. From a node, the navigation property is
   `AccessPoints`.
-- `Orion.Packages.Wireless.Interfaces` is the radio, keyed by `AccessPointID`, with `SSID`,
-  `Channel`, `AutoChannel`, `RadioType`, `WEPEnabled`, `Clients` and error counters
-  (`InAckFailure`, `OutFailures`, `InFCSError`).
+- `Orion.Packages.Wireless.Interfaces` is the radio, tied to its access point by
+  `AccessPointID` and by the `AccessPoint` navigation property, with `SSID`, `Channel`,
+  `AutoChannel`, `RadioType`, `WEPEnabled`, `Clients` and error counters (`InAckFailure`,
+  `OutFailures`, `InFCSError`).
 - `Orion.Packages.Wireless.Clients` is the associated station, reached from the radio through
   `WirelessInterface`, with `MAC`, `IPAddress`, `RDNS`, `SSID`, `SignalStrength` and byte and
   packet counters.
@@ -316,15 +318,16 @@ platform's status scale; `Orion.Routing.RoutingProtocolStateMapping` is the look
 between them. `LocalProtocolInterface` navigates to the `Orion.NPM.Interfaces` row the
 adjacency is formed over.
 
-`Orion.Routing.RoutingTable` is the FIB view, with `RouteDestination`, `RouteMaskLen`,
-`RouteNextHop`, `Metric`, `ProtocolName`, `VrfIndex` and pre-joined display columns
-(`NodeCaption`, `InterfaceCaption`, `NextHopStatus`). It navigates to `Interface`,
+`Orion.Routing.RoutingTable` is the collected route table, with `RouteDestination`,
+`RouteMaskLen`, `RouteNextHop`, `Metric`, `ProtocolName`, `VrfIndex` and pre-joined display
+columns (`NodeCaption`, `InterfaceCaption`, `NextHopStatus`). It navigates to `Interface`,
 `Neighbor` and `VRF`.
 
 `Orion.Routing.VRF` is the virtual routing instance: `VrfIndex`, `NodeID`, `Name`,
 `RouteDistinguisher`, `Status`, `CompleteValues`. It hosts `Orion.Routing.VRFInterface`,
-which maps a VRF to interfaces by `IfIndex`, and it navigates to `Orion.Nodes` through
-`Node`. Its NetObject prefix is `VRF`, and `Orion.Routing.Neighbors` uses `NBR`.
+which maps a VRF to interfaces by `IfIndex`, through a navigation property called
+`Interfaces`, and it navigates to `Orion.Nodes` through `Node`. Its NetObject prefix is
+`VRF`, and `Orion.Routing.Neighbors` uses `NBR`.
 
 Two entities exist purely for churn: `Orion.Routing.NeighborsFlapCount` counts adjacency
 resets per day bucket, and `Orion.Routing.RoutingTableFlap` records individual route
@@ -355,7 +358,7 @@ hops you do not own. Twelve entities model it.
   `SentPackets`, `LostPackets`, `UniquePathCount`, `RouteChangeCount`, `EdgeChangeCount`,
   `CompletionRatio`, and a `Graph` blob.
 - `Orion.NetPath.Performances` is per-node and per-edge latency and loss within a path,
-  keyed by `ObjectID` and `ObjectType`.
+  identifying the hop by `ObjectID` and `ObjectType`.
 - `Orion.NetPath.Traces` holds the raw paths as `CompressedTraces`, a byte array.
 - `Orion.NetPath.Networks` is the BGP and WHOIS context for discovered hops:
   `CidrBlockPrefix`, `OrganizationName`, `OriginAs`, `AbusePocs`.
