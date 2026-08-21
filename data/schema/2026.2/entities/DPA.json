@@ -1,0 +1,1656 @@
+[
+ {
+  "entity": "DPA.BlockingChain",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "The entity represents trees of blocker-blockee relationship as in the \"Blockers\" tab in the UI",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Reference to Orion.DPA.DatabaseInstance.Id.",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "ChainNumber",
+    "type": "System.Int32",
+    "summary": "Identifies rows belonging to the same blocker-blockee tree. This value is generated with each request, so it is not guaranteed that the same blocker/blockee tree will have the same ChainNumber in two SWQL results.",
+    "access": "everyone"
+   },
+   {
+    "name": "SessionId",
+    "type": "System.String",
+    "summary": "Session Id.",
+    "access": "everyone"
+   },
+   {
+    "name": "BlockedBySession",
+    "type": "System.String",
+    "summary": "SessionId of the session that blocked this session. Is NULL if this session is the root blocker of the blocker-blockee tree identified by RootSessionId.",
+    "access": "everyone"
+   },
+   {
+    "name": "WaitTimeSecs",
+    "type": "System.Double",
+    "summary": "Number of seconds the session spent waiting in the particular blocking chain because it was (transitively) blocked by the root session. This value is 0 for the root session (it is not blocked by itself).",
+    "access": "everyone"
+   },
+   {
+    "name": "Time",
+    "type": "System.DateTime",
+    "summary": "Beginning and end of the interval for which we want to know the blockers and blockees (operators <, <=, > and >= can be used in WHERE clauses on this field). End defaults to now.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 7,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.BlockingOverview",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Blocking/Blocked time data",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Reference to Orion.DPA.DatabaseInstance.Id.",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "BlockingSessions",
+    "type": "System.Int32",
+    "summary": "Number of blocking sessions within the time slice",
+    "access": "everyone"
+   },
+   {
+    "name": "BlockedSessions",
+    "type": "System.Int32",
+    "summary": "Number of blocked sessions within the time slice.",
+    "access": "everyone"
+   },
+   {
+    "name": "TotalTimeBlocking",
+    "type": "System.Double",
+    "summary": "Total blocking time - real time blocking within the time slice.",
+    "access": "everyone"
+   },
+   {
+    "name": "TotalTimeBlocked",
+    "type": "System.Double",
+    "summary": "Total time blocked within the time slice.",
+    "access": "everyone"
+   },
+   {
+    "name": "TimesliceUnit",
+    "type": "System.Int32",
+    "summary": "Specifies how time-frame should be split to time slices.",
+    "access": "everyone"
+   },
+   {
+    "name": "Time",
+    "type": "System.DateTime",
+    "summary": "Beginning and end of the interval for which we want to know the proeprty values (operators <, <=, > and >= can be used in WHERE clauses on this field). End defaults to now.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 8,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.DatabaseClient",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Provides mapping between machine (client) (identified by its address) and monitored DB instance (identified by its ID).",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Address",
+    "type": "System.String",
+    "summary": "Address of a machine that accessed monitored instance during the provided time period",
+    "access": "everyone"
+   },
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "ID of a monitored instance. References to Orion.DPA.DatabaseInstance.Id",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "Time",
+    "type": "System.DateTime",
+    "summary": "Definition of Time interval for which we want to find mappings (operators <, <=, > and >= can be used in WHERE clauses on this field) Turns into last seen date in result set.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.Deadlock",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Collected deadlock information",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "ID of a monitored instance. References to Orion.DPA.DatabaseInstance.Id",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "DeadlockId",
+    "type": "System.Int32",
+    "summary": "ID of Deadlock",
+    "access": "everyone"
+   },
+   {
+    "name": "EventDate",
+    "type": "System.DateTime",
+    "summary": "Time when the deadlock ocurred",
+    "access": "everyone"
+   },
+   {
+    "name": "VictimImpact",
+    "type": "System.Int32",
+    "summary": "Time impact on queries",
+    "access": "everyone"
+   },
+   {
+    "name": "SessionCount",
+    "type": "System.Int32",
+    "summary": "Number of sessions involved in the deadlock",
+    "access": "everyone"
+   },
+   {
+    "name": "Program",
+    "type": "System.String",
+    "summary": "Name of the program that sent the query",
+    "access": "everyone"
+   },
+   {
+    "name": "Machine",
+    "type": "System.String",
+    "summary": "ID of Deadlock",
+    "access": "everyone"
+   },
+   {
+    "name": "User",
+    "type": "System.String",
+    "summary": "User under which the query was executed",
+    "access": "everyone"
+   },
+   {
+    "name": "Database",
+    "type": "System.String",
+    "summary": "Name of the database affected by the deadlock",
+    "access": "everyone"
+   },
+   {
+    "name": "Object",
+    "type": "System.String",
+    "summary": "Name of the deadlocked object (database table for example)",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 11,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.DetailDataDimension",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Detail Wait Time statistics for DB instance",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Reference to Orion.DPA.DatabaseInstance.Id",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "DimensionId",
+    "type": "System.Int32",
+    "summary": "Detail data-dimension; possible values are: SQL (1), WAIT (2), PROGRAM (3), DATABASE_INSTANCE (4), MACHINE (5), DB_USER (6), OS_USER (7), FILE (8), DRIVE (9), PLAN (10), ACTION (11), MODULE (12), PARTITION (13), OBJECT (14), PROCEDURE (15), SESSION (16)",
+    "access": "everyone"
+   },
+   {
+    "name": "InstanceId",
+    "type": "System.String",
+    "summary": "IDs of an instances in DPA; for programs, machines, users, etc. these are typically generically-generated IDs in local repository table; for SQL texts these are SQL hashes",
+    "access": "everyone"
+   },
+   {
+    "name": "InstanceName",
+    "type": "System.String",
+    "summary": "Name of an instance; e.g. 'IGNITE' (for program), 'administrator-XYZ' (for user), 348A3F21 (for SQL text)",
+    "access": "everyone"
+   },
+   {
+    "name": "TopN",
+    "type": "System.Int32",
+    "summary": "Limits the maximal number of categories (SQLs, programs etc.) to be retrieved for the specified time interval. Ignored for WAIT dimension if the TimesliceUnit is not provided. If TopN is not specified, default value is the NUMBER_OF_ITEMS_IN_TIMESERIES_CHART attribute in DPA config for the given monitored database instance.",
+    "access": "everyone"
+   },
+   {
+    "name": "InstanceValue",
+    "type": "System.String",
+    "summary": "For SQL time-slice – this field contains full SQL text; For other time-slice dimensions it is empty; For all non time-slice dimensions it contains WAIT cause",
+    "access": "everyone"
+   },
+   {
+    "name": "IntervalUnit",
+    "type": "System.Int32",
+    "summary": "Allowed values are HOUR (3), TWO_HOURS (30), THREE_HOURS (31), FOUR_HOURS (32), SIX_HOURS (33), EIGHT_HOURS (34), TWELVE_HOURS (35",
+    "access": "everyone"
+   },
+   {
+    "name": "Time",
+    "type": "System.DateTime",
+    "summary": "Time-stamp of entity record (operators <, <=, > and >= can be used in WHERE clauses on this field)",
+    "access": "everyone"
+   },
+   {
+    "name": "TimesliceUnit",
+    "type": "System.Int32",
+    "summary": "Specifies how time-frame should be split. Allowed values are (other than ones in IntervalUnit) FIVE_SECONDS (10), TEN_SECONDS (11), FIFTEEN_SECONDS (12), TWENTY_SECONDS (13), THIRTY_SECONDS (14), MINUTE (2), TWO_MINUTES (20), FIVE_MINUTES (21), TEN_MINUTES (22), TWENTY_MINUTES (23), THIRTY_MINUTES (24), TWO_DAYS (40), THREE_DAYS (41)",
+    "access": "everyone"
+   },
+   {
+    "name": "Wait",
+    "type": "System.Double",
+    "summary": "Total wait-time in seconds for each returned record",
+    "access": "everyone"
+   },
+   {
+    "name": "Executions",
+    "type": "System.Int32",
+    "summary": "Number of Executions for each returned value. Returns 'null' if value is not specified (e.g. Timeslice < 10 min or Dimension <> 1 ), -1 if 'Not Available' (e.g. in Truncate queries), otherwise not negative number",
+    "access": "everyone"
+   },
+   {
+    "name": "Average",
+    "type": "System.Double",
+    "summary": "Average in seconds for each returned value. Returns 'null' if value is not specified (e.g. Timeslice < 10 min or Dimension <> 1 ), -1 if 'Not Available' (e.g. in Truncate queries), otherwise not negative number",
+    "access": "everyone"
+   },
+   {
+    "name": "MachineIdentifier",
+    "type": "System.String",
+    "summary": "Machine identifier",
+    "access": "everyone"
+   },
+   {
+    "name": "AdditionalValue",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "DatabaseInstance",
+    "type": "Orion.DPA.DatabaseInstance",
+    "notes": "Defined by relationship Orion.DatabaseInstanceDetailDataDimension (System.Reference)",
+    "relationship": "Orion.DatabaseInstanceDetailDataDimension",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 15,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.ExpertAdviceInfo",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "The entity represents advises given on the \"Waits\" tab in the UI",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Reference to Orion.DPA.DatabaseInstance.Id.",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "WaitId",
+    "type": "System.String",
+    "summary": "Name of the wait type as is displayed in the UI (eg. 'CPU/Memory')",
+    "access": "everyone"
+   },
+   {
+    "name": "AdviceInfo",
+    "type": "System.String",
+    "summary": "HTML-formatted text describing the wait time, causes, possible fixes etc.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.PerformanceOverview",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "High level overview across monitored databases",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Reference to Orion.DPA.DatabaseInstance.Id",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "CPUAlarmLevel",
+    "type": "System.Int32",
+    "summary": "CPU alarm level integer (See DPA.AlarmLevel entity for more details).",
+    "access": "everyone"
+   },
+   {
+    "name": "DiskAlarmLevel",
+    "type": "System.Int32",
+    "summary": "Disk alarm level integer (See DPA.AlarmLevel entity for more details).",
+    "access": "everyone"
+   },
+   {
+    "name": "MemoryAlarmLevel",
+    "type": "System.Int32",
+    "summary": "Memory alarm level integer (See DPA.AlarmLevel entity for more details).",
+    "access": "everyone"
+   },
+   {
+    "name": "OverallAlarmLevel",
+    "type": "System.Int32",
+    "summary": "Overall alarm level integer (See DPA.AlarmLevel entity for more details).",
+    "access": "everyone"
+   },
+   {
+    "name": "QueriesAlarmLevel",
+    "type": "System.Int32",
+    "summary": "Query Advice alarm level integer (See DPA.AlarmLevel entity for more details).",
+    "access": "everyone"
+   },
+   {
+    "name": "SessionAlarmLevel",
+    "type": "System.Int32",
+    "summary": "Sessions alarm level integer (See DPA.AlarmLevel entity for more details).",
+    "access": "everyone"
+   },
+   {
+    "name": "WaitTimeAlarmLevel",
+    "type": "System.Int32",
+    "summary": "Wait-Time category alarm level integer (Normal(2), Critical(5) or Unknown(3)). This property is calculated from WaitTimeCategory property: -1 equals to Unknown, 0-5 equals to Normal and 6-10 equals to Critical",
+    "access": "everyone"
+   },
+   {
+    "name": "WaitTimeCategory",
+    "type": "System.Int32",
+    "summary": "Type of the \"Wait\" meter. Contains numeric values -1..10, meaning DOWN(-1), IDLE(0), LOW(1), ..., HIGH(5), LOW_ABNORMAL(6), ..., HIGH_ABNORMAL(10). In DPA UI, values 1-5 are shown as blue meter, abnormal values 6-10 have red meter. Normal/abnormal is an intra-instance information, indicating whether wait time of this particular instance is higher than usual for this instance, based on historical data. Values LOW - HIGH (normal as well as abnormal) represent inter-instance comparison, ie. how big/significant is today's wait time of this particular instance when compared to today's wait times of the other monitored instances.",
+    "access": "everyone"
+   },
+   {
+    "name": "WaitTimeSecs",
+    "type": "System.Double",
+    "summary": "Total wait time today in seconds (in DPA, shows when you hover over the \"Wait\" meter).",
+    "access": "everyone"
+   },
+   {
+    "name": "WaitTimeEnd",
+    "type": "System.DateTime",
+    "summary": "This date should represent the last date/time wait time related indicators were calculated for.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "DatabaseInstance",
+    "type": "Orion.DPA.DatabaseInstance",
+    "notes": "Defined by relationship Orion.DatabaseInstancePerformanceOverview (System.Reference)",
+    "relationship": "Orion.DatabaseInstancePerformanceOverview",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 12,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.ProblemSQLStatement",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Single problem related to SQL Statement execution",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "ProblemId",
+    "type": "System.String",
+    "summary": "Unique identifier of the problem.",
+    "access": "everyone"
+   },
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Reference to Orion.DPA.DatabaseInstance.Id.",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "Category",
+    "type": "System.String",
+    "summary": "Currently SQL only.",
+    "access": "everyone"
+   },
+   {
+    "name": "SqlHash",
+    "type": "System.String",
+    "summary": "SQL hash.",
+    "access": "everyone"
+   },
+   {
+    "name": "SqlText",
+    "type": "System.String",
+    "summary": "SQL text",
+    "access": "everyone"
+   },
+   {
+    "name": "TotalSqlWaitTime",
+    "type": "System.Double",
+    "summary": "Total SQL wait time (across all executions)",
+    "access": "everyone"
+   },
+   {
+    "name": "PercentOfTotalDatabaseWaitTime",
+    "type": "System.Double",
+    "summary": "% of total instance execution time.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 8,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.ProblemSummary",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Represents single problem summary in relation to analysis (Advisors)",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "ProblemId",
+    "type": "System.String",
+    "summary": "Unique identifier of the problem.",
+    "access": "everyone"
+   },
+   {
+    "name": "AnalysisId",
+    "type": "System.Int32",
+    "summary": "Reference to Analysis (entity not available yet).",
+    "access": "everyone"
+   },
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Reference to Orion.DPA.DatabaseInstance.Id.",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "Category",
+    "type": "System.String",
+    "summary": "Currently SQL only.",
+    "access": "everyone"
+   },
+   {
+    "name": "AlarmLevel",
+    "type": "System.Int32",
+    "summary": "Problem alarm level string (Unknown, Normal, Warning, Critical, None or Freeware)",
+    "access": "everyone"
+   },
+   {
+    "name": "Score",
+    "type": "System.Double",
+    "summary": "Score of the problem.",
+    "access": "everyone"
+   },
+   {
+    "name": "Item",
+    "type": "System.String",
+    "summary": "Item identifier (e.g. 4845492118).",
+    "access": "everyone"
+   },
+   {
+    "name": "ItemDescription",
+    "type": "System.String",
+    "summary": "Item descriprion (e.g. Query 4845492118).",
+    "access": "everyone"
+   },
+   {
+    "name": "Summary",
+    "type": "System.String",
+    "summary": "Summary of the problem.",
+    "access": "everyone"
+   },
+   {
+    "name": "RunTime",
+    "type": "System.DateTime",
+    "summary": "Run Time of analysis.",
+    "access": "everyone"
+   },
+   {
+    "name": "StartTime",
+    "type": "System.DateTime",
+    "summary": "Start Time of analysis. Default is 30 days ago from current time (Now - 30 days).",
+    "access": "everyone"
+   },
+   {
+    "name": "EndTime",
+    "type": "System.DateTime",
+    "summary": "End Time of analysis. Default is the current time.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "DatabaseInstance",
+    "type": "Orion.DPA.DatabaseInstance",
+    "notes": "Defined by relationship Orion.DatabaseInstanceProblemSummary (System.Reference)",
+    "relationship": "Orion.DatabaseInstanceProblemSummary",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 13,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.ProductInfo",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Information about DPA, version, SWIP ID, SWIS schema version, http(s) port(s)",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "ProductVersion",
+    "type": "System.String",
+    "summary": "Version of DPA",
+    "access": "everyone"
+   },
+   {
+    "name": "SwisSchemaVersion",
+    "type": "System.Int32",
+    "summary": "Version of SWIS schema",
+    "access": "everyone"
+   },
+   {
+    "name": "SwipUserUUID",
+    "type": "System.Guid",
+    "summary": "ID of SWIP user",
+    "access": "everyone"
+   },
+   {
+    "name": "HttpPort",
+    "type": "System.Int32",
+    "summary": "Number of HTTP port, NULL if not enabled",
+    "access": "everyone"
+   },
+   {
+    "name": "HttpsPort",
+    "type": "System.Int32",
+    "summary": "Number of HTTPS port, NULL if not enabled",
+    "access": "everyone"
+   },
+   {
+    "name": "FeatureCatalog",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "DpaServer",
+    "type": "Orion.DPA.DpaServer",
+    "notes": "Defined by relationship Orion.DpaServerProductInfo (System.Reference)",
+    "relationship": "Orion.DpaServerProductInfo",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 6,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.ResourceData",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Provides data-points of DB resources. It has single parameter that is required (DatabaseId) and two more that specifies what data will be returned for a given query. If one specifies both ResourceName and CategoryName in a WHERE clause than result set will contain single-resource data-points for specified time-frame (or default time-frame if Time property was not limited in WHERE clause). If at least one of these two parameters is missing than the result set will contain multiple-metric data-points limited by one data-point per metric (i.e. result set will contain a set of last data-point collected for each metric, if such data-point exists in last 60 minutes)",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Specifies for which DB instance should resource data-points be fetched. Reference to Orion.DPA.DatabaseInstance.Id",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "ResourceName",
+    "type": "System.String",
+    "summary": "Specifies a name of a resource (e.g. Active Sessions, Memory Utilization, Signal Waits Percent) that must be equal to one of the records from DPA.ResourceDefinition.Name",
+    "access": "everyone"
+   },
+   {
+    "name": "CategoryName",
+    "type": "System.String",
+    "summary": "Specifies a name of a category a resource belongs (e.g. CPU, Memory, Sessions) that must be equal to one of the records from DPA.ResourceDefinition.CategoryName",
+    "access": "everyone"
+   },
+   {
+    "name": "Time",
+    "type": "System.DateTime",
+    "summary": "Specifies a time of a data-point",
+    "access": "everyone"
+   },
+   {
+    "name": "Value",
+    "type": "System.Double",
+    "summary": "Specifies a double-precision value of this data-point in given time",
+    "access": "everyone"
+   },
+   {
+    "name": "TimeUnit",
+    "type": "System.Int32",
+    "summary": "Specifies a time-frame for which data-points should be fetched. If both Time > ABC and Time < XYZ are specified in WHERE clause this property will be ignored. It can take one of the following values: hour (3), day (4), week (5), month (6), six moths (61) or year (7). If Time is limited only by one side (< or >) than a time-frame will be specified as Time-TimeUnit to Time respectively Time to Time+TimeUnit",
+    "access": "everyone"
+   },
+   {
+    "name": "TimesliceUnit",
+    "type": "System.Int32",
+    "summary": "Force granularity of records within Time interval (by default there is auto detection based on the Time interval), supported values: as collected ('-1'), ten minutes (22), hour (3), day (4)",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 8,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.ResourceDefinition",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Provides definition of DB resources (metrics grouped in categories). It provides no dynamic values (in terms values don't change in time unless user takes actions which will cause definition change) and as such it requires no time-frame.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "Specifies a name of a resource (e.g. Active Sessions, Memory Utilization, Signal Waits Percent)",
+    "access": "everyone"
+   },
+   {
+    "name": "DisplayName",
+    "type": "System.String",
+    "summary": "Resource name used in DPA UI",
+    "access": "everyone"
+   },
+   {
+    "name": "CategoryName",
+    "type": "System.String",
+    "summary": "Specifies a name of a category a resource belongs (e.g. CPU, Memory, Sessions)",
+    "access": "everyone"
+   },
+   {
+    "name": "Description",
+    "type": "System.String",
+    "summary": "Specifies a short description of a resource (e.g. Number of batches being executed by SQL Server every second for resource having name Batch Requests Per Sec and belonging to category Sessions)",
+    "access": "everyone"
+   },
+   {
+    "name": "ValueUnit",
+    "type": "System.String",
+    "summary": "Specifies a unit of this metric (e.g. requests/second, %, pages/second). Unit is represented on Y axis of resource graph.",
+    "access": "everyone"
+   },
+   {
+    "name": "Thresholds",
+    "type": "System.String",
+    "summary": "Specifies a comma separated list of threshold values. It contains both WARN and CRITICAL limits where first two values are WARN limits and second two CRITICAL limits (e.g. 80,90,90,null)",
+    "access": "everyone"
+   },
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Specifies for which DB instance is this resource applicable. Reference to Orion.DPA.DatabaseInstance.Id",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "DatabaseInstance",
+    "type": "Orion.DPA.DatabaseInstance",
+    "notes": "Defined by relationship Orion.ResourceDefinitionDatabaseInstance (System.Reference)",
+    "relationship": "Orion.ResourceDefinitionDatabaseInstance",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 8,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.SQLQueryInfo",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "The entity provides the full formatted sql text and custom name for given sqlhash. DatabaseId and Hash are mandatory in where condition.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "ID of a monitored instance. References to Orion.DPA.DatabaseInstance.Id",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "SqlHash",
+    "type": "System.String",
+    "summary": "SQL Hash",
+    "access": "everyone"
+   },
+   {
+    "name": "FullSqlText",
+    "type": "System.String",
+    "summary": "Full formatted SQL text. If text not polled returns 'SQL statement not available'.",
+    "access": "everyone"
+   },
+   {
+    "name": "SQLName",
+    "type": "System.String",
+    "summary": "Custom name of SQL. If SQL not named, returns SQL Hash or Oracle SQL Id if supported and collected.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 5,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.SqlServerQueryHash",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Provides mapping between SQL Handle and its Hash in scope of the given database instance. Both DatabaseId and Handle are mandatory in where condition.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "ID of a monitored instance. References to Orion.DPA.DatabaseInstance.Id",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "Handle",
+    "type": "System.String",
+    "summary": "SQL Handle",
+    "access": "everyone"
+   },
+   {
+    "name": "Hash",
+    "type": "System.Int64",
+    "summary": "SQL Hash",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.TimeSeriesData",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "PerfStack compatible metric data",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity",
+   "System.StatisticsEntity"
+  ],
+  "baseEntity": "System.StatisticsEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseInstanceID",
+    "type": "System.Int32",
+    "summary": "ID of Database Instance",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseInstanceID",
+    "type": "System.Int32",
+    "summary": "Unique ID of Database Instance",
+    "access": "everyone"
+   },
+   {
+    "name": "CategoryName",
+    "type": "System.String",
+    "summary": "Name of a category a resource belongs (e.g. CPU, Memory, Sessions) that must be equal to one of the records from DPA.TimeSeriesDefinition.CategoryName",
+    "access": "everyone"
+   },
+   {
+    "name": "MetricName",
+    "type": "System.String",
+    "summary": "Name of a metric (e.g. ActiveSessions, MemoryUtilization, SignalWaitsPercent) that must be equal to one of the records from DPA.TimeSeriesDefinition.MetricName",
+    "access": "everyone"
+   },
+   {
+    "name": "Value",
+    "type": "System.Double",
+    "summary": "Double-precision value of this data-point in given time",
+    "access": "everyone"
+   },
+   {
+    "name": "Weight",
+    "type": "System.Double",
+    "summary": "Specifies for which time frime this data point is applicable in seconds",
+    "access": "everyone"
+   },
+   {
+    "name": "ObservationTimestamp",
+    "type": "System.DateTime",
+    "summary": "Timestamp of data-point",
+    "access": "everyone"
+   },
+   {
+    "name": "Label",
+    "type": "System.String",
+    "summary": "Label of given data point for Wait-Time based metrics",
+    "access": "everyone"
+   },
+   {
+    "name": "Rank",
+    "type": "System.Int32",
+    "summary": "Order of label in legend and chart",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "DatabaseInstance",
+    "type": "Orion.DPA.DatabaseInstance",
+    "notes": "Defined by relationship Orion.DatabaseInstanceTimeSeriesData (System.Reference)",
+    "relationship": "Orion.DatabaseInstanceTimeSeriesData",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 9,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.TimeSeriesDefinition",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Definition of PerfStack compatible metrics available for specific Database Instance",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseInstanceID",
+    "type": "System.Int32",
+    "summary": "ID of Database Instance",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseInstanceID",
+    "type": "System.Int32",
+    "summary": "Unique ID of Database Instance",
+    "access": "everyone"
+   },
+   {
+    "name": "CategoryName",
+    "type": "System.String",
+    "summary": "Name of a category a metric belongs to (e.g. CPU, Memory, Sessions, WaitTimes) in format that allows use this property in URL. In case of default category it is same as CategoryDisplayName with trimmed non-alphanumeric characters. In case of custom metrics it is a hash code of CategoryDisplayName.",
+    "access": "everyone"
+   },
+   {
+    "name": "CategoryDisplayName",
+    "type": "System.String",
+    "summary": "User friendly metric category name",
+    "access": "everyone"
+   },
+   {
+    "name": "MetricName",
+    "type": "System.String",
+    "summary": "Name of a metric (e.g. ActiveSessions, MemoryUtilization, SignalWaitsPercent, TotalInstanceWaitTime) in format that allows use this property in URL. In case of default metric it is same as MetricDisplayName with trimmed non-alphanumeric characters. In case of custom metrics it is a hash code of internal DPA metric name",
+    "access": "everyone"
+   },
+   {
+    "name": "MinValue",
+    "type": "System.Int32",
+    "summary": "Minimum value this resource can return. Defaults to 0 if not defined.",
+    "access": "everyone"
+   },
+   {
+    "name": "MaxValue",
+    "type": "System.Int32",
+    "summary": "Maximum value this resource can return. Defaults to 0 if not defined. (e.g. 100 for data in percents)",
+    "access": "everyone"
+   },
+   {
+    "name": "DefaultAggregation",
+    "type": "System.String",
+    "summary": "Default value aggregation to use in case data has to be aggregated on client side due to different granularity. Currently is always set to SUM.",
+    "access": "everyone"
+   },
+   {
+    "name": "Units",
+    "type": "System.String",
+    "summary": "Unit of this metric (e.g. requests/second, %, pages/second). Unit is represented on Y axis of resource graph.",
+    "access": "everyone"
+   },
+   {
+    "name": "ChartType",
+    "type": "System.String",
+    "summary": "Determines how data should be displayed. \"Gauge\" = sparklines; \"Bar\" = bars; \"Stacked\" = stacked bars",
+    "access": "everyone"
+   },
+   {
+    "name": "Subtitle",
+    "type": "System.String",
+    "summary": "Metric subtitle used in data explorer in perfstack",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "DatabaseInstance",
+    "type": "Orion.DPA.DatabaseInstance",
+    "notes": "Defined by relationship Orion.DatabaseInstanceTimeSeriesDefinition (System.Reference)",
+    "relationship": "Orion.DatabaseInstanceTimeSeriesDefinition",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 11,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.TrendDataDimension",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "Trend data for DB instance per dimension",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseId",
+    "type": "System.Int32",
+    "summary": "Reference to Orion.DPA.DatabaseInstance.Id. This parameter is not required for data-dimensions 18, 19 and 20 (see bellow – virtual dimensions). On the other hand this parameter can be specified with WHERE Id IN (x, y, z) for these three dimensions",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseId",
+    "type": "System.Int32",
+    "summary": "Unique ID of database instance in Orion",
+    "access": "everyone"
+   },
+   {
+    "name": "Id",
+    "type": "System.Int32",
+    "summary": "Trend data-dimension; possible values are: SQL (1), WAIT (2), PROGRAM (3), DATABASE_INSTANCE (4), MACHINE (5), DB_USER (6), OS_USER (7), FILE (8), DRIVE (9), PLAN (10), ACTION (11), MODULE (12), PARTITION (13), OBJECT (14), PROCEDURE (15) and virtual dimensions TOP_WAIT (18), TRENDING_UP_WAIT (19), TRENDING_DOWN_WAIT (20)",
+    "access": "everyone"
+   },
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "Data-dimension names–readable data-dimension representations: 'SQL Statement', 'Wait-time', 'Program', 'Database', 'Machine', 'Database User', 'O/S User', 'File', 'Drive', 'Plan', 'Action', 'Module', 'Partition', 'Object', 'Procedure', 'Top Wait-time', 'Trending-up Wait-time', 'Trending-down Wait-time'",
+    "access": "everyone"
+   },
+   {
+    "name": "Wait",
+    "type": "System.Double",
+    "summary": "Total wait-time in seconds for each returned record. For Trending-up (down) wait-time this value represents percent change (not time)",
+    "access": "everyone"
+   },
+   {
+    "name": "AverageWait",
+    "type": "System.Double",
+    "summary": "Average wait-time in seconds for DB instance",
+    "access": "everyone"
+   },
+   {
+    "name": "Time",
+    "type": "System.DateTime",
+    "summary": "Time-stamp of entity record (operators <, <=, > and >= can be used in WHERE clauses on this field)",
+    "access": "everyone"
+   },
+   {
+    "name": "TimeUnit",
+    "type": "System.Int32",
+    "summary": "Used for filtration of records by setting desired granularity (millis (0), seconds (1), minutes (2), hours (3), days (4), weeks (5), months (6)) Since this is only a prototype the only values allowed are 3 (hours) and 4 (days) and both are mutually exclusive (you cannot get records for both hours and days by a single query)",
+    "access": "everyone"
+   },
+   {
+    "name": "InstanceId",
+    "type": "System.Int64",
+    "summary": "IDs of an instances in DPA; for programs, machines, users, etc. these are typically generically-generated IDs in local repository table; for SQL texts these are SQL hashes",
+    "access": "everyone"
+   },
+   {
+    "name": "InstanceName",
+    "type": "System.String",
+    "summary": "Name of an instance; e.g. 'IGNITE' (for program), 'administrator-XYZ' (for user), 348A3F21 (for SQL text)",
+    "access": "everyone"
+   },
+   {
+    "name": "InstanceValue",
+    "type": "System.String",
+    "summary": "Typically set only for SQLs–this field contains full SQL text",
+    "access": "everyone"
+   },
+   {
+    "name": "MaxInstances",
+    "type": "System.Int32",
+    "summary": "Serves only to limit the maximal number of monitored database instances to be retrieved (top 5, 10, etc.)",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "DatabaseInstance",
+    "type": "Orion.DPA.DatabaseInstance",
+    "notes": "Defined by relationship Orion.DatabaseInstanceTrendDataDimension (System.Reference)",
+    "relationship": "Orion.DatabaseInstanceTrendDataDimension",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 12,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "DPA.WaitData",
+  "namespace": "DPA",
+  "version": "2026.2",
+  "summary": "PerfStack data explorer data for waits",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "DatabaseInstanceId",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "GlobalDatabaseInstanceID",
+    "type": "System.Int32",
+    "summary": "Unique ID of Database Instance",
+    "access": "everyone"
+   },
+   {
+    "name": "PrimaryDimension",
+    "type": "System.String",
+    "summary": "Name of a primary dimension. Has to be equal to dimension name without non-alphanumeric characters. See the names in NormalizedDataDimension class",
+    "access": "everyone"
+   },
+   {
+    "name": "PrimaryDimensionValue",
+    "type": "System.String",
+    "summary": "Single value uniquely identifying the dimension entry.",
+    "access": "everyone"
+   },
+   {
+    "name": "WaitTime",
+    "type": "System.Double",
+    "summary": "Total Wait Time for this dimension entry in given time interval.",
+    "access": "everyone"
+   },
+   {
+    "name": "TotalWaitPercentage",
+    "type": "System.Double",
+    "summary": "Percentage of Total Wait Time in given time interval.",
+    "access": "everyone"
+   },
+   {
+    "name": "Executions",
+    "type": "System.Int32",
+    "summary": "Number of query executions from SQL Statistics (CONSS_xx). Available only for SQL / TOP_WAIT primary dimension.",
+    "access": "everyone"
+   },
+   {
+    "name": "WaitTypes",
+    "type": "System.String",
+    "summary": "Comma separated list of Wait Types for SQL / TOP_WAIT dimensions for 1 hour of data. NULL for all other dimensions.",
+    "access": "everyone"
+   },
+   {
+    "name": "Databases",
+    "type": "System.String",
+    "summary": "Comma separated list of Databases for SQL / TOP_WAIT dimensions for 1 hour of data. NULL for all other dimensions.",
+    "access": "everyone"
+   },
+   {
+    "name": "DbUsers",
+    "type": "System.String",
+    "summary": "Comma separated list of Database Users for SQL / TOP_WAIT dimensions for 1 hour of data. NULL for all other dimensions.",
+    "access": "everyone"
+   },
+   {
+    "name": "Machines",
+    "type": "System.String",
+    "summary": "Comma separated list of Machines for SQL / TOP_WAIT dimensions for 1 hour of data. NULL for all other dimensions.",
+    "access": "everyone"
+   },
+   {
+    "name": "Programs",
+    "type": "System.String",
+    "summary": "Comma separated list of Programs for SQL / TOP_WAIT dimensions for 1 hour of data. NULL for all other dimensions.",
+    "access": "everyone"
+   },
+   {
+    "name": "Text",
+    "type": "System.String",
+    "summary": "Additional text. Currently only used for SQL / TOP_WAIT dimension to provide first part of the SQL query from CONST_xx.",
+    "access": "everyone"
+   },
+   {
+    "name": "Link",
+    "type": "System.String",
+    "summary": "URL link. Will be used to provide URLs for Perfstack that'll lead to more details about the entry.",
+    "access": "everyone"
+   },
+   {
+    "name": "Time",
+    "type": "System.DateTime",
+    "summary": "Time of the data point.",
+    "access": "everyone"
+   },
+   {
+    "name": "Interval",
+    "type": "System.Int32",
+    "summary": "Duration of the data point in seconds.",
+    "access": "everyone"
+   },
+   {
+    "name": "Rank",
+    "type": "System.Int32",
+    "summary": "Order of the entry based on its total wait time.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 17,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ }
+]

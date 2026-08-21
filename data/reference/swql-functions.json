@@ -1,0 +1,1184 @@
+[
+ {
+  "name": "Avg",
+  "category": "Aggregate",
+  "signature": "Avg(n)",
+  "arguments": "n",
+  "signatureComplete": true,
+  "description": "Returns the average (arithmetic mean) of the values in the group.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT avg(SWISColumn) as ResultColumn FROM SWISTable",
+    "minCoreVersion": "2011.1",
+    "notes": "Average of all values"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Count",
+  "category": "Aggregate",
+  "signature": "Count(n)",
+  "arguments": "n",
+  "signatureComplete": true,
+  "description": "Returns the number of non-NULL values in the group.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT count(SWISColumn) as ResultColumn FROM SWISTable",
+    "minCoreVersion": "2011.1",
+    "notes": "Count of number of results"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Max",
+  "category": "Aggregate",
+  "signature": "Max(n)",
+  "arguments": "n",
+  "signatureComplete": true,
+  "description": "Returns the largest value in the group.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT max(SWISColumn) as ResultColumn FROM SWISTable",
+    "minCoreVersion": "2011.1",
+    "notes": "Max value of column"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Min",
+  "category": "Aggregate",
+  "signature": "Min(n)",
+  "arguments": "n",
+  "signatureComplete": true,
+  "description": "Returns the smallest value in the group.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT min(SWISColumn) as ResultColumn FROM SWISTable",
+    "minCoreVersion": "2011.1",
+    "notes": "Minimum column value"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "String_Agg",
+  "category": "Aggregate",
+  "signature": "String_Agg(expression, separator [, orderExpression [ASC | DESC]])",
+  "arguments": "expression, separator [, orderExpression [ASC | DESC]]",
+  "signatureComplete": true,
+  "description": "Concatenates the non-NULL string values in the group into a single string, separated by separator. Both expression and separator are required. An optional ordering expression controls the order in which values are concatenated; its direction is optional and defaults to ascending. Returns NULL when the group has no non-NULL values.",
+  "source": "OrionSDK docs/swql-functions",
+  "documented": true,
+  "examples": [],
+  "exampleCount": 0
+ },
+ {
+  "name": "Sum",
+  "category": "Aggregate",
+  "signature": "Sum(n)",
+  "arguments": "n",
+  "signatureComplete": true,
+  "description": "Returns the arithmetic sum of the values in the group.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT sum(SWISColumn) as ResultColumn FROM SWISTable",
+    "minCoreVersion": "2011.1",
+    "notes": "Sum of all column values"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "ArrayContains",
+  "category": "Array functions",
+  "signature": "ArrayContains(a, v)",
+  "arguments": "a, v",
+  "signatureComplete": true,
+  "description": "Returns true if array a contains value v.",
+  "source": "OrionSDK docs/swql-functions",
+  "documented": true,
+  "examples": [],
+  "exampleCount": 0
+ },
+ {
+  "name": "ArrayLength",
+  "category": "Array functions",
+  "signature": "ArrayLength(a)",
+  "arguments": "a",
+  "signatureComplete": true,
+  "description": "Returns the number of elements in array a.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT ArrayLength(MemberAncestorDetailsUrls) AS ColumnResult FROM Orion.ContainerMembers",
+    "minCoreVersion": "2015.1",
+    "observedResult": "1",
+    "notes": "in case array is NULL -> it returns NULL"
+   }
+  ],
+  "workbookMinCoreVersion": "2015.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "ArrayValueAt",
+  "category": "Array functions",
+  "signature": "ArrayValueAt(a, i)",
+  "arguments": "a, i",
+  "signatureComplete": true,
+  "description": "Returns the array element at position i in array a, counting from zero.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT ArrayValueAt(MemberAncestorDetailsUrls,0) AS ColumnResult FROM Orion.ContainerMembers",
+    "minCoreVersion": "2015.1",
+    "observedResult": "/Orion/NetPerfMon/ContainerDetails.aspx?NetObject=C:8",
+    "notes": "in case array is NULL -> it returns NULL,index starts with 0, in case index is out of range -> query fails"
+   }
+  ],
+  "workbookMinCoreVersion": "2015.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "SplitStringToArray",
+  "category": "Array functions",
+  "signature": "SplitStringToArray(a)",
+  "arguments": "a",
+  "signatureComplete": true,
+  "description": "Splits string a on comma separators into an array of substrings.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT SplitStringToArray('Hello|§|§|world') as a FROM Orion.Engines",
+    "minCoreVersion": "2013.1",
+    "observedResult": "[Hello, world]"
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "ChangeTimeZone",
+  "category": "Date Time",
+  "signature": "ChangeTimeZone",
+  "arguments": "",
+  "signatureComplete": false,
+  "description": "The second argument needs to follow the standard timezone offset +/-hh:mm . The date in the database will have its offset changed to the specified timezone offset. The + must be within the ' '",
+  "source": "community workbook",
+  "documented": false,
+  "examples": [
+   {
+    "query": "SELECT ChangeTimeZone(KeepAlive,'+05:00') as ColumnResult FROM Orion.Engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "2015-09-25 21:21:45",
+    "notes": "The second argument needs to follow the standard timezone offset +/-hh:mm . The date in the database will have its offset changed to the specified timezone offset. The + must be within the ' '"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "exampleCount": 1
+ },
+ {
+  "name": "AddDate",
+  "category": "Date/time",
+  "signature": "AddDate(u, n, d)",
+  "arguments": "u, n, d",
+  "signatureComplete": true,
+  "description": "Returns a date n units after d, where the unit is specified by the first parameter u, which must be one of: 'millisecond', 'second', 'minute', 'hour', 'day', 'week', 'month', or 'year'. The u argument must be a string literal. It can't be a query parameter or value derived from the data.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT AddDate('month', 2, KeepAlive) AS ColumnResult From Orion.Engines",
+    "minCoreVersion": "2014.2",
+    "observedResult": "2015-11-25 16:38:47",
+    "notes": "Add time to current Date Supported values for DatePart Millisecond, Second, Minute, Hour, Week, Day, Month, Year"
+   }
+  ],
+  "workbookMinCoreVersion": "2014.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "AddDay",
+  "category": "Date/time",
+  "signature": "AddDay(n, d)",
+  "arguments": "n, d",
+  "signatureComplete": true,
+  "description": "Returns a date n days after d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT AddDay(17, KeepAlive) AS ColumnResult From Orion.Engines",
+    "minCoreVersion": "2014.2",
+    "observedResult": "2015-10-12 16:30:16",
+    "notes": "17 is the number of Days"
+   }
+  ],
+  "workbookMinCoreVersion": "2014.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "AddHour",
+  "category": "Date/time",
+  "signature": "AddHour(n, d)",
+  "arguments": "n, d",
+  "signatureComplete": true,
+  "description": "Returns a date n hours after d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Addhour(1, KeepAlive) AS ColumnResult From Orion.Engines",
+    "minCoreVersion": "2014.2",
+    "observedResult": "2015-09-25 17:31:16",
+    "notes": "1 is the number of hours"
+   }
+  ],
+  "workbookMinCoreVersion": "2014.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "AddMillisecond",
+  "category": "Date/time",
+  "signature": "AddMillisecond(n, d)",
+  "arguments": "n, d",
+  "signatureComplete": true,
+  "description": "Returns a date n milliseconds after d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT AddMillisecond(1, NextPoll) AS NextPoll From Orion.Nodes",
+    "minCoreVersion": "2014.2",
+    "notes": "1 is the number of Miliseconds"
+   }
+  ],
+  "workbookMinCoreVersion": "2014.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "AddMinute",
+  "category": "Date/time",
+  "signature": "AddMinute(n, d)",
+  "arguments": "n, d",
+  "signatureComplete": true,
+  "description": "Returns a date n minutes after d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Addminute(30, KeepAlive) AS ColumnResult From Orion.Engines",
+    "minCoreVersion": "2014.2",
+    "observedResult": "2015-09-25 17:02:16",
+    "notes": "30 is the number of Minutes"
+   }
+  ],
+  "workbookMinCoreVersion": "2014.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "AddMonth",
+  "category": "Date/time",
+  "signature": "AddMonth(n, d)",
+  "arguments": "n, d",
+  "signatureComplete": true,
+  "description": "Returns a date n months after d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT AddMonth(5, KeepAlive) AS ColumnResult From Orion.Engines",
+    "minCoreVersion": "2014.2",
+    "observedResult": "2016-02-25 16:26:16",
+    "notes": "5 is the number of Months"
+   }
+  ],
+  "workbookMinCoreVersion": "2014.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "AddSecond",
+  "category": "Date/time",
+  "signature": "AddSecond(n, d)",
+  "arguments": "n, d",
+  "signatureComplete": true,
+  "description": "Returns a date n seconds after d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT AddSecond(13, KeepAlive) AS ColumnResult From Orion.Engines",
+    "minCoreVersion": "2014.2",
+    "observedResult": "2015-09-25 16:33:16",
+    "notes": "13 is the number of seconds"
+   }
+  ],
+  "workbookMinCoreVersion": "2014.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "AddWeek",
+  "category": "Date/time",
+  "signature": "AddWeek(n, d)",
+  "arguments": "n, d",
+  "signatureComplete": true,
+  "description": "Returns a date n weeks after d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT AddWeek(7, KeepAlive) AS ColumnResult From Orion.Engines",
+    "minCoreVersion": "2014.2",
+    "observedResult": "2015-11-13 16:26:46",
+    "notes": "7 is the number of Weeks"
+   }
+  ],
+  "workbookMinCoreVersion": "2014.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "AddYear",
+  "category": "Date/time",
+  "signature": "AddYear(n, d)",
+  "arguments": "n, d",
+  "signatureComplete": true,
+  "description": "Returns a date n years after d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT AddYear(5, KeepAlive) AS ColumnResult From Orion.Engines",
+    "minCoreVersion": "2014.2",
+    "observedResult": "2020-09-25 16:25:46",
+    "notes": "5 is the number of Years"
+   }
+  ],
+  "workbookMinCoreVersion": "2014.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "DateTime",
+  "category": "Date/time",
+  "signature": "DateTime",
+  "arguments": "",
+  "signatureComplete": false,
+  "description": "Converts a string to a date. In most scenarios this conversion will happen automatically when needed by usage.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT KeepAlive FROM Orion.Engines where KeepAlive > DateTime('9/25/2015 3:49:54')",
+    "minCoreVersion": "2011.1",
+    "observedResult": "2015-09-25 15:55:14",
+    "notes": "Time derived from SQL Server time zone settings"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "DateTrunc",
+  "category": "Date/time",
+  "signature": "DateTrunc('datepart', 'd')",
+  "arguments": "'datepart', 'd'",
+  "signatureComplete": true,
+  "description": "Where 'datepart' is one of the following strings: 'minute', 'hour', 'day', 'week', 'month', 'quarter', 'year'. Returns a date like d, but with all components more granular than 'datepart' set to zero.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT DateTrunc('month', KeepAlive) as ColumnResult FROM Orion.Engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "2015-09-01 00:00:00",
+    "notes": "Supported values for the DatePart argument: Minute, Hour, Week, Day, DayOfYear, Month, Quarter, Year. Not supported: Millisecond, Second."
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Day",
+  "category": "Date/time",
+  "signature": "Day(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Returns the day of the month of d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Day(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "25",
+    "notes": "Shows Day of month"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "DayDiff",
+  "category": "Date/time",
+  "signature": "DayDiff(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns the number of days (rounded to the nearest integer) that b is later than a.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT DayDiff(KeepAlive,KeepAlive+28) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "28",
+    "notes": "+28 is the number of days difference from the Keepalive Column"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "DayOfYear",
+  "category": "Date/time",
+  "signature": "DayOfYear(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Returns the day of year of d. January 1 is 1, February 1 is 32, etc.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT DayofYear(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "268",
+    "notes": "julian date"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Downsample",
+  "category": "Date/time",
+  "signature": "Downsample(d, p)",
+  "arguments": "d, p",
+  "signatureComplete": true,
+  "description": "Rounds the supplied timestamp d to the defined time period p.  For example, a period of '00:15:00' would round to the nearest 15 minute time increment. Requires Orion 2018.3 or later.",
+  "source": "OrionSDK docs/swql-functions",
+  "availableSince": "2018.3",
+  "documented": true,
+  "examples": [],
+  "exampleCount": 0
+ },
+ {
+  "name": "GetDate",
+  "category": "Date/time",
+  "signature": "GetDate()",
+  "arguments": "",
+  "signatureComplete": true,
+  "description": "Returns the current date in local time at the Orion server.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT getdate() as ResultCoumn FROM Orion.Engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "2015-09-25 08:52:35",
+    "notes": "Time derived from SQL Server time zone settings"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "GetUtcDate",
+  "category": "Date/time",
+  "signature": "GetUtcDate()",
+  "arguments": "",
+  "signatureComplete": true,
+  "description": "Returns the current date and time in UTC. Please note [possible issues](possible-issues/#datetime-functions).",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT GetUtcDate() as ResultColumn FROM Orion.Engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "2015-09-25 15:53:49",
+    "notes": "Time derived from SQL Server time zone settings"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Hour",
+  "category": "Date/time",
+  "signature": "Hour(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Returns the hour part of d (in 24 hour format).",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Hour(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "16",
+    "notes": "Shows hour"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "HourDiff",
+  "category": "Date/time",
+  "signature": "HourDiff(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns the number of hours (rounded to the nearest integer) that b is later than a.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT HourDiff(KeepAlive,KeepAlive+28) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "672",
+    "notes": "+28 is the number of days difference from the Keepalive Column"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Millisecond",
+  "category": "Date/time",
+  "signature": "Millisecond(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Returns the millisecond part of d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT MilliSecond(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "613",
+    "notes": "shows miliseconds"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "MillisecondDiff",
+  "category": "Date/time",
+  "signature": "MillisecondDiff(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns the number of milliseconds (rounded to the nearest integer) that b is later than a.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT MillisecondDiff(KeepAlive,KeepAlive+24) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "2073600000",
+    "notes": "24 is the number of days. 24 is also the max that can used for this query"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Minute",
+  "category": "Date/time",
+  "signature": "Minute",
+  "arguments": "",
+  "signatureComplete": false,
+  "description": "Returns the minute part of d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Minute(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "15",
+    "notes": "shows minutes"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "MinuteDiff",
+  "category": "Date/time",
+  "signature": "MinuteDiff(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns the number of minutes (rounded to the nearest integer) that b is later than a.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT MinuteDiff(KeepAlive,KeepAlive+28) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "40320",
+    "notes": "+28 is the number of days difference from the Keepalive Column"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Month",
+  "category": "Date/time",
+  "signature": "Month",
+  "arguments": "",
+  "signatureComplete": false,
+  "description": "Returns the month part of d. January is 1.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Month(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "9",
+    "notes": "Shows only Month"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "MonthDiff",
+  "category": "Date/time",
+  "signature": "MonthDiff(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns the number of months (rounded to the nearest integer) that b is later than a.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT MonthDiff(KeepAlive,KeepAlive+28) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "1",
+    "notes": "+28 is the number of days difference from the Keepalive Column"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "QuarterOfYear",
+  "category": "Date/time",
+  "signature": "QuarterOfYear(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Returns the quarter of the year that contains d. January, February, and March are 1; April, May, and June are 2; etc.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT QuarterofYear(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "3",
+    "notes": "Quarters 1-4"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Second",
+  "category": "Date/time",
+  "signature": "Second(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Returns the second part of d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Second(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "45",
+    "notes": "shows seconds"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "SecondDiff",
+  "category": "Date/time",
+  "signature": "SecondDiff(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns the number of seconds (rounded to the nearest integer) that b is later than a.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT SecondDiff(KeepAlive, KeepAlive + 1) as a FROM Orion.Engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "2419200",
+    "notes": "+28 is the number of days difference from the Keepalive Column"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "ToLocal",
+  "category": "Date/time",
+  "signature": "ToLocal(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Converts d to local time on the Orion server.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Tolocal(getutcdate()) as ResultColumn FROM Orion.Engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "9/25/2015  8:50:37 A M",
+    "notes": "Time derived from SQL Server time zone settings"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "ToUtc",
+  "category": "Date/time",
+  "signature": "ToUtc",
+  "arguments": "",
+  "signatureComplete": false,
+  "description": "Converts d to UTC time.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT ToUtc(getdate()) as ResultColumn FROM Orion.Engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "2015-09-25 15:49:54",
+    "notes": "Time derived from SQL Server time zone settings"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Week",
+  "category": "Date/time",
+  "signature": "Week(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Returns the week number of d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Week(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "39",
+    "notes": "Shows only Week Number"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "WeekDay",
+  "category": "Date/time",
+  "signature": "WeekDay(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Returns the day of the week of d as a number, with Sunday = 0, Monday = 1, ..., Saturday = 6. Available in Orion Platform 2016.1 and later.",
+  "source": "OrionSDK docs/swql-functions",
+  "availableSince": "2016.1",
+  "examples": [
+   {
+    "query": "SELECT WeekDay(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2015.2",
+    "observedResult": "2",
+    "notes": "2= Tuesday, 4=Thursday, 6=Saturday"
+   }
+  ],
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "WeekDiff",
+  "category": "Date/time",
+  "signature": "WeekDiff(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns the number of weeks (rounded to the nearest integer) that b is later than a.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT WeekDiff(KeepAlive,KeepAlive+28) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "4",
+    "notes": "+28 is the number of days difference from the Keepalive Column"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Year",
+  "category": "Date/time",
+  "signature": "Year(d)",
+  "arguments": "d",
+  "signatureComplete": true,
+  "description": "Returns the year of d.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Year(KeepAlive) as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "2015",
+    "notes": "Year Returned only"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "YearDiff",
+  "category": "Date/time",
+  "signature": "YearDiff(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns the number of years (rounded to the nearest integer) that b is later than a.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT YearDiff(KeepAlive,'1/01/2020 0:0:0 AM') as ColumnResult from orion.engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "5",
+    "notes": "Year Difference"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Case",
+  "category": "General",
+  "signature": "Case when c then a else b end",
+  "arguments": "",
+  "signatureComplete": false,
+  "description": "Returns a if c is true else returns b.",
+  "source": "OrionSDK docs/swql-functions",
+  "documented": true,
+  "examples": [],
+  "exampleCount": 0
+ },
+ {
+  "name": "IsNull",
+  "category": "General",
+  "signature": "IsNull(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns a unless it is NULL, else returns b.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Restart, IsNull(restart, '9/25/2015 3:49:54') as ColumnResult FROM Orion.Engines",
+    "minCoreVersion": "2011.1",
+    "observedResult": "NULL, 9/25/2015 3:49:54 AM"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "UNION",
+  "category": "General",
+  "signature": "UNION(q)",
+  "arguments": "q",
+  "signatureComplete": true,
+  "description": "Adds the results of an additional query q directly below the former, the number of columns must match between unioned queries",
+  "source": "OrionSDK docs/swql-functions",
+  "documented": true,
+  "examples": [],
+  "exampleCount": 0
+ },
+ {
+  "name": "Abs",
+  "category": "Numeric",
+  "signature": "Abs(n)",
+  "arguments": "n",
+  "signatureComplete": true,
+  "description": "Returns the absolute value of n.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT abs(-1) as ResultColumn FROM SWISTable",
+    "minCoreVersion": "2011.1",
+    "observedResult": "1",
+    "notes": "Absolute as in never negative"
+   }
+  ],
+  "workbookMinCoreVersion": "2011.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Ceiling",
+  "category": "Numeric",
+  "signature": "Ceiling(n)",
+  "arguments": "n",
+  "signatureComplete": true,
+  "description": "Returns the smallest integer that is not less than n.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT ceiling(ResponseTime) as ResultColumn FROM Orion.Nodes",
+    "minCoreVersion": "2013.1",
+    "notes": "The Ceiling() will rounded up any positive or negative decimal value within the function upwards."
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Floor",
+  "category": "Numeric",
+  "signature": "Floor(n)",
+  "arguments": "n",
+  "signatureComplete": true,
+  "description": "Returns the largest integer that is not greater than n.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT floor(ResponseTime) as ResultColumn FROM Orion.Nodes",
+    "minCoreVersion": "2013.1",
+    "notes": "The FLOOR() rounded up any positive or negative decimal value down to the next least integer value."
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Round",
+  "category": "Numeric",
+  "signature": "Round(n, p)",
+  "arguments": "n, p",
+  "signatureComplete": true,
+  "description": "Returns n rounded to the p decimal places.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT round(ResponseTime, PercentLoss) as ResultColumn FROM Orion.Nodes",
+    "minCoreVersion": "2013.1",
+    "notes": "The ROUND() function is used to round a numeric field to the number of decimals specified."
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "CharIndex",
+  "category": "String",
+  "signature": "CharIndex(toFind, toSearch [, start])",
+  "arguments": "toFind, toSearch [, start]",
+  "signatureComplete": true,
+  "description": "Returns the position at which toFind occurs within toSearch (starting at position start, if provided) or zero if toFind is not found. Supported since Orion Platform 2018.2 (NPM 12.3) and later.",
+  "source": "OrionSDK docs/swql-functions",
+  "availableSince": "2018.2",
+  "documented": true,
+  "examples": [],
+  "exampleCount": 0
+ },
+ {
+  "name": "Concat",
+  "category": "String",
+  "signature": "Concat(a, b, c, ...)",
+  "arguments": "a, b, c, ...",
+  "signatureComplete": true,
+  "description": "Takes one or more arguments and returns a single string that is the concatenation of the values of the arguments.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Concat ('The ', 'most ','awesome ', 'string') as ConString from Orion.Engines",
+    "minCoreVersion": "2013.1",
+    "observedResult": "The most awesome string"
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "EscapeSWISUriValue",
+  "category": "String",
+  "signature": "EscapeSWISUriValue(a)",
+  "arguments": "a",
+  "signatureComplete": true,
+  "description": "Returns a with certain characters escaped. Intended for internal use only.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Uri, EscapeSWISUriValue(Uri) as c FROM Orion.Engines",
+    "minCoreVersion": "2013.1",
+    "observedResult": "swis://Srvname./Orion/Orion.Engines/EngineID=1, \"swis://Srvname./Orion/Orion.Engines/EngineID=1\""
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Length",
+  "category": "String",
+  "signature": "Length(s)",
+  "arguments": "s",
+  "signatureComplete": true,
+  "description": "Returns the length of string s.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT Length(ServerName) as NameLength FROM Orion.Engines",
+    "minCoreVersion": "2015.2",
+    "observedResult": "14",
+    "notes": "Works just for String properties"
+   }
+  ],
+  "workbookMinCoreVersion": "2015.2",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "Replace",
+  "category": "String",
+  "signature": "Replace(expression, pattern, replacement)",
+  "arguments": "expression, pattern, replacement",
+  "signatureComplete": true,
+  "description": "Replaces all occurrences of a specified string (pattern) value in expression with another string value (replacement). Supported since Orion Platform 2017.3 (NPM 12.2) and later.",
+  "source": "OrionSDK docs/swql-functions",
+  "availableSince": "2017.3",
+  "documented": true,
+  "examples": [],
+  "exampleCount": 0
+ },
+ {
+  "name": "SubString",
+  "category": "String",
+  "signature": "SubString(s, start, length)",
+  "arguments": "s, start, length",
+  "signatureComplete": true,
+  "description": "Returns a substring of length characters starting at position start (the first character is position 1).",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT SubString ('123456789', 3, 6) as TestSubString from Orion.Engines",
+    "minCoreVersion": "2013.1",
+    "observedResult": "345678"
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "ToLower",
+  "category": "String",
+  "signature": "ToLower(a)",
+  "arguments": "a",
+  "signatureComplete": true,
+  "description": "Converts a to all lowercase.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT ToLower ('TeStStRiNg') as LowString from Orion.Engines",
+    "minCoreVersion": "2013.1",
+    "observedResult": "teststring"
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "ToString",
+  "category": "String",
+  "signature": "ToString(a)",
+  "arguments": "a",
+  "signatureComplete": true,
+  "description": "Converts a to a string. In most scenarios this conversion will happen automatically when needed by usage.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT ToString(101) as ResultColumn FROM SWISTable",
+    "minCoreVersion": "2013.1",
+    "observedResult": "101"
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "ToUpper",
+  "category": "String",
+  "signature": "ToUpper(a)",
+  "arguments": "a",
+  "signatureComplete": true,
+  "description": "Converts a to all uppercase.",
+  "source": "OrionSDK docs/swql-functions",
+  "examples": [
+   {
+    "query": "SELECT ToUpper ('TeStStRiNg') as CapString from Orion.Engines",
+    "minCoreVersion": "2013.1",
+    "observedResult": "TESTSTRING"
+   }
+  ],
+  "workbookMinCoreVersion": "2013.1",
+  "documented": true,
+  "exampleCount": 1
+ },
+ {
+  "name": "UriEquals",
+  "category": "String",
+  "signature": "UriEquals(a, b)",
+  "arguments": "a, b",
+  "signatureComplete": true,
+  "description": "Returns true if SWIS Uri a refers to the same entity instance as SWIS Uri b.",
+  "source": "OrionSDK docs/swql-functions",
+  "documented": true,
+  "examples": [],
+  "exampleCount": 0
+ }
+]

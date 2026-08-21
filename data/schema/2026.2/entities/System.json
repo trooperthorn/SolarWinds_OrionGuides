@@ -1,0 +1,1471 @@
+[
+ {
+  "entity": "System.ActiveQuery",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "delete",
+     "invoke"
+    ],
+    "right": "admin"
+   }
+  ],
+  "properties": [
+   {
+    "name": "SessionID",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ClientSessionID",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Host",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Login",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ApplicationTag",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CommandText",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "StartTime",
+    "type": "System.DateTime",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ElapsedMs",
+    "type": "System.Double",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Status",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TooplesCount",
+    "type": "System.Int64",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "RowsCount",
+    "type": "System.Int64",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [
+   {
+    "name": "CancelByClientSessionID",
+    "summary": "",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "clientSessionID",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "System.Void",
+    "restPath": "/Invoke/System.ActiveQuery/CancelByClientSessionID"
+   }
+  ],
+  "supportedOperations": [
+   "delete",
+   "invoke",
+   "read"
+  ],
+  "counts": {
+   "properties": 11,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 1
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.ComputerSystem",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.DashboardEntity",
+   "System.ManagedEntity"
+  ],
+  "baseEntity": "System.ManagedEntity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "NameFormat",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IPAddress",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "FQDN",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.CustomPropertiesEntity",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "Inherits from System.ExtensionEntity and defines no additional properties. If you support user-defined properties on one of your entity types, create an entity type with System.CustomPropertiesEntity as its base type, set dynamic=\"true\" on it, and have your data provider fill in the user-defined properties at runtime.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.DashboardEntity",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "System.DashboardEntity was created for use in Modern Dashboard which require for properties defined in System.ManagedEntity - Status, DetailsUrl, ModernIcon, and EntityLink. It is now used as teh base entity for System.ManagedEntity. This entity allows for creating custom entities that can be used in Modern Dashboards without having to inherit from System.ManagedEntity.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Status",
+    "type": "System.Int32",
+    "summary": "An int value denoting the up/down/warning/etc. status of this entity. The interpretation of this int will be application-dependent, but for Orion.* entities, you can query Orion.StatusInfo to see what the different numbers mean.",
+    "access": "everyone"
+   },
+   {
+    "name": "DetailsUrl",
+    "type": "System.String",
+    "summary": "A relative url for the \"details page\" for this entity. This is typically constructed using a string concatenation expression in a defining query storage entity. See OrionSchema.xml for some examples of this technique.",
+    "access": "everyone"
+   },
+   {
+    "name": "ModernIcon",
+    "type": "System.String",
+    "summary": "Nova icon name for the entity. Default is 'unknownnode'",
+    "access": "everyone"
+   },
+   {
+    "name": "EntityLink",
+    "type": "System.String",
+    "summary": "ContentType-based property for Modern Dashboards EntityLinkFormatter. Used in conjunction with ContentModel.ContentFormatField to gather other fields required for formatter.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.Diagnostic",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Value",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.Entity",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "System.Entity is the root of the SWIS type hierarchy. It carries no particular meaning or semantics. Choose System.Entity as your base type when no other type makes sense. It does define four properties that will be inherited by every other entity type in SWIS: DisplayName, Description, InstanceType, and Uri. The values for InstanceType and Uri will be filled in by SWIS, so you should not map those to storage properties. If you have a property that makes sense to call \"DisplayName\" or \"Description\", then you should map accordingly.",
+  "flags": {},
+  "inheritance": [],
+  "baseEntity": null,
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "DisplayName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Description",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "InstanceType",
+    "type": "System.Type",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Uri",
+    "type": "System.String",
+    "summary": "All entity types have the Uri property which value is uniquely identifying an entity instance in the system. The value may be blank if the entity type doesn't define an identity for its instances.",
+    "access": "everyone"
+   },
+   {
+    "name": "InstanceSiteId",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "OrionSite",
+    "type": "Orion.Sites",
+    "notes": "Defined by relationship Orion.SitesReferencesSystemEntity (System.Reference)",
+    "relationship": "Orion.SitesReferencesSystemEntity",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 5,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.EntityTypeStatistics",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "system"
+   }
+  ],
+  "properties": [
+   {
+    "name": "EntityName",
+    "type": "System.Type",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TotalRowCount",
+    "type": "System.Int64",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.ExtensionEntity",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "Inherits from System.Entity and defines no additional properties. ExtensionEntity types are for providing additional properties about another entity and these types should be linked by a System.Hosting relationship to some other entity.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.Feature",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 1,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.Indication",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "read",
+     "invoke"
+    ],
+    "right": "admin"
+   }
+  ],
+  "properties": [
+   {
+    "name": "IndicationID",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IndicationTime",
+    "type": "System.DateTime",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IndicationSequence",
+    "type": "System.Int64",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "AccountID",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [
+   {
+    "name": "ReportIndication",
+    "summary": "",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "indicationType",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "indicationProperties",
+      "type": "array",
+      "required": true,
+      "items": {
+       "type": "System.Collections.Generic.KeyValuePair~System.String_System.Object~"
+      }
+     },
+     {
+      "name": "sourceInstanceProperties",
+      "type": "array",
+      "required": true,
+      "items": {
+       "type": "System.Collections.Generic.KeyValuePair~System.String_System.Object~"
+      }
+     }
+    ],
+    "returns": "System.Void",
+    "restPath": "/Invoke/System.Indication/ReportIndication"
+   }
+  ],
+  "supportedOperations": [
+   "invoke",
+   "read"
+  ],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 1
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.InstanceCreated",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.Indication",
+   "System.InstanceIndication"
+  ],
+  "baseEntity": "System.InstanceIndication",
+  "accessControl": [],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.InstanceDeleted",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.Indication",
+   "System.InstanceIndication"
+  ],
+  "baseEntity": "System.InstanceIndication",
+  "accessControl": [],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.InstanceIndication",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.Indication"
+  ],
+  "baseEntity": "System.Indication",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "SourceInstanceType",
+    "type": "System.Type",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SourceInstanceUri",
+    "type": "System.Uri",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.InstanceModified",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.Indication",
+   "System.InstanceIndication"
+  ],
+  "baseEntity": "System.InstanceIndication",
+  "accessControl": [],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.LoadedAssembly",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "system"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Version",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Path",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 3,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.ManagedEntity",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "A ManagedEntity is basically \"something that has an externally-determined up/down status\". These entities represent the things that our monitoring products monitor: servers, network interfaces, applications, etc.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.DashboardEntity"
+  ],
+  "baseEntity": "System.DashboardEntity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "StatusDescription",
+    "type": "System.String",
+    "summary": "Textual information about the status of this entity.",
+    "access": "everyone"
+   },
+   {
+    "name": "StatusLED",
+    "type": "System.String",
+    "summary": "A legacy property. Ignore this.",
+    "access": "everyone"
+   },
+   {
+    "name": "UnManaged",
+    "type": "System.Boolean",
+    "summary": "True, Whether the entity is current unmanaged, otherwise false.",
+    "access": "everyone"
+   },
+   {
+    "name": "UnManageFrom",
+    "type": "System.DateTime",
+    "summary": "The datetime when this entity became/will become unmanaged",
+    "access": "everyone"
+   },
+   {
+    "name": "UnManageUntil",
+    "type": "System.DateTime",
+    "summary": "The datetime when this entity will exit the unmanaged state",
+    "access": "everyone"
+   },
+   {
+    "name": "Image",
+    "type": "System.String",
+    "summary": "A legacy property. Ignore this.",
+    "access": "everyone"
+   },
+   {
+    "name": "AncestorDisplayNames",
+    "type": "System.String[]",
+    "summary": "Returns an array containing the DisplayName properties of this entity, the entity that hosts this entity, and so on, recursively. Generated automatically by SWIS - don't map this property to storage.",
+    "access": "everyone"
+   },
+   {
+    "name": "AncestorDetailsUrls",
+    "type": "System.String[]",
+    "summary": "Returns an array containing the DetailsUrl properties of this entity, the entity that hosts this entity, and so on, recursively. Generated automatically by SWIS - don't map this property to storage.",
+    "access": "everyone"
+   },
+   {
+    "name": "StatusIconHint",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "AlertObject",
+    "type": "Orion.AlertObjects",
+    "notes": "Defined by relationship Orion.AlertObjectsToManagedEntity (System.Reference)",
+    "relationship": "Orion.AlertObjectsToManagedEntity",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 9,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.NativeFeature",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.Feature"
+  ],
+  "baseEntity": "System.Feature",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 1,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.NullEntity",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.QueryExecuted",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.Indication"
+  ],
+  "baseEntity": "System.Indication",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "QueryText",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Parameters",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ExecutionTimeMS",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "RowsCount",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ApplicationTag",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "RemoteAddress",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Identity",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ConstantExpressionCacheInfo",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 9,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.QueryPlanCache",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "system"
+   }
+  ],
+  "properties": [
+   {
+    "name": "UserName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Query",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "HitCount",
+    "type": "System.Int64",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [
+   {
+    "name": "Clear",
+    "summary": "",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "System.Void",
+    "restPath": "/Invoke/System.QueryPlanCache/Clear"
+   }
+  ],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 3,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 1
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.SchemaChanged",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.Indication"
+  ],
+  "baseEntity": "System.Indication",
+  "accessControl": [],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.StatisticsEntity",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "A sub-type of System.ExtensionEntity for statistical data",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.ExtensionEntity"
+  ],
+  "baseEntity": "System.ExtensionEntity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "ObservationTimestamp",
+    "type": "System.DateTime",
+    "summary": "When this statistic was collected",
+    "access": "everyone"
+   },
+   {
+    "name": "ObservationFrequency",
+    "type": "System.DateTime",
+    "summary": "The interval between collections.",
+    "access": "everyone"
+   },
+   {
+    "name": "Weight",
+    "type": "System.Double",
+    "summary": "Weight of value in this row. Useful to compute weighted average of values. For example one row with value collected for 20 seconds will have Weight=20. Other row collected for one hour will have Weight=3600.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 3,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.Subscription",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "create",
+     "read",
+     "delete"
+    ],
+    "right": "system"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Id",
+    "type": "System.Guid",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "EndpointAddress",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Query",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "LastSuccessfulDelivery",
+    "type": "System.DateTime",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "FailedDeliveryAttempts",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Binding",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "DataFormat",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CredentialType",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Version",
+    "type": "System.Byte",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TTL",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ReliableDelivery",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Username",
+    "type": "System.String",
+    "summary": "",
+    "access": "create: system read: everyone"
+   },
+   {
+    "name": "Password",
+    "type": "System.String",
+    "summary": "",
+    "access": "create: system read: everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "read"
+  ],
+  "counts": {
+   "properties": 13,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": true
+ },
+ {
+  "entity": "System.SubscriptionIncludedProperty",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "create",
+     "read",
+     "delete"
+    ],
+    "right": "system"
+   }
+  ],
+  "properties": [
+   {
+    "name": "EntityName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "PropertyName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "read"
+  ],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": true
+ },
+ {
+  "entity": "System.SubscriptionProperty",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "create",
+     "read",
+     "delete"
+    ],
+    "right": "system"
+   }
+  ],
+  "properties": [
+   {
+    "name": "IndicationType",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "EntityName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "PropertyName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "read"
+  ],
+  "counts": {
+   "properties": 3,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": true
+ },
+ {
+  "entity": "System.SystemIdentifier",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Identifier",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsLocal",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.ThreeLevelTheshold",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.Threshold"
+  ],
+  "baseEntity": "System.Threshold",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Level1State",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Level1Expression",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Level2State",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Level2Expression",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Level3State",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Level3Expression",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 6,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.Threshold",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Scope",
+    "type": "System.Uri",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 1,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "System.TwoLevelTheshold",
+  "namespace": "System",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.Threshold"
+  ],
+  "baseEntity": "System.Threshold",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Level1State",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Level1Expression",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Level2State",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Level2Expression",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ }
+]

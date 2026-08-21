@@ -1,0 +1,476 @@
+[
+ {
+  "entity": "Cli.CliSessionSettings",
+  "namespace": "Cli",
+  "version": "2026.2",
+  "summary": "Settings used by the CLI component. For valid Orion Platform users with manage node permissions. Some settings:",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "create",
+     "read",
+     "update",
+     "delete",
+     "invoke"
+    ],
+    "right": "manageNodes"
+   }
+  ],
+  "properties": [
+   {
+    "name": "SettingName",
+    "type": "System.String",
+    "summary": "The setting name. It's also the primary key and unique identifier.",
+    "access": "everyone"
+   },
+   {
+    "name": "SettingValue",
+    "type": "System.String",
+    "summary": "Device template ID.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [
+   {
+    "name": "GetCurrentCliConnectionParameters",
+    "summary": "Returns current CLI connection parameters.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "SolarWinds.Orion.Cli.Contracts.DataModel.CliConnectionData",
+    "restPath": "/Invoke/Cli.CliSessionSettings/GetCurrentCliConnectionParameters"
+   },
+   {
+    "name": "GetCliConnectionTestResult",
+    "summary": "Returns current CLI connection status with logs on success.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "cliTestConnectionData",
+      "type": "SolarWinds.Orion.Cli.Contracts.DataModel.CliTestConnectionData",
+      "required": true
+     }
+    ],
+    "returns": "SolarWinds.Orion.Cli.Contracts.DataModel.CliTestResult",
+    "restPath": "/Invoke/Cli.CliSessionSettings/GetCliConnectionTestResult"
+   },
+   {
+    "name": "ValidateCliCredentials",
+    "summary": "Checks whether the provided CLI credentials are valid for the given host.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "hostName",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "userName",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "password",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "enablePassword",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "port",
+      "type": "number",
+      "required": true
+     },
+     {
+      "name": "useKeyboardInteractiveAuthentication",
+      "type": "boolean",
+      "required": true
+     },
+     {
+      "name": "systemOid",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "systemDescription",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "engineId",
+      "type": "number",
+      "required": true
+     }
+    ],
+    "returns": "boolean",
+    "restPath": "/Invoke/Cli.CliSessionSettings/ValidateCliCredentials"
+   },
+   {
+    "name": "ValidateCliCredentialsExtended",
+    "summary": "Checks whether the provided CLI credentials are valid for the given host using selected protocol.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "hostName",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "userName",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "password",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "enablePassword",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "protocol",
+      "type": "SolarWinds.Orion.Cli.Contracts.DataModel.CliProtocol",
+      "required": true,
+      "enum": [
+       "Raw",
+       "Telnet",
+       "Ssh1",
+       "Ssh2",
+       "SshAuto",
+       "Rlogin"
+      ]
+     },
+     {
+      "name": "port",
+      "type": "number",
+      "required": true
+     },
+     {
+      "name": "useKeyboardInteractiveAuthentication",
+      "type": "boolean",
+      "required": true
+     },
+     {
+      "name": "systemOid",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "systemDescription",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "engineId",
+      "type": "number",
+      "required": true
+     }
+    ],
+    "returns": "SolarWinds.Orion.Cli.Contracts.DataModel.OperationResult",
+    "restPath": "/Invoke/Cli.CliSessionSettings/ValidateCliCredentialsExtended"
+   }
+  ],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "invoke",
+   "read",
+   "update"
+  ],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 4
+  },
+  "canCreate": true
+ },
+ {
+  "entity": "Cli.CliSessionTrace",
+  "namespace": "Cli",
+  "version": "2026.2",
+  "summary": "Session trace used by the CLI component. For valid Orion Platform users with manage node permissions.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "manageNodes"
+   }
+  ],
+  "properties": [
+   {
+    "name": "NodeId",
+    "type": "System.Int32",
+    "summary": "Node ID. It's also the primary key and unique identifier.",
+    "access": "everyone"
+   },
+   {
+    "name": "EngineId",
+    "type": "System.Int32",
+    "summary": "Engine ID",
+    "access": "everyone"
+   },
+   {
+    "name": "FeatureName",
+    "type": "System.String",
+    "summary": "FeatureName. It's also the primary key and unique identifier.",
+    "access": "everyone"
+   },
+   {
+    "name": "AccountId",
+    "type": "System.String",
+    "summary": "AccountId",
+    "access": "everyone"
+   },
+   {
+    "name": "OperationId",
+    "type": "System.Guid",
+    "summary": "Operation Id",
+    "access": "everyone"
+   },
+   {
+    "name": "TraceData",
+    "type": "System.Byte[]",
+    "summary": "Trace data (Logs)",
+    "access": "everyone"
+   },
+   {
+    "name": "Created",
+    "type": "System.DateTime",
+    "summary": "Creation time",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 7,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Cli.Credentials",
+  "namespace": "Cli",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Cli.DeviceTemplates",
+  "namespace": "Cli",
+  "version": "2026.2",
+  "summary": "Device templates. For valid Orion Platform users with manage node permissions.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "create",
+     "read",
+     "update",
+     "delete"
+    ],
+    "right": "manageNodes"
+   }
+  ],
+  "properties": [
+   {
+    "name": "ID",
+    "type": "System.Int32",
+    "summary": "The unique identifier and primary key of a device template.",
+    "access": "everyone"
+   },
+   {
+    "name": "TemplateName",
+    "type": "System.String",
+    "summary": "Name of the device template.",
+    "access": "everyone"
+   },
+   {
+    "name": "SystemOID",
+    "type": "System.String",
+    "summary": "The system OID which will be used for auto detection.",
+    "access": "everyone"
+   },
+   {
+    "name": "SystemDescriptionRegex",
+    "type": "System.String",
+    "summary": "Regex which will be used for auto detection.",
+    "access": "everyone"
+   },
+   {
+    "name": "TemplateXml",
+    "type": "System.String",
+    "summary": "The XML device template.",
+    "access": "everyone"
+   },
+   {
+    "name": "Comments",
+    "type": "System.String",
+    "summary": "Just some comments.",
+    "access": "everyone"
+   },
+   {
+    "name": "UseForAutoDetect",
+    "type": "System.Boolean",
+    "summary": "Indicates if auto detect is enabled.",
+    "access": "everyone"
+   },
+   {
+    "name": "IsDefault",
+    "type": "System.Boolean",
+    "summary": "Indicates if the device template is built-in and managed by SolarWinds. If it is, access is read-only.",
+    "access": "everyone"
+   },
+   {
+    "name": "Author",
+    "type": "System.String",
+    "summary": "Who created it.",
+    "access": "everyone"
+   },
+   {
+    "name": "AutoDetectType",
+    "type": "System.Int32",
+    "summary": "The type of the auto detection used. 0 uses the system OID; 1 uses the system description.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "read",
+   "update"
+  ],
+  "counts": {
+   "properties": 10,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": true
+ },
+ {
+  "entity": "Cli.DeviceTemplatesNodes",
+  "namespace": "Cli",
+  "version": "2026.2",
+  "summary": "Manually assign device templates to nodes. Each node can have only one device template assigned. When a device template is assigned manually, auto detection is not triggered. For valid Orion Platform users with manage node permissions.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "create",
+     "read",
+     "update",
+     "delete"
+    ],
+    "right": "manageNodes"
+   }
+  ],
+  "properties": [
+   {
+    "name": "TemplateId",
+    "type": "System.Int32",
+    "summary": "Device template ID.",
+    "access": "everyone"
+   },
+   {
+    "name": "NodeId",
+    "type": "System.Int32",
+    "summary": "Orion node ID. It's also the primary key and unique identifier for the assignment.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "read",
+   "update"
+  ],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": true
+ }
+]

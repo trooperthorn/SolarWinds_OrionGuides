@@ -1,0 +1,107 @@
+[
+ {
+  "type": "undocumented-function",
+  "function": "ChangeTimeZone",
+  "detail": "Used in the community workbook but absent from the official SWQL function reference. Verify against your platform version before relying on it.",
+  "example": "SELECT ChangeTimeZone(KeepAlive,'+05:00') as ColumnResult FROM Orion.Engines"
+ },
+ {
+  "type": "version-mismatch",
+  "function": "WeekDay",
+  "detail": "Official reference says available since 2016.1; the workbook records a minimum core version of 2015.2.",
+  "documented": "2016.1",
+  "workbook": "2015.2"
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.F5.Device",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": [
+   "Orion.F5.System.Device"
+  ]
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.F5.Nodes",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": []
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.F5.Pools",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": [
+   "Orion.F5.LTM.Pool",
+   "Orion.F5.GTM.Pool"
+  ]
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.F5.VirtualServers",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": [
+   "Orion.F5.Map.VirtualServer",
+   "Orion.F5.LTM.VirtualServer",
+   "Orion.F5.GTM.VirtualServer"
+  ]
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.NPM.UCSBlades",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": [
+   "Orion.UCS.Blades"
+  ]
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.NPM.UCSChassis",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": [
+   "Orion.UCS.Chassis",
+   "Orion.HardwareHealth.HardwareInfoForUCSChassis"
+  ]
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.NPM.UCSFabrics",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": [
+   "Orion.UCS.Fabrics"
+  ]
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.NPM.UCSFans",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": []
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.NPM.UCSManagers",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": []
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.NPM.UCSPSUs",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": []
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.SRM.FIleServerIdentification",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": [
+   "Orion.SRM.FileServerIdentification"
+  ]
+ },
+ {
+  "type": "unknown-entity",
+  "entity": "Orion.VIM.LUNs",
+  "detail": "Listed in the workbook but not present in the published schema for the built version. It may be renamed, module-gated, or removed.",
+  "likelyReplacements": [
+   "Orion.VIM.Luns"
+  ]
+ }
+]

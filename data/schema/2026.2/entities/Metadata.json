@@ -1,0 +1,1077 @@
+[
+ {
+  "entity": "Metadata.Entity",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "FullName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "DisplayNamePlural",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Aliases",
+    "type": "System.String[]",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Namespace",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Type",
+    "type": "System.Type",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "BaseType",
+    "type": "System.Type",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsAbstract",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsSingleton",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsDynamic",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsFederated",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Federate",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CanCreate",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CanRead",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CanUpdate",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CanDelete",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CanInvoke",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsObsolete",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ObsolescenceReason",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsInternal",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Events",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Summary",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "Dependents",
+    "type": "Metadata.Relationship",
+    "notes": "Defined by relationship Metadata.RelationshipReferencesStartEntity (System.Reference)",
+    "relationship": "Metadata.RelationshipReferencesStartEntity",
+    "kind": "System.Reference"
+   },
+   {
+    "name": "Antecedents",
+    "type": "Metadata.Relationship",
+    "notes": "Defined by relationship Metadata.RelationshipReferencesTargetEntity (System.Reference)",
+    "relationship": "Metadata.RelationshipReferencesTargetEntity",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [
+   {
+    "name": "Arguments",
+    "type": "Metadata.EntityArgument",
+    "notes": "Defined by relationship Metadata.EntityHostsArgument (System.Hosting)",
+    "relationship": "Metadata.EntityHostsArgument",
+    "kind": "System.Hosting"
+   },
+   {
+    "name": "Properties",
+    "type": "Metadata.Property",
+    "notes": "Defined by relationship Metadata.EntityHostsProperty (System.Hosting)",
+    "relationship": "Metadata.EntityHostsProperty",
+    "kind": "System.Hosting"
+   },
+   {
+    "name": "EntityAliases",
+    "type": "Metadata.EntityAlias",
+    "notes": "Defined by relationship Metadata.EntityHostsAlias (System.Hosting)",
+    "relationship": "Metadata.EntityHostsAlias",
+    "kind": "System.Hosting"
+   },
+   {
+    "name": "Verbs",
+    "type": "Metadata.Verb",
+    "notes": "Defined by relationship Metadata.EntityHostsVerb (System.Hosting)",
+    "relationship": "Metadata.EntityHostsVerb",
+    "kind": "System.Hosting"
+   },
+   {
+    "name": "Metadata",
+    "type": "Metadata.EntityMetadata",
+    "notes": "Defined by relationship Metadata.EntityHostsMetadata (System.Hosting)",
+    "relationship": "Metadata.EntityHostsMetadata",
+    "kind": "System.Hosting"
+   }
+  ],
+  "verbs": [
+   {
+    "name": "GetAliases",
+    "summary": "",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "query",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "array",
+    "restPath": "/Invoke/Metadata.Entity/GetAliases"
+   },
+   {
+    "name": "GetSchemaLoadTime",
+    "summary": "",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "string",
+    "restPath": "/Invoke/Metadata.Entity/GetSchemaLoadTime"
+   }
+  ],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 22,
+   "targetRelationships": 2,
+   "sourceRelationships": 5,
+   "verbs": 2
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.EntityAlias",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "EntityName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Alias",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsObsolete",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ObsolescenceReason",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsInternal",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "Entity",
+    "type": "Metadata.Entity",
+    "notes": "Defined by relationship Metadata.EntityHostsAlias (System.Hosting)",
+    "relationship": "Metadata.EntityHostsAlias",
+    "kind": "System.Hosting"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 5,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.EntityArgument",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "EntityName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ArgumentName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ArgumentType",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "Entity",
+    "type": "Metadata.Entity",
+    "notes": "Defined by relationship Metadata.EntityHostsArgument (System.Hosting)",
+    "relationship": "Metadata.EntityHostsArgument",
+    "kind": "System.Hosting"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 3,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.EntityMetadata",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "EntityName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Value",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Type",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "Entity",
+    "type": "Metadata.Entity",
+    "notes": "Defined by relationship Metadata.EntityHostsMetadata (System.Hosting)",
+    "relationship": "Metadata.EntityHostsMetadata",
+    "kind": "System.Hosting"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.Functions",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 1,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.Property",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Type",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsMetric",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Units",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "MaxValue",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "MinValue",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Values",
+    "type": "System.String[]",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsNavigable",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsKey",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsNullable",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsInherited",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsInjected",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsSortable",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "GroupBy",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "FilterBy",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CanCreate",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CanRead",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CanUpdate",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Events",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Summary",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsObsolete",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ObsolescenceReason",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsInternal",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "Entity",
+    "type": "Metadata.Entity",
+    "notes": "Defined by relationship Metadata.EntityHostsProperty (System.Hosting)",
+    "relationship": "Metadata.EntityHostsProperty",
+    "kind": "System.Hosting"
+   }
+  ],
+  "sourceRelationships": [
+   {
+    "name": "Metadata",
+    "type": "Metadata.PropertyMetadata",
+    "notes": "Defined by relationship Metadata.PropertyHostsMetadata (System.Hosting)",
+    "relationship": "Metadata.PropertyHostsMetadata",
+    "kind": "System.Hosting"
+   }
+  ],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 23,
+   "targetRelationships": 1,
+   "sourceRelationships": 1,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.PropertyMetadata",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "EntityName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "PropertyName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Value",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Type",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "Property",
+    "type": "Metadata.Property",
+    "notes": "Defined by relationship Metadata.PropertyHostsMetadata (System.Hosting)",
+    "relationship": "Metadata.PropertyHostsMetadata",
+    "kind": "System.Hosting"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 5,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.Relationship",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "BaseType",
+    "type": "System.Type",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsInjected",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SourceType",
+    "type": "System.Type",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TargetType",
+    "type": "System.Type",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SourcePropertyName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SourcePropertyDisplayName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TargetPropertyName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TargetPropertyDisplayName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SourcePrimaryKeyNames",
+    "type": "System.String[]",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SourceForeignKeyNames",
+    "type": "System.String[]",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TargetPrimaryKeyNames",
+    "type": "System.String[]",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TargetForeignKeyNames",
+    "type": "System.String[]",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SourceCardinalityMin",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SourceCardinalityMax",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TargetCardinalityMin",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "TargetCardinalityMax",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsObsolete",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ObsolescenceReason",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsInternal",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [
+   {
+    "name": "Source",
+    "type": "Metadata.Entity",
+    "notes": "Defined by relationship Metadata.RelationshipReferencesStartEntity (System.Reference)",
+    "relationship": "Metadata.RelationshipReferencesStartEntity",
+    "kind": "System.Reference"
+   },
+   {
+    "name": "Target",
+    "type": "Metadata.Entity",
+    "notes": "Defined by relationship Metadata.RelationshipReferencesTargetEntity (System.Reference)",
+    "relationship": "Metadata.RelationshipReferencesTargetEntity",
+    "kind": "System.Reference"
+   },
+   {
+    "name": "Metadata",
+    "type": "Metadata.RelationshipMetadata",
+    "notes": "Defined by relationship Metadata.RelationshipHostsMetadata (System.Hosting)",
+    "relationship": "Metadata.RelationshipHostsMetadata",
+    "kind": "System.Hosting"
+   }
+  ],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 20,
+   "targetRelationships": 0,
+   "sourceRelationships": 3,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.RelationshipMetadata",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "RelationshipName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Value",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Type",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "Relationship",
+    "type": "Metadata.Relationship",
+    "notes": "Defined by relationship Metadata.RelationshipHostsMetadata (System.Hosting)",
+    "relationship": "Metadata.RelationshipHostsMetadata",
+    "kind": "System.Hosting"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.Verb",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "MethodName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CodeBehind",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "CanInvoke",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Summary",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsObsolete",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "ObsolescenceReason",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsInternal",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "Entity",
+    "type": "Metadata.Entity",
+    "notes": "Defined by relationship Metadata.EntityHostsVerb (System.Hosting)",
+    "relationship": "Metadata.EntityHostsVerb",
+    "kind": "System.Hosting"
+   }
+  ],
+  "sourceRelationships": [
+   {
+    "name": "Arguments",
+    "type": "Metadata.VerbArgument",
+    "notes": "Defined by relationship Metadata.VerbHostsVerbArgument (System.Hosting)",
+    "relationship": "Metadata.VerbHostsVerbArgument",
+    "kind": "System.Hosting"
+   }
+  ],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 8,
+   "targetRelationships": 1,
+   "sourceRelationships": 1,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Metadata.VerbArgument",
+  "namespace": "Metadata",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "EntityName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "VerbName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Position",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Type",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "XmlTemplate",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "XmlSchemas",
+    "type": "System.String[]",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "IsOptional",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Summary",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "Verb",
+    "type": "Metadata.Verb",
+    "notes": "Defined by relationship Metadata.VerbHostsVerbArgument (System.Hosting)",
+    "relationship": "Metadata.VerbHostsVerbArgument",
+    "kind": "System.Hosting"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 9,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ }
+]

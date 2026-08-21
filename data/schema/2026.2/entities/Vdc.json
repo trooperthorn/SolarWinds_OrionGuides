@@ -1,0 +1,94 @@
+[
+ {
+  "entity": "Vdc.Contexts",
+  "namespace": "Vdc",
+  "version": "2026.2",
+  "summary": "Virtual device contexts. For valid Orion user with at least WebViewer NCM role.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "ContextId",
+    "type": "System.Int32",
+    "summary": "The unique identifier and primary key of a VDC.",
+    "access": "everyone"
+   },
+   {
+    "name": "SystemId",
+    "type": "System.Int32",
+    "summary": "Identifier of the system to which the VDC belongs.",
+    "access": "everyone"
+   },
+   {
+    "name": "ContextName",
+    "type": "System.String",
+    "summary": "The name of the VDC.",
+    "access": "everyone"
+   },
+   {
+    "name": "IsAdminContext",
+    "type": "System.Boolean",
+    "summary": "'True' if it is VDC admin.",
+    "access": "everyone"
+   },
+   {
+    "name": "NodeId",
+    "type": "System.Int32",
+    "summary": "The Orion NodeID (int) of VDC device.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 5,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "Vdc.System",
+  "namespace": "Vdc",
+  "version": "2026.2",
+  "summary": "VDC systems. For valid Orion user with at least WebViewer NCM role.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "SystemId",
+    "type": "System.Int32",
+    "summary": "The unique identifier and primary key of a VDC system.",
+    "access": "everyone"
+   },
+   {
+    "name": "SystemIdentifier",
+    "type": "System.String",
+    "summary": "Specific system identifier polled from the device.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ }
+]

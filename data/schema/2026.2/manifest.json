@@ -1,0 +1,49 @@
+{
+ "version": "2026.2",
+ "source": "https://github.com/solarwinds/OrionSDK (gh-pages branch)",
+ "sourceDocs": "https://solarwinds.github.io/OrionSDK/2026.2/schema/index.html",
+ "generatedBy": "tools/build_schema_data.py",
+ "counts": {
+  "entities": 2067,
+  "namespaces": 16,
+  "properties": 19328,
+  "verbs": 958,
+  "verbsWithTypedParameters": 794,
+  "relationshipEdges": 2992,
+  "creatableEntities": 250,
+  "skippedPages": 0
+ },
+ "namespaceCounts": {
+  "Cirrus": 57,
+  "Cli": 5,
+  "ContentModel": 8,
+  "Cortex": 69,
+  "DPA": 18,
+  "IPAM": 77,
+  "Metadata": 11,
+  "NCM": 72,
+  "Orion": 1705,
+  "PlatformBridge": 1,
+  "PlatformConnect": 3,
+  "SOC": 2,
+  "SWISf": 3,
+  "System": 29,
+  "UamsClient": 5,
+  "Vdc": 2
+ },
+ "apiSurface": {
+  "basePath": "/SolarWinds/InformationService/v3/Json",
+  "host": "localhost:17774",
+  "schemes": [
+   "https"
+  ],
+  "swaggerVersion": "2.0",
+  "serviceVersion": "3.0.0",
+  "genericPaths": [
+   "/BulkDelete",
+   "/BulkUpdate",
+   "/Query",
+   "/{uri}"
+  ]
+ }
+}

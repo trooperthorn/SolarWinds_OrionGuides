@@ -1,0 +1,172 @@
+[
+ {
+  "entity": "PlatformBridge.Info",
+  "namespace": "PlatformBridge",
+  "version": "2026.2",
+  "summary": "Encrypted persistent and temporary Platform Bridge data store.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read",
+     "invoke"
+    ],
+    "right": "system"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Key",
+    "type": "System.String",
+    "summary": "Unique key of the stored value.",
+    "access": "everyone"
+   },
+   {
+    "name": "OrganizationId",
+    "type": "System.String",
+    "summary": "Connected organization identifier when value is tenant-scoped.",
+    "access": "everyone"
+   },
+   {
+    "name": "AccountId",
+    "type": "System.String",
+    "summary": "Optional account identifier when value is user-scoped.",
+    "access": "everyone"
+   },
+   {
+    "name": "Type",
+    "type": "System.Int32",
+    "summary": "Logical type discriminator of the stored value.",
+    "access": "everyone"
+   },
+   {
+    "name": "ExpirationTimeUtc",
+    "type": "System.DateTime",
+    "summary": "Optional UTC expiration time.",
+    "access": "everyone"
+   },
+   {
+    "name": "LastModifiedUtc",
+    "type": "System.DateTime",
+    "summary": "UTC time of the latest write.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [
+   {
+    "name": "GetDecryptedValue",
+    "summary": "Returns decrypted value for the key when present and not expired.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "key",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "string",
+    "restPath": "/Invoke/PlatformBridge.Info/GetDecryptedValue"
+   },
+   {
+    "name": "SetValue",
+    "summary": "Encrypts and stores or updates the value.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "key",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "type",
+      "type": "number",
+      "required": true
+     },
+     {
+      "name": "value",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "organizationId",
+      "type": "string",
+      "required": false
+     },
+     {
+      "name": "accountId",
+      "type": "string",
+      "required": false
+     },
+     {
+      "name": "expirationTimeUtc",
+      "type": "string",
+      "required": false
+     }
+    ],
+    "returns": "System.Void",
+    "restPath": "/Invoke/PlatformBridge.Info/SetValue"
+   },
+   {
+    "name": "DeleteValue",
+    "summary": "Deletes one key.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "key",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "System.Void",
+    "restPath": "/Invoke/PlatformBridge.Info/DeleteValue"
+   },
+   {
+    "name": "DeleteByOrganization",
+    "summary": "Deletes all values for an organization identifier.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "organizationId",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "System.Void",
+    "restPath": "/Invoke/PlatformBridge.Info/DeleteByOrganization"
+   },
+   {
+    "name": "DeleteExpiredValues",
+    "summary": "Removes all values that already expired.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "number",
+    "restPath": "/Invoke/PlatformBridge.Info/DeleteExpiredValues"
+   },
+   {
+    "name": "GetOrCreateBridgedOrionId",
+    "summary": "Gets an existing Bridged Orion ID or creates a new stable one.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "string",
+    "restPath": "/Invoke/PlatformBridge.Info/GetOrCreateBridgedOrionId"
+   }
+  ],
+  "supportedOperations": [
+   "invoke",
+   "read"
+  ],
+  "counts": {
+   "properties": 6,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 6
+  },
+  "canCreate": false
+ }
+]

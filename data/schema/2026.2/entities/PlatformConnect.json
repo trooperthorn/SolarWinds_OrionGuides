@@ -1,0 +1,267 @@
+[
+ {
+  "entity": "PlatformConnect.Info",
+  "namespace": "PlatformConnect",
+  "version": "2026.2",
+  "summary": "This entity stores Platform Connect activation data as key-value pairs for tenant reactivation scenarios.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "create",
+     "read",
+     "update",
+     "delete"
+    ],
+    "right": "admin"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Key",
+    "type": "System.String",
+    "summary": "Setting key (e.g., 'OperationId', 'OrganizationId', 'ActivationEmail').",
+    "access": "everyone"
+   },
+   {
+    "name": "Value",
+    "type": "System.String",
+    "summary": "Setting value.",
+    "access": "everyone"
+   },
+   {
+    "name": "LastModified",
+    "type": "System.DateTime",
+    "summary": "Timestamp of last modification (UTC).",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "read",
+   "update"
+  ],
+  "counts": {
+   "properties": 3,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": true
+ },
+ {
+  "entity": "PlatformConnect.Status",
+  "namespace": "PlatformConnect",
+  "version": "2026.2",
+  "summary": "Aggregated Platform Connect status combining activation metadata with the current UAMS client installation state.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "IsConnected",
+    "type": "System.Boolean",
+    "summary": "True when the Platform Connect backend considers the node connected based on UAMS client state.",
+    "access": "everyone"
+   },
+   {
+    "name": "ConnectionStatus",
+    "type": "System.String",
+    "summary": "Current connection status: 'Connected', 'NotConnected', or 'ConnectionError'.",
+    "access": "everyone"
+   },
+   {
+    "name": "UamsStatus",
+    "type": "System.String",
+    "summary": "Current UAMS client installation status code.",
+    "access": "everyone"
+   },
+   {
+    "name": "Key",
+    "type": "System.String",
+    "summary": "Entity key (always 'Current') representing the system-wide Platform Connect status snapshot.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "PlatformConnect.Wizard",
+  "namespace": "PlatformConnect",
+  "version": "2026.2",
+  "summary": "This entity exposes Cloud Connected wizard operations used by the onboarding flow.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "read",
+     "invoke"
+    ],
+    "right": "admin"
+   }
+  ],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [
+   {
+    "name": "GetBizAppsDatacenters",
+    "summary": "Retrieves the list of BizApps datacenters available to the current Orion account.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "string",
+    "restPath": "/Invoke/PlatformConnect.Wizard/GetBizAppsDatacenters"
+   },
+   {
+    "name": "CheckSwokenValidity",
+    "summary": "Validates a swoken token for the provided SWO URL and returns Valid, Invalid, or Unknown.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "swoken",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "swoUrl",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "string",
+    "restPath": "/Invoke/PlatformConnect.Wizard/CheckSwokenValidity"
+   },
+   {
+    "name": "StartConnect",
+    "summary": "Starts the complete Platform Connect setup via a single backend operation: activates tenant, manages tokens, installs agent, and configures settings.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "request",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "string",
+    "restPath": "/Invoke/PlatformConnect.Wizard/StartConnect"
+   },
+   {
+    "name": "StartConnectWithAutoComplete",
+    "summary": "Starts the complete Platform Connect setup and schedules an automatic completion once the UAMS client is installed.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "request",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "completionRequest",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "string",
+    "restPath": "/Invoke/PlatformConnect.Wizard/StartConnectWithAutoComplete"
+   },
+   {
+    "name": "StartConnectWithToken",
+    "summary": "Starts the complete Platform connect setup with explicitly provided API access token: validates token, retrieves ingestion token, installs agent, and configures settings.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "apiAccessToken",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "swoUrl",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "string",
+    "restPath": "/Invoke/PlatformConnect.Wizard/StartConnectWithToken"
+   },
+   {
+    "name": "RetrialBizAppsTenant",
+    "summary": "Initiates a retrial (start of trial) for an existing BizApps tenant whose trial has ended or been suspended.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "string",
+    "restPath": "/Invoke/PlatformConnect.Wizard/RetrialBizAppsTenant"
+   },
+   {
+    "name": "CompleteConnect",
+    "summary": "Finalizes the Platform Connect wizard flow by persisting feature configuration, enabling polling, and marking the wizard as configured. Accepts a JSON payload with feature toggles and optional node group filter.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "request",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "string",
+    "restPath": "/Invoke/PlatformConnect.Wizard/CompleteConnect"
+   }
+  ],
+  "supportedOperations": [
+   "invoke",
+   "read"
+  ],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 7
+  },
+  "canCreate": false
+ }
+]

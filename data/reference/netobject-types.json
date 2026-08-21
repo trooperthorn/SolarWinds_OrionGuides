@@ -1,0 +1,1462 @@
+[
+ {
+  "entity": "Cirrus.Nodes",
+  "module": "NCM",
+  "displayName": "NCM Nodes",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "NodeID",
+   "CoreNodeID",
+   "EngineID"
+  ],
+  "parentEntities": [],
+  "captionColumn": "NodeCaption",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "IPAM.DHCPScopeOverlapping",
+  "module": "IPAM",
+  "displayName": "IPAM DHCPScopes Overlapping",
+  "netObjectPrefix": "IPAM-DSO",
+  "keyProperties": [
+   "ScopeId"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "IPAM.GroupReport",
+  "module": "IPAM",
+  "displayName": "IPAM Networks",
+  "netObjectPrefix": "IPAMG",
+  "keyProperties": [
+   "GroupId"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "IPAM.IPConflict",
+  "module": "IPAM",
+  "displayName": "IPAM IPAddress Conflict",
+  "netObjectPrefix": "IPAMN",
+  "keyProperties": [
+   "IPNodeId"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "IPAM.IPNodeReport",
+  "module": "IPAM",
+  "displayName": "IPAM Nodes",
+  "netObjectPrefix": "IPAMN",
+  "keyProperties": [
+   "IPNodeId"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.Application",
+  "module": "SAM",
+  "displayName": "APM: Application",
+  "netObjectPrefix": "AA",
+  "keyProperties": [
+   "ApplicationID"
+  ],
+  "parentEntities": [
+   "Orion.Nodes"
+  ],
+  "captionColumn": "ApplicationName",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.Component",
+  "module": "SAM",
+  "displayName": "APM: Component",
+  "netObjectPrefix": "AM",
+  "keyProperties": [
+   "ComponentID"
+  ],
+  "parentEntities": [
+   "Orion.APM.Application"
+  ],
+  "captionColumn": "ComponentName",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.Exchange.Application",
+  "module": "SAM",
+  "displayName": "AppInsight for Exchange: Application",
+  "netObjectPrefix": "ABXA",
+  "keyProperties": [
+   "ApplicationID"
+  ],
+  "parentEntities": [
+   "Orion.APM.Application"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.Exchange.Database",
+  "module": "SAM",
+  "displayName": "AppInsight for Exchange: Database",
+  "netObjectPrefix": "ABXD",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.Exchange.DatabaseCopy",
+  "module": "SAM",
+  "displayName": "AppInsight for Exchange: Database Copy",
+  "netObjectPrefix": "ABXDC",
+  "keyProperties": [
+   "ItemID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.Exchange.DatabaseFile",
+  "module": "SAM",
+  "displayName": "AppInsight for Exchange: Database File",
+  "netObjectPrefix": "ABXF",
+  "keyProperties": [
+   "DatabaseFileID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.Exchange.Mailbox",
+  "module": "SAM",
+  "displayName": "AppInsight for Exchange: Mailboxes",
+  "netObjectPrefix": "ABXMB",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.Exchange.ReplicationStatus",
+  "module": "SAM",
+  "displayName": "AppInsight for Exchange: Replication Status",
+  "netObjectPrefix": "ABXR",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.GenericApplication",
+  "module": "SAM",
+  "displayName": "Application",
+  "netObjectPrefix": "AA",
+  "keyProperties": [
+   "ApplicationID"
+  ],
+  "parentEntities": [
+   "Orion.APM.Application"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.IIS.Application",
+  "module": "SAM",
+  "displayName": "AppInsight for IIS: Application",
+  "netObjectPrefix": "ABIA",
+  "keyProperties": [
+   "ApplicationID"
+  ],
+  "parentEntities": [
+   "Orion.APM.Application"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.IIS.ApplicationPool",
+  "module": "SAM",
+  "displayName": "AppInsight for IIS: Application Pool",
+  "netObjectPrefix": "ABIP",
+  "keyProperties": [
+   "ItemID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.IIS.Request",
+  "module": "SAM",
+  "displayName": "AppInsight for IIS: Request",
+  "netObjectPrefix": "ABIR",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.IIS.RequestDetails",
+  "module": "SAM",
+  "displayName": "AppInsight for IIS: Request Details",
+  "netObjectPrefix": "ABIRD",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.IIS.Site",
+  "module": "SAM",
+  "displayName": "AppInsight for IIS: Site",
+  "netObjectPrefix": "ABIS",
+  "keyProperties": [
+   "ItemID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.IIS.SiteBinding",
+  "module": "SAM",
+  "displayName": "AppInsight for IIS: Site Binding",
+  "netObjectPrefix": "ABISB",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.SqlDatabase",
+  "module": "SAM",
+  "displayName": "AppInsight for SQL: Database",
+  "netObjectPrefix": "ABSD",
+  "keyProperties": [
+   "ItemID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.SqlDatabaseFile",
+  "module": "SAM",
+  "displayName": "AppInsight for SQL: Database File",
+  "netObjectPrefix": "ABSF",
+  "keyProperties": [
+   "DatabaseFileID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.SqlJobInfo",
+  "module": "SAM",
+  "displayName": "AppInsight for SQL: Job Info",
+  "netObjectPrefix": "ABSJ",
+  "keyProperties": [
+   "JobInfoID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.SqlQuery",
+  "module": "SAM",
+  "displayName": "AppInsight for SQL: Expensive Queries Info",
+  "netObjectPrefix": "ABSQ",
+  "keyProperties": [
+   "QueryID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.SqlServerApplication",
+  "module": "SAM",
+  "displayName": "AppInsight for SQL: Application",
+  "netObjectPrefix": "ABSA",
+  "keyProperties": [
+   "ApplicationID"
+  ],
+  "parentEntities": [
+   "Orion.APM.Application"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.APM.Wstm.Task",
+  "module": "SAM",
+  "displayName": "APM: Windows Scheduled Tasks",
+  "netObjectPrefix": "ABTT",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.AgentManagement.Agent",
+  "module": "Agent",
+  "displayName": "Core Agents",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "AgentId",
+   "AgentGuid",
+   "NodeId",
+   "PollingEngineID"
+  ],
+  "parentEntities": [
+   "Orion.Nodes"
+  ],
+  "captionColumn": "Name",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.AlertStatus",
+  "module": "Core",
+  "displayName": "Core Alerts",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "AlertDefID",
+   "ActiveObject",
+   "AlertObjectID"
+  ],
+  "parentEntities": [],
+  "captionColumn": "AlertMessage",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.AssetInventory.NodeWarrantyAlert",
+  "module": "Core",
+  "displayName": "Node Warranty",
+  "netObjectPrefix": "NWA",
+  "keyProperties": [
+   "NodeID"
+  ],
+  "parentEntities": [
+   "Orion.Nodes"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.AuditingEvents",
+  "module": "Core",
+  "displayName": "Auditing Events",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "AuditEventID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.ContainerMembers",
+  "module": "Core",
+  "displayName": "Group Member",
+  "netObjectPrefix": "GM",
+  "keyProperties": [
+   "ContainerID",
+   "MemberEntityType",
+   "MemberPrimaryID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.DPA.DatabaseInstance",
+  "module": "DPA",
+  "displayName": "Database Instance",
+  "netObjectPrefix": "DBI",
+  "keyProperties": [
+   "DatabaseInstanceID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.DPI.ApplicationAssignments",
+  "module": "QoE",
+  "displayName": "QoE Application (per node)",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "ApplicationID",
+   "NodeID"
+  ],
+  "parentEntities": [
+   "Orion.APM.Application",
+   "Orion.Nodes"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.DPI.Applications",
+  "module": "QoE",
+  "displayName": "QoE Application",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "ApplicationID"
+  ],
+  "parentEntities": [
+   "Orion.APM.Application"
+  ],
+  "captionColumn": "Name",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.DPI.Probes",
+  "module": "QOE",
+  "displayName": "QoE Probes",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "ProbeID",
+   "AgentID"
+  ],
+  "parentEntities": [
+   "Orion.AgentManagement.Agent (AgentID) Orion.DPI.ProbeAssignments (ProbeID)"
+  ],
+  "captionColumn": "DisplayName",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.Engines",
+  "module": "QoE",
+  "displayName": "Core Servers",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "EngineID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.EventTypes",
+  "module": "Core",
+  "displayName": "Core Event Types",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "EventType"
+  ],
+  "parentEntities": [
+   "Orion.Events"
+  ],
+  "captionColumn": "Name",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.Events",
+  "module": "Core",
+  "displayName": "Core Events",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "EventID"
+  ],
+  "parentEntities": [],
+  "captionColumn": "NetObjectType",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.F5.Device",
+  "module": "NPM",
+  "displayName": "F5 Devices",
+  "netObjectPrefix": "F5",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": false,
+  "supersededBy": "Orion.F5.System.Device"
+ },
+ {
+  "entity": "Orion.F5.Nodes",
+  "module": "NPM",
+  "displayName": "F5 Nodes",
+  "netObjectPrefix": "FN",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": false
+ },
+ {
+  "entity": "Orion.F5.Pools",
+  "module": "NPM",
+  "displayName": "F5 Pools",
+  "netObjectPrefix": "FP",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": false,
+  "supersededBy": "Orion.F5.LTM.Pool"
+ },
+ {
+  "entity": "Orion.F5.VirtualServers",
+  "module": "NPM",
+  "displayName": "F5 Virtual Servers",
+  "netObjectPrefix": "FVS",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": false,
+  "supersededBy": "Orion.F5.Map.VirtualServer"
+ },
+ {
+  "entity": "Orion.Groups",
+  "module": "Core",
+  "displayName": "Group",
+  "netObjectPrefix": "C",
+  "keyProperties": [
+   "ContainerID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.HardwareHealth.HardwareCategoryStatus",
+  "module": "NPM / SAM",
+  "displayName": "Hardware Type",
+  "netObjectPrefix": "HWHT",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.HardwareHealth.HardwareInfo",
+  "module": "NPM / SAM",
+  "displayName": "Hardware",
+  "netObjectPrefix": "HWH",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.HardwareHealth.HardwareItem",
+  "module": "NPM / SAM",
+  "displayName": "Hardware Sensor",
+  "netObjectPrefix": "HWHS",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.IpSla.CCMGateways",
+  "module": "VNQM",
+  "displayName": "VoIP Gateway",
+  "netObjectPrefix": "VG",
+  "keyProperties": [
+   "GatewayID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.IpSla.CCMMonitoring",
+  "module": "VNQM",
+  "displayName": "VoIP CallManager",
+  "netObjectPrefix": "VCCM",
+  "keyProperties": [
+   "NodeID"
+  ],
+  "parentEntities": [
+   "Orion.Nodes"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.IpSla.CCMPhones",
+  "module": "VNQM",
+  "displayName": "VoIP Phone",
+  "netObjectPrefix": "VCCMP",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.IpSla.CCMRegions",
+  "module": "VNQM",
+  "displayName": "VoIP Region",
+  "netObjectPrefix": "VR",
+  "keyProperties": [
+   "RegionID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.IpSla.InfrastructureNodes",
+  "module": "VNQM",
+  "displayName": "VoIP Infrastructure",
+  "netObjectPrefix": "P",
+  "keyProperties": [
+   "InfrastructureNodeID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.IpSla.Operations",
+  "module": "VNQM",
+  "displayName": "IP SLA QoS",
+  "netObjectPrefix": "ISOP",
+  "keyProperties": [
+   "OperationInstanceID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.IpSla.VoipCallDetails",
+  "module": "VNQM",
+  "displayName": "VoIP Call Details",
+  "netObjectPrefix": "VCDS",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.IpSla.VoipGatewayEndpoints",
+  "module": "VNQM",
+  "displayName": "VoIP PRI Trunk",
+  "netObjectPrefix": "VVGT",
+  "keyProperties": [
+   "VoipGatewayEndpointID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.IpSla.VoipGateways",
+  "module": "VNQM",
+  "displayName": "VoIP PRI Gateway",
+  "netObjectPrefix": "VVG",
+  "keyProperties": [
+   "VoipGatewayID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.CustomPollerAssignmentOnInterface",
+  "module": "NPM",
+  "displayName": "Custom Interface Poller",
+  "netObjectPrefix": "UNDPI",
+  "keyProperties": [
+   "CustomPollerAssignmentID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.CustomPollerAssignmentOnNode",
+  "module": "NPM",
+  "displayName": "Custom Node Poller",
+  "netObjectPrefix": "UNDPN",
+  "keyProperties": [
+   "CustomPollerAssignmentID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.CustomPollerStatusOnNodeTabular",
+  "module": "NPM",
+  "displayName": "Custom Node Table Poller",
+  "netObjectPrefix": "UNDPT",
+  "keyProperties": [
+   "CompressedRowID",
+   "CustomPollerAssignmentID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.EW.Entity",
+  "module": "NPM",
+  "displayName": "EnergyWise Entity",
+  "netObjectPrefix": "EWE",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.FCPorts",
+  "module": "NPM",
+  "displayName": "Fibre Channel Port",
+  "netObjectPrefix": "FCP",
+  "keyProperties": [
+   "Index",
+   "UnitID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.FCRevisions",
+  "module": "NPM",
+  "displayName": "Fibre Channel Revision",
+  "netObjectPrefix": "FCR",
+  "keyProperties": [
+   "Index",
+   "UnitID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.FCSensors",
+  "module": "NPM",
+  "displayName": "Fibre Channel Sensor",
+  "netObjectPrefix": "FCS",
+  "keyProperties": [
+   "Index",
+   "UnitID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.FCUnits",
+  "module": "NPM",
+  "displayName": "Fibre Channel Unit",
+  "netObjectPrefix": "FCU",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.Interfaces",
+  "module": "NPM",
+  "displayName": "Interface",
+  "netObjectPrefix": "I",
+  "keyProperties": [
+   "InterfaceID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.MulticastRouting.GroupNodes",
+  "module": "NPM",
+  "displayName": "Multicast Routing",
+  "netObjectPrefix": "MCGN",
+  "keyProperties": [
+   "MulticastGroupNodeID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.MulticastRouting.Groups",
+  "module": "NPM",
+  "displayName": "Multicast Routing Group",
+  "netObjectPrefix": "MCG",
+  "keyProperties": [
+   "MulticastGroupID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NPM.UCSBlades",
+  "module": "NPM",
+  "displayName": "UCS Blade",
+  "netObjectPrefix": "UCSB",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": false,
+  "supersededBy": "Orion.UCS.Blades"
+ },
+ {
+  "entity": "Orion.NPM.UCSChassis",
+  "module": "NPM",
+  "displayName": "UCS Chassis",
+  "netObjectPrefix": "NCH",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": false,
+  "supersededBy": "Orion.UCS.Chassis"
+ },
+ {
+  "entity": "Orion.NPM.UCSFabrics",
+  "module": "NPM",
+  "displayName": "UCS Fabric",
+  "netObjectPrefix": "UCSF",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": false,
+  "supersededBy": "Orion.UCS.Fabrics"
+ },
+ {
+  "entity": "Orion.NPM.UCSFans",
+  "module": "NPM",
+  "displayName": "UCS Fan",
+  "netObjectPrefix": "UCSFAN",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": false
+ },
+ {
+  "entity": "Orion.NPM.UCSManagers",
+  "module": "NPM",
+  "displayName": "UCS Manager",
+  "netObjectPrefix": "UCSM",
+  "keyProperties": [
+   "NodeID"
+  ],
+  "parentEntities": [
+   "Orion.Nodes"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": false
+ },
+ {
+  "entity": "Orion.NPM.UCSPSUs",
+  "module": "NPM",
+  "displayName": "UCS Psu",
+  "netObjectPrefix": "UCSPSU",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": false
+ },
+ {
+  "entity": "Orion.NPM.VSANs",
+  "module": "NPM",
+  "displayName": "VSAN",
+  "netObjectPrefix": "NVS",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.Netflow.CBQoSPolicyMetric",
+  "module": "NTA",
+  "displayName": "NTA: CBQoS Class Map",
+  "netObjectPrefix": "CCM",
+  "keyProperties": [
+   "MetricID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.NodeVlans",
+  "module": "Core",
+  "displayName": "VLAN",
+  "netObjectPrefix": "NVLAN",
+  "keyProperties": [
+   "NodeID",
+   "VlanId"
+  ],
+  "parentEntities": [
+   "Orion.Nodes"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.Nodes",
+  "module": "Core",
+  "displayName": "Node",
+  "netObjectPrefix": "N",
+  "keyProperties": [
+   "NodeID"
+  ],
+  "parentEntities": [
+   "Orion.Engines"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.Packages.Wireless.AccessPoints",
+  "module": "NPM",
+  "displayName": "Wireless Access Point",
+  "netObjectPrefix": "WLAP",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.Packages.Wireless.Controllers",
+  "module": "NPM",
+  "displayName": "Wireless Controller",
+  "netObjectPrefix": "WLC",
+  "keyProperties": [
+   "NodeID"
+  ],
+  "parentEntities": [
+   "Orion.Nodes"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.Routing.Neighbors",
+  "module": "NPM",
+  "displayName": "Routing Neighbors",
+  "netObjectPrefix": "NBR",
+  "keyProperties": [
+   "NeighborID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.Routing.VRF",
+  "module": "NPM",
+  "displayName": "VRF",
+  "netObjectPrefix": "VRF",
+  "keyProperties": [
+   "VrfIndex"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SEUM.Agents",
+  "module": "WPM",
+  "displayName": "Location",
+  "netObjectPrefix": "L",
+  "keyProperties": [
+   "AgentId"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SEUM.TransactionStepRequests",
+  "module": "WPM",
+  "displayName": "Step Request",
+  "netObjectPrefix": "TSR",
+  "keyProperties": [
+   "TransactionStepRequestId"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SEUM.TransactionSteps",
+  "module": "WPM",
+  "displayName": "Step",
+  "netObjectPrefix": "TS",
+  "keyProperties": [
+   "TransactionStepId"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SEUM.Transactions",
+  "module": "WPM",
+  "displayName": "Transaction",
+  "netObjectPrefix": "T",
+  "keyProperties": [
+   "TransactionId"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.Engines",
+  "module": "SRM",
+  "displayName": "Polling Engines",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "EngineID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.FIleServerIdentification",
+  "module": "SRM",
+  "displayName": "SRM File Server ID",
+  "netObjectPrefix": "",
+  "keyProperties": [],
+  "parentEntities": [
+   "Orion.SRM.Volumes"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": false,
+  "supersededBy": "Orion.SRM.FileServerIdentification"
+ },
+ {
+  "entity": "Orion.SRM.FileServers",
+  "module": "SRM",
+  "displayName": "SRM File Server",
+  "netObjectPrefix": "",
+  "keyProperties": [],
+  "parentEntities": [
+   "Orion.SRM.Volumes"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.FileShares",
+  "module": "SRM",
+  "displayName": "FileShare",
+  "netObjectPrefix": "SMS",
+  "keyProperties": [
+   "FileShareID"
+  ],
+  "parentEntities": [
+   "Orion.SRM.Volumes"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.LUNs",
+  "module": "SRM",
+  "displayName": "Lun",
+  "netObjectPrefix": "SML",
+  "keyProperties": [
+   "LUNID"
+  ],
+  "parentEntities": [
+   "Orion.SRM.Pools"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.PhysicalDisks",
+  "module": "SRM",
+  "displayName": "SRM Physical Disks",
+  "netObjectPrefix": "",
+  "keyProperties": [],
+  "parentEntities": [
+   "Orion.SRM.StorageArrays"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.Pools",
+  "module": "SRM",
+  "displayName": "Pool",
+  "netObjectPrefix": "SMSP",
+  "keyProperties": [
+   "PoolID"
+  ],
+  "parentEntities": [
+   "Orion.SRM.StorageArrays"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.Providers",
+  "module": "SRM",
+  "displayName": "Provider",
+  "netObjectPrefix": "SMP",
+  "keyProperties": [
+   "ProviderID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.StorageArrays",
+  "module": "SRM",
+  "displayName": "StorageArray",
+  "netObjectPrefix": "SMSA",
+  "keyProperties": [
+   "StorageArrayID",
+   "ArrayID"
+  ],
+  "parentEntities": [],
+  "captionColumn": "ArrayName",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.VServers",
+  "module": "SRM",
+  "displayName": "VServer",
+  "netObjectPrefix": "SMVS",
+  "keyProperties": [
+   "VServerID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.SRM.Volumes",
+  "module": "SRM",
+  "displayName": "NAS Volume",
+  "netObjectPrefix": "SMV",
+  "keyProperties": [
+   "VolumeID"
+  ],
+  "parentEntities": [
+   "Orion.SRM.Pools"
+  ],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.AccessPortEndpointCount",
+  "module": "UDT",
+  "displayName": "AccessPort",
+  "netObjectPrefix": "UP",
+  "keyProperties": [
+   "PortID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.DNSNameCurrent",
+  "module": "UDT",
+  "displayName": "UDT: Hostname",
+  "netObjectPrefix": "UE-DNS",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.MovedMACAlert",
+  "module": "UDT",
+  "displayName": "Moved MAC",
+  "netObjectPrefix": "UE-MAC",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.NewMACAlert",
+  "module": "UDT",
+  "displayName": "New MACAddress",
+  "netObjectPrefix": "UE-MAC",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.NewMACVendorAlert",
+  "module": "UDT",
+  "displayName": "New MAC Vendor",
+  "netObjectPrefix": "UE-MAC",
+  "keyProperties": [
+   "ID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.Port",
+  "module": "UDT",
+  "displayName": "UDT Port",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "NodeID",
+   "PortID",
+   "PortIndex"
+  ],
+  "parentEntities": [
+   "Orion.Nodes"
+  ],
+  "captionColumn": "Name",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.RogueDNSAlert",
+  "module": "UDT",
+  "displayName": "Rogue DNSName",
+  "netObjectPrefix": "UE-DNS",
+  "keyProperties": [
+   "DNSNameID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.RogueEmptyDNSAlert",
+  "module": "UDT",
+  "displayName": "Rogue EmptyDNSName",
+  "netObjectPrefix": "UE-IP",
+  "keyProperties": [
+   "IPAddressID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.RogueIPAlert",
+  "module": "UDT",
+  "displayName": "Rogue IPAddress",
+  "netObjectPrefix": "UE-IP",
+  "keyProperties": [
+   "IPAddressID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.RogueMACAlert",
+  "module": "UDT",
+  "displayName": "Rogue MACAddress",
+  "netObjectPrefix": "UE-MAC",
+  "keyProperties": [
+   "EndpointID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.UDT.WatchListPresent",
+  "module": "UDT",
+  "displayName": "Watch List",
+  "netObjectPrefix": "UW",
+  "keyProperties": [
+   "WatchID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.VIM.Clusters",
+  "module": "VIM",
+  "displayName": "Virtual Cluster",
+  "netObjectPrefix": "VMC",
+  "keyProperties": [
+   "ClusterID"
+  ],
+  "parentEntities": [],
+  "captionColumn": "Name",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.VIM.DataCenters",
+  "module": "VIM",
+  "displayName": "Virtual DataCenter",
+  "netObjectPrefix": "VMD",
+  "keyProperties": [
+   "DataCenterID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.VIM.Datastores",
+  "module": "VIM",
+  "displayName": "Virtual Datastore",
+  "netObjectPrefix": "VMS",
+  "keyProperties": [
+   "DataStoreID"
+  ],
+  "parentEntities": [
+   "Orion.VIM.LUNs"
+  ],
+  "captionColumn": "Name",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.VIM.Hosts",
+  "module": "VIM",
+  "displayName": "Virtual Host",
+  "netObjectPrefix": "VH",
+  "keyProperties": [
+   "HostID",
+   "NodeID",
+   "CluserID",
+   "DatacenterID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.VIM.LUNs",
+  "module": "VIM",
+  "displayName": "Virtual LUN",
+  "netObjectPrefix": "",
+  "keyProperties": [
+   "LunID",
+   "DatastoreID"
+  ],
+  "parentEntities": [],
+  "captionColumn": "Name",
+  "inCurrentSchema": false,
+  "supersededBy": "Orion.VIM.Luns"
+ },
+ {
+  "entity": "Orion.VIM.VCenters",
+  "module": "VIM",
+  "displayName": "Virtual Center",
+  "netObjectPrefix": "VVC",
+  "keyProperties": [
+   "VCenterID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.VIM.VirtualMachines",
+  "module": "VIM",
+  "displayName": "Virtual Machine",
+  "netObjectPrefix": "VVM",
+  "keyProperties": [
+   "VirtualMachineID",
+   "HostID",
+   "NodeID"
+  ],
+  "parentEntities": [],
+  "captionColumn": "Name",
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.Volumes",
+  "module": "Core",
+  "displayName": "Volume",
+  "netObjectPrefix": "V",
+  "keyProperties": [
+   "VolumeID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ },
+ {
+  "entity": "Orion.WirelessHeatMap.Map",
+  "module": "NPM",
+  "displayName": "Wireless Heatmap",
+  "netObjectPrefix": "WLHM",
+  "keyProperties": [
+   "MapID"
+  ],
+  "parentEntities": [],
+  "captionColumn": null,
+  "inCurrentSchema": true
+ }
+]

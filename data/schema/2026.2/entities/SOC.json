@@ -1,0 +1,136 @@
+[
+ {
+  "entity": "SOC.EntityMapping",
+  "namespace": "SOC",
+  "version": "2026.2",
+  "summary": "This entity contains mapping of HCO and SWO identifiers. E.g., Uri to CloudId. This is used by UAMS plugins to translate necessary IDs.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "create",
+     "read",
+     "update",
+     "delete",
+     "invoke"
+    ],
+    "right": "admin"
+   },
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "LocalId",
+    "type": "System.String",
+    "summary": "HCO local id. E.g., Uri.",
+    "access": "everyone"
+   },
+   {
+    "name": "CloudId",
+    "type": "System.String",
+    "summary": "SWO cloud id.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "invoke",
+   "read",
+   "update"
+  ],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": true
+ },
+ {
+  "entity": "SOC.Settings",
+  "namespace": "SOC",
+  "version": "2026.2",
+  "summary": "This entity contains settings for configuring SOC plugin of UAMS Client.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read",
+     "invoke"
+    ],
+    "right": "admin"
+   },
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Key",
+    "type": "System.String",
+    "summary": "Key of the setting.",
+    "access": "everyone"
+   },
+   {
+    "name": "Value",
+    "type": "System.String",
+    "summary": "Value of the setting.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [
+   {
+    "name": "SetSetting",
+    "summary": "Set key/value setting into this entity.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "key",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "value",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "System.Void",
+    "restPath": "/Invoke/SOC.Settings/SetSetting"
+   }
+  ],
+  "supportedOperations": [
+   "invoke",
+   "read"
+  ],
+  "counts": {
+   "properties": 2,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 1
+  },
+  "canCreate": false
+ }
+]

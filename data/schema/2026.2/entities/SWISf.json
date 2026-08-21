@@ -1,0 +1,196 @@
+[
+ {
+  "entity": "SWISf.EntitySubscriptions",
+  "namespace": "SWISf",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "InstanceSiteId",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "EntityTypeName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SubscriptionDate",
+    "type": "System.DateTime",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SubscriptionUri",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "SWISf.ProviderSubscriptions",
+  "namespace": "SWISf",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "InstanceSiteId",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SubscriptionDate",
+    "type": "System.DateTime",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SubscriptionUri",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Description",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 4,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "SWISf.RemoteSWIS",
+  "namespace": "SWISf",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "create",
+     "read",
+     "update",
+     "delete"
+    ],
+    "right": "everyone"
+   }
+  ],
+  "properties": [
+   {
+    "name": "InstanceSiteId",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "SwisUri",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Tag",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "Enabled",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "AlwaysIncludeEntities",
+    "type": "System.Boolean",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [
+   {
+    "name": "DPAServer",
+    "type": "Orion.DPA.DpaServer",
+    "notes": "Defined by relationship Orion.DpaServerRemoteSwis (System.Reference)",
+    "relationship": "Orion.DpaServerRemoteSwis",
+    "kind": "System.Reference"
+   }
+  ],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "read",
+   "update"
+  ],
+  "counts": {
+   "properties": 5,
+   "targetRelationships": 1,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": true
+ }
+]

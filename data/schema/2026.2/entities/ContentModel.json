@@ -1,0 +1,503 @@
+[
+ {
+  "entity": "ContentModel.ContentEntityCategory",
+  "namespace": "ContentModel",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "CategoryId",
+    "type": "System.String",
+    "summary": "The category id for this entity category.",
+    "access": "everyone"
+   },
+   {
+    "name": "ParentCategoryId",
+    "type": "System.String",
+    "summary": "The parent category id for this entity category.",
+    "access": "everyone"
+   },
+   {
+    "name": "DisplayName",
+    "type": "System.String",
+    "summary": "The entity category display name.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 3,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "ContentModel.ContentEntityCategoryGroupMembers",
+  "namespace": "ContentModel",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "TaxonomyId",
+    "type": "System.String",
+    "summary": "The taxonomy id for this entity category group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "CategoryId",
+    "type": "System.String",
+    "summary": "The entity category id for this entity category group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "ParentCategoryId",
+    "type": "System.String",
+    "summary": "The parent category id for this entity category group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "GroupId",
+    "type": "System.String",
+    "summary": "The group id for this entity category group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "EntityType",
+    "type": "System.String",
+    "summary": "The entity type for the entity category group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "EntityBaseType",
+    "type": "System.String",
+    "summary": "The entity base type for the entity category group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "ItemType",
+    "type": "System.String",
+    "summary": "The item type for the entity category group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "Namespace",
+    "type": "System.String",
+    "summary": "The name-space for the entity category group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "DisplayName",
+    "type": "System.String",
+    "summary": "The display name of the entity category group member.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 9,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "ContentModel.ContentEntityCategoryGroups",
+  "namespace": "ContentModel",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "TaxonomyId",
+    "type": "System.String",
+    "summary": "The taxonomy id for this entity category group.",
+    "access": "everyone"
+   },
+   {
+    "name": "ParentCategoryId",
+    "type": "System.String",
+    "summary": "The parent category id for this entity category group.",
+    "access": "everyone"
+   },
+   {
+    "name": "CategoryId",
+    "type": "System.String",
+    "summary": "The entity category id for this entity category group.",
+    "access": "everyone"
+   },
+   {
+    "name": "GroupId",
+    "type": "System.String",
+    "summary": "The group id for this entity category group.",
+    "access": "everyone"
+   },
+   {
+    "name": "DisplayName",
+    "type": "System.String",
+    "summary": "The entity category group display name.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 5,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "ContentModel.ContentEntityTypes",
+  "namespace": "ContentModel",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "EntityType",
+    "type": "System.String",
+    "summary": "The type of entity.",
+    "access": "everyone"
+   },
+   {
+    "name": "EntityBaseType",
+    "type": "System.String",
+    "summary": "The base type for this entity type.",
+    "access": "everyone"
+   },
+   {
+    "name": "ItemType",
+    "type": "System.String",
+    "summary": "The item type of this entity type.",
+    "access": "everyone"
+   },
+   {
+    "name": "Namespace",
+    "type": "System.String",
+    "summary": "The name-space of this entity type.",
+    "access": "everyone"
+   },
+   {
+    "name": "DisplayName",
+    "type": "System.String",
+    "summary": "The entity type display name.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 5,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "ContentModel.ContentFormatField",
+  "namespace": "ContentModel",
+  "version": "2026.2",
+  "summary": "The ContentFormatField entity provides a way for developers to map existing or new ContentTypes to existing or new Nova Dashboard Formatters.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "ContentTypeId",
+    "type": "System.String",
+    "summary": "The ContentType for this property.",
+    "access": "everyone"
+   },
+   {
+    "name": "Formatter",
+    "type": "System.String",
+    "summary": "The Nova Dashboard Formater e.g., LinkFormatter",
+    "access": "everyone"
+   },
+   {
+    "name": "FormatterType",
+    "type": "System.String",
+    "summary": "Whether the formatter is for an individual or composite property.",
+    "access": "everyone"
+   },
+   {
+    "name": "FieldType",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "DataSourceId",
+    "type": "System.String",
+    "summary": "The column name from the SWQL query which maps to the DataSource DataFields Id property.",
+    "access": "everyone"
+   },
+   {
+    "name": "PropertyParentEntityType",
+    "type": "System.String",
+    "summary": "The Entity Type of the entity where the property is defined.",
+    "access": "everyone"
+   },
+   {
+    "name": "RelatedProperty",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "RelatedEntityType",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "DataSourceLabel",
+    "type": "System.String",
+    "summary": "The value for the DataSource DataFields Label property.",
+    "access": "everyone"
+   },
+   {
+    "name": "DataSourceDataType",
+    "type": "System.String",
+    "summary": "The value for the DataSource DataFields DataType property.",
+    "access": "everyone"
+   },
+   {
+    "name": "Calculation",
+    "type": "System.String",
+    "summary": "Defines a calculated field expression. Specify the formula or expression to compute the field value. Expected format: string representing the calculation logic or expression language supported by the system.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 11,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "ContentModel.ContentType",
+  "namespace": "ContentModel",
+  "version": "2026.2",
+  "summary": "A ContentType describes the underlying data associated with an entity property at a higher level that the native DataType like string. For example, instead of just a string, a property holding a Url would have a content type of Link.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "ContentTypeId",
+    "type": "System.String",
+    "summary": "A descriptive unique string identifier for this content type.",
+    "access": "everyone"
+   },
+   {
+    "name": "DisplayName",
+    "type": "System.String",
+    "summary": "Human-readable text for this content type.",
+    "access": "everyone"
+   },
+   {
+    "name": "DataType",
+    "type": "System.String",
+    "summary": "The underlying C# data type.",
+    "access": "everyone"
+   },
+   {
+    "name": "Icon",
+    "type": "System.String",
+    "summary": "A Nova icon used to denote this content type.",
+    "access": "everyone"
+   },
+   {
+    "name": "Category",
+    "type": "System.String",
+    "summary": "A category chosen from the following list: value, link, entity, image, relation.",
+    "access": "everyone"
+   },
+   {
+    "name": "IsGroupable",
+    "type": "System.Boolean",
+    "summary": "Boolean indicating whether the property values can be grouped.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 6,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "ContentModel.EntityNameSpaceCategoryGroups",
+  "namespace": "ContentModel",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "EntityNameSpace",
+    "type": "System.String",
+    "summary": "The name-space of entities that are member of this group.",
+    "access": "everyone"
+   },
+   {
+    "name": "TaxonomyId",
+    "type": "System.String",
+    "summary": "The IS of the category taxonomy for this group.",
+    "access": "everyone"
+   },
+   {
+    "name": "ParentCategoryId",
+    "type": "System.String",
+    "summary": "The parent category of the group for this group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "CategoryId",
+    "type": "System.String",
+    "summary": "The id of the category of this group member.",
+    "access": "everyone"
+   },
+   {
+    "name": "GroupId",
+    "type": "System.String",
+    "summary": "The id of the group associated with this group member.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 5,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "ContentModel.OrionNodes",
+  "namespace": "ContentModel",
+  "version": "2026.2",
+  "summary": "",
+  "flags": {},
+  "inheritance": [
+   "System.Entity",
+   "System.DashboardEntity"
+  ],
+  "baseEntity": "System.DashboardEntity",
+  "accessControl": [],
+  "properties": [
+   {
+    "name": "VolumeEntityLink",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "VolumeDetailsUrl",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "VolumeDisplayName",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "VolumeStatus",
+    "type": "System.Int32",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "VolumeModernIcon",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "VolumeInstanceType",
+    "type": "System.String",
+    "summary": "",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [],
+  "counts": {
+   "properties": 6,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ }
+]

@@ -1,0 +1,450 @@
+[
+ {
+  "entity": "UamsClient.ClientRuntimeInfo",
+  "namespace": "UamsClient",
+  "version": "2026.2",
+  "summary": "This entity returns runtime information about UAMS client available through REST API.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "admin"
+   }
+  ],
+  "properties": [
+   {
+    "name": "AccessToken",
+    "type": "System.String",
+    "summary": "Preview of SWOKEN.",
+    "access": "everyone"
+   },
+   {
+    "name": "EntityId",
+    "type": "System.String",
+    "summary": "EntityId of client in SWO.",
+    "access": "everyone"
+   },
+   {
+    "name": "IsRegistered",
+    "type": "System.Boolean",
+    "summary": "Status if client is registered.",
+    "access": "everyone"
+   },
+   {
+    "name": "OtelEndpointAccess",
+    "type": "System.Boolean",
+    "summary": "OTEL endpoint access status.",
+    "access": "everyone"
+   },
+   {
+    "name": "UamsClientId",
+    "type": "System.String",
+    "summary": "UAMS Client ID (GUID).",
+    "access": "everyone"
+   },
+   {
+    "name": "UscConnectivity",
+    "type": "System.Boolean",
+    "summary": "USC connectivity status.",
+    "access": "everyone"
+   },
+   {
+    "name": "Version",
+    "type": "System.String",
+    "summary": "Version of UAMS client.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 7,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "UamsClient.InstallationInfo",
+  "namespace": "UamsClient",
+  "version": "2026.2",
+  "summary": "This entity returns information about last installation of UAMS client service on the main poller.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "read",
+     "invoke"
+    ],
+    "right": "admin"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Timestamp",
+    "type": "System.DateTime",
+    "summary": "Timestamp of the last installation.",
+    "access": "everyone"
+   },
+   {
+    "name": "Status",
+    "type": "System.String",
+    "summary": "Status of the installation of UAMS client.",
+    "access": "everyone"
+   },
+   {
+    "name": "SwokenHash",
+    "type": "System.String",
+    "summary": "Hash of SWOKEN.",
+    "access": "everyone"
+   },
+   {
+    "name": "SwokenPreview",
+    "type": "System.String",
+    "summary": "Preview of SWOKEN.",
+    "access": "everyone"
+   },
+   {
+    "name": "SwoUrl",
+    "type": "System.String",
+    "summary": "Url of SWO endpoint.",
+    "access": "everyone"
+   },
+   {
+    "name": "Role",
+    "type": "System.String",
+    "summary": "Role used during installation of UAMS client.",
+    "access": "everyone"
+   },
+   {
+    "name": "ErrorMessage",
+    "type": "System.String",
+    "summary": "Error message if installation failed.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [
+   {
+    "name": "CreateInstallationInfo",
+    "summary": "Creates installation info with success installation result when UAMS client is installed manually.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "System.Void",
+    "restPath": "/Invoke/UamsClient.InstallationInfo/CreateInstallationInfo"
+   },
+   {
+    "name": "InstallUamsClient",
+    "summary": "Executed installation of the UAMS client on the main poller.",
+    "accessControl": [],
+    "parameters": [
+     {
+      "name": "swoken",
+      "type": "string",
+      "required": true
+     },
+     {
+      "name": "endpoint",
+      "type": "string",
+      "required": true
+     }
+    ],
+    "returns": "System.Void",
+    "restPath": "/Invoke/UamsClient.InstallationInfo/InstallUamsClient"
+   },
+   {
+    "name": "UninstallUamsClient",
+    "summary": "Executed uninstallation of the UAMS client on the main poller.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "System.Void",
+    "restPath": "/Invoke/UamsClient.InstallationInfo/UninstallUamsClient"
+   },
+   {
+    "name": "GetIngestionToken",
+    "summary": "",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "string",
+    "restPath": "/Invoke/UamsClient.InstallationInfo/GetIngestionToken"
+   },
+   {
+    "name": "GetApiAccessToken",
+    "summary": "",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "string",
+    "restPath": "/Invoke/UamsClient.InstallationInfo/GetApiAccessToken"
+   }
+  ],
+  "supportedOperations": [
+   "invoke",
+   "read"
+  ],
+  "counts": {
+   "properties": 7,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 5
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "UamsClient.PlatformConnectInfo",
+  "namespace": "UamsClient",
+  "version": "2026.2",
+  "summary": "This entity stores Platform Connect activation data as key-value pairs for tenant reactivation scenarios.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "create",
+     "read",
+     "update",
+     "delete"
+    ],
+    "right": "admin"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Key",
+    "type": "System.String",
+    "summary": "Setting key (e.g., 'OperationId', 'OrganizationId', 'ActivationEmail').",
+    "access": "everyone"
+   },
+   {
+    "name": "Value",
+    "type": "System.String",
+    "summary": "Setting value.",
+    "access": "everyone"
+   },
+   {
+    "name": "LastModified",
+    "type": "System.DateTime",
+    "summary": "Timestamp of last modification (UTC).",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "create",
+   "delete",
+   "read",
+   "update"
+  ],
+  "counts": {
+   "properties": 3,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": true
+ },
+ {
+  "entity": "UamsClient.PlatformConnectWizard",
+  "namespace": "UamsClient",
+  "version": "2026.2",
+  "summary": "This entity exposes Cloud Connected wizard operations used by the onboarding flow.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "everyone"
+   },
+   {
+    "operations": [
+     "read",
+     "invoke"
+    ],
+    "right": "admin"
+   }
+  ],
+  "properties": [],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [
+   {
+    "name": "SetAccessToken",
+    "summary": "Change access token.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "unknown",
+    "restPath": "/Invoke/UamsClient.PlatformConnectWizard/SetAccessToken"
+   },
+   {
+    "name": "CheckAPIAccessTokenValidity",
+    "summary": "",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "unknown",
+    "restPath": "/Invoke/UamsClient.PlatformConnectWizard/CheckAPIAccessTokenValidity"
+   },
+   {
+    "name": "GetIngestionTokenByAPIAccess",
+    "summary": "",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "unknown",
+    "restPath": "/Invoke/UamsClient.PlatformConnectWizard/GetIngestionTokenByAPIAccess"
+   },
+   {
+    "name": "ActivateBizAppsTenant",
+    "summary": "Creates a new tenant in BizApps for the current Orion account.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "unknown",
+    "restPath": "/Invoke/UamsClient.PlatformConnectWizard/ActivateBizAppsTenant"
+   },
+   {
+    "name": "RetrialBizAppsTenant",
+    "summary": "Initiates a retrial (start of trial) for an existing BizApps tenant whose trial has ended or been suspended.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "string",
+    "restPath": "/Invoke/UamsClient.PlatformConnectWizard/RetrialBizAppsTenant"
+   },
+   {
+    "name": "GetBizAppsDatacenters",
+    "summary": "Retrieves the list of BizApps datacenters available to the current Orion account.",
+    "accessControl": [],
+    "parameters": [],
+    "returns": "string",
+    "restPath": "/Invoke/UamsClient.PlatformConnectWizard/GetBizAppsDatacenters"
+   }
+  ],
+  "supportedOperations": [
+   "invoke",
+   "read"
+  ],
+  "counts": {
+   "properties": 0,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 6
+  },
+  "canCreate": false
+ },
+ {
+  "entity": "UamsClient.PluginsRuntimeInfo",
+  "namespace": "UamsClient",
+  "version": "2026.2",
+  "summary": "This entity returns runtime information about plugins deployed in UAMS client available through REST API.",
+  "flags": {},
+  "inheritance": [
+   "System.Entity"
+  ],
+  "baseEntity": "System.Entity",
+  "accessControl": [
+   {
+    "operations": [
+     "read"
+    ],
+    "right": "admin"
+   }
+  ],
+  "properties": [
+   {
+    "name": "Name",
+    "type": "System.String",
+    "summary": "Name of plugin.",
+    "access": "everyone"
+   },
+   {
+    "name": "InstanceId",
+    "type": "System.String",
+    "summary": "ID of instance (it can be empty string if plugin doesn't exist in more intances).",
+    "access": "everyone"
+   },
+   {
+    "name": "State",
+    "type": "System.String",
+    "summary": "State of plugin.",
+    "access": "everyone"
+   },
+   {
+    "name": "StatusCode",
+    "type": "System.String",
+    "summary": "Status code.",
+    "access": "everyone"
+   },
+   {
+    "name": "StatusMessage",
+    "type": "System.String",
+    "summary": "Status message.",
+    "access": "everyone"
+   },
+   {
+    "name": "StatusSinceUtc",
+    "type": "System.DateTime",
+    "summary": "",
+    "access": "everyone"
+   },
+   {
+    "name": "StatusUpdatedAtUtc",
+    "type": "System.DateTime",
+    "summary": "Datetime of status update.",
+    "access": "everyone"
+   },
+   {
+    "name": "Version",
+    "type": "System.String",
+    "summary": "Version of plugin.",
+    "access": "everyone"
+   }
+  ],
+  "targetRelationships": [],
+  "sourceRelationships": [],
+  "verbs": [],
+  "supportedOperations": [
+   "read"
+  ],
+  "counts": {
+   "properties": 8,
+   "targetRelationships": 0,
+   "sourceRelationships": 0,
+   "verbs": 0
+  },
+  "canCreate": false
+ }
+]
