@@ -282,7 +282,8 @@ STARTS_WITH_SELECT_RE = re.compile(r"\A(?:\s*--[^\n]*\n)*\s*SELECT\b", re.I)
 
 def queries_from_source(path: str) -> list[tuple[str, str]]:
     """Pull embedded SWQL out of a PowerShell, Python, or shell script."""
-    text = open(path, encoding="utf-8", errors="replace").read()
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        text = fh.read()
     found: list[str] = []
 
     for m in PS_HERESTRING_RE.finditer(text):

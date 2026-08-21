@@ -113,10 +113,12 @@ class Schema:
         self.entities: dict[str, dict] = {}
         pattern = os.path.join(ROOT, "data", "schema", version, "entities", "*.json")
         for path in sorted(glob.glob(pattern)):
-            for record in json.load(open(path, encoding="utf-8")):
-                self.entities[record["entity"]] = record
+            with open(path, encoding="utf-8") as fh:
+                for record in json.load(fh):
+                    self.entities[record["entity"]] = record
         verbs_path = os.path.join(ROOT, "data", "schema", version, "verbs.json")
-        self.verbs = json.load(open(verbs_path, encoding="utf-8"))
+        with open(verbs_path, encoding="utf-8") as fh:
+            self.verbs = json.load(fh)
 
     def member_counts(self, entity: str, kind: str) -> tuple[int, int]:
         """Return (declared, resolved). Resolved includes inherited members."""

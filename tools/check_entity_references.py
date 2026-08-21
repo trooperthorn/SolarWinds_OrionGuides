@@ -269,7 +269,9 @@ def load_netobject_prefixes() -> dict[str, list[str]]:
     prefixes: dict[str, list[str]] = defaultdict(list)
     if not os.path.isfile(path):
         return prefixes
-    for row in json.load(open(path, encoding="utf-8")):
+    with open(path, encoding="utf-8") as fh:
+        rows = json.load(fh)
+    for row in rows:
         prefix = (row.get("netObjectPrefix") or "").strip().rstrip(":")
         if prefix:
             prefixes[prefix].append(row["entity"])
@@ -291,7 +293,9 @@ def load_rights(version: str) -> set[str]:
     for fname in sorted(os.listdir(ent_dir)):
         if not fname.endswith(".json"):
             continue
-        for rec in json.load(open(os.path.join(ent_dir, fname), encoding="utf-8")):
+        with open(os.path.join(ent_dir, fname), encoding="utf-8") as fh:
+            records = json.load(fh)
+        for rec in records:
             for entry in rec.get("accessControl") or []:
                 if entry.get("right"):
                     rights.add(entry["right"])

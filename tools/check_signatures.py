@@ -121,15 +121,17 @@ def normalise(name: str) -> str:
 class Contract:
     def __init__(self, version: str) -> None:
         verbs_path = os.path.join(ROOT, "data", "schema", version, "verbs.json")
-        self.verbs = json.load(open(verbs_path, encoding="utf-8"))
+        with open(verbs_path, encoding="utf-8") as fh:
+            self.verbs = json.load(fh)
         self.by_name: dict[str, list[dict]] = defaultdict(list)
         for verb in self.verbs:
             self.by_name[verb["name"].lower()].append(verb)
         self.entities: set[str] = set()
         pattern = os.path.join(ROOT, "data", "schema", version, "entities", "*.json")
         for path in glob.glob(pattern):
-            for record in json.load(open(path, encoding="utf-8")):
-                self.entities.add(record["entity"])
+            with open(path, encoding="utf-8") as fh:
+                for record in json.load(fh):
+                    self.entities.add(record["entity"])
 
     def resolve(self, name: str, nearby: list[str]) -> dict | None:
         """Pick the verb a mention means, or None when it stays ambiguous."""
@@ -163,7 +165,9 @@ class Functions:
         self.by_name: dict[str, dict] = {}
         if not os.path.isfile(path):
             return
-        for record in json.load(open(path, encoding="utf-8")):
+        with open(path, encoding="utf-8") as fh:
+            records = json.load(fh)
+        for record in records:
             if record.get("signatureComplete"):
                 self.by_name[record["name"].lower()] = record
 

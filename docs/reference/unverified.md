@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**120 statements across 40 pages.**
+**127 statements across 41 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -104,6 +104,9 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The result object](../automation/high-availability.md#the-result-object)**
 
 - Read `Message` and treat `ErrorMessage` as **unverified**; if you want to know what your server returns, print the whole object once with `$result.InnerXml`.
+**[The `properties` argument](../automation/high-availability.md#the-properties-argument)**
+
+- One of them is wrong, and which one **cannot be verified here**.
 **[Safe in a controlled window, with a human deciding](../automation/high-availability.md#safe-in-a-controlled-window-with-a-human-deciding)**
 
 - The schema records **no description** for this verb, so its exact semantics when the two arrays are different lengths, or when a target is not in the same pool, are **not documented in the published schema** and are not verified here.
@@ -163,6 +166,9 @@ Read this before relying on this repository for something load-bearing. If you h
 **[3. Authentication and secret handling](../guides/building-integrations.md#3-authentication-and-secret-handling)**
 
 - What it is valid for and for how long is not recorded in the published schema and is unverified here; confirm the behaviour on your own server before building anything on it.
+**[Incremental sync beats a full pass](../guides/building-integrations.md#incremental-sync-beats-a-full-pass)**
+
+- Whether `EventID` values are always allocated in ascending order is not recorded in the published schema, so treat any watermarked feed as at-least-once: make the downstream write idempotent, and confirm the ordering on your own server by comparing `EventID` against `EventTime` over a busy period before you rely on it for anything you cannot reconcile later.
 **[Which operations survive being repeated](../guides/building-integrations.md#which-operations-survive-being-repeated)**
 
 - CRUD delete, `BulkDelete` — Unverified — Whether a second delete of an already-deleted URI errors or succeeds quietly is not recorded in the published schema. Test it on your own server before relying on either
@@ -179,6 +185,9 @@ Read this before relying on this repository for something load-bearing. If you h
 **[31. What is unacknowledged and old?](../guides/cookbook.md#31-what-is-unacknowledged-and-old)**
 
 - The triage list, with the age computed both ways because `Orion.AlertActive.TriggeredDateTime` carries no documented timezone in the schema and is therefore unverified here.
+**[49. Which accounts see less than the whole estate?](../guides/cookbook.md#49-which-accounts-see-less-than-the-whole-estate)**
+
+- `IsNull(column, 0) <> 0` because whether an unused slot holds `0` or `NULL` is not recorded in the schema; written this way the query is correct either way.
 
 ## [agents.md](../modules/agents.md)
 
@@ -242,6 +251,9 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [ipam.md](../modules/ipam.md)
 
+**[The status values, and how to find out what the numbers are](../modules/ipam.md#the-status-values-and-how-to-find-out-what-the-numbers-are)**
+
+- That is consistent across the file but it is **not verified against 2026.2 schema documentation**; run the query above before you rely on it.
 **[Just looking, not claiming](../modules/ipam.md#just-looking-not-claiming)**
 
 - It appears in the rendered schema pages with **no parameters and an unknown return type**, and it is absent from the 2026.2 Swagger contract entirely, so its signature is **unverified here**.
@@ -266,6 +278,9 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [npm.md](../modules/npm.md)
 
+**[Wireless](../modules/npm.md#wireless)**
+
+- Which of the other three are deprecated, and in which release, is **not recorded in the published schema**: none of these entities carries a summary, and none is marked obsolete.
 **[Gotchas](../modules/npm.md#gotchas)**
 
 - Whether the `Base` entities are present but undocumented on a live server is unverified here; check with `SELECT FullName FROM Metadata.Entity WHERE FullName LIKE 'Orion.NetPath.%'`.
@@ -343,6 +358,9 @@ Read this before relying on this repository for something load-bearing. If you h
 **[IP SLA operations](../modules/vnqm.md#ip-sla-operations)**
 
 - None of the three carries a description in the schema, so the readings of `LifeTimeUtc` and `IsAutoConfigured` given here are inferences and are listed in [what is not verified here](../modules/vnqm.md#what-is-not-verified-here).
+**[Two different status columns on the same row](../modules/vnqm.md#two-different-status-columns-on-the-same-row)**
+
+- The specific integers each lookup contains are not recorded in the schema, so enumerate them on your own server rather than hard-coding a number.
 **[MOS, jitter and the other quality metrics](../modules/vnqm.md#mos-jitter-and-the-other-quality-metrics)**
 
 - They are listed in [what is not verified here](../modules/vnqm.md#what-is-not-verified-here) with a query that shows you the observed range on your own server.
@@ -361,6 +379,12 @@ Read this before relying on this repository for something load-bearing. If you h
 **[DPA: Database Performance Analyzer](../platform/modules.md#dpa-database-performance-analyzer)**
 
 - Whether SWIS classifies them as federated entities is not recorded in the extracted schema; that claim is unverified here.
+
+## [glossary.md](glossary.md)
+
+**[Element](glossary.md#element)**
+
+- Exactly which object types count as an element for which licence is a licensing question rather than a schema one, and is not recorded in the published schema.
 
 ## [entity-model.md](../schema/entity-model.md)
 

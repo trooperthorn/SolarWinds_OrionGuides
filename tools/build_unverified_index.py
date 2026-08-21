@@ -83,6 +83,7 @@ def statements(paragraph: str) -> list[str]:
 
 MD_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 REFERENCE_DIR = os.path.join(ROOT, "docs", "reference")
+GENERATED_MARKER = "GENERATED FILE"
 
 
 def requalify_links(sentence: str, source_path: str) -> str:
@@ -123,7 +124,7 @@ def collect(docs_root: str) -> dict[str, list[tuple[str, str]]]:
     """Return {relative path: [(heading, sentence), ...]}."""
     found: dict[str, list[tuple[str, str]]] = {}
     for dirpath, dirnames, filenames in os.walk(docs_root):
-        dirnames[:] = [d for d in dirnames if d != "reference"]  # generated
+        dirnames[:] = [d for d in dirnames if d != ".git"]
         for name in sorted(filenames):
             if not name.endswith(".md"):
                 continue
@@ -132,7 +133,15 @@ def collect(docs_root: str) -> dict[str, list[tuple[str, str]]]:
             # unverified, which is not itself an unverified claim.
             if os.path.abspath(path) == os.path.abspath(os.path.join(docs_root, "README.md")):
                 continue
-            raw = open(path, encoding="utf-8", errors="replace").read()
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                raw = fh.read()
+            # A generated page is an enumeration of data, and this page is one itself, so
+            # collecting from one would either duplicate the index into itself or lift
+            # statements out of a report that only restates them. Skipping on the banner
+            # rather than on the directory keeps a hand-written page under
+            # docs/reference/, such as the glossary, inside the collection.
+            if GENERATED_MARKER in raw[:400]:
+                continue
             # Blank out code so a fenced example mentioning the word is not collected,
             # while keeping offsets intact so heading lookup stays correct.
             text = FENCE_RE.sub(lambda m: "\n" * m.group(0).count("\n"), raw)
@@ -142,7 +151,10 @@ def collect(docs_root: str) -> dict[str, list[tuple[str, str]]]:
             seen = set()
 
             for para in re.split(r"\n\s*\n", text):
-                if not MARKER_RE.search(para):
+                # Test the flattened form: the prose is hard-wrapped, so a marker phrase
+                # such as "not recorded in the published schema" is routinely split across
+                # a line break and a literal space in the pattern will not match it.
+                if not MARKER_RE.search(" ".join(para.split())):
                     continue
                 start = text.find(para)
                 heading = ""

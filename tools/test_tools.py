@@ -586,10 +586,11 @@ class TestGeneratedFileDetection(unittest.TestCase):
     def test_every_generated_reference_page_is_detected(self):
         pages = glob.glob(os.path.join(ROOT, "docs", "reference", "*.md"))
         self.assertGreater(len(pages), 4)
-        for mod in self.mods:
-            for page in pages:
-                if "GENERATED FILE" in open(page, encoding="utf-8").read(400):
-                    self.assertTrue(mod.is_generated(page), page)
+        for page in pages:
+            with open(page, encoding="utf-8") as fh:
+                banner = "GENERATED FILE" in fh.read(400)
+            for mod in self.mods:
+                self.assertEqual(mod.is_generated(page), banner, page)
 
     def test_a_hand_written_page_is_not_skipped(self):
         for mod in self.mods:
@@ -626,6 +627,25 @@ class TestUnverifiedIndex(unittest.TestCase):
 
     def test_ordinary_prose_is_not_marked(self):
         self.assertFalse(self.mod.MARKER_RE.search("Verify this on your own server first."))
+
+    def test_a_marker_split_across_a_line_break_is_found(self):
+        # The prose is hard-wrapped, so a multi-word marker routinely straddles a newline.
+        # Testing the raw paragraph means a literal space in the pattern never matches and
+        # the statement is silently dropped from the index.
+        para = "which licence is a licensing question rather than a schema one, and is not\nrecorded in the published schema."
+        self.assertFalse(self.mod.MARKER_RE.search(para))
+        self.assertTrue(self.mod.MARKER_RE.search(" ".join(para.split())))
+
+    def test_the_glossary_is_collected(self):
+        # A hand-written page under docs/reference/. Skipping that directory wholesale,
+        # rather than skipping on the generated banner, used to exclude it.
+        found = self.mod.collect(os.path.join(ROOT, "docs"))
+        self.assertIn(os.path.join("docs", "reference", "glossary.md"), found)
+
+    def test_generated_pages_are_not_collected(self):
+        found = self.mod.collect(os.path.join(ROOT, "docs"))
+        for page in ("unverified.md", "entity-index.md", "verb-index.md"):
+            self.assertNotIn(os.path.join("docs", "reference", page), found)
 
     def test_numbered_list_item_starts_a_new_sentence(self):
         # Without the digit in the lookahead the "3." opening the next item was read as
