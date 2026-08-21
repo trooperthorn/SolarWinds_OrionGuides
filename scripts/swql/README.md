@@ -20,6 +20,7 @@ believed to.
 | [11-ncm-configs.swql](11-ncm-configs.swql) | NCM devices, config archives, compliance, end of life |
 | [12-udt-and-storage.swql](12-udt-and-storage.swql) | Device tracking by MAC/IP/port, and array-side storage |
 | [13-hardware-wireless-ipam.swql](13-hardware-wireless-ipam.swql) | Hardware sensors, access points and clients, subnet utilization |
+| [14-netflow-traffic.swql](14-netflow-traffic.swql) | Flow sources, top talkers, traffic by application, protocol and country |
 
 ## Running them
 

@@ -1,0 +1,170 @@
+-- NetFlow Traffic Analyzer: Orion.Netflow.* (requires NTA)
+--
+-- READ THIS BEFORE RUNNING ANYTHING HERE.
+--
+-- Flow tables are the largest objects in the platform by a wide margin. A busy estate
+-- writes millions of rows per hour into Orion.Netflow.Flows, and an unbounded query
+-- against it will not merely be slow: it can hold locks long enough to affect polling.
+--
+-- Every query below is therefore bounded twice, on purpose:
+--   1. a TimeStamp filter, always, and always narrow
+--   2. a TOP clause
+--
+-- Do not remove either. If a query returns too little, widen the time window one step at
+-- a time rather than dropping the filter.
+--
+-- The pre-aggregated entities (Orion.Netflow.FlowsByIP, FlowsByAS and the rest) exist so
+-- you do not have to aggregate the raw flow table yourself. Prefer them.
+
+
+-- Which nodes and interfaces are sending flow data, and are they enabled. This is the
+-- cheap query to run first: it touches configuration rather than flow data.
+SELECT
+    s.NodeID,
+    s.InterfaceID,
+    s.Enabled,
+    s.LastTime,
+    s.LastTimeFlow,
+    s.CBQoSEnabled
+FROM Orion.Netflow.Source s
+ORDER BY s.LastTime DESC
+
+
+-- Flow sources that have stopped reporting. A silent exporter is the most common NTA
+-- problem and it does not announce itself: the charts simply flatten.
+SELECT
+    s.NodeID,
+    s.InterfaceID,
+    s.LastTime,
+    s.Enabled,
+    MinuteDiff(s.LastTime, GetDate()) AS MinutesSinceLastFlow
+FROM Orion.Netflow.Source s
+WHERE s.Enabled = TRUE
+  AND s.LastTime < AddMinute(-30, GetDate())
+ORDER BY s.LastTime
+
+
+-- Top talkers in the last hour by total bytes. Note the TimeStamp bound and the TOP.
+SELECT TOP 25
+    f.SourceIP,
+    f.DestinationIP,
+    SUM(f.TotalBytes) AS Bytes,
+    SUM(f.TotalPackets) AS Packets
+FROM Orion.Netflow.Flows f
+WHERE f.TimeStamp > AddHour(-1, GetDate())
+GROUP BY f.SourceIP, f.DestinationIP
+ORDER BY SUM(f.TotalBytes) DESC
+
+
+-- Traffic by application over the last hour, joined to the application name.
+SELECT TOP 25
+    a.Name AS ApplicationName,
+    SUM(f.TotalBytes) AS Bytes,
+    SUM(f.TotalPackets) AS Packets
+FROM Orion.Netflow.Flows f
+JOIN Orion.Netflow.Applications a ON f.ApplicationID = a.ApplicationID
+WHERE f.TimeStamp > AddHour(-1, GetDate())
+GROUP BY a.Name
+ORDER BY SUM(f.TotalBytes) DESC
+
+
+-- Traffic by protocol, which is usually a smaller and faster grouping than by application.
+SELECT TOP 20
+    p.Name AS ProtocolName,
+    SUM(f.TotalBytes) AS Bytes
+FROM Orion.Netflow.Flows f
+JOIN Orion.Netflow.Protocols p ON f.ProtocolID = p.ProtocolID
+WHERE f.TimeStamp > AddHour(-1, GetDate())
+GROUP BY p.Name
+ORDER BY SUM(f.TotalBytes) DESC
+
+
+-- Traffic for one node only. Filtering on NodeID as well as time narrows the scan a great
+-- deal, so prefer this shape whenever you know the node.
+SELECT TOP 50
+    f.TimeStamp,
+    f.SourceIP,
+    f.DestinationIP,
+    f.Port,
+    f.TotalBytes
+FROM Orion.Netflow.Flows f
+WHERE f.NodeID = @nodeId
+  AND f.TimeStamp > AddHour(-1, GetDate())
+ORDER BY f.TotalBytes DESC
+
+
+-- Traffic to a specific destination country, for an egress review. Country codes come
+-- from Orion.Netflow.Countries.
+SELECT TOP 25
+    c.Name AS CountryName,
+    SUM(f.TotalBytes) AS Bytes
+FROM Orion.Netflow.Flows f
+JOIN Orion.Netflow.Countries c ON f.DestinationCountryCode = c.CountryCode
+WHERE f.TimeStamp > AddHour(-2, GetDate())
+GROUP BY c.Name
+ORDER BY SUM(f.TotalBytes) DESC
+
+
+-- Conversations involving IPv6, which is worth checking separately during a migration.
+SELECT TOP 25
+    f.SourceIP,
+    f.DestinationIP,
+    f.IsIPv6,
+    SUM(f.TotalBytes) AS Bytes
+FROM Orion.Netflow.Flows f
+WHERE f.TimeStamp > AddHour(-1, GetDate())
+  AND f.IsIPv6 = TRUE
+GROUP BY f.SourceIP, f.DestinationIP, f.IsIPv6
+ORDER BY SUM(f.TotalBytes) DESC
+
+
+-- Ingress versus egress on one interface, which is what a capacity conversation needs.
+SELECT
+    f.InterfaceIDRx,
+    SUM(f.IngressBytes) AS IngressBytes,
+    SUM(f.EgressBytes) AS EgressBytes,
+    SUM(f.TotalBytes) AS TotalBytes
+FROM Orion.Netflow.Flows f
+WHERE f.TimeStamp > AddHour(-1, GetDate())
+  AND f.InterfaceIDRx = @interfaceId
+GROUP BY f.InterfaceIDRx
+
+
+-- Which applications the platform knows about, and whether they are enabled for
+-- classification. Configuration data, so cheap to query.
+SELECT
+    a.ApplicationID,
+    a.Name,
+    a.PortName,
+    a.TCP,
+    a.UDP,
+    a.Multiport,
+    a.Enabled,
+    a.Description
+FROM Orion.Netflow.Applications a
+ORDER BY a.Name
+
+
+-- CBQoS policy inventory. CBQoS data is separate from flow data and much smaller.
+SELECT TOP 50
+    p.PolicyID,
+    p.PolicyFullPathName,
+    p.NodeID,
+    p.InterfaceID,
+    p.DirectionID,
+    p.RateBps,
+    p.IsActive
+FROM Orion.Netflow.CBQoSPolicy p
+WHERE p.IsActive = TRUE
+ORDER BY p.NodeID
+
+
+-- Flow storage health. Worth a look before blaming a query for being slow.
+SELECT
+    d.Name AS TableName,
+    d.RowCount,
+    d.TotalSpaceMB,
+    d.UsedSpaceMB,
+    d.UnusedSpaceMB
+FROM Orion.Netflow.Diagnostics.Tables d
+ORDER BY d.UsedSpaceMB DESC

@@ -38,7 +38,8 @@ They group like this:
 | Watch lists | 6 | `WatchList`, `WatchListPresent`, `WatchListAggregated` and three `Latest...ForWatchID` views |
 | Operations | 4 | `Job`, `Setting`, `NodeCapability`, `NodeCapabilityDashboard` |
 
-Only two of the 85 are writable and only two carry verbs, both of them `Orion.UDT.Port`.
+Exactly **one of the 85 is writable**, `Orion.UDT.Port`, and only two carry verbs at all
+(`Orion.UDT.Port` and `Orion.UDT.NodeCapabilityDashboard`, three verbs between them).
 Everything else is read-only, and most of it is a view over the same handful of underlying
 tables shaped for a particular console resource. That is why the entity count is high and
 the useful entity count is low.

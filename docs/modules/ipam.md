@@ -626,12 +626,14 @@ operations with almost the same name. The DHCP one requires `reservationMAC` in
 `00:00:00:00:00:00` form and takes a `reservationType` of `DhcpOnly`, `BootpOnly` or
 `Both`.
 
-The four `...CredentialsTest` and `Create...Credentials` verbs, and the two `StartScan...`
-verbs, exist in the 2026.2 schema but are **not documented on any published SolarWinds
-page**. Their parameter names and types above come from the Swagger contract, which is
-authoritative for the shape but says nothing about semantics. Treat the `credentials`
-key/value arrays as unverified in content and inspect
-`Metadata.VerbArgument.XmlTemplate` on your server for the expected keys.
+Eight of those verbs exist in the 2026.2 schema and are **not documented on any published
+SolarWinds IPAM page**: `CreateDhcpCredentials`, `CreateDnsCredentials`,
+`StartDhcpCredentialsTest`, `StartDnsCredentialsTest`, `StartScanDhcpServer`,
+`StartScanDnsServer`, `UpdateDhcpServer` and `UpdateDnsServer`. Their parameter names and
+types above come from the Swagger contract, which is authoritative for the shape but says
+nothing about semantics. Treat the `credentials` and `propertiesToUpdate` key/value arrays
+as unverified in content and inspect `Metadata.VerbArgument.XmlTemplate` on your own server
+for the keys they expect.
 
 ### DNS records for an address
 
@@ -1032,12 +1034,14 @@ Observability 2022.2 page documents scope editing and deletion verbs marked "ava
 2026.4" that do not exist in 2026.2; the vNext page omits eight verbs that do. Neither is
 wrong, they are just written against different builds. Confirm with `Metadata.Verb`.
 
-**Four verbs are in the schema and in no published document.** `CreateDhcpCredentials`,
-`CreateDnsCredentials`, `StartDhcpCredentialsTest` and `StartDnsCredentialsTest`, plus
-`StartScanDhcpServer`, `StartScanDnsServer`, `UpdateDhcpServer` and `UpdateDnsServer`, come
-from the Swagger contract alone. Their argument names and types are verified; their
-semantics are not. `Metadata.VerbArgument.XmlTemplate` on your own server is the next best
-source.
+**Eight verbs are in the schema and in no published document.** `CreateDhcpCredentials`,
+`CreateDnsCredentials`, `StartDhcpCredentialsTest`, `StartDnsCredentialsTest`,
+`StartScanDhcpServer`, `StartScanDnsServer`, `UpdateDhcpServer` and `UpdateDnsServer` come
+from the Swagger contract alone; none of the seven published IPAM pages mentions any of
+them. Their argument names and types are verified, their semantics are not.
+`Metadata.VerbArgument.XmlTemplate` on your own server is the next best source. A ninth,
+`GetFirstAvailableIpv6`, is undocumented **and** absent from the Swagger contract, so even
+its arguments are unknown.
 
 **IPAM has its own per-group role model.** `IPAM.AccountRoles` and `IPAM.GroupRole` record
 Admin, PowerUser, Operator, ReadOnly and NoAccess per account per group. None of the 67

@@ -764,12 +764,29 @@ Note the two capitalisation-only cases. `Orion.VIM.LUNs` versus `Orion.VIM.Luns`
 `FIleServerIdentification` versus `FileServerIdentification` are the kind of difference that
 survives a code review and fails at runtime.
 
-**When did these change?** Not recently. All fifteen published schema versions available here
+And there is no rule you can apply instead of looking it up, because the capitalisation is not
+consistent across the schema. `Orion.VIM.Luns` is correct **and so is `Orion.SRM.LUNs`**, which
+is a different entity in a different module. Even within the SRM namespace both spellings occur:
+
+```bash
+python3 tools/schema_query.py find LUN
+```
+
+```text
+  Orion.SRM.LUNs                                         62p   0v  Contains information about all LUNs
+  Orion.VIM.Luns                                          7p   0v  LUN
+  Orion.SRM.LunMasking                                    8p   0v  Defines LUN masking
+  Orion.SRM.LUNStatistics                                31p   0v  Stores LUNs statistics.
+  Orion.SRM.LunsToVIMLuns                                 4p   0v  Defines mapping between SRM LUNs and VIM LUNs
+```
+
+**When did these change?** Not recently. Every published schema version from 2023.1 to 2026.2
 (2023.1, 2023.2, 2023.3, 2023.4, 2024.1, 2024.2, 2024.4, 2024.4.1, 2025.1, 2025.1.1, 2025.2,
-2025.2.1, 2025.4, 2026.1, 2026.2) already use `Orion.VIM.Luns`, `Orion.UCS.*` and
-`Orion.F5.System.Device`, and none of them contains `Orion.VIM.LUNs`, any `Orion.NPM.UCS*`
-entity, or `Orion.F5.Device`. These renames predate 2023.1, which means any source still quoting
-the old names has been stale for years.
+2025.2.1, 2025.4, 2026.1, 2026.2, fifteen releases) already uses `Orion.VIM.Luns`,
+`Orion.UCS.*` and `Orion.F5.System.Device`, and none of them contains `Orion.VIM.LUNs`, any
+`Orion.NPM.UCS*` entity, or `Orion.F5.Device`. The renames therefore predate 2023.1, which means
+any source still quoting the old names has been stale for years. You can confirm this yourself
+with the URL pattern in check 2 below, substituting each version.
 
 ### How to check whether an entity exists on the version you are targeting
 
