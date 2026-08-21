@@ -399,16 +399,17 @@ each rename:
 | `Orion.NPM.UCSFabrics` | Not in the schema | `Orion.UCS.Fabrics` |
 | `Orion.NPM.UCSManagers`, `Orion.NPM.UCSFans`, `Orion.NPM.UCSPSUs` | Not in the schema | No confident successor |
 
-**F5** now splits by BIG-IP module. `Orion.F5.System.Device` is the appliance, keyed by
-`NodeID`, with `ProductVersion`, `SerialNumber`, `FailoverStatus`, `SyncStatus`,
-`Connections`, `In_Throughput` and `IsPollerEnabled`. It hosts `Orion.F5.System.Module`
-(with `ModuleLTM`, `ModuleGTM` and `ModuleOther` specialisations), `Orion.F5.System.VLAN`,
-`Orion.F5.System.Failover` and the virtual servers. `Orion.F5.LTM.` is local traffic
-management: `VirtualServer`, `Pool`, `PoolMember`, `Monitor`, `Server`, `VirtualIPAddress`
-and two stats entities. `Orion.F5.GTM.` is global traffic management: `WideIP`, `Pool`,
-`PoolMember`, `Server`, `VirtualServer`. Both keep a device-native status and a
-platform-mapped one side by side, as `F5Status` and `OrionStatus`, each with a
-`...StatusDescription` string.
+**F5** now splits by BIG-IP module. `Orion.F5.System.Device` is the appliance, one row per
+monitored node and carrying `NodeID`, `ProductVersion`, `SerialNumber`, `FailoverStatus`,
+`SyncStatus`, `Connections`, `In_Throughput` and `IsPollerEnabled`. It hosts
+`Orion.F5.System.Module` (with `ModuleLTM`, `ModuleGTM` and `ModuleOther` inheriting from
+it), `Orion.F5.System.VLAN`, `Orion.F5.System.Failover` and the virtual servers.
+`Orion.F5.LTM.` is local traffic management: `VirtualServer`, `Pool`, `PoolMember`,
+`Monitor`, `Server`, `VirtualIPAddress`, plus `PoolMemberStats` and `VirtualServerStats`.
+`Orion.F5.GTM.` is global traffic management: `WideIP`, `WideIPPool`, `WideIPStats`, `Pool`,
+`PoolMember`, `Server`, `VirtualServer`. Both families keep a device-native status and a
+platform-mapped one side by side, as `F5Status` and `OrionStatus`, each with a matching
+`...StatusDescription` string that is safer to display than the raw byte.
 
 **UCS** moved out of `Orion.NPM.` wholesale. `Orion.UCS.Chassis` inherits from
 `Orion.HardwareHealth.BMC.Chassis`, `Orion.UCS.Blades` from
@@ -490,12 +491,18 @@ if ($discovered.Result -eq 'Succeed') {
 
 | Entity | Verbs | Notes |
 |---|---|---|
-| `Orion.NPM.InterfacesCustomProperties` | `CreateCustomProperty`, `CreateCustomPropertyWithValues`, `ModifyCustomProperty`, `DeleteCustomProperty` | The entity requires `admin` for invoke. These manage interface custom property *definitions*; values are set by updating the property on the entity |
+| `Orion.NPM.InterfacesCustomProperties` | `CreateCustomProperty`, `CreateCustomPropertyWithValues`, `ModifyCustomProperty`, `DeleteCustomProperty` | The entity requires `admin` for invoke and `manageNodes` for update. These four manage custom property *definitions* for interfaces; a value is set by updating this entity for one `InterfaceID` |
 | `Orion.WirelessHeatMap.Map` | 14, including `InsertWirelessHeatMap`, `UpdateWirelessHeatMap`, `DeleteWirelessHeatMap`, `PollAPSignalStrengthNow`, `StartClientSignalPoll`, `GetProgress` | `manageMaps` for create, update, delete and invoke |
-| `Orion.WirelessHeatMap.MapPoint` | `InsertMapPoint`, `DeleteMapPoint`, `DeleteMapPoints`, `SyncMapPoints` | |
-| `Orion.WirelessHeatMap.ResourceLimitation` | `InsertResourceLimitation` | |
-| `Orion.F5.System.Device` | `EnableApiPolling` (`nodeId`, `port`, `useSsl`, `userName`, `password`, `reservedSslCertificateIdentity`), `DisableApiPolling` (`nodeId`), `TestApiPolling` | `manageNodes` |
-| `Orion.F5.LTM.Server` | `LinkNode` (`f5ServerId`, `nodeId`), `UnlinkNode` (`f5ServerId`) | `manageNodes`. `LinkNode` associates an F5 pool member with the monitored node behind it |
+| `Orion.WirelessHeatMap.MapPoint` | `InsertMapPoint`, `DeleteMapPoint`, `DeleteMapPoints`, `SyncMapPoints` | `manageMaps` for invoke |
+| `Orion.WirelessHeatMap.ResourceLimitation` | `InsertResourceLimitation` | No right declared in the schema |
+| `Orion.F5.System.Device` | `EnableApiPolling` (`nodeId`, `port`, `useSsl`, `userName`, `password`, `reservedSslCertificateIdentity`), `DisableApiPolling` (`nodeId`), `TestApiPolling` (8 parameters, ending in an optional `engineId`) | `manageNodes` on the first two; `TestApiPolling` declares no right |
+| `Orion.F5.LTM.Server` | `LinkNode` (`f5ServerId`, `nodeId`), `UnlinkNode` (`f5ServerId`) | `manageNodes`. `LinkNode` ties an `Orion.F5.LTM.Server` row to an `Orion.Nodes` row, so the F5's view of a backend server and the platform's monitored node become the same object |
+
+`Orion.NPM.InterfacesCustomProperties` declares exactly one property in the published
+schema, `InterfaceID`. On a live server it also carries one column per interface custom
+property, named after the property. That behaviour is not recorded in the extracted schema,
+so confirm the columns your server actually has before writing against them:
+`SELECT Name, Type FROM Metadata.Property WHERE EntityName = 'Orion.NPM.InterfacesCustomProperties'`.
 
 ## Worked queries
 

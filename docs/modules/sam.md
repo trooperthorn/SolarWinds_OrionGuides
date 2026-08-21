@@ -886,7 +886,8 @@ applications out.
 ## See also
 
 - [hardware-health.md](hardware-health.md) for the sensor data that appears on the same
-  nodes SAM monitors.
+  nodes SAM monitors, and which SAM is one of the two modules that enables.
+- [README.md](README.md) for the index of every module page.
 - [../platform/modules.md](../platform/modules.md) for the full module and namespace map.
 - [../swis/crud.md](../swis/crud.md) for creating and updating the settings entities.
 - [../swis/uris.md](../swis/uris.md) for the SWIS URI format, which is what

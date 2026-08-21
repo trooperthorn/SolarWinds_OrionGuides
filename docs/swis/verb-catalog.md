@@ -151,6 +151,12 @@ variants. The table below shows the node set in full plus the two that break the
 | `IPAM.AttrDefine` | `UpdateCustomProperty` | `propertyName, description, maxStringLength, linkTitle, addToIpAddress, addToGroups` | not declared | Updates an IPAM custom property definition. |
 | `IPAM.AttrDefine` | `DeleteCustomProperty` | `propertyName` | not declared | Deletes an IPAM custom property definition. |
 
+None of these verbs declares a right of its own, but the entities do.
+`Orion.NodesCustomProperties` and `Orion.APM.ApplicationCustomProperties` both declare
+`invoke` for `admin`, so creating or changing a custom property definition is an
+administrator operation even though setting a custom property **value** only needs
+`manageNodes` update rights on the object.
+
 `ValidateCustomProperty` exists on only 14 of the 26 entities, so do not assume it is there.
 Check with:
 
@@ -202,6 +208,9 @@ verbs are the supported way to manipulate an active alert, not an Update on its 
 | `Orion.Credential` | `CreateCredentials` | `type, properties, owner?` | `manageNodes` | Creates credential with provided list of properties |
 | `Orion.Credential` | `UpdateCredentials` | `id, properties` | `manageNodes` | Updates credential properties |
 
+No `Orion.Discovery` verb declares a right of its own, but the entity declares `invoke` for
+`manageNodes`, so that is the right you actually need for all twelve.
+
 `ResolveIpFromHostname` and `ResolveHostnameFromIp` resolve names **from the polling engine
 you name in `engineId`**, not from wherever your script is running. That is the whole point of
 them: on a segmented network the answer differs by engine.
@@ -234,6 +243,11 @@ stated in the verb summary rather than in `accessControl`, and it is real.
 | `NCM.FirmwareOperations` | `StartUpgrade` | `operationId, nodeOptions, runAt, emailSettings` | not declared | Starts upgrade operation. |
 | `NCM.Eos` | `RefreshNow` | `nodeIds` | not declared | Starts refreshing End of Support data for selected nodes. |
 
+`Cirrus.Nodes` declares `invoke` at the entity level for `everyone` or `manageNodes`;
+`NCM.FirmwareOperations` declares it for `everyone` or `admin`. `Cirrus.ConfigArchive` and
+`NCM.Eos` declare no entity-level invoke right at all, which is exactly where the NCM role
+requirement in the summary text is doing all the work.
+
 `UpdateNode` overwrites every property of the NCM node record. The safe pattern, which the
 verb summary states outright, is `GetNode`, modify the returned model, then `UpdateNode`.
 
@@ -244,8 +258,8 @@ use `ConfigSearch2`. To find every verb SolarWinds has flagged this way on your 
 
 ## Agents
 
-`Orion.AgentManagement.Agent` declares 20 verbs, the most of any core Orion entity after
-`Orion.Nodes`. None of them declares a right in the schema.
+`Orion.AgentManagement.Agent` declares 20 verbs, more than `Orion.Nodes` itself. None of them
+declares a right, but the entity declares `invoke` for `manageNodes`.
 
 | Entity | Verb | Parameters | Requires | What it does |
 |:---|:---|:---|:---|:---|
@@ -319,6 +333,12 @@ verbs that create and reshape a group live on `Orion.Container`.
 dynamic group definition, because it answers "what would this actually match" without
 creating anything.
 
+The `Orion.Container` verbs declare no right individually, but the entity declares `invoke`
+for `manageNodes` or `allowOrionMapsManagement`. The `Orion.Accounts` verbs each declare
+`admin` directly, and the official
+[Account Management](https://solarwinds.github.io/OrionSDK/docs/account-management/) page
+confirms that every operation except querying accounts requires it.
+
 New accounts are created with minimal rights and no limitations. Granting rights is a second
 call to `UpdateAccount` with a property bag. The rights properties **read** as `"Y"` and
 `"N"` but must be **written** as booleans; see
@@ -338,9 +358,13 @@ call to `UpdateAccount` with a property bag. The rights properties **read** as `
 | `Orion.Netflow.NodeSources` | `SetManualSamplingRate` | `nodeId, samplingRate` | not declared | Overrides the auto-detected flow sampling rate for one node. |
 | `Orion.Netflow.InterfaceSources` | `EnableFlowInterfaceSources` | `interfaceIds` | not declared | Enables NTA flow collection for a set of InterfaceIDs. |
 
-The hardware health verbs are declared on the **base** entities `HardwareInfoBase` and
-`HardwareItemBase`, not on the vendor-specific descendants, which is why one call works for
-Dell, HP, Cisco UCS and the rest.
+The hardware health verbs are declared on the **base** entities `HardwareInfoBase`,
+`HardwareItemBase` and `HardwareItemThreshold`, not on the vendor-specific descendants. In
+2026.2 those three plus `Orion.HardwareHealth.BMC.Controllers.TestBmcConnection` are the only
+verbs in the `Orion.HardwareHealth.*` family, which is why one call works across vendors.
+
+Both `Orion.Netflow.NodeSources` and `Orion.Netflow.InterfaceSources` declare `invoke` for
+`manageNodes` at the entity level, so the `not declared` entries above still need that right.
 
 ## Schema and service verbs
 
@@ -413,8 +437,9 @@ Verb counts per namespace:
 jq -r 'group_by(.namespace)[] | "\(.[0].namespace)\t\(length)"' "$V" | sort -k2 -nr
 ```
 
-Verbs that take an array as their only parameter, which is the set that needs the PowerShell
-leading-comma workaround:
+Verbs that take an array as their only parameter. There are 55 of them, and they are exactly
+the set that needs the PowerShell leading-comma workaround described in
+[invoke-verbs.md](invoke-verbs.md#the-single-array-argument-pitfall):
 
 ```bash
 jq -r '.[] | select((.parameters | length) == 1 and .parameters[0].type == "array")
