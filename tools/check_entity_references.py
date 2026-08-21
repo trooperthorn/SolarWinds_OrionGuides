@@ -398,6 +398,7 @@ def member_table_claims(text: str, types: dict[str, list[str]]) -> tuple[int, li
 
 PROPERTY_TABLE_TYPE_RE = re.compile(r"^`(System\.\w+)`$")
 SHOW_COMMAND_RE = re.compile(r"schema_query\.py\s+show\s+([A-Z]\w*(?:\.[A-Z]\w*)+)")
+HEADING_LEVEL_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 
 
 def table_subject(lines: list[str], i: int, entities, inheritance, token_re) -> str | None:
@@ -408,14 +409,35 @@ def table_subject(lines: list[str], i: int, entities, inheritance, token_re) -> 
     in a ``schema_query.py show`` block. So the whole section from the nearest heading
     down to the table is the context to read.
     """
+    def named_in(text: str) -> set[str]:
+        found = [m.group(0).rstrip(".") for m in token_re.finditer(text)]
+        return {e for e in found + SHOW_COMMAND_RE.findall(text) if e in entities}
+
+    # A heading that names an entity is the strongest signal there is, and it is often set
+    # a level or two above the table: "## Cirrus.Nodes" then "### Properties worth
+    # knowing". Reading only the nearest section's body there picks up whichever entity
+    # its prose happens to quote, which in that case is Orion.Nodes inside a quoted schema
+    # description, and then reports every row of a correct table. Walk the heading chain
+    # from the nearest enclosing heading outwards and take the first that names one.
     start = 0
+    level = 99
     for j in range(i, -1, -1):
-        if lines[j].startswith("#"):
+        heading = HEADING_LEVEL_RE.match(lines[j])
+        if not heading:
+            continue
+        depth = len(heading.group(1))
+        if depth >= level:
+            continue
+        if start == 0:
             start = j
+        level = depth
+        titled = named_in(heading.group(2))
+        if len(titled) == 1:
+            return titled.pop()
+        if depth == 1:
             break
-    section = " ".join(lines[start:i])
-    found = [m.group(0).rstrip(".") for m in token_re.finditer(section)]
-    candidates = {e for e in found + SHOW_COMMAND_RE.findall(section) if e in entities}
+
+    candidates = named_in(" ".join(lines[start:i]))
     if len(candidates) == 1:
         return candidates.pop()
     if not candidates:
@@ -746,8 +768,21 @@ def main() -> None:
             print(f"  - {rel}: {type_name} has no member {member!r}", file=sys.stderr)
         print("      Members come from data/schema/<version>/types.json.", file=sys.stderr)
 
+    if bad_property_tables:
+        print(
+            f"\n{len(bad_property_tables)} property table row(s) contradict the schema:",
+            file=sys.stderr,
+        )
+        for rel, problem in bad_property_tables:
+            print(f"  - {rel}: {problem}", file=sys.stderr)
+        print(
+            "      Confirm with: python3 tools/schema_query.py show <Entity>",
+            file=sys.stderr,
+        )
+
     if not unknown:
-        if not wrong_types and not bad_netobjects and not bad_rights and not bad_members:
+        if not (wrong_types or bad_netobjects or bad_rights or bad_members
+                or bad_property_tables):
             print("every entity named in the documentation exists in the schema")
             return
         if args.strict:

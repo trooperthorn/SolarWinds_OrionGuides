@@ -1447,6 +1447,39 @@ class TestTableClaims(unittest.TestCase):
         )
         self.assertEqual(subject, "Orion.Events")
 
+    def test_a_parent_heading_outranks_prose_that_quotes_another_entity(self):
+        # "## Cirrus.Nodes" then "### Properties worth knowing", whose only prose mention
+        # is Orion.Nodes inside a quoted schema description. Reading the nearest section's
+        # body picked the quoted name and reported every row of a correct table.
+        lines = [
+            "## Cirrus.Nodes",
+            "",
+            "### Properties worth knowing",
+            "",
+            "Many are mirrors: `ReverseDNS` is \"The Orion.Nodes DNS value\".",
+            "",
+            "| Property | Type |",
+        ]
+        token_re = self.refs.entity_token_re({"Orion", "Cirrus"})
+        subject = self.refs.table_subject(
+            lines, 6, {"Cirrus.Nodes", "Orion.Nodes"}, {}, token_re
+        )
+        self.assertEqual(subject, "Cirrus.Nodes")
+
+    def test_body_text_still_resolves_when_no_heading_names_an_entity(self):
+        lines = [
+            "## The recurrence",
+            "",
+            "### A cron expression without its timezone is ambiguous",
+            "",
+            "Six of the fourteen `Orion.Frequencies` columns are about time zones.",
+            "",
+            "| Property | Type |",
+        ]
+        token_re = self.refs.entity_token_re({"Orion"})
+        subject = self.refs.table_subject(lines, 6, {"Orion.Frequencies"}, {}, token_re)
+        self.assertEqual(subject, "Orion.Frequencies")
+
     def test_two_unrelated_entities_leave_the_table_unresolved(self):
         # Guessing would be worse than skipping: a wrong subject reports every row.
         lines = ["## Both", "", "`Orion.Nodes` and `Orion.Volumes` differ.", "", "| Property | Type |"]
