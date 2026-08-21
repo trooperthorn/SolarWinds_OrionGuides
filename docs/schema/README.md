@@ -159,9 +159,18 @@ verb-carrying entity at a glance.
 python3 tools/schema_query.py show Orion.Nodes
 ```
 
-That prints the inheritance chain, the access control table, properties, both relationship
-tables and the verb list. It is the single command worth running before writing anything
-that touches an entity.
+```text
+Orion.Nodes   [2026.2]
+  inherits: System.Entity -> System.DashboardEntity -> System.ManagedEntity -> Orion.Nodes
+  operations: create, delete, invoke, read, update
+    read                                   requires everyone
+    read,invoke                            requires allowRealTimePolling
+    create,read,update,delete,invoke       requires manageNodes
+```
+
+The output continues with all 102 declared properties, both relationship tables and the
+17 verbs. It is the single command worth running before writing anything that touches an
+entity.
 
 ### Does this property exist, and where did it come from?
 
@@ -222,6 +231,15 @@ python3 tools/schema_query.py path Orion.NPM.Interfaces Orion.Nodes
 
 ```bash
 python3 tools/schema_query.py children System.ManagedEntity
+```
+
+```text
+174 entity/entities inherit from System.ManagedEntity
+  Cortex.Orion.CiscoAci.Apic
+  Cortex.Orion.CiscoAci.ApplicationProfile
+...
+  Orion.Cloud.Gcp.CloudStorage
+  ... 94 more (use --limit)
 ```
 
 Because a query against a base entity returns rows from every descendant, that list is also

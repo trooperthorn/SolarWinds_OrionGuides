@@ -334,16 +334,23 @@ them**. If you need three-way fallback, nest `IsNull` or use `CASE`. Full list:
 
 `n.MemoryUsed / n.TotalMemory` is NULL if either side is NULL, and the row still appears with a
 blank cell rather than being excluded. If a percentage column in a report is intermittently
-blank, this is usually why. Wrap the operands, not the result:
+blank, this is usually why. Deal with the operands, not the result:
 
 ```sql
 SELECT TOP 100
     n.Caption,
-    Round(IsNull(n.MemoryUsed, 0) / IsNull(n.TotalMemory, 1) * 100, 1) AS PercentMemory
+    Round(IsNull(n.MemoryUsed, 0) / n.TotalMemory * 100, 1) AS PercentMemory
 FROM Orion.Nodes n
 WHERE n.TotalMemory > 0
 ORDER BY n.Caption
 ```
+
+Two different fixes are doing two different jobs here, and it is worth being deliberate about
+which you want. `IsNull(n.MemoryUsed, 0)` says "a node reporting no memory usage counts as
+zero", which keeps the row. `WHERE n.TotalMemory > 0` excludes both zero and NULL denominators
+in one predicate, because `NULL > 0` is not true either, which **drops** the row. Substituting a
+value keeps rows; filtering removes them. Choosing by accident is how a report ends up with a
+different node count than the one next to it.
 
 ### 5.4 Aggregates skip NULL, so COUNT and AVG disagree about the denominator
 
@@ -359,9 +366,13 @@ SELECT
 FROM Orion.Nodes n
 ```
 
-`String_Agg` is documented as concatenating "the non-NULL string values in the group" and
-returning NULL when the group has no non-NULL values, so an empty-looking cell there means "no
-values", not "no group".
+That NULL-skipping behaviour is standard SQL semantics arriving through the T-SQL translation
+rather than something the SWQL reference spells out for every aggregate, but SolarWinds does
+state it for one of them: `String_Agg` is documented as concatenating "the non-NULL string
+values in the group" and returning NULL when the group has no non-NULL values, so an
+empty-looking cell there means "no values", not "no group". If you want to be certain how your
+server treats a particular aggregate, the query above is the test: run it and compare the two
+counts.
 
 ### 5.5 A to-one navigation drops rows; it does not null them
 
@@ -635,18 +646,19 @@ WHERE ToUpper(n.Vendor) = ToUpper(@vendor)
 ORDER BY n.Caption
 ```
 
-That is correct and it is also slow, because a function on a column prevents index use. Prefer
-filtering on a key when you can; see
-[performance.md](performance.md#3-filter-on-keys-not-on-captions).
+That is correct and it is also slow, because a function wrapped around a column stops an index
+on that column from being usable. Prefer resolving the name to a key once and filtering on the
+key; see [performance.md](performance.md#3-filter-on-keys-not-on-captions).
 
 Two more string-shaped traps:
 
 - **`LIKE` has no regular expressions.** `%` matches any run of characters, `_` matches exactly
   one, and that is the entire pattern language. There is no `*`, no `?`, no character class and
   no alternation.
-- **Compare Uris with `UriEquals`, not `=`.** `UriEquals(a, b)` is in the documented function
-  list precisely because Uri strings have forms that are equal in meaning but not equal
-  character by character.
+- **Compare Uris with `UriEquals`, not `=`.** The documented description is "Returns true if
+  SWIS Uri `a` refers to the same entity instance as SWIS Uri `b`", which is a different
+  question from whether two strings match character by character. A string `=` on two Uris can
+  say false about one entity.
 
 ## 11. The query interface cannot write, and some entities cannot be written at all
 
@@ -662,12 +674,15 @@ Changes go through CRUD on a Uri, an Invoke verb, or `BulkUpdate` / `BulkDelete`
 
 The part that surprises people is the next layer down: **not every entity supports CRUD even
 through the right interface.** Of 2067 entities in 2026.2, 250 are creatable and 85 carry an
-explicit `readOnly` flag in the schema (most of the `Cirrus.*` reporting views, for example
-`Cirrus.Interfaces` and `Cirrus.PolicyCacheResults`). SolarWinds acknowledges this directly:
+explicit `readOnly` flag in the schema. All 85 are in the NCM namespaces, 43 under `Cirrus.*`
+and 42 under `NCM.*`, for example `Cirrus.Interfaces` and `Cirrus.PolicyCacheResults`.
+SolarWinds acknowledges the general point directly:
 
 > However, there may be entity types that do not support this interface or provide only limited
 > support due to technical or design reasons. In these cases, the operations may reject
 > requests.
+>
+> [About SWIS](https://solarwinds.github.io/OrionSDK/docs/about-swis/)
 
 Check before you write code against an entity:
 

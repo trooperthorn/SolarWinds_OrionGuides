@@ -107,13 +107,13 @@ An entity may also **redeclare** a property its parent already has. The ancestor
 python3 tools/schema_query.py show Orion.Nodes
 ```
 
-The first line of that output is the chain:
-
 ```text
+Orion.Nodes   [2026.2]
   inherits: System.Entity -> System.DashboardEntity -> System.ManagedEntity -> Orion.Nodes
+  operations: create, delete, invoke, read, update
 ```
 
-Reading it left to right tells you what a node is, in the schema's own terms:
+Reading the chain left to right tells you what a node is, in the schema's own terms:
 
 | Level | Declares | Meaning |
 | --- | --- | --- |
@@ -287,6 +287,43 @@ names an entity that is not in the published 2026.2 schema. Eight of the twelve 
 `Orion.VIM.Luns`. Never take a row with `inCurrentSchema: false` as a current fact. See
 [netobject-types.md](../reference/netobject-types.md) and
 [reconciliation.json](../../data/reference/reconciliation.json).
+
+### Keys stated in the schema's own prose
+
+The rendered schema pages have no column marking a key, but SolarWinds sometimes says so in
+the property's description: `Orion.NPM.Interfaces.InterfaceID` reads "Interface ID. Primary
+key." The extraction picks those up into a `keyHints` field, which covers 79 entities. It
+appears in `show`:
+
+```bash
+python3 tools/schema_query.py show Orion.NPM.Interfaces
+```
+
+```text
+Orion.NPM.Interfaces   [2026.2]
+  This entity presents information about Node interfaces
+  inherits: System.Entity -> System.DashboardEntity -> System.ManagedEntity -> Orion.NPM.Interfaces
+  operations: create, delete, invoke, read, update
+  key (from property prose): InterfaceID
+```
+
+The name says what it is. A hint is SolarWinds' prose, not a schema declaration, and the
+absence of one means nothing at all: most entities simply have no description on the
+property. Treat it as a strong starting point and confirm it.
+
+### The authoritative answer
+
+For a specific server, the schema declares keys properly and you can ask it:
+
+```sql
+SELECT Name, Type, IsKey, IsNullable
+FROM Metadata.Property
+WHERE Entity.FullName = 'Orion.Nodes'
+  AND IsKey = TRUE
+```
+
+That is the only source that is both complete and current for the version in front of you.
+See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
 Some entities carry the answer on themselves. `Orion.Nodes` declares `OrionIdPrefix` and
 `OrionIdColumn`, which is the schema telling you the NetObject prefix and the key column
