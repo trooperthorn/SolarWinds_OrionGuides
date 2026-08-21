@@ -98,6 +98,7 @@ Task guides that combine query, CRUD and Invoke.
 | [automation/credentials.md](automation/credentials.md) | Credential entities and their security posture |
 | [automation/accounts-and-permissions.md](automation/accounts-and-permissions.md) | Accounts, roles, rights, and account limitations |
 | [automation/reporting.md](automation/reporting.md) | Building reports and scheduled exports |
+| [automation/scheduling.md](automation/scheduling.md) | Scheduled tasks and maintenance plans |
 | [automation/high-availability.md](automation/high-availability.md) | HA pools |
 
 ## Guides
