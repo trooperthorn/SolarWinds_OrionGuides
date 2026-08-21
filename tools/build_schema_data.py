@@ -225,7 +225,7 @@ def parse_entity_page(path: str, version: str) -> dict | None:
             # Inside the Verbs section every <h3> starts a verb.
             current_verb = {
                 "name": title.strip(),
-                "summary": " ".join(leading_paragraphs(body)),
+                "summary": " ".join(p for p in leading_paragraphs(body) if not TODO_RE.match(p)),
                 "accessControl": [],
             }
             entity["verbs"].append(current_verb)
@@ -345,10 +345,16 @@ def parse_swagger(path: str) -> tuple[dict, dict, dict]:
             if isinstance(resp, dict):
                 returns = resolve_schema(resp, defs).get("type", "System.Void")
 
+            # "ToDo" is docfx's placeholder for an unwritten summary. Carrying it through
+            # would fill reference tables with a word that means nothing to a reader.
+            description = (op.get("description") or "").strip()
+            if TODO_RE.match(description):
+                description = ""
+
             verbs[entity][verb] = {
                 "entity": entity,
                 "verb": verb,
-                "description": op.get("description", "") or "",
+                "description": description,
                 "operationId": op.get("operationId", ""),
                 "parameters": params,
                 "requiredParameters": required,

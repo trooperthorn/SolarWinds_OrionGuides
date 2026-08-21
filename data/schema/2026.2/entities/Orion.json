@@ -9484,7 +9484,7 @@
   "verbs": [
    {
     "name": "ScheduleConfiguration",
-    "summary": "Schedule configuration existing exchange application for monitoring. It returns executionKey that is required to check the configuration result. ",
+    "summary": "Schedule configuration existing exchange application for monitoring. It returns executionKey that is required to check the configuration result.",
     "accessControl": [
      {
       "operations": [
@@ -9506,12 +9506,11 @@
      }
     ],
     "returns": "string",
-    "restPath": "/Invoke/Orion.APM.Exchange.Application/ScheduleConfiguration",
-    "summaryRaw": "Schedule configuration existing exchange application for monitoring. It returns executionKey that is required to check the configuration result."
+    "restPath": "/Invoke/Orion.APM.Exchange.Application/ScheduleConfiguration"
    },
    {
     "name": "GetConfigurationResult",
-    "summary": "It is getting the result of exchange configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb. ",
+    "summary": "It is getting the result of exchange configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb.",
     "accessControl": [
      {
       "operations": [
@@ -9528,8 +9527,7 @@
      }
     ],
     "returns": "SolarWinds.Data.Providers.APM.Verbs.ApplicationConfigurationResult",
-    "restPath": "/Invoke/Orion.APM.Exchange.Application/GetConfigurationResult",
-    "summaryRaw": "It is getting the result of exchange configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb."
+    "restPath": "/Invoke/Orion.APM.Exchange.Application/GetConfigurationResult"
    }
   ],
   "supportedOperations": [],
@@ -12183,7 +12181,7 @@
   "verbs": [
    {
     "name": "ScheduleConfiguration",
-    "summary": "Schedule configuration existing IIS application for monitoring. It returns executionKey that is required to check the configuration result. ",
+    "summary": "Schedule configuration existing IIS application for monitoring. It returns executionKey that is required to check the configuration result.",
     "accessControl": [
      {
       "operations": [
@@ -12205,12 +12203,11 @@
      }
     ],
     "returns": "string",
-    "restPath": "/Invoke/Orion.APM.IIS.Application/ScheduleConfiguration",
-    "summaryRaw": "Schedule configuration existing IIS application for monitoring. It returns executionKey that is required to check the configuration result."
+    "restPath": "/Invoke/Orion.APM.IIS.Application/ScheduleConfiguration"
    },
    {
     "name": "GetConfigurationResult",
-    "summary": "It is getting the result of IIS configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb. ",
+    "summary": "It is getting the result of IIS configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb.",
     "accessControl": [
      {
       "operations": [
@@ -12227,8 +12224,7 @@
      }
     ],
     "returns": "SolarWinds.Data.Providers.APM.Verbs.ApplicationConfigurationResult",
-    "restPath": "/Invoke/Orion.APM.IIS.Application/GetConfigurationResult",
-    "summaryRaw": "It is getting the result of IIS configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb."
+    "restPath": "/Invoke/Orion.APM.IIS.Application/GetConfigurationResult"
    }
   ],
   "supportedOperations": [],
@@ -20610,7 +20606,7 @@
   "verbs": [
    {
     "name": "CreateAccount",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -21220,7 +21216,7 @@
   "verbs": [
    {
     "name": "DeleteActionsByAssignments",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -21252,7 +21248,7 @@
    },
    {
     "name": "DeleteActionsByAssignmentsAndCategory",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -21289,7 +21285,7 @@
    },
    {
     "name": "SaveActionsForAssignments",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -21346,7 +21342,7 @@
    },
    {
     "name": "UpdateAction",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -21373,7 +21369,7 @@
    },
    {
     "name": "UpdateActionsProperties",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -21479,7 +21475,7 @@
    },
    {
     "name": "TestAlertingAction",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -21505,7 +21501,7 @@
    },
    {
     "name": "TestReportingAction",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -24088,7 +24084,7 @@
   "verbs": [
    {
     "name": "MigrateAllAdvancedAlerts",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -24103,7 +24099,7 @@
    },
    {
     "name": "MigrateAdvancedAlert",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -24118,7 +24114,7 @@
    },
    {
     "name": "MigrateAdvancedAlertFromXML",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -24342,7 +24338,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -24434,7 +24430,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -24534,7 +24530,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -24599,7 +24595,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -24613,7 +24609,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -25477,7 +25473,7 @@
   "verbs": [
    {
     "name": "Acknowledge",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -25492,7 +25488,7 @@
    },
    {
     "name": "AcknowledgeAlert",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [],
     "returns": "unknown",
@@ -25500,7 +25496,7 @@
    },
    {
     "name": "AddNote",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -57425,7 +57421,7 @@
    },
    {
     "name": "StartDiscovery",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -57458,7 +57454,7 @@
    },
    {
     "name": "CancelDiscovery",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -57472,7 +57468,7 @@
    },
    {
     "name": "GetDiscoveryProgress",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -60334,7 +60330,7 @@
   "verbs": [
    {
     "name": "CanInstall",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -66684,7 +66680,7 @@
   "verbs": [
    {
     "name": "SaveReportFrequencies",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -66714,7 +66710,7 @@
    },
    {
     "name": "SaveTimePeriodFrequencies",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -66744,7 +66740,7 @@
    },
    {
     "name": "DeleteFrequencies",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -87784,7 +87780,7 @@
   "verbs": [
    {
     "name": "InsertFile",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -87828,7 +87824,7 @@
    },
    {
     "name": "UpdateFile",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -87877,7 +87873,7 @@
    },
    {
     "name": "LockFile",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -87918,7 +87914,7 @@
    },
    {
     "name": "LockFileTable",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -87959,7 +87955,7 @@
    },
    {
     "name": "UnlockAllFiles",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -87985,7 +87981,7 @@
    },
    {
     "name": "DeleteFile",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -113029,7 +113025,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -113121,7 +113117,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -113221,7 +113217,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -113286,7 +113282,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -113300,7 +113296,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -131281,7 +131277,7 @@
   "verbs": [
    {
     "name": "ExecuteSQL",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -141319,7 +141315,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -141411,7 +141407,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -141511,7 +141507,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -141576,7 +141572,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -141590,7 +141586,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -142137,7 +142133,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -142229,7 +142225,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -142329,7 +142325,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -142394,7 +142390,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -142408,7 +142404,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -143972,7 +143968,7 @@
   "verbs": [
    {
     "name": "GetCountOfElementsPerEngineForLicensing",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [],
     "returns": "SolarWinds.Orion.Core.Models.Licensing.CountOfElementsResult",
@@ -144231,7 +144227,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -144323,7 +144319,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -144423,7 +144419,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -144488,7 +144484,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -144502,7 +144498,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -145637,7 +145633,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -145729,7 +145725,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -145829,7 +145825,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -145894,7 +145890,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -145908,7 +145904,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -146489,7 +146485,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -146581,7 +146577,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -146681,7 +146677,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -146746,7 +146742,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -146760,7 +146756,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -148352,7 +148348,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -148444,7 +148440,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -148544,7 +148540,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -148609,7 +148605,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -148623,7 +148619,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -149199,7 +149195,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -149291,7 +149287,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -149391,7 +149387,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -149456,7 +149452,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -149470,7 +149466,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -151822,7 +151818,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -151914,7 +151910,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -152014,7 +152010,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -152079,7 +152075,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -152093,7 +152089,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -152386,7 +152382,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -152478,7 +152474,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -152578,7 +152574,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -152643,7 +152639,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -152657,7 +152653,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -158518,7 +158514,7 @@
   "verbs": [
    {
     "name": "EnableAssignments",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -158539,7 +158535,7 @@
    },
    {
     "name": "DisableAssignments",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -158560,7 +158556,7 @@
    },
    {
     "name": "EnableAssignmentsOnNetObjects",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -158589,7 +158585,7 @@
    },
    {
     "name": "DisableAssignmentsOnNetObjects",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [
      {
       "operations": [
@@ -180003,7 +179999,7 @@
   "verbs": [
    {
     "name": "CreateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -180095,7 +180091,7 @@
    },
    {
     "name": "CreateCustomPropertyWithValues",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -180195,7 +180191,7 @@
    },
    {
     "name": "ModifyCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -180260,7 +180256,7 @@
    },
    {
     "name": "DeleteCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {
@@ -180274,7 +180270,7 @@
    },
    {
     "name": "ValidateCustomProperty",
-    "summary": "ToDo",
+    "summary": "",
     "accessControl": [],
     "parameters": [
      {

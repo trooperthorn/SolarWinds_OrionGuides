@@ -2123,7 +2123,7 @@
    },
    {
     "name": "DownloadConfigOnNodes",
-    "summary": "Downloads config file for the particular nodes.\n            Valid for Orion manage node users with at least WebDownloader NCM role.\n            ",
+    "summary": "Downloads config file for the particular nodes.\n            Valid for Orion manage node users with at least WebDownloader NCM role.",
     "accessControl": [],
     "parameters": [
      {
@@ -3946,7 +3946,7 @@
   "verbs": [
    {
     "name": "GetJob",
-    "summary": "Get job definition data.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+    "summary": "Get job definition data.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
     "accessControl": [],
     "parameters": [
      {
@@ -3961,7 +3961,7 @@
    },
    {
     "name": "UpdateJob",
-    "summary": "Updates the job definition.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+    "summary": "Updates the job definition.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
     "accessControl": [],
     "parameters": [
      {
@@ -3976,7 +3976,7 @@
    },
    {
     "name": "AddJob",
-    "summary": "Adds the job definition.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+    "summary": "Adds the job definition.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
     "accessControl": [],
     "parameters": [
      {
@@ -3991,7 +3991,7 @@
    },
    {
     "name": "DeleteJobs",
-    "summary": "Deletes job definitions.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+    "summary": "Deletes job definitions.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
     "accessControl": [],
     "parameters": [
      {
@@ -4010,7 +4010,7 @@
    },
    {
     "name": "EnableOrDisableJobs",
-    "summary": "Enables or disables job definitions.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+    "summary": "Enables or disables job definitions.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
     "accessControl": [],
     "parameters": [
      {
@@ -4035,7 +4035,7 @@
    },
    {
     "name": "ClearJobLog",
-    "summary": "Clears job logs.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+    "summary": "Clears job logs.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
     "accessControl": [],
     "parameters": [
      {
@@ -4051,7 +4051,7 @@
    },
    {
     "name": "GetJobStatus",
-    "summary": "Gets the current job status.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+    "summary": "Gets the current job status.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
     "accessControl": [],
     "parameters": [
      {
@@ -4067,7 +4067,7 @@
    },
    {
     "name": "GetJobLog",
-    "summary": "Gets job logs.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+    "summary": "Gets job logs.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
     "accessControl": [],
     "parameters": [
      {
@@ -8034,7 +8034,7 @@
   "verbs": [
    {
     "name": "AddSnippet",
-    "summary": "Adds snippet.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+    "summary": "Adds snippet.\n            For valid Orion user with at least Administrator NCM role.",
     "accessControl": [],
     "parameters": [
      {
@@ -8062,7 +8062,7 @@
    },
    {
     "name": "DeleteSnippet",
-    "summary": "Removes snippet.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+    "summary": "Removes snippet.\n            For valid Orion user with at least Administrator NCM role.",
     "accessControl": [],
     "parameters": [
      {
@@ -8078,7 +8078,7 @@
    },
    {
     "name": "UpdateSnippet",
-    "summary": "Updates snippet.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+    "summary": "Updates snippet.\n            For valid Orion user with at least Administrator NCM role.",
     "accessControl": [],
     "parameters": [
      {

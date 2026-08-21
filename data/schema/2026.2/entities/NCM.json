@@ -7357,7 +7357,7 @@
   "verbs": [
    {
     "name": "StartVulnerabilityMatching",
-    "summary": "Starts vulnerability matching.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+    "summary": "Starts vulnerability matching.\n            For valid Orion user with at least Administrator NCM role.",
     "accessControl": [],
     "parameters": [],
     "returns": "SolarWinds.SecObs.Common.Models.Vulnerability.TryRunResult",
@@ -7366,7 +7366,7 @@
    },
    {
     "name": "IsVulnerabilityMatchingActive",
-    "summary": "Checks if vulnerability matching is active.\n            For valid Orion user with at least WebViewer NCM role.\n            ",
+    "summary": "Checks if vulnerability matching is active.\n            For valid Orion user with at least WebViewer NCM role.",
     "accessControl": [],
     "parameters": [],
     "returns": "boolean",
@@ -7375,7 +7375,7 @@
    },
    {
     "name": "InitVulnerabilitySchedule",
-    "summary": "Initializes vulnerability schedule.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+    "summary": "Initializes vulnerability schedule.\n            For valid Orion user with at least Administrator NCM role.",
     "accessControl": [],
     "parameters": [],
     "returns": "System.Void",
@@ -7384,7 +7384,7 @@
    },
    {
     "name": "GetSettings",
-    "summary": "Gets all vulnerabilities settings.\n            For valid Orion user with at least Administrator NCM role.\n          ",
+    "summary": "Gets all vulnerabilities settings.\n            For valid Orion user with at least Administrator NCM role.",
     "accessControl": [],
     "parameters": [],
     "returns": "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilityMatchSettingsModel",

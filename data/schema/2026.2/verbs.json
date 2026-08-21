@@ -440,7 +440,7 @@
   "entity": "Cirrus.ConfigArchive",
   "namespace": "Cirrus",
   "name": "DownloadConfigOnNodes",
-  "summary": "Downloads config file for the particular nodes.\n            Valid for Orion manage node users with at least WebDownloader NCM role.\n            ",
+  "summary": "Downloads config file for the particular nodes.\n            Valid for Orion manage node users with at least WebDownloader NCM role.",
   "parameters": [
    {
     "name": "nodes",
@@ -1133,7 +1133,7 @@
   "entity": "Cirrus.NCM_NCMJobs",
   "namespace": "Cirrus",
   "name": "AddJob",
-  "summary": "Adds the job definition.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+  "summary": "Adds the job definition.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
   "parameters": [
    {
     "name": "job",
@@ -1150,7 +1150,7 @@
   "entity": "Cirrus.NCM_NCMJobs",
   "namespace": "Cirrus",
   "name": "ClearJobLog",
-  "summary": "Clears job logs.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+  "summary": "Clears job logs.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
   "parameters": [
    {
     "name": "jobId",
@@ -1168,7 +1168,7 @@
   "entity": "Cirrus.NCM_NCMJobs",
   "namespace": "Cirrus",
   "name": "DeleteJobs",
-  "summary": "Deletes job definitions.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+  "summary": "Deletes job definitions.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
   "parameters": [
    {
     "name": "jobIds",
@@ -1189,7 +1189,7 @@
   "entity": "Cirrus.NCM_NCMJobs",
   "namespace": "Cirrus",
   "name": "EnableOrDisableJobs",
-  "summary": "Enables or disables job definitions.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+  "summary": "Enables or disables job definitions.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
   "parameters": [
    {
     "name": "jobIds",
@@ -1216,7 +1216,7 @@
   "entity": "Cirrus.NCM_NCMJobs",
   "namespace": "Cirrus",
   "name": "GetJob",
-  "summary": "Get job definition data.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+  "summary": "Get job definition data.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
   "parameters": [
    {
     "name": "jobId",
@@ -1233,7 +1233,7 @@
   "entity": "Cirrus.NCM_NCMJobs",
   "namespace": "Cirrus",
   "name": "GetJobLog",
-  "summary": "Gets job logs.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+  "summary": "Gets job logs.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
   "parameters": [
    {
     "name": "jobId",
@@ -1257,7 +1257,7 @@
   "entity": "Cirrus.NCM_NCMJobs",
   "namespace": "Cirrus",
   "name": "GetJobStatus",
-  "summary": "Gets the current job status.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+  "summary": "Gets the current job status.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
   "parameters": [
    {
     "name": "jobId",
@@ -1275,7 +1275,7 @@
   "entity": "Cirrus.NCM_NCMJobs",
   "namespace": "Cirrus",
   "name": "UpdateJob",
-  "summary": "Updates the job definition.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.\n            ",
+  "summary": "Updates the job definition.\n            Valid for Orion users with at least WebUploader NCM role.\n            If approvals are enabled then:\n            * If one level or two levels for WebUploader only then valid for Orion users with at least Engineer NCM role.\n            * If two levels everyone then valid for Orion administrators only.",
   "parameters": [
    {
     "name": "job",
@@ -3485,7 +3485,7 @@
   "entity": "Cirrus.SnippetArchive",
   "namespace": "Cirrus",
   "name": "AddSnippet",
-  "summary": "Adds snippet.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+  "summary": "Adds snippet.\n            For valid Orion user with at least Administrator NCM role.",
   "parameters": [
    {
     "name": "title",
@@ -3515,7 +3515,7 @@
   "entity": "Cirrus.SnippetArchive",
   "namespace": "Cirrus",
   "name": "DeleteSnippet",
-  "summary": "Removes snippet.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+  "summary": "Removes snippet.\n            For valid Orion user with at least Administrator NCM role.",
   "parameters": [
    {
     "name": "snippetId",
@@ -3533,7 +3533,7 @@
   "entity": "Cirrus.SnippetArchive",
   "namespace": "Cirrus",
   "name": "UpdateSnippet",
-  "summary": "Updates snippet.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+  "summary": "Updates snippet.\n            For valid Orion user with at least Administrator NCM role.",
   "parameters": [
    {
     "name": "snippetId",
@@ -8264,7 +8264,7 @@
   "entity": "NCM.VulnerabilitiesAnnouncements",
   "namespace": "NCM",
   "name": "GetSettings",
-  "summary": "Gets all vulnerabilities settings.\n            For valid Orion user with at least Administrator NCM role.\n          ",
+  "summary": "Gets all vulnerabilities settings.\n            For valid Orion user with at least Administrator NCM role.",
   "parameters": [],
   "returns": "SolarWinds.SecObs.Common.Models.Vulnerability.VulnerabilityMatchSettingsModel",
   "restPath": "/Invoke/NCM.VulnerabilitiesAnnouncements/GetSettings",
@@ -8275,7 +8275,7 @@
   "entity": "NCM.VulnerabilitiesAnnouncements",
   "namespace": "NCM",
   "name": "InitVulnerabilitySchedule",
-  "summary": "Initializes vulnerability schedule.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+  "summary": "Initializes vulnerability schedule.\n            For valid Orion user with at least Administrator NCM role.",
   "parameters": [],
   "returns": "System.Void",
   "restPath": "/Invoke/NCM.VulnerabilitiesAnnouncements/InitVulnerabilitySchedule",
@@ -8286,7 +8286,7 @@
   "entity": "NCM.VulnerabilitiesAnnouncements",
   "namespace": "NCM",
   "name": "IsVulnerabilityMatchingActive",
-  "summary": "Checks if vulnerability matching is active.\n            For valid Orion user with at least WebViewer NCM role.\n            ",
+  "summary": "Checks if vulnerability matching is active.\n            For valid Orion user with at least WebViewer NCM role.",
   "parameters": [],
   "returns": "boolean",
   "restPath": "/Invoke/NCM.VulnerabilitiesAnnouncements/IsVulnerabilityMatchingActive",
@@ -8297,7 +8297,7 @@
   "entity": "NCM.VulnerabilitiesAnnouncements",
   "namespace": "NCM",
   "name": "StartVulnerabilityMatching",
-  "summary": "Starts vulnerability matching.\n            For valid Orion user with at least Administrator NCM role.\n            ",
+  "summary": "Starts vulnerability matching.\n            For valid Orion user with at least Administrator NCM role.",
   "parameters": [],
   "returns": "SolarWinds.SecObs.Common.Models.Vulnerability.TryRunResult",
   "restPath": "/Invoke/NCM.VulnerabilitiesAnnouncements/StartVulnerabilityMatching",
@@ -9340,7 +9340,7 @@
   "entity": "Orion.APM.Exchange.Application",
   "namespace": "Orion",
   "name": "GetConfigurationResult",
-  "summary": "It is getting the result of exchange configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb. ",
+  "summary": "It is getting the result of exchange configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb.",
   "parameters": [
    {
     "name": "executionKey",
@@ -9350,7 +9350,6 @@
   ],
   "returns": "SolarWinds.Data.Providers.APM.Verbs.ApplicationConfigurationResult",
   "restPath": "/Invoke/Orion.APM.Exchange.Application/GetConfigurationResult",
-  "summaryRaw": "It is getting the result of exchange configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb.",
   "accessControl": [
    {
     "operations": [
@@ -9364,7 +9363,7 @@
   "entity": "Orion.APM.Exchange.Application",
   "namespace": "Orion",
   "name": "ScheduleConfiguration",
-  "summary": "Schedule configuration existing exchange application for monitoring. It returns executionKey that is required to check the configuration result. ",
+  "summary": "Schedule configuration existing exchange application for monitoring. It returns executionKey that is required to check the configuration result.",
   "parameters": [
    {
     "name": "applicationId",
@@ -9379,7 +9378,6 @@
   ],
   "returns": "string",
   "restPath": "/Invoke/Orion.APM.Exchange.Application/ScheduleConfiguration",
-  "summaryRaw": "Schedule configuration existing exchange application for monitoring. It returns executionKey that is required to check the configuration result.",
   "accessControl": [
    {
     "operations": [
@@ -9393,7 +9391,7 @@
   "entity": "Orion.APM.IIS.Application",
   "namespace": "Orion",
   "name": "GetConfigurationResult",
-  "summary": "It is getting the result of IIS configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb. ",
+  "summary": "It is getting the result of IIS configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb.",
   "parameters": [
    {
     "name": "executionKey",
@@ -9403,7 +9401,6 @@
   ],
   "returns": "SolarWinds.Data.Providers.APM.Verbs.ApplicationConfigurationResult",
   "restPath": "/Invoke/Orion.APM.IIS.Application/GetConfigurationResult",
-  "summaryRaw": "It is getting the result of IIS configuration. As a parameter it require executionKey returned by ScheduleConfiguration verb.",
   "accessControl": [
    {
     "operations": [
@@ -9417,7 +9414,7 @@
   "entity": "Orion.APM.IIS.Application",
   "namespace": "Orion",
   "name": "ScheduleConfiguration",
-  "summary": "Schedule configuration existing IIS application for monitoring. It returns executionKey that is required to check the configuration result. ",
+  "summary": "Schedule configuration existing IIS application for monitoring. It returns executionKey that is required to check the configuration result.",
   "parameters": [
    {
     "name": "applicationId",
@@ -9432,7 +9429,6 @@
   ],
   "returns": "string",
   "restPath": "/Invoke/Orion.APM.IIS.Application/ScheduleConfiguration",
-  "summaryRaw": "Schedule configuration existing IIS application for monitoring. It returns executionKey that is required to check the configuration result.",
   "accessControl": [
    {
     "operations": [
@@ -10011,7 +10007,7 @@
   "entity": "Orion.Accounts",
   "namespace": "Orion",
   "name": "CreateAccount",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "accountType",
@@ -10295,7 +10291,7 @@
   "entity": "Orion.Actions",
   "namespace": "Orion",
   "name": "DeleteActionsByAssignments",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "parentID",
@@ -10329,7 +10325,7 @@
   "entity": "Orion.Actions",
   "namespace": "Orion",
   "name": "DeleteActionsByAssignmentsAndCategory",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "parentID",
@@ -10368,7 +10364,7 @@
   "entity": "Orion.Actions",
   "namespace": "Orion",
   "name": "SaveActionsForAssignments",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "parentID",
@@ -10427,7 +10423,7 @@
   "entity": "Orion.Actions",
   "namespace": "Orion",
   "name": "TestAlertingAction",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "action",
@@ -10455,7 +10451,7 @@
   "entity": "Orion.Actions",
   "namespace": "Orion",
   "name": "TestReportingAction",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "action",
@@ -10483,7 +10479,7 @@
   "entity": "Orion.Actions",
   "namespace": "Orion",
   "name": "UpdateAction",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "action",
@@ -10584,7 +10580,7 @@
   "entity": "Orion.Actions",
   "namespace": "Orion",
   "name": "UpdateActionsProperties",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "properties",
@@ -11447,7 +11443,7 @@
   "entity": "Orion.AlertConfigurations",
   "namespace": "Orion",
   "name": "MigrateAdvancedAlert",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [],
   "returns": "unknown",
   "restPath": "/Invoke/Orion.AlertConfigurations/MigrateAdvancedAlert",
@@ -11464,7 +11460,7 @@
   "entity": "Orion.AlertConfigurations",
   "namespace": "Orion",
   "name": "MigrateAdvancedAlertFromXML",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [],
   "returns": "unknown",
   "restPath": "/Invoke/Orion.AlertConfigurations/MigrateAdvancedAlertFromXML",
@@ -11481,7 +11477,7 @@
   "entity": "Orion.AlertConfigurations",
   "namespace": "Orion",
   "name": "MigrateAllAdvancedAlerts",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [],
   "returns": "unknown",
   "restPath": "/Invoke/Orion.AlertConfigurations/MigrateAllAdvancedAlerts",
@@ -11498,7 +11494,7 @@
   "entity": "Orion.AlertConfigurationsCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -11592,7 +11588,7 @@
   "entity": "Orion.AlertConfigurationsCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -11694,7 +11690,7 @@
   "entity": "Orion.AlertConfigurationsCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -11710,7 +11706,7 @@
   "entity": "Orion.AlertConfigurationsCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -11777,7 +11773,7 @@
   "entity": "Orion.AlertConfigurationsCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -11829,7 +11825,7 @@
   "entity": "Orion.AlertStatus",
   "namespace": "Orion",
   "name": "Acknowledge",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [],
   "returns": "unknown",
   "restPath": "/Invoke/Orion.AlertStatus/Acknowledge",
@@ -11846,7 +11842,7 @@
   "entity": "Orion.AlertStatus",
   "namespace": "Orion",
   "name": "AcknowledgeAlert",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [],
   "returns": "unknown",
   "restPath": "/Invoke/Orion.AlertStatus/AcknowledgeAlert",
@@ -11856,7 +11852,7 @@
   "entity": "Orion.AlertStatus",
   "namespace": "Orion",
   "name": "AddNote",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [],
   "returns": "unknown",
   "restPath": "/Invoke/Orion.AlertStatus/AddNote",
@@ -14106,7 +14102,7 @@
   "entity": "Orion.Discovery",
   "namespace": "Orion",
   "name": "CancelDiscovery",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "profileId",
@@ -14172,7 +14168,7 @@
   "entity": "Orion.Discovery",
   "namespace": "Orion",
   "name": "GetDiscoveryProgress",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "profileId",
@@ -14300,7 +14296,7 @@
   "entity": "Orion.Discovery",
   "namespace": "Orion",
   "name": "StartDiscovery",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "context",
@@ -14590,7 +14586,7 @@
   "entity": "Orion.Environment",
   "namespace": "Orion",
   "name": "CanInstall",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "productId",
@@ -15002,7 +14998,7 @@
   "entity": "Orion.Frequencies",
   "namespace": "Orion",
   "name": "DeleteFrequencies",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "frequencyIds",
@@ -15040,7 +15036,7 @@
   "entity": "Orion.Frequencies",
   "namespace": "Orion",
   "name": "SaveReportFrequencies",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "frequencies",
@@ -15072,7 +15068,7 @@
   "entity": "Orion.Frequencies",
   "namespace": "Orion",
   "name": "SaveTimePeriodFrequencies",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "frequencies",
@@ -16497,7 +16493,7 @@
   "entity": "Orion.MapStudioFiles",
   "namespace": "Orion",
   "name": "DeleteFile",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "fileId",
@@ -16553,7 +16549,7 @@
   "entity": "Orion.MapStudioFiles",
   "namespace": "Orion",
   "name": "InsertFile",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "path",
@@ -16599,7 +16595,7 @@
   "entity": "Orion.MapStudioFiles",
   "namespace": "Orion",
   "name": "LockFile",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "fileId",
@@ -16642,7 +16638,7 @@
   "entity": "Orion.MapStudioFiles",
   "namespace": "Orion",
   "name": "LockFileTable",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "fileId",
@@ -16685,7 +16681,7 @@
   "entity": "Orion.MapStudioFiles",
   "namespace": "Orion",
   "name": "UnlockAllFiles",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "user",
@@ -16713,7 +16709,7 @@
   "entity": "Orion.MapStudioFiles",
   "namespace": "Orion",
   "name": "UpdateFile",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "fileId",
@@ -18443,7 +18439,7 @@
   "entity": "Orion.NodesCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -18537,7 +18533,7 @@
   "entity": "Orion.NodesCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -18639,7 +18635,7 @@
   "entity": "Orion.NodesCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -18655,7 +18651,7 @@
   "entity": "Orion.NodesCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -18722,7 +18718,7 @@
   "entity": "Orion.NodesCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -21274,7 +21270,7 @@
   "entity": "Orion.Reporting",
   "namespace": "Orion",
   "name": "ExecuteSQL",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "sqlQueryText",
@@ -22920,7 +22916,7 @@
   "entity": "Orion.SRM.FileShareCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23014,7 +23010,7 @@
   "entity": "Orion.SRM.FileShareCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23116,7 +23112,7 @@
   "entity": "Orion.SRM.FileShareCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23132,7 +23128,7 @@
   "entity": "Orion.SRM.FileShareCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23199,7 +23195,7 @@
   "entity": "Orion.SRM.FileShareCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23251,7 +23247,7 @@
   "entity": "Orion.SRM.LUNCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23345,7 +23341,7 @@
   "entity": "Orion.SRM.LUNCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23447,7 +23443,7 @@
   "entity": "Orion.SRM.LUNCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23463,7 +23459,7 @@
   "entity": "Orion.SRM.LUNCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23530,7 +23526,7 @@
   "entity": "Orion.SRM.LUNCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23582,7 +23578,7 @@
   "entity": "Orion.SRM.PhysicalDisks",
   "namespace": "Orion",
   "name": "GetCountOfElementsPerEngineForLicensing",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [],
   "returns": "SolarWinds.Orion.Core.Models.Licensing.CountOfElementsResult",
   "restPath": "/Invoke/Orion.SRM.PhysicalDisks/GetCountOfElementsPerEngineForLicensing",
@@ -23592,7 +23588,7 @@
   "entity": "Orion.SRM.PoolCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23686,7 +23682,7 @@
   "entity": "Orion.SRM.PoolCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23788,7 +23784,7 @@
   "entity": "Orion.SRM.PoolCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23804,7 +23800,7 @@
   "entity": "Orion.SRM.PoolCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23871,7 +23867,7 @@
   "entity": "Orion.SRM.PoolCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -23923,7 +23919,7 @@
   "entity": "Orion.SRM.ProviderCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24017,7 +24013,7 @@
   "entity": "Orion.SRM.ProviderCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24119,7 +24115,7 @@
   "entity": "Orion.SRM.ProviderCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24135,7 +24131,7 @@
   "entity": "Orion.SRM.ProviderCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24202,7 +24198,7 @@
   "entity": "Orion.SRM.ProviderCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24254,7 +24250,7 @@
   "entity": "Orion.SRM.StorageArrayCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24348,7 +24344,7 @@
   "entity": "Orion.SRM.StorageArrayCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24450,7 +24446,7 @@
   "entity": "Orion.SRM.StorageArrayCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24466,7 +24462,7 @@
   "entity": "Orion.SRM.StorageArrayCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24533,7 +24529,7 @@
   "entity": "Orion.SRM.StorageArrayCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24696,7 +24692,7 @@
   "entity": "Orion.SRM.StorageControllerCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24790,7 +24786,7 @@
   "entity": "Orion.SRM.StorageControllerCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24892,7 +24888,7 @@
   "entity": "Orion.SRM.StorageControllerCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24908,7 +24904,7 @@
   "entity": "Orion.SRM.StorageControllerCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -24975,7 +24971,7 @@
   "entity": "Orion.SRM.StorageControllerCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25027,7 +25023,7 @@
   "entity": "Orion.SRM.StorageControllerPortCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25121,7 +25117,7 @@
   "entity": "Orion.SRM.StorageControllerPortCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25223,7 +25219,7 @@
   "entity": "Orion.SRM.StorageControllerPortCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25239,7 +25235,7 @@
   "entity": "Orion.SRM.StorageControllerPortCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25306,7 +25302,7 @@
   "entity": "Orion.SRM.StorageControllerPortCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25358,7 +25354,7 @@
   "entity": "Orion.SRM.VServersCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25452,7 +25448,7 @@
   "entity": "Orion.SRM.VServersCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25554,7 +25550,7 @@
   "entity": "Orion.SRM.VServersCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25570,7 +25566,7 @@
   "entity": "Orion.SRM.VServersCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25637,7 +25633,7 @@
   "entity": "Orion.SRM.VServersCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25689,7 +25685,7 @@
   "entity": "Orion.SRM.VolumeCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25783,7 +25779,7 @@
   "entity": "Orion.SRM.VolumeCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25885,7 +25881,7 @@
   "entity": "Orion.SRM.VolumeCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25901,7 +25897,7 @@
   "entity": "Orion.SRM.VolumeCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -25968,7 +25964,7 @@
   "entity": "Orion.SRM.VolumeCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -26439,7 +26435,7 @@
   "entity": "Orion.TechnologyPollingAssignments",
   "namespace": "Orion",
   "name": "DisableAssignments",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "technologyPollingID",
@@ -26462,7 +26458,7 @@
   "entity": "Orion.TechnologyPollingAssignments",
   "namespace": "Orion",
   "name": "DisableAssignmentsOnNetObjects",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "technologyPollingID",
@@ -26493,7 +26489,7 @@
   "entity": "Orion.TechnologyPollingAssignments",
   "namespace": "Orion",
   "name": "EnableAssignments",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "technologyPollingID",
@@ -26516,7 +26512,7 @@
   "entity": "Orion.TechnologyPollingAssignments",
   "namespace": "Orion",
   "name": "EnableAssignmentsOnNetObjects",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "technologyPollingID",
@@ -28743,7 +28739,7 @@
   "entity": "Orion.VolumesCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -28837,7 +28833,7 @@
   "entity": "Orion.VolumesCustomProperties",
   "namespace": "Orion",
   "name": "CreateCustomPropertyWithValues",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -28939,7 +28935,7 @@
   "entity": "Orion.VolumesCustomProperties",
   "namespace": "Orion",
   "name": "DeleteCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -28955,7 +28951,7 @@
   "entity": "Orion.VolumesCustomProperties",
   "namespace": "Orion",
   "name": "ModifyCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
@@ -29022,7 +29018,7 @@
   "entity": "Orion.VolumesCustomProperties",
   "namespace": "Orion",
   "name": "ValidateCustomProperty",
-  "summary": "ToDo",
+  "summary": "",
   "parameters": [
    {
     "name": "PropertyName",
