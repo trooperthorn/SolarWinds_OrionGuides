@@ -31,6 +31,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -165,6 +166,39 @@ def check_python_syntax(files: list[str]) -> tuple[int, list[str]]:
     return total, problems
 
 
+SH_FENCE_RE = re.compile(r"```(?:bash|sh|shell)\n(.*?)```", re.S)
+# Documentation writes placeholders as <Entity> and <keyword>. Bash reads those as
+# redirections, so they have to be substituted before parsing or every usage block that
+# follows the convention is reported as a syntax error.
+SH_PLACEHOLDER_RE = re.compile(r"<[A-Za-z][\w .:/-]*>")
+
+
+def check_shell_syntax(files: list[str]) -> tuple[int, list[str]]:
+    """Parse every shell block with `bash -n`, without running any of it."""
+    problems: list[str] = []
+    total = 0
+    for path in files:
+        rel = os.path.relpath(path, ROOT)
+        if "reference" in rel.split(os.sep):
+            continue
+        for i, block in enumerate(SH_FENCE_RE.findall(open(path, encoding="utf-8", errors="replace").read()), 1):
+            total += 1
+            src = SH_PLACEHOLDER_RE.sub("PLACEHOLDER", block)
+            with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False, encoding="utf-8") as fh:
+                fh.write(src)
+                tmp = fh.name
+            try:
+                proc = subprocess.run(["bash", "-n", tmp], capture_output=True, text=True, timeout=30)
+            except (subprocess.TimeoutExpired, OSError):
+                os.unlink(tmp)
+                continue
+            os.unlink(tmp)
+            if proc.returncode != 0:
+                detail = (proc.stderr.strip().splitlines() or ["syntax error"])[0]
+                problems.append(f"{rel} shell block {i} does not parse: {detail[:120]}")
+    return total, problems
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=".", help="directory to scan for markdown")
@@ -209,11 +243,13 @@ def main() -> None:
     failures.extend(ps_problems)
     py_total, py_problems = check_python_syntax(files)
     failures.extend(py_problems)
+    sh_total, sh_problems = check_shell_syntax(files)
+    failures.extend(sh_problems)
 
     print(
         f"{checked} documented tool invocation(s) checked, {skipped} skipped as not "
         f"runnable; {ps_total} PowerShell block(s) checked for balance; "
-        f"{py_total} Python block(s) parsed"
+        f"{py_total} Python and {sh_total} shell block(s) parsed"
     )
     if failures:
         print(f"\n{len(failures)} mismatch(es):", file=sys.stderr)
