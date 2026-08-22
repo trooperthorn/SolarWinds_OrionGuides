@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**219 statements across 60 pages.**
+**225 statements across 61 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -190,15 +190,38 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - This page does not enumerate exactly which child rows go: that is runtime behaviour and it cannot be verified from the schema.
 
+## [report-definitions.md](../automation/report-definitions.md)
+
+**[`DataSources` — three ways to choose rows](../automation/report-definitions.md#datasources-three-ways-to-choose-rows)**
+
+- What it governs when the query is arbitrary is **not documented and unverified here**; the plausible reading is that it supplies the account-limitation context, which would make it security-relevant rather than cosmetic.
+
+**[`WebResourceConfiguration` is a console resource in a report](../automation/report-definitions.md#webresourceconfiguration-is-a-console-resource-in-a-report)**
+
+- **That a `ResourceFile` valid on a view is valid in a report is the obvious reading and is unverified here.** The three in the samples — `XuiWrapper.ascx`, `NodeChart.ascx` and `WorldMapView.ascx` — are certainly usable; whether an arbitrary resource works, and which `Settings` each expects, is not documented anywhere this repository has seen.
+- The full set of selectors and toggles is **not documented and unverified here**.
+
+**[`DataTypeInfo` — the field picker's metadata](../automation/report-definitions.md#datatypeinfo-the-field-pickers-metadata)**
+
+- The complete set is **not documented and unverified here**.
+
+**[Presenters and transforms](../automation/report-definitions.md#presenters-and-transforms)**
+
+- The full presenter list is **not documented and unverified here**.
+
+**[Header, footer, timeframes](../automation/report-definitions.md#header-footer-timeframes)**
+
+- The set of valid `NamedTimeFrame` values, and the shape of `Static` for an absolute range, are **not documented and unverified here**.
+
+**[Moving a report between servers](../automation/report-definitions.md#moving-a-report-between-servers)**
+
+- Whether `CreateReport` rejects a definition whose `ReportGuid` already exists, replaces the existing report, or creates a duplicate is **not documented and unverified here**.
+
 ## [reporting.md](../automation/reporting.md)
 
 **[Reports and scheduled exports](../automation/reporting.md#reports-and-scheduled-exports)**
 
 - The report entities are queryable and are worth understanding for inventory and audit, but their `Definition` is an opaque serialisation that this repository cannot verify, so building a report by writing that string is not something to attempt from a script.
-
-**[The reporting entities](../automation/reporting.md#the-reporting-entities)**
-
-- Its format is **not recorded in the published schema** and is unverified here.
 
 **[Report schedules are not `Orion.ScheduleTaskDefinition`](../automation/reporting.md#report-schedules-are-not-orionscheduletaskdefinition)**
 

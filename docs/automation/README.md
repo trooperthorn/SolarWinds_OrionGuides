@@ -275,6 +275,7 @@ that reason.
 | [credential-integration.md](credential-integration.md) | Which modules use the shared credential store, which keep their own, and what can be synced |
 | [accounts-and-permissions.md](accounts-and-permissions.md) | Accounts, roles, rights, account limitations |
 | [reporting.md](reporting.md) | Reports and scheduled exports |
+| [report-definitions.md](report-definitions.md) | The report definition XML: field addressing, presenters, transforms, embedded console resources |
 | [scheduling.md](scheduling.md) | Scheduled tasks and maintenance plans |
 | [high-availability.md](high-availability.md) | HA pools |
 

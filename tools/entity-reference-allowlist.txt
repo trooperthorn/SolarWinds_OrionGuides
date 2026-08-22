@@ -38,3 +38,10 @@ Orion.NotAnEntity
 # it as an unresolved name and says to check Metadata.Entity on your own server, so the
 # absence is the point being made rather than a mistake in the page.
 NCM.NodesView
+
+# An ApplicationType value in the report definition format, not a SWIS entity. The report
+# field picker tags a field with a semantic type -- System.Status, Core.IPAddress,
+# Core.VendorType, Core.NodeStatus, HWH.StatusName -- so it can offer the right presenter.
+# docs/automation/report-definitions.md quotes the value verbatim from a real export. It
+# collides with the System.* entity namespace by coincidence of naming.
+System.Status

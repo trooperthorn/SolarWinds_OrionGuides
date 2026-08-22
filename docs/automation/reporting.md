@@ -59,9 +59,18 @@ Note the access control on `Orion.Report`: it declares `read`, `update` and `inv
 so entity-level `invoke` governs them and that needs `manageReports`.
 
 `Orion.Report.Definition` is where a report's content lives, including whichever SWQL a custom
-table resource in it uses. Its format is **not recorded in the published schema** and is
-unverified here. You can read it, and reading it is a reasonable way to find every report that
-touches a particular entity, but treat writing it as out of scope for a script.
+table resource in it uses. **It is the same XML the console's export button writes**, so a
+report is readable with a query and writable with a verb — see
+[report-definitions.md](report-definitions.md) for the format, field by field.
+
+```sql
+SELECT r.ReportID, r.Name, r.Category, r.Definition
+FROM Orion.Report r
+WHERE r.Name = 'Current - Hardware Status'
+```
+
+That is also the way to find every report touching a particular entity, since the entity names
+appear in the definition as literal text.
 
 The verbs, for completeness:
 
@@ -72,9 +81,14 @@ The verbs, for completeness:
 | `DuplicateReport` | `reportID`, `accountID` | `number` |
 | `DeleteReport` | `reportID` | `System.Void` |
 
-`DuplicateReport` is the one that is genuinely useful from a script, because it does not
-require you to construct a `definition`: copy an existing report to another account and let
-that account edit it in the console.
+`DuplicateReport` is the one to reach for when you only need a copy, because it does not
+require you to construct a `definition` at all: copy an existing report to another account and
+let that account edit it in the console.
+
+**There is no `ExportReport` or `ImportReport` verb.** Unlike API poller templates, which have a
+matched pair, a report moves by *reading* `Definition` with a query and *writing* it with
+`CreateReport`. That asymmetry is the thing to know before looking for a verb that does not
+exist.
 
 ### Report schedules are not `Orion.ScheduleTaskDefinition`
 

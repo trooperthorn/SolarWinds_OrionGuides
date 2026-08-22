@@ -101,6 +101,7 @@ Task guides that combine query, CRUD and Invoke.
 | [automation/credential-integration.md](automation/credential-integration.md) | Credential storage across modules, and the seams between them |
 | [automation/accounts-and-permissions.md](automation/accounts-and-permissions.md) | Accounts, roles, rights, and account limitations |
 | [automation/reporting.md](automation/reporting.md) | Building reports and scheduled exports |
+| [automation/report-definitions.md](automation/report-definitions.md) | The report export XML, field by field, and moving a report between servers |
 | [automation/scheduling.md](automation/scheduling.md) | Scheduled tasks and maintenance plans |
 | [automation/high-availability.md](automation/high-availability.md) | HA pools |
 
