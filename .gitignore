@@ -7,3 +7,7 @@ __pycache__/
 
 # Transient files from an interrupted data build; the writers rename on success.
 *.tmp
+
+# Porter (WPF app) build output
+apps/porter/**/bin/
+apps/porter/**/obj/

@@ -1,0 +1,49 @@
+<UserControl x:Class="Porter.Views.ImportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Margin="28">
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Import — Modern Dashboards"/>
+            <Border AllowDrop="True" Drop="Drop_Files" DragOver="Drag_Over"
+                    BorderBrush="#B9C4D2" BorderThickness="2" CornerRadius="6" Margin="0,10,0,10"
+                    Padding="16" Background="#FAFBFC">
+                <TextBlock HorizontalAlignment="Center" Foreground="Gray">
+                    Drop dashboard .json files, a .zip package, or a .zip.aes here — or
+                    <Hyperlink Click="Browse_Click">browse</Hyperlink>. Nothing is imported until you say so.
+                </TextBlock>
+            </Border>
+        </StackPanel>
+
+        <Border DockPanel.Dock="Right" Width="290" Margin="18,0,0,0" Padding="14"
+                BorderBrush="#C9D2DD" BorderThickness="1" CornerRadius="6">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="If an item already exists on the target"/>
+                <RadioButton x:Name="PolicySkip" IsChecked="True" Margin="0,8,0,2"
+                             Content="Skip it — every skip is reported by name"/>
+                <RadioButton x:Name="PolicyCopy" Margin="0,0,0,8"
+                             Content="Import as a copy — new GUIDs, renamed '… (Copy)'"/>
+                <TextBlock Foreground="Gray" FontSize="11.5" TextWrapping="Wrap"
+                           Text="Existence is matched by the file's dashboard unique_key. Copies get every GUID regenerated so the server sees a new object, and the run report shows the new name."/>
+                <Separator Margin="0,10"/>
+                <CheckBox x:Name="AllowWarnBox" Content="Import files that carry warnings" IsChecked="True" Checked="AllowWarn_Changed" Unchecked="AllowWarn_Changed"/>
+                <Button x:Name="DryRunBtn" Content="Dry run (no writes)" Margin="0,14,0,0" Click="DryRun_Click"/>
+                <Button x:Name="ImportBtn" Content="Import 0 files" FontWeight="SemiBold"
+                        Margin="0,8,0,0" Click="Import_Click"/>
+                <Button Content="Back" Margin="0,8,0,0" Click="Back_Click"/>
+            </StackPanel>
+        </Border>
+
+        <ListView x:Name="StageList">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="" Width="34"
+                        DisplayMemberBinding="{Binding StatusGlyph}"/>
+                    <GridViewColumn Header="File" Width="260"
+                        DisplayMemberBinding="{Binding FileName}"/>
+                    <GridViewColumn Header="Validation" Width="380"
+                        DisplayMemberBinding="{Binding Summary}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </DockPanel>
+</UserControl>

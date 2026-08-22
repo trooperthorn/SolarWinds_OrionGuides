@@ -1,0 +1,56 @@
+<UserControl x:Class="Porter.Views.ConnectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="36" MaxWidth="640" HorizontalAlignment="Left">
+        <StackPanel>
+            <TextBlock FontSize="22" FontWeight="SemiBold" Text="Connect to a SolarWinds Platform server"/>
+            <TextBlock Foreground="Gray" Margin="0,4,0,16"
+                       Text="IP address, hostname, or FQDN. Porter speaks SWIS over REST (default port 17774)."/>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Server"/>
+                    <TextBox x:Name="ServerBox" Margin="0,3,0,10"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="SWIS port"/>
+                    <TextBox x:Name="PortBox" Text="17774" Margin="0,3,0,10"/>
+                </StackPanel>
+            </Grid>
+
+            <CheckBox x:Name="WinAuthBox" Content="Connect as my current Windows account (no password)"
+                      Margin="0,2,0,10" Checked="WinAuth_Changed" Unchecked="WinAuth_Changed"/>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Username"/>
+                    <TextBox x:Name="UserBox" Margin="0,3,0,10"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Password"/>
+                    <PasswordBox x:Name="PassBox" Margin="0,3,0,10"/>
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Foreground="Gray" FontSize="12" Margin="0,0,0,12"
+                       Text="Passwords are never stored. TLS verification stays on — a self-signed certificate can be pinned by thumbprint, and the pin is logged."/>
+
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="TestBtn" Content="Test connection" Click="Test_Click"/>
+                <Button x:Name="ConnectBtn" Content="Connect" FontWeight="SemiBold" Click="Connect_Click"/>
+            </StackPanel>
+
+            <TextBlock x:Name="StatusText" Margin="0,16,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+    </Grid>
+</UserControl>
