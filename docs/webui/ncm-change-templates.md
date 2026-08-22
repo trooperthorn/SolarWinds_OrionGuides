@@ -16,6 +16,11 @@ Three things combine in one:
 3. **Questions put to the user.** Free text, a device selection, a dropdown. Whatever the
    script declares as a parameter becomes a field on the form.
 
+Config change templates arrived in **NCM 6.0**, and SolarWinds described them at the time as
+"scripts that use a SolarWinds scripting engine" — a bespoke engine rather than an embedded
+language, which is consistent with what the syntax looks like. See
+[ncm-change-template-language.md](ncm-change-template-language.md#what-language-is-this).
+
 This page covers what a template is made of and how to manage one through the API.
 [ncm-change-template-language.md](ncm-change-template-language.md) is the language reference:
 operators, functions, variables and control flow.
@@ -98,6 +103,21 @@ unverified here**.
 The parameter directives are keyed by variable name, so each one names the parameter it
 decorates. A directive naming a variable that is not in the signature has nothing to attach to.
 
+**`.PARAMETER_LABEL` and `.PARAMETER_DESCRIPTION` are a required pair.** SolarWinds' own
+introduction states it plainly: "Both of these are required for every variable you want to
+prompt the user for when they execute the script." So they are not optional decoration on a
+parameter — they are what makes the console prompt for it. A parameter in the signature with
+only one of the two, or with neither, is **not** guaranteed to appear as a field.
+
+`@ContextNode` gets the pair as well, and SolarWinds' shipped templates supply it:
+
+```text
+.PARAMETER_LABEL @ContextNode
+    NCM Node
+.PARAMETER_DESCRIPTION @ContextNode
+    The node the template will operate on. All templates require this by default.
+```
+
 ## The signature decides what the user sees
 
 ```text
@@ -117,6 +137,11 @@ selection, and it is required. Everything else is optional.
 **A parameter is the only way to ask the user for something.** A variable used in the body but
 absent from the signature is not a question — it is an undefined variable. If you want the
 user to supply an FTP server address, `string @FTPServerIP` has to be in the signature.
+
+**Three parameter types are documented**: `int`, `string`, and a SWIS entity, which
+SolarWinds writes generically as `swis.entity` and which in practice is spelled as the entity
+name — `NCM.Nodes`, `NCM.Interfaces`, `NCM.VLANs`. Anything beyond those three is
+**undocumented and unverified here**.
 
 **`[]` makes a parameter a collection**, and the console renders it as a multi-select.
 `NCM.Interfaces[] @TargetPorts` asks the user to pick interfaces, plural, and the body
@@ -168,6 +193,55 @@ rather than from memory.
 Whether the template engine accepts a navigation the schema declares but SolarWinds' own
 examples never use is **unverified here**. The mapping holds for every documented example, and
 the schema is the best available guide to the rest.
+
+## Running one, and the preview that makes it safe
+
+The console runs a template through a four-step wizard, reached from **Configs → Config Change
+Templates**, selecting a template and clicking **Define Variables & Run**:
+
+1. **Select Nodes.** A device tree, groupable by vendor and other properties. This is what
+   fills `@ContextNode`.
+2. **Define Variables.** One field per prompted parameter, labelled and described by the
+   directives above.
+3. **Preview.** The generated CLI, per device, expandable. Also where you choose whether the
+   result is written to NVRAM.
+4. **Execute.**
+
+**Step 3 is a real dry run and it is the reason to trust these at all.** The engine resolves
+every variable, evaluates the conditionals, walks the loops and shows you the exact command
+text it will send to each selected device, before anything is sent. Expanding one node shows
+its commands; each node gets its own, because a template that branches on `@node.Vendor` or on
+a custom property produces different output per device. Read it for the device you are least
+sure about, not the first in the list.
+
+**"Write config to NVRAM after execute" is a checkbox on that step**, not something the
+template controls. Left unchecked, the commands change the running configuration and do not
+survive a reload. A template whose CLI block ends in `write mem` has already persisted the
+change itself, so understand which of the two is happening rather than doing both by accident.
+
+The editor — **Advanced Modify** on the same list — also carries a **Validate** button
+alongside Submit, Save as Copy and Execute, so a template can be syntax-checked without being
+run.
+
+Between the two there is more safety here than the API offers: nothing in
+`Cirrus.ConfigSnippets` exposes a preview or a validate verb, so a template driven entirely
+through the API gets neither.
+
+## Sharing
+
+Templates are shareable from inside the product, which is unusual enough to be worth naming.
+The same screen carries **Import**, **Export to thwack**, and a **Shared Config Change
+Templates on thwack** tab that browses the community exchange by tag and imports directly.
+
+That is what `.CHANGE_TEMPLATE_TAGS` is for. Tags become `Cirrus.Tags` rows and the browse
+list is organised by them, so a template you intend to share wants tags that match how
+somebody would look for it — vendor, protocol, and the operation.
+
+`Cirrus.ConfigSnippets.Description` holds **HTML**, not plain text: the console's edit form
+shows the description of a shipped template as `<p>Change Cisco Enable Password</p>`. The
+schema types it a plain `System.String` and says only "Snippet description", so this is
+**observed from the console rather than declared** and unverified here. Write it as markup if
+you want it to render as SolarWinds' own do.
 
 ## Managing templates through the API
 

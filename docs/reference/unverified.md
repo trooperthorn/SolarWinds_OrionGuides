@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**166 statements across 51 pages.**
+**170 statements across 51 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -710,17 +710,25 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether `${CRLF}` works inside a change template as opposed to a command script is **unverified**; the community source that lists it flags the same doubt.
 
+**[Declaring and assigning](../webui/ncm-change-template-language.md#declaring-and-assigning)**
+
+- What operations `int` supports is **not documented and is unverified here** — no source this repository has seen performs arithmetic in a template, and the only operator shown on any value is `+` joining strings.
+
 **[String functions](../webui/ncm-change-template-language.md#string-functions)**
 
 - Whether `octetPosition` counts from 0 or from 1 is **not stated in the source and is unverified here** — test it before shipping a template that rewrites addresses.
 
 **[Control flow](../webui/ncm-change-template-language.md#control-flow)**
 
-- Whether a template can rely on that when exactly one device is selected is **unverified here**.
+- **`if` and `else`.** Whether a chained `else if` works is where two SolarWinds sources read differently, so treat it as **unverified**.
 
 **[Special characters need a variable](../webui/ncm-change-template-language.md#special-characters-need-a-variable)**
 
 - Which characters need this treatment beyond `|` and `@` is **not documented and is unverified here**.
+
+**[Gotchas](../webui/ncm-change-template-language.md#gotchas)**
+
+- **`else if` is unverified.** Two SolarWinds sources read differently and no example uses a chain.
 
 ## [ncm-change-templates.md](../webui/ncm-change-templates.md)
 
@@ -728,9 +736,17 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether any display type other than `Listbox` is supported is **not documented by SolarWinds and is unverified here**.
 
+**[The signature decides what the user sees](../webui/ncm-change-templates.md#the-signature-decides-what-the-user-sees)**
+
+- Anything beyond those three is **undocumented and unverified here**.
+
 **[The parameter types are SWIS entities](../webui/ncm-change-templates.md#the-parameter-types-are-swis-entities)**
 
 - Whether the template engine accepts a navigation the schema declares but SolarWinds' own examples never use is **unverified here**.
+
+**[Sharing](../webui/ncm-change-templates.md#sharing)**
+
+- The schema types it a plain `System.String` and says only "Snippet description", so this is **observed from the console rather than declared** and unverified here.
 
 **[What this repository can and cannot check](../webui/ncm-change-templates.md#what-this-repository-can-and-cannot-check)**
 

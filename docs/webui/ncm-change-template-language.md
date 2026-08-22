@@ -87,7 +87,7 @@ differences are the things that will catch you.
 | C# habit | In a template |
 | --- | --- |
 | `"double quotes"` | Single quotes only |
-| `else if` | Does not exist. Nest, or restructure |
+| `else if` | Unverified; every example nests instead |
 | `;` terminators | Not used |
 | `var` | No inference; write the type |
 | `str.Length`, `str.Substring(..)` | `StrLength(@str)`, `SubString(@str, ..)` — free functions, not methods |
@@ -182,6 +182,11 @@ string @myip = '10.10.'
 @myip = @myip + '.32'
 ```
 
+`int` is the other scalar type SolarWinds documents, alongside `string` and a SWIS entity.
+What operations `int` supports is **not documented and is unverified here** — no source this
+repository has seen performs arithmetic in a template, and the only operator shown on any
+value is `+` joining strings.
+
 **Use single quotes around every string value.** That is SolarWinds' own instruction and it
 applies to comparisons as much as assignments.
 
@@ -241,8 +246,14 @@ These were added for ACL manipulation and announced on the SolarWinds product bl
 
 ## Control flow
 
-**`if` and `else`, but no `else if`.** That is the constraint that shapes most templates: a
-three-way decision is nested `if`/`else`, not a chain.
+**`if` and `else`.** Whether a chained `else if` works is where two SolarWinds sources read
+differently, so treat it as **unverified**. The community walkthrough states flatly that "else
+works, if else not supported"; SolarWinds' own introduction lists the supported statements as
+"If, If Else, and Foreach", which most naturally means `if` and `if`-with-`else` rather than a
+chain. Nothing in either source shows a chain being used.
+
+Every shipped and community example expresses a multi-way decision as nested `if`/`else`, so
+that is the form this page uses and the safe one to write.
 
 ```text
 if (@IOS_FILENAME contains ' ')
@@ -271,8 +282,9 @@ foreach (@node in @ContextNode)
 
 Note that `@ContextNode` is iterated even though it was declared `NCM.Nodes` rather than
 `NCM.Nodes[]`. The node parameter is a selection of devices, so the body of a template
-normally begins by looping over it. Whether a template can rely on that when exactly one
-device is selected is **unverified here**.
+normally begins by looping over it. SolarWinds' own shipped "Change Cisco Enable Password"
+template does exactly this — `foreach (@Node in @ContextNode)` against a parameter declared
+`NCM.Nodes` — so the form is theirs, not a community workaround.
 
 Loops nest, and nesting them across navigation properties is how a template reaches inventory
 data. This runs a command against whichever interface holds a given address:
@@ -410,7 +422,12 @@ ORDER BY cp.Field
 
 See [../automation/custom-properties.md](../automation/custom-properties.md).
 
-Source:
+Sources for this page: SolarWinds' introduction of the feature in NCM 6.0,
+[NCM Config Change Templates](http://thwack.solarwinds.com/blogs/orion-product-team-blog/archive/2010/11/30/ncm-config-change-templates/)
+(2010-11-30), which is where the parameter-pair requirement, the `int`/`string`/`swis.entity`
+types and the shipped enable-password template come from; SolarWinds' *Understanding Config
+Change Template Semantics* help topic, which both blog posts point at for the full grammar;
+and
 [More automation in NCM: usage of variables and custom properties](http://thwack.solarwinds.com/community/solarwinds-community/product-blog/blog/2012/05/23/more-automation-in-ncm-usage-of-variables-and-custom-properties-in-command-scripts-and-config-change-templates).
 
 ## A worked template
@@ -477,14 +494,25 @@ version they are used in `@CommandLine` but never declared, so the user is never
 them and the command is assembled from nothing. If a variable is not a parameter, it is not a
 question.
 
-**The empty `if` branch is deliberate.** The filename check has nothing to do when the name
-contains a space — the point is to skip the copy — and since there is no `else if`, the guard
-has to be written as an empty `if` with the work in the `else`. It reads oddly and it is the
-idiom the language leaves you.
+**The empty `if` branch is deliberate, and it is SolarWinds' own idiom.** Their shipped
+"Change Cisco Enable Password" template guards a password containing a space exactly this way:
+
+```text
+if (@NewPassword contains ' ')
+{}
+else
+{
+  foreach (@Node in @ContextNode)
+```
+
+The guard has nothing to do in the failing case — the point is to skip the change — and with
+no chained `else if` to fall through to, an empty `if` with the work in the `else` is what the
+language leaves you. It reads oddly and it is correct.
 
 ## Gotchas
 
-**No `else if`.** Nest, or restructure.
+**`else if` is unverified.** Two SolarWinds sources read differently and no example uses a
+chain. Nest instead.
 
 **The bare comparison operators are case-insensitive.** `contains`, `startsWith` and
 `endsWith` ignore case; the `Exact` forms do not.
@@ -499,9 +527,16 @@ Quoting a macro is correct and necessary.
 
 **Every template needs a node parameter.** `NCM.Nodes @ContextNode` is not optional.
 
-**Test against one device.** The console sends CLI to every selected device, and a template is
-source code that nothing type-checks. `Cirrus.Nodes.ParseMacros` previews macro expansion; for
-the rest there is no dry run.
+**Read the Preview step.** The console's run wizard resolves every variable, evaluates the
+conditionals, walks the loops and shows the exact command text per device before sending
+anything, and the editor has a Validate button beside Submit. Both are worth using: a template
+that branches on vendor or a custom property produces different output per device, so expand
+the one you are least sure about rather than the first in the list. See
+[ncm-change-templates.md](ncm-change-templates.md#running-one-and-the-preview-that-makes-it-safe).
+
+**The API gets neither.** Nothing in `Cirrus.ConfigSnippets` exposes a preview or a validate
+verb, so a template driven entirely through the API has no dry run at all.
+`Cirrus.Nodes.ParseMacros` previews macro expansion and nothing else.
 
 ## See also
 
