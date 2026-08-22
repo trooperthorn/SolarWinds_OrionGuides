@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**190 statements across 56 pages.**
+**196 statements across 57 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -788,6 +788,32 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What this repository can and cannot check](../webui/ncm-change-templates.md#what-this-repository-can-and-cannot-check)**
 
 - Directive names, the `Listbox:` syntax, the signature grammar and everything in [ncm-change-template-language.md](../webui/ncm-change-template-language.md) come from SolarWinds' documentation and from THWACK, and **cannot be verified here**.
+
+## [perfstack.md](../webui/perfstack.md)
+
+**[The URL grammar](../webui/perfstack.md#the-url-grammar)**
+
+- This is **unverified here**.
+
+**[Everything above is community-sourced](../webui/perfstack.md#everything-above-is-community-sourced)**
+
+- The grammar is reported from THWACK threads and from third-party write-ups, not from SolarWinds' product documentation, and **this repository cannot verify any of it**.
+
+**[Settle the grammar against your own server](../webui/perfstack.md#settle-the-grammar-against-your-own-server)**
+
+- What `Data` contains is **not recorded in the schema** and is unverified here — it is a `System.String` and the column summary says nothing.
+
+**[Which metrics are valid for an object](../webui/perfstack.md#which-metrics-are-valid-for-an-object)**
+
+- **Whether every property of a statistics entity is chartable, or only the numeric ones, is unverified here.** A statistics entity carries an `ObservationTimestamp` and often an id, and those are members like any other while plainly not being metrics.
+
+**[Sources, and what is missing](../webui/perfstack.md#sources-and-what-is-missing)**
+
+- `PRINTABLE=TRUE` is reported as removing the console chrome and is unverified here.
+
+**[See also](../webui/perfstack.md#see-also)**
+
+- [variables.md](../webui/variables.md) — the alert variables that supply the id segment - [custom-query-widget.md](../webui/custom-query-widget.md) — `_LinkFor_`, which turns a generated URL into a clickable column - [README.md](../webui/README.md) — the rest of this section, and why the schema cannot verify console behaviour - [../swql/functions.md](../swql/functions.md) — `ToString()` and string concatenation - [../modu...
 
 ## [variables-reference.md](../webui/variables-reference.md)
 
