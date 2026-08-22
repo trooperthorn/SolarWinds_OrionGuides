@@ -1088,6 +1088,13 @@ document you have to build is not documented here. `Metadata.VerbArgument` on a 
 carries an `XmlTemplate` column that shows what SWIS expects. See
 [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
+## Variables in alert messages
+
+`AlertMessage` and the notification action bodies carry variables — `${N=SwisEntity;M=Caption}`
+and the previous-generation `${NodeName}` form. What resolves them, and how to enumerate the
+valid members for whatever entity an alert triggers on, is
+[../webui/variables.md](../webui/variables.md).
+
 ## Alert schedules
 
 `Orion.AlertSchedules` has exactly two columns and no declared relationships:

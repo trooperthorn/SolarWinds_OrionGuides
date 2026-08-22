@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**170 statements across 51 pages.**
+**172 statements across 52 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -751,6 +751,16 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What this repository can and cannot check](../webui/ncm-change-templates.md#what-this-repository-can-and-cannot-check)**
 
 - Directive names, the `Listbox:` syntax, the signature grammar and everything in [ncm-change-template-language.md](../webui/ncm-change-template-language.md) come from SolarWinds' documentation and from THWACK, and **cannot be verified here**.
+
+## [variables.md](../webui/variables.md)
+
+**[Finding the valid `M=` values for yourself](../webui/variables.md#finding-the-valid-m-values-for-yourself)**
+
+- Two qualifications, both marked **unverified here** because the schema does not record them.
+
+**[See also](../webui/variables.md#see-also)**
+
+- [README.md](../webui/README.md) — the rest of this section, and why the schema cannot verify console behaviour - [../automation/alerts.md](../automation/alerts.md) — alert definitions, actions and suppression through the API - [../automation/custom-properties.md](../automation/custom-properties.md) — creating the properties that become variables - [../swis/metadata-introspection.md](../swis/metadata-int...
 
 ---
 
