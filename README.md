@@ -199,6 +199,7 @@ checks nine things:
 | `check_examples.py` | A documented command that does not run, or whose shown output is not what it prints |
 | `check_links.py` | A relative link or #anchor that does not resolve |
 | `check_dashboards.py` | A shipped Modern Dashboard file that breaks one of the format's invariants |
+| `check_api_poller_templates.py` | A shipped API Poller template that breaks the export format |
 | `check_gate.py` | A check above that has stopped checking, by seeding errors it must catch |
 
 The last one exists because the others can fail silently. A checker that stops reading

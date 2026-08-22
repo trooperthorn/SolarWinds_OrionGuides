@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>b7c3f1a2-9d84-4e60-a5f7-2c1e8d6b4093</Guid>
+  <Name>Example Service Status</Name>
+  <DisplayName>Example Service Status</DisplayName>
+  <Description>Template showing a numeric metric and a text status mapped to numbers. Replace the URL and paths before use.</Description>
+  <Created>2026-01-01T00:00:00.0000000Z</Created>
+  <Updated>2026-01-01T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://api.example.invalid/v1/status.json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Queue Depth</DisplayName>
+          <Path>$.['metrics'].['queue_depth']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>500</WarningThresholdValue>
+          <CriticalThresholdValue>2000</CriticalThresholdValue>
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues>0</StringToNumberTransformationOtherValues>
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Service State</DisplayName>
+          <Path>$.['status'].['state']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>1</WarningThresholdValue>
+          <CriticalThresholdValue>2</CriticalThresholdValue>
+          <Type>Path</Type>
+          <StringToNumberTransformationRules>
+            <StringToNumberTransformationRule>
+              <Text>operational</Text>
+              <Number>0</Number>
+            </StringToNumberTransformationRule>
+            <StringToNumberTransformationRule>
+              <Text>degraded</Text>
+              <Number>2</Number>
+            </StringToNumberTransformationRule>
+            <StringToNumberTransformationRule>
+              <Text>maintenance</Text>
+              <Number>2</Number>
+            </StringToNumberTransformationRule>
+            <StringToNumberTransformationRule>
+              <Text>outage</Text>
+              <Number>3</Number>
+            </StringToNumberTransformationRule>
+          </StringToNumberTransformationRules>
+          <StringToNumberTransformationOtherValues>5</StringToNumberTransformationOtherValues>
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>5</PollingInterval>
+</Template>

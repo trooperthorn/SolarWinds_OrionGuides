@@ -364,8 +364,17 @@ ORDER BY t.DisplayName
 `IsCustom` separates what SolarWinds shipped from what someone here built, which is the
 first thing to know before deleting anything. `RequestsCount` and `MetricsCount` are
 denormalised counts that let you see the shape of a template without parsing it, and
-`TemplateData` is the template itself as XML. Its internal structure is **not recorded in
-the published schema** and is unverified here.
+`TemplateData` is the template itself as XML — **the same document `ExportTemplate` returns and
+`ImportTemplate` accepts**, so you can read a template's full definition with a query instead
+of an Invoke:
+
+```sql
+SELECT t.ID, t.DisplayName, t.TemplateData
+FROM Orion.APIPoller.Templates t
+WHERE t.IsCustom = 'True'
+```
+
+The next section documents that document's structure.
 
 Templates nothing is using, which is the safe candidate set for cleanup:
 
@@ -384,6 +393,177 @@ ORDER BY t.Updated
 
 `DeleteTemplate` returns a boolean rather than throwing, so read the result. A `false` that
 nobody checked looks exactly like a successful delete.
+
+## The `.apipoller.template` file format
+
+The console exports a template as a single-line XML document with the extension
+`.apipoller.template`. It is the same string that `ExportTemplate` returns, that
+`ImportTemplate` takes, and that sits in `Orion.APIPoller.Templates.TemplateData`. So there is
+one document, reachable four ways: the console's export button, an Invoke, a SWQL select, and
+a file on disk.
+
+**Source:** derived by parsing a real export from a practitioner's installation and mapping it
+against the 2026.2 schema. SolarWinds does not publish the format. Element names below are
+quoted from that document; the entity and property names they map onto are checked against the
+extracted schema like everything else here.
+
+### The shape
+
+```xml
+<Template>
+  <Guid>58dbeb34-…</Guid>
+  <Name>ERCOT Operating Reserves &amp; Grid Emergency Status</Name>
+  <DisplayName>ERCOT Operating Reserves &amp; Grid Emergency Status</DisplayName>
+  <Description />
+  <Created>2026-08-22T15:00:43.6650422Z</Created>
+  <Updated>2026-08-22T15:00:43.6650422Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://example.invalid/api/1/status.json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders />
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Operating Reserves (MW)</DisplayName>
+          <Path>$.['current_condition'].['prc_value']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>1</WarningThresholdValue>
+          <CriticalThresholdValue>2</CriticalThresholdValue>
+          <Type>Path</Type>
+          <StringToNumberTransformationRules>
+            <StringToNumberTransformationRule>
+              <Text>Normal</Text>
+              <Number>0</Number>
+            </StringToNumberTransformationRule>
+          </StringToNumberTransformationRules>
+          <StringToNumberTransformationOtherValues>5</StringToNumberTransformationOtherValues>
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>2</PollingInterval>
+</Template>
+```
+
+The root carries `xmlns:xsd` and `xmlns:xsi` declarations, which is the signature of .NET's
+`XmlSerializer` — the document is a serialised object graph rather than a hand-designed
+schema. Empty collections serialise as self-closing elements (`<RequestHeaders />`), not as
+omitted ones.
+
+### Element by element, against the schema
+
+| XML element | Maps to | Notes |
+| --- | --- | --- |
+| `Guid` | `Orion.APIPoller.Templates.Guid` | The template's identity **across servers**. `ID` is local and is not in the file |
+| `Name`, `DisplayName` | `Name`, `DisplayName` | Both present, both the same string in the sample |
+| `Description` | `Description` | Empty is legal |
+| `Created`, `Updated` | `Created`, `Updated` | ISO-8601 UTC, sub-microsecond precision |
+| `Version` | `Version` | `System.Int32`; `1` in the sample |
+| `RequestDetailsCollection/RequestDetails` | `Orion.APIPoller.RequestDetails` | One per HTTP call; a template may make several |
+| `Url`, `Body`, `HttpVerb` | same names | `HttpVerb` is title-case (`Get`), not `GET` |
+| `RequestHeaders` | `Orion.APIPoller.RequestHeader` | `Name`/`Value` pairs |
+| `RequestVariables` | `Orion.APIPoller.RequestVariable` | `Path`/`DisplayName`; values lifted from one response to use in the next |
+| `RequestDetailsOrder` | `RequestDetailsOrder` | Zero-based; the order multi-request templates run in |
+| `ValueToMonitorCollection/ValueToMonitor` | `Orion.APIPoller.ValueToMonitor` | One per metric |
+| `Path` | `Path` | A JSONPath expression |
+| `ThresholdRule` | `ThresholdRule` | `GreaterThan` in the sample |
+| `WarningThresholdValue` | **`WarningThreshold`** | The names differ between file and schema |
+| `CriticalThresholdValue` | **`CriticalThreshold`** | Likewise. `System.Double` in the schema, written as bare integers here |
+| `Type` | `Type` | `Path` in the sample |
+| `StringToNumberTransformationRule` | `Orion.APIPoller.StringToNumberTransformationRule` | `Text`/`Number` pairs |
+| `StringToNumberTransformationOtherValues` | same name | The fallback for text no rule matches |
+| `PollingInterval` | `Orion.APIPoller.PollingConfiguration.PollingInterval` | **Minutes.** `2` is a two-minute poll |
+
+**Five runtime properties have no element in the file.** `Orion.APIPoller.RequestDetails`
+declares `CredentialsId`, `CredentialsType`, `VerifySslCertificate`, `UseProxy` and
+`RequestTimeout`, and none of them appears in the export.
+
+That credentials do not travel is correct and deliberate — a template is meant to be shared.
+But it means **an imported template is not a complete poller**: SSL verification, proxy use,
+timeout and any credential have to be supplied when the template is assigned, which is what
+the `configuration` and `parameters` arrays on `AssignTemplate` and
+`CreateApiPollerFromTemplate` are for. Import a template that polls an authenticated endpoint,
+assign it with empty arrays, and it will fail at the first poll with an authentication error
+rather than an import error. Whether those two arrays are the only route, and which keys they
+accept, is **not documented and unverified here**.
+
+### Writing one by hand
+
+You do not have to. The supported path is to build the poller once in the console —
+**Settings > All Settings > API Poller**, or the API Poller tab on a node — and export it. The
+console writes the GUID, the timestamps and the serialisation details for you.
+
+Authoring the XML directly is still reasonable for a template you want to generate, and the
+rules that matter are:
+
+- **A fresh `Guid` per template.** It is the cross-server identity. Two templates sharing one
+  is the same class of mistake as a duplicated dashboard `unique_key` — see
+  [../webui/modern-dashboards.md](../webui/modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine).
+  What the platform does on import when the GUID already exists — replace, duplicate or
+  reject — is **not documented and unverified here**. Test on a lab server before you rely on
+  re-import as an update mechanism.
+- **Escape XML properly.** The sample's name contains `&amp;` for a literal ampersand, and the
+  transformation text contains an em dash and a `&lt;`. A template whose thresholds describe
+  `Reserve < 1,750 MW` will not parse if that `<` is written raw.
+- **Do not omit empty elements.** Write `<Description />` and `<RequestHeaders />` rather than
+  leaving them out, matching what the serialiser emits.
+- **`RequestDetailsOrder` starts at 0** and is what sequences a multi-call template.
+- **`PollingInterval` is minutes**, and lives on the template root rather than inside
+  `RequestDetails`, so it applies to the whole poller.
+
+Then import it and let the platform validate:
+
+```powershell
+$xml = Get-Content -Raw '.\my-poller.apipoller.template'
+$newTemplateId = Invoke-SwisVerb $swis 'Orion.APIPoller.Templates' 'ImportTemplate' @($xml)
+```
+
+### Numeric thresholds against text values
+
+The `StringToNumberTransformation` pair is the part worth understanding, because it is what
+lets a poller alert on an API that returns words.
+
+The platform thresholds on numbers. When the value at `Path` is text, each
+`StringToNumberTransformationRule` maps one exact string to one number, and
+`StringToNumberTransformationOtherValues` catches everything unmatched. The thresholds then
+apply to the mapped number.
+
+In the sample, four rules map an emergency-status vocabulary to `0`–`3`, the fallback is `5`,
+and the rule is `GreaterThan` with warning `1` and critical `2`. So: normal is `0`, the first
+alert level is warning, the second and third are critical — **and any string the rules do not
+recognise becomes `5`, which is also critical.**
+
+That fallback choice is the design decision to copy. Setting it above the critical threshold
+means *an unrecognised response pages someone*, which is almost always what you want: an API
+that starts returning a new status string is a change you need to hear about, and a fallback
+of `0` would hide it as "normal" forever.
+
+**Matching is exact-string** — the rules in the sample carry an em dash and parenthesised
+detail, all of which must match the response byte for byte. That is a real fragility: a
+provider rewording `EEA 2 (Reserve < 1,750 MW — emergency generation deployed)` breaks the
+mapping. With a fallback above critical, it breaks loudly, which is the mitigation.
+
+Whether matching is case-sensitive, trims whitespace, or supports any wildcard is **not
+documented and unverified here**.
+
+### One thing to check in a template you are given
+
+A `ValueToMonitor` has both a `Path` and a set of string rules, and nothing makes them agree.
+If the path resolves to a **number**, the string rules cannot match and every poll takes the
+fallback; if it resolves to **text**, the thresholds apply to the mapped number and the
+`DisplayName` should describe the mapping rather than the raw value.
+
+The sample shows the tension: its `DisplayName` is `Operating Reserves (MW)` and its `Path`
+ends in `prc_value`, both suggesting a megawatt figure, while its rules and its warning-at-1
+threshold are built for a small ordinal status. Those readings cannot both be right — a
+megawatt reading would exceed a critical threshold of `2` on every poll. Establish which the
+endpoint actually returns before trusting the alert, and align `DisplayName` with whichever it
+is. This is not a flaw in the format; it is the format faithfully recording two different
+intentions.
 
 ## Practical notes
 

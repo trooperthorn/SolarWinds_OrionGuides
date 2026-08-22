@@ -102,6 +102,13 @@ CASES = [
         ["tools/check_dashboards.py"],
     ),
     (
+        "poller fallback",
+        "scripts/api-pollers/example-service-status.apipoller.template",
+        "<StringToNumberTransformationOtherValues>5</StringToNumberTransformationOtherValues>",
+        "<StringToNumberTransformationOtherValues>1</StringToNumberTransformationOtherValues>",
+        ["tools/check_api_poller_templates.py"],
+    ),
+    (
         "relative link",
         "docs/automation/dependencies.md",
         "[accounts-and-permissions.md](accounts-and-permissions.md)",

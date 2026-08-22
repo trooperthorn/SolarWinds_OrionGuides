@@ -94,6 +94,7 @@ check: test validate
 	@$(PYTHON) tools/check_signatures.py --version $(VERSION)
 	@$(PYTHON) tools/check_examples.py
 	@$(PYTHON) tools/check_dashboards.py
+	@$(PYTHON) tools/check_api_poller_templates.py
 	@$(PYTHON) tools/check_links.py --orphans --check-anchors
 	@$(PYTHON) tools/check_gate.py
 
