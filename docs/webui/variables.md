@@ -9,7 +9,8 @@ Two syntaxes exist and both are current:
 | Form | Example | Meaning |
 | --- | --- | --- |
 | `${Value}` | `${NodeName}` | A named variable. The previous-generation form |
-| `${N=Namespace;M=Member}` | `${N=SwisEntity;M=Caption}` | The current form: `N` selects a namespace, `M` a member within it |
+| `${N=context;M=macro;F=format}` | `${N=SwisEntity;M=Status;F=Status}` | The current form: three attributes, of which `N` and `M` are required |
+| `${SQL:query}` | `${SQL:Select Count(*) From Nodes}` | A SQL query evaluated against the database |
 
 The second form arrived in **Orion Platform 2015.1** and is built on SWIS, which is why it is
 the interesting one for this repository: the `M=` half resolves against the SWIS schema, and
@@ -18,9 +19,34 @@ that is something the checked-in data can answer exactly.
 Both still work. The console's variable picker inserts the new form by default; a
 previous-generation variable such as `${NodeName}` has to be typed by hand.
 
-## What `N` and `M` select
+## The three attributes
 
-`N` names a **namespace** — a source of values — and `M` names a **member** of it.
+| Attribute | Required | What it does |
+| --- | --- | --- |
+| `N` | Yes | The **context**: which source the value comes from |
+| `M` | Yes | The **macro**: the variable or member name within that context |
+| `F` | No | The **format**: converts the value to a friendly form |
+
+`F` has to correlate with the data. SolarWinds' own guidance is that `DateTime` belongs with
+`AcknowledgedTime` and not with `ObjectType`. `${N=SwisEntity;M=Status;F=Status}` and
+`${N=Generic;M=Today;F=Date}` are the published shapes. The complete set of format names is
+**not published in the material this repository has** and is unverified here; the variable
+picker in the console offers them, which is the practical way to find out what your version
+accepts.
+
+Everything is available from the picker. Nothing here needs to be typed by hand except a
+previous-generation variable, which the picker will not insert.
+
+### The four contexts
+
+| `N=` | Supplies |
+| --- | --- |
+| `Alerting` | Variables specific to the alert itself — its name, severity, acknowledgement state |
+| `SwisEntity` | Variables for the object being monitored, in the context of the alert |
+| `OrionGroup` | Variables specific to groups |
+| `Generic` | General environmental properties — the installation, and the clock |
+
+The full tables are in [variables-reference.md](variables-reference.md).
 
 `N=SwisEntity` is the one that matters most. It resolves against **the entity the alert
 triggered on**, and `M` is a property of that entity. So `${N=SwisEntity;M=Caption}` on a
@@ -64,11 +90,29 @@ Read `Orion.AlertObjects` alongside the variable list. Its own columns — `Enti
 shape of what the alerting layer knows about a triggered object regardless of what that object
 is, and that is the same job several of the general alert variables do.
 
-## Finding the valid `M=` values for yourself
+## The member list is the property list
 
-This is the part no SolarWinds page can give you, because it depends on your version and your
-installed modules. If `M=` is a property of the trigger entity, then the property list *is*
-the variable list:
+`M=` on the `SwisEntity` context is a member of the trigger entity, and this repository has
+checked that against SolarWinds' own published tables:
+
+| Published set | Members | Found in the 2026.2 schema |
+| --- | --- | --- |
+| Node variables | 60 | **60** on `Orion.Nodes` |
+| Volume variables | 23 | **23** on `Orion.Volumes` |
+| `SNMPv3Credentials.*` | 16 | **16** on `Orion.SNMPv3Credentials` |
+| `PCUs.*` | 16 | **16** on `Cortex.Orion.PowerControlUnit` |
+
+116 of 116. That correspondence is what makes the context enumerable, and it also settles a
+question the schema alone could not: **a dotted `M=` walks a navigation property.** `Stats`,
+`SNMPv3Credentials` and `PCUs` are all real navigation properties of `Orion.Nodes`, and
+SolarWinds publishes variables that go through them.
+
+One published name does not fit. `${N=SwisEntity;M=Node.Allow64BitCounters}` carries a `Node.`
+prefix, but `Allow64BitCounters` is a directly declared property of `Orion.Nodes` and `Node` is
+not one of its navigation properties, so there is nothing for the prefix to resolve through.
+Treat it as a discrepancy in the published table rather than a rule.
+
+So the property list is the variable list:
 
 ```bash
 python3 tools/schema_query.py props Orion.Nodes
@@ -81,11 +125,15 @@ Every name that prints is addressable as `${N=SwisEntity;M=<name>}` on an alert 
 python3 tools/schema_query.py props Orion.NPM.Interfaces --grep status
 ```
 
-Two qualifications, both marked **unverified here** because the schema does not record them.
-Whether every property is exposed to the variable engine — or only a subset — is not
-something the contract states. And whether a navigation property can be walked inside a
-variable, so that `M=Node.Caption` resolves from an interface alert, is likewise not stated.
-Test both on your own server before depending on them.
+One qualification remains, marked **unverified here** because the schema does not record it:
+whether *every* member is exposed to the variable engine, or only a subset. The published
+tables cover 60 of the 102 properties `Orion.Nodes` declares, and nothing says what the other
+42 do. [variables-undocumented.md](variables-undocumented.md) works through them and says
+plainly that it is inference.
+
+Navigation depth is the other open question. The three published examples each walk exactly
+one hop; whether two hops work, and what a to-many navigation renders when it matches several
+rows, are **not documented and unverified here**.
 
 On a live server, `Metadata.Property` answers the same question authoritatively for that
 server:
@@ -103,6 +151,34 @@ ORDER BY p.Name
 Note the filter. `Metadata.Property` has no `EntityName` column and reaches its owner through
 the `Entity` navigation property; see
 [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
+
+## `${SQL:…}` runs a query
+
+Any value the database can produce can be a variable:
+
+```text
+${SQL:Select Count(*) From Nodes}
+```
+
+Note what that is and is not. The query is **T-SQL against the database**, not SWQL against
+SWIS — `Nodes` there is the table, not `Orion.Nodes` the entity. So none of
+[../swql/README.md](../swql/README.md) applies to it, and neither do account limitations,
+which are a SWIS concept. A `${SQL:…}` variable in an alert message reads the database
+directly with whatever rights the platform runs as.
+
+That makes it powerful and worth treating carefully:
+
+- It runs **every time the message renders**. An expensive query behind a frequently
+  triggering alert is a load problem that will not look like one.
+- It bypasses the account limitations that scope everything else a user sees. Two people
+  reading the same alert email see the same number, whatever their limitations would allow
+  them to see in the console.
+- Whether the query text is escaped or validated in any way is **not documented and is
+  unverified here**. Treat an alert message that accepts user input and interpolates it into
+  a `${SQL:…}` as you would any other dynamic SQL.
+
+Prefer a `SwisEntity` member when one exists. Reach for `${SQL:…}` for aggregate values that
+have no entity behind them, which is what SolarWinds' own example does.
 
 ## Custom properties are variables too
 
@@ -182,40 +258,29 @@ find out what a macro produces. See
 [ncm-change-template-language.md](ncm-change-template-language.md#two-kinds-of-variable-and-they-are-not-interchangeable)
 and [../modules/ncm.md](../modules/ncm.md).
 
-## The named-variable tables are not transcribed here
+## What is published, and what still is not
 
-**This section is a gap, and this is what is missing and why.**
+The tables SolarWinds publishes are in [variables-reference.md](variables-reference.md):
+the `Alerting`, `Generic` and `OrionGroup` contexts, the node and volume lists, the UPS
+variables, and the previous-generation syslog and trap lists.
 
-SolarWinds publishes the authoritative lists of *named* variables — the `N=` namespaces beyond
-`SwisEntity`, the previous-generation `${NodeName}` family, the date and time variables, and
-the module-specific tables — across a set of pages in the Success Center. This repository
-could not reach them: `documentation.solarwinds.com` is blocked by the network egress policy of
-the environment these pages were written in, for both direct fetches and the documentation
-tooling.
+Still missing from this repository, and named so the gap is explicit rather than silent:
 
-Rather than reconstruct several hundred variable names from memory — which is exactly the
-plausible-but-wrong failure the rest of this repository exists to prevent — the pages are named
-here so the gap is explicit and fillable:
-
-| Page | Holds |
+| Not here | Where it lives |
 | --- | --- |
-| [Variables in the SolarWinds Platform](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-orion-variables-and-examples-sw1115.htm) | The syntax reference and the namespace list |
-| [General alert variables](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-general-alert-variables-sw1121.htm) | The general alert variable table |
-| [Syslog alert variables](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-syslog-alert-variables-sw2132.htm) | Syslog-specific variables |
-| [Defunct alert variables](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-defunct-alert-variables-sw1433.htm) | Variables that no longer resolve, which is the table to check when a message renders blank |
-| [Alert on custom properties](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-use-a-custom-property-in-alerts-sw1100.htm) | Custom properties in the `N=`/`M=` form |
-| [Use properties, variables, and macros in SAM alerts](https://documentation.solarwinds.com/en/success_center/sam/content/sam-alerts-variables.htm) | The SAM module table |
-| [NCM macros (variables)](https://documentation.solarwinds.com/en/success_center/ncm/content/ncm-understanding-ncm-macros.htm) | The NCM macro list, the second system described above |
+| Module-specific variable tables beyond nodes, volumes and UPS | Each module's own documentation, e.g. [SAM alert variables](https://documentation.solarwinds.com/en/success_center/sam/content/sam-alerts-variables.htm) |
+| The complete `F=` format list | The variable picker in your console |
+| Defunct variables — those that no longer resolve | [Defunct alert variables](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-defunct-alert-variables-sw1433.htm) |
+| Interface, application and component variable tables | The NPM and SAM documentation |
 
-What *is* on this page is verified: the `${N=SwisEntity;M=...}` mechanism, how the trigger
-entity is determined, and how to enumerate the members for any entity from the checked-in
-schema or from `Metadata.Property` on a live server. That covers the half of the system that
-depends on your installation, which is also the half no published table can be current for.
+The defunct list is worth singling out. A variable that no longer resolves does not error — it
+renders as empty text or as the literal `${...}`, so an alert email quietly loses a field.
+That is the same silent-failure shape as an unmatched `_LinkFor_` column in
+[custom-query-widget.md](custom-query-widget.md), and the reason to put a known-good variable
+beside any new one while testing.
 
-The defunct-variables page is worth singling out. A variable that no longer resolves does not
-error — it renders as empty text or as the literal `${...}`, so an alert email quietly loses a
-field. That is the same silent-failure shape as an unmatched `_LinkFor_` column in
-[custom-query-widget.md](custom-query-widget.md).
+For members that exist in the schema and appear in no published table at all, see
+[variables-undocumented.md](variables-undocumented.md).
 
 ## See also
 

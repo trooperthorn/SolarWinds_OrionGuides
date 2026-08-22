@@ -121,6 +121,8 @@ Five separate polling systems that share no entities and reuse each other's colu
 | --- | --- |
 | [webui/README.md](webui/README.md) | What this section is, and why the schema cannot verify it |
 | [webui/variables.md](webui/variables.md) | Alert and report variables: the `${N=…;M=…}` form, and enumerating members per entity |
+| [webui/variables-reference.md](webui/variables-reference.md) | Every variable SolarWinds publishes, by context |
+| [webui/variables-undocumented.md](webui/variables-undocumented.md) | Addressable members that appear in no published table |
 | [webui/custom-query-widget.md](webui/custom-query-widget.md) | `_LinkFor_` and `_IconFor_` column conventions, console URLs, a worked widget |
 | [webui/ncm-change-templates.md](webui/ncm-change-templates.md) | NCM config change templates: directives, parameters, and the `Cirrus.ConfigSnippets` API |
 | [webui/ncm-change-template-language.md](webui/ncm-change-template-language.md) | The change template scripting language, end to end |

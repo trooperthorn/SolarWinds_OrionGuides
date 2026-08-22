@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**172 statements across 52 pages.**
+**181 statements across 54 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -752,11 +752,48 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Directive names, the `Listbox:` syntax, the signature grammar and everything in [ncm-change-template-language.md](../webui/ncm-change-template-language.md) come from SolarWinds' documentation and from THWACK, and **cannot be verified here**.
 
+## [variables-reference.md](../webui/variables-reference.md)
+
+**[Variable reference](../webui/variables-reference.md#variable-reference)**
+
+- Where it does not — the `Alerting`, `Generic` and `OrionGroup` contexts, and the syslog and trap lists — the name is reported as published and **cannot be verified here**.
+
+**[`N=Alerting` — the alert itself](../webui/variables-reference.md#nalerting-the-alert-itself)**
+
+- Whether the context reads those entities or its own state is **not documented and unverified here**; the names line up but the mapping is not stated.
+
+**[Node variables that walk a navigation property](../webui/variables-reference.md#node-variables-that-walk-a-navigation-property)**
+
+- Which one the engine prefers is **unverified here**.
+
+**[SNMPv3 credential variables](../webui/variables-reference.md#snmpv3-credential-variables)**
+
+- Whether the platform redacts any of these at render time is **not documented and is unverified here**; assume it does not.
+
+**[Other trap variables](../webui/variables-reference.md#other-trap-variables)**
+
+- Whether `${vbName2}` and beyond exist is **not documented and is unverified here**.
+
+## [variables-undocumented.md](../webui/variables-undocumented.md)
+
+**[Navigation is the larger unpublished surface](../webui/variables-undocumented.md#navigation-is-the-larger-unpublished-surface)**
+
+- Whether the engine walks an arbitrary navigation, whether it walks more than one hop, and what it renders for a to-many navigation that returns several rows, are all **undocumented and unverified here**.
+
 ## [variables.md](../webui/variables.md)
 
-**[Finding the valid `M=` values for yourself](../webui/variables.md#finding-the-valid-m-values-for-yourself)**
+**[The three attributes](../webui/variables.md#the-three-attributes)**
 
-- Two qualifications, both marked **unverified here** because the schema does not record them.
+- The complete set of format names is **not published in the material this repository has** and is unverified here; the variable picker in the console offers them, which is the practical way to find out what your version accepts.
+
+**[The member list is the property list](../webui/variables.md#the-member-list-is-the-property-list)**
+
+- One qualification remains, marked **unverified here** because the schema does not record it: whether *every* member is exposed to the variable engine, or only a subset.
+- The three published examples each walk exactly one hop; whether two hops work, and what a to-many navigation renders when it matches several rows, are **not documented and unverified here**.
+
+**[`${SQL:…}` runs a query](../webui/variables.md#sql-runs-a-query)**
+
+- Two people reading the same alert email see the same number, whatever their limitations would allow them to see in the console. - Whether the query text is escaped or validated in any way is **not documented and is unverified here**.
 
 **[See also](../webui/variables.md#see-also)**
 

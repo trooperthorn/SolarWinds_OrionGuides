@@ -31,6 +31,8 @@ reported, sourced and marked unverified. Read
 | Page | Covers |
 | --- | --- |
 | [variables.md](variables.md) | `${Value}` and `${N=Namespace;M=Member}`: what resolves them, how to enumerate the valid members for any entity, and the variables by module |
+| [variables-reference.md](variables-reference.md) | The published tables: `Alerting`, `Generic`, `OrionGroup`, node, volume, UPS, syslog and trap variables |
+| [variables-undocumented.md](variables-undocumented.md) | Schema members that appear in no published table, derived and annotated as inference |
 | [custom-query-widget.md](custom-query-widget.md) | Turning a SWQL result into a linked, icon-bearing table: the `_LinkFor_` and `_IconFor_` column conventions, console URL shapes, and a worked widget |
 | [ncm-change-templates.md](ncm-change-templates.md) | What an NCM config change template is, its directives, the parameters that become form fields, and managing them through `Cirrus.ConfigSnippets` |
 | [ncm-change-template-language.md](ncm-change-template-language.md) | The template scripting language: variables and macros, operators, string functions, loops, CLI blocks and custom properties |
