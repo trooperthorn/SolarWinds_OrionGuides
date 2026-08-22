@@ -652,6 +652,12 @@ which binds columns explicitly through `dataFieldIds`. The query works because t
 names those columns, not because of what they are called. It is a habit carried across from
 the old widget, and harmless, but do not expect the naming alone to create a link here.
 
+One consequence worth stating, because it cuts the other way from the usual advice: in the
+classic widget both halves of `[_LinkFor_X]` are case-sensitive and a mismatch fails silently
+(see [custom-query-widget.md](custom-query-widget.md#the-naming-convention)). In a Modern
+Dashboard the string is just an alias, so its casing is free — but it must then match the
+`dataFieldIds` entry exactly, which is the same discipline arriving through a different door.
+
 ## See also
 
 - [modern-dashboard-authoring.md](modern-dashboard-authoring.md) — writing one, the filter URL

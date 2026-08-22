@@ -145,9 +145,33 @@ python3 tools/schema_query.py props Orion.CPULoad
 makes `Orion.CPULoad.AvgLoad` a well-formed metric segment. Every metric in the community
 examples this page quotes resolves that way, checked against the extracted schema.
 
-**Whether every property of a statistics entity is chartable, or only the numeric ones, is
-unverified here.** A statistics entity carries an `ObservationTimestamp` and often an id, and
-those are members like any other while plainly not being metrics.
+**Only the numeric ones are chartable.** The main PerfStack view is a time-series chart
+surface and nothing else: every metric you add is drawn as a numeric series against the shared
+timeline, which is the entire point of the tool — putting unrelated KPIs on one time axis so a
+human can see which moved first.
+
+So a statistics entity's `ObservationTimestamp` is the x-axis rather than a series, and an id
+column is not a metric at all. Neither is addressable as a metric segment. When you enumerate
+`props` on a statistics entity to find metric names, **the numeric properties are the
+candidate list**; the timestamp and the ids are structural.
+
+*Source: reported from practice by a long-time SolarWinds administrator.*
+
+### Non-numeric data lives in the Data Explorer tab
+
+The PerfStack page carries a second tab, **Data Explorer**, and that is where anything that is
+not a time series goes. It lists entries — alerts, syslog messages and similar event data — as
+a **table** rather than a chart, on the same page and against the same time range.
+
+That is the answer to "how do I get alerts onto my PerfStack view": you do not chart them, you
+read them in Data Explorer alongside the charts. Correlating a spike with the alert that fired
+at the same moment is the workflow, and both halves share the timeline.
+
+Whether the Data Explorer tab can be pre-loaded from the URL the way the chart surface can —
+and if so, with what segment grammar — is **not documented and unverified here**. Everything in
+[the URL grammar](#the-url-grammar) above concerns the chart surface. If you have found a URL
+form that opens Data Explorer with a selection already made, that is exactly the gap this page
+would most like closed.
 
 ## Generating a link from an alert
 
@@ -247,11 +271,15 @@ this page reports comes from:
 - [Multiple Data Sources on one graph (PerfStack)](https://thwack.solarwinds.com/product-forums/the-orion-platform/f/forum/90007/multiple-data-sources-on-one-graph-perfstack), which is where the comma-versus-semicolon rule comes from
 - [How to Automate Link to PerfStack in a SolarWinds Alert](https://prosperon.co.uk/insights/how-to-automate-link-to-perfstack-in-a-solarwinds-alert/), a third-party write-up of the alert-action case
 
+Two points on this page — that the chart surface is numeric-only, and that the Data Explorer
+tab carries alerts and syslog as a table — come from a long-time SolarWinds administrator
+reporting from practice rather than from any of the sources above.
+
 Still missing, and named so the gap is explicit: the complete `presetTime` value list, whether
 explicit start and end timestamps are accepted, the exact role of the chart index against the
-semicolon, the structure of `Orion.PerfStack.Projects.Data`, and whether any parameter controls
-chart type or axis scaling. `PRINTABLE=TRUE` is reported as removing the console chrome and is
-unverified here.
+semicolon, the structure of `Orion.PerfStack.Projects.Data`, whether any parameter controls
+chart type or axis scaling, and whether the Data Explorer tab can be addressed from the URL.
+`PRINTABLE=TRUE` is reported as removing the console chrome and is unverified here.
 
 ## See also
 

@@ -42,11 +42,18 @@ FROM Orion.Nodes n
 ORDER BY n.Caption
 ```
 
-Whether the `_LinkFor_` and `_IconFor_` prefixes themselves are case-sensitive is **not
-documented by SolarWinds and is unverified here** — community examples write both
-`[_LinkFor_NODE]` and `[_linkfor_Caption]` and report both working. The suffix is the part
-that has to match. Writing the prefix in a consistent case costs nothing and removes the
-question.
+**The prefixes are case-sensitive too.** Write them exactly `_LinkFor_` and `_IconFor_`.
+`[_linkfor_Caption]` does not work, and it fails the same silent way a mismatched suffix does:
+the query runs, the widget renders, and the column appears as literal text instead of becoming
+a link.
+
+*Source: reported from practice by a long-time SolarWinds administrator who hit it directly.
+SolarWinds documents neither the convention nor its casing.* Community examples that show a
+lowercase prefix and claim it works should be treated as unreliable on that point — the
+failure is quiet enough to be missed by whoever wrote the example.
+
+So both halves have to match: the prefix exactly as spelled here, and the suffix exactly as
+the visible column is aliased.
 
 ## Where the link value comes from
 
@@ -114,10 +121,33 @@ ORDER BY i.Caption
 Note that one visible column takes both directives at once. `Interface` gets an icon from one
 hidden column and a link from another.
 
-Whether `StatusIcon` holds a bare filename or a path the widget can use unmodified is **not
-recorded in the schema and is unverified here**. Community examples use it directly and also
-prefix it with `/Orion/images/StatusIcons/`; read a few values on your own server to see which
-form yours holds.
+**`StatusIcon` holds a bare filename, not a path.** So it needs the directory prefixing before
+the widget can render it:
+
+```sql
+SELECT
+    i.Caption AS [Interface],
+    '/Orion/images/StatusIcons/' + i.StatusIcon AS [_IconFor_Interface],
+    i.DetailsUrl AS [_LinkFor_Interface]
+FROM Orion.NPM.Interfaces i
+ORDER BY i.Caption
+```
+
+*Source: reported from practice by a long-time SolarWinds administrator. The schema records
+the type as `System.String` and says nothing about the form.*
+
+This explains the community examples that use `StatusIcon` unmodified and appear to work:
+a bare filename resolves against whatever the widget's own base path happens to be, which is
+not something to depend on. Concatenating the directory is the form that behaves the same
+wherever the widget is rendered.
+
+The same reasoning applies to the `IconPostfix` form used elsewhere in this repository, which
+builds the whole path explicitly:
+
+```sql
+SELECT CONCAT('/Orion/images/StatusIcons/Small-', s.IconPostfix, '.gif') AS [_IconFor_Node]
+FROM Orion.StatusInfo s
+```
 
 **Built from `StatusDescription` everywhere else.** `StatusDescription` is declared on 78
 entities, and the console's status icons are named after it:
@@ -199,7 +229,13 @@ community, including Petr Vilem and lukas.belza.
 against the extracted schema like every other query in this repository. What is *not*
 validated, and cannot be, is the widget's behaviour: the directive names, the console URLs and
 the icon paths are product UI, not schema, and this repository has no way to check them. They
-are marked unverified where they appear.
+are marked unverified where they appear, or attributed to the practitioner who reported them.
+
+**Case matters on both halves of the directive, and getting it wrong is silent.** The prefix
+must be exactly `_LinkFor_` or `_IconFor_`, and the suffix must match the visible column's
+alias exactly. A mismatch in either place leaves the column rendering as literal text — the
+query still runs and the widget still draws, so nothing tells you. This is the first thing to
+check when the convention "does not work".
 
 **Aliases with an underscore need brackets.** `[_LinkFor_NODE]` is bracketed because the
 identifier starts with an underscore. Dropping the brackets is a parse error, not a silent

@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**218 statements across 60 pages.**
+**216 statements across 60 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -730,17 +730,12 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [custom-query-widget.md](../webui/custom-query-widget.md)
 
-**[The naming convention](../webui/custom-query-widget.md#the-naming-convention)**
-
-- Whether the `_LinkFor_` and `_IconFor_` prefixes themselves are case-sensitive is **not documented by SolarWinds and is unverified here** — community examples write both `[_LinkFor_NODE]` and `[_linkfor_Caption]` and report both working.
-
 **[Where the link value comes from](../webui/custom-query-widget.md#where-the-link-value-comes-from)**
 
 - These console paths are **not part of the SWIS schema and are unverified here**.
 
 **[Where the icon value comes from](../webui/custom-query-widget.md#where-the-icon-value-comes-from)**
 
-- Whether `StatusIcon` holds a bare filename or a path the widget can use unmodified is **not recorded in the schema and is unverified here**.
 - The `Small-` prefix and `.gif` extension are **unverified here**.
 
 **[A worked widget](../webui/custom-query-widget.md#a-worked-widget)**
@@ -749,7 +744,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Practical notes](../webui/custom-query-widget.md#practical-notes)**
 
-- They are marked unverified where they appear.
+- They are marked unverified where they appear, or attributed to the practitioner who reported them.
 
 ## [modern-dashboard-authoring.md](../webui/modern-dashboard-authoring.md)
 
@@ -879,9 +874,9 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - What `Data` contains is **not recorded in the schema** and is unverified here — it is a `System.String` and the column summary says nothing.
 
-**[Which metrics are valid for an object](../webui/perfstack.md#which-metrics-are-valid-for-an-object)**
+**[Non-numeric data lives in the Data Explorer tab](../webui/perfstack.md#non-numeric-data-lives-in-the-data-explorer-tab)**
 
-- **Whether every property of a statistics entity is chartable, or only the numeric ones, is unverified here.** A statistics entity carries an `ObservationTimestamp` and often an id, and those are members like any other while plainly not being metrics.
+- Whether the Data Explorer tab can be pre-loaded from the URL the way the chart surface can — and if so, with what segment grammar — is **not documented and unverified here**.
 
 **[Sources, and what is missing](../webui/perfstack.md#sources-and-what-is-missing)**
 
