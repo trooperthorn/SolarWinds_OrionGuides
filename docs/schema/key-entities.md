@@ -788,7 +788,7 @@ relationships, 1 verb.
 | Property | Type | Summary from the schema |
 | --- | --- | --- |
 | `EventID` | `System.Int32` | Unique identifier for the event record |
-| `EventTime` | `System.DateTime` | When the event occurred, **displayed in local time** |
+| `EventTime` | `System.DateTime` | When the event occurred, **displayed in local time** — the documented exception to the platform's UTC default. See [../swql/date-and-time.md](../swql/date-and-time.md#the-eventtime-exception) |
 | `EventType` | `System.Int32` | Numeric identifier referencing the type of event from `Orion.EventTypes` |
 | `Message` | `System.String` | Descriptive message or details |
 | `Acknowledged` | `System.Boolean` | Whether an administrator has acknowledged it |

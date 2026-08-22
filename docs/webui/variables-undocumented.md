@@ -64,7 +64,7 @@ python3 tools/schema_query.py props Orion.Nodes
 | `External`, `IsOrionServer`, `IsServer` | Role flags |
 | `IP`, `IPAddress`, `IPAddressGUID` | Beside the published `IP_Address`. Three spellings, and only one is published |
 | `IsPollingError`, `SkippedPollingCycles`, `MinutesSinceLastSync` | Polling health |
-| `LastSystemUpTimePollUtc` | A **UTC** timestamp, where most published time variables are not |
+| `LastSystemUpTimePollUtc` | A timestamp whose name says UTC explicitly. So do the others — see [../swql/date-and-time.md](../swql/date-and-time.md#which-columns-are-utc-and-which-are-local) |
 | `LoadAverage1`, `LoadAverage5`, `LoadAverage15` | Unix-style load, absent from the published list entirely |
 | `MemoryAvailable`, `PercentMemoryAvailable` | The complements of the published `MemoryUsed` and `PercentMemoryUsed` |
 | `MinResponseTime` | Published only as `Stats.MinResponseTime` |

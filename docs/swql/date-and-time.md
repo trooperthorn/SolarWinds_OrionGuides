@@ -14,8 +14,9 @@ page is about combining them correctly.
 
 ## The short version
 
-1. **Work out whether the column you are filtering holds UTC or server local time.** The
-   schema will usually tell you in the property name; if it does not, measure it (see
+1. **Assume the column you are filtering holds UTC**, whatever the timezone of the SQL Server,
+   the Orion server or your browser. `Orion.Events.EventTime` is the documented exception. If a
+   window comes back wrong, measure the column rather than guessing (see
    [Which columns are UTC](#which-columns-are-utc-and-which-are-local)).
 2. **Never wrap `GetUtcDate()` directly in an `AddX` function.** `AddMinute(-10,
    GetUtcDate())` returns a value stamped with the SQL Server's local offset, not `Z`.
@@ -206,12 +207,21 @@ offset immediately, and it is worth doing before you write anything time sensiti
 
 ## Which columns are UTC and which are local
 
-There is no flag in the schema that says "this column is UTC". What there is:
+**Assume UTC.** Datetime values are almost always stored in UTC, regardless of the SQL Server's
+timezone, the SolarWinds server's timezone, or the browser's. Local time is a rendering applied
+on the way out, not how the value sits in the database.
+
+*Source: reported from practice by a long-time SolarWinds administrator.*
+
+That is the prior to start from, and it changes what the naming means. There is no flag in the
+schema that says "this column is UTC", and:
 
 - **1301 properties** in the 2026.2 schema are typed `System.DateTime`.
-- **128 of them have `Utc` in the property name.** That naming is the most reliable signal
-  you get: `Orion.AuditingEvents.TimeLoggedUtc`, `Orion.Nodes.LastSystemUpTimePollUtc`,
-  `Orion.APM.WindowsEvent.TimeGeneratedUtc`, `Orion.CPUMultiLoad.TimeStampUTC`.
+- **128 of them have `Utc` in the property name** — `Orion.AuditingEvents.TimeLoggedUtc`,
+  `Orion.Nodes.LastSystemUpTimePollUtc`, `Orion.APM.WindowsEvent.TimeGeneratedUtc`,
+  `Orion.CPUMultiLoad.TimeStampUTC`. **The suffix is emphasis, not a distinction.** It marks
+  columns whose authors chose to be explicit; it does not imply the other 1173 are local.
+  Reading it as a distinguishing marker is the mistake this section exists to prevent.
 - **Nine of them say UTC in their description**, and for six of those the name does not, so
   the description is the only signal you get. `Orion.VIM.TriggeredAlarmState.Timestamp` is
   one: "The timestamp in UTC indicating when the alarm was fired."
@@ -219,9 +229,42 @@ There is no flag in the schema that says "this column is UTC". What there is:
   `Orion.Events.EventTime` is described as "Date and time when the event occurred, displayed
   in local time."
 
-Everything else is undocumented, which includes `Orion.Nodes.LastBoot`,
-`Orion.Nodes.NextPoll`, `Orion.Engines.KeepAlive`, `Orion.AlertActive.TriggeredDateTime` and
-`Orion.CPULoad.DateTime`. Do not guess. Measure.
+Everything else carries no statement either way — `Orion.Nodes.LastBoot`,
+`Orion.Nodes.NextPoll`, `Orion.Engines.KeepAlive`, `Orion.AlertActive.TriggeredDateTime`,
+`Orion.CPULoad.DateTime`. Treat those as UTC, which is what the practitioner rule above says
+and what the samples in this repository behave as: SolarWinds' own NetPath query carries the
+comment *"ExecutedAt is stored in UTC, so we use `GETUTCDATE() - 1` to get last 24 hours only"*
+for a column whose name says nothing.
+
+**The exception is the one the schema names.** `Orion.Events.EventTime` documents itself as
+local, and it is one of the most queried date columns in the product — see
+[the tension below](#the-eventtime-exception).
+
+Measurement is still worth the minute it costs when a query's window looks wrong, because
+"almost always" is not "always" and a wrong assumption here is silent.
+
+### The `EventTime` exception
+
+`Orion.Events.EventTime` is described in the schema as *"Date and time when the event occurred,
+**displayed in local time**"*. That is the one column the schema explicitly sets against the
+UTC rule, and it is heavily queried, so it deserves care rather than a ruling.
+
+**The word to notice is "displayed".** A value stored in UTC and rendered in local time is
+exactly what the platform-wide rule predicts, and would make the description a statement about
+presentation rather than storage. A value genuinely stored in server-local time is the other
+reading, and would make this a real exception.
+
+This repository cannot tell the two apart from the contract, so **the tension is left open
+rather than resolved**. What is safe either way:
+
+- **Measure it before you build a time-bounded event query.** The technique below settles it in
+  a minute on your own server, and the answer is the one that matters.
+- **A window that is off by exactly your UTC offset** is the symptom, and it is the reason this
+  column is worth checking rather than assuming.
+
+If your measurement shows `EventTime` behaving as UTC like everything else, the schema
+description is about rendering and there is no exception at all. That is the outcome the
+practitioner rule predicts, and it would be worth reporting.
 
 ### Measuring a column's timezone
 

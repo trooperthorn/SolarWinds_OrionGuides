@@ -38,7 +38,7 @@ the work:
 | Property | Type | Notes |
 |:---|:---|:---|
 | `EventID` | `System.Int32` | Primary key. Monotonic, so useful for paging. |
-| `EventTime` | `System.DateTime` | The schema says: "displayed in local time". |
+| `EventTime` | `System.DateTime` | The schema says: "displayed in local time" — the one column set against the platform's UTC default, and whether that describes storage or rendering is [unresolved](../swql/date-and-time.md#the-eventtime-exception). Measure before building a window on it |
 | `EventType` | `System.Int32` | Join key to `Orion.EventTypes`. |
 | `Message` | `System.String` | The rendered text. |
 | `NetObjectValue` | `System.String` | Display name of the object involved. |

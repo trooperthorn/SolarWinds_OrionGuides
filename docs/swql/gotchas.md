@@ -295,10 +295,13 @@ So `ToUtc(AddMinute(-10, ToLocal(GetUtcDate())))`, not `AddMinute(-10, GetUtcDat
 
 Two related facts that catch people out separately:
 
-- **Not every timestamp in the schema is UTC.** `Orion.Events.EventTime` is documented as "Date
-  and time when the event occurred, **displayed in local time**", while
-  `Orion.Nodes.LastSystemUpTimePollUtc` says UTC in its name. Check the property, do not assume
-  the database convention.
+- **Timestamps are almost always UTC**, whatever the timezone of the SQL Server, the Orion
+  server or your browser. `Orion.Nodes.LastSystemUpTimePollUtc` says so in its name, but the
+  128 columns named that way are being explicit rather than being different — the other 1173
+  `System.DateTime` properties are UTC too. The documented exception is
+  `Orion.Events.EventTime`, "displayed in local time", and whether that describes storage or
+  only rendering is unresolved. See
+  [date-and-time.md](date-and-time.md#which-columns-are-utc-and-which-are-local).
 - **The SQL Server, the Orion server and your workstation can all be in different timezones.**
   The value that arrives at your client has been through all three. `WITH LOGS` (documented, in
   SolarWinds' own example above) is the cheapest way to see what SWIS actually sent.

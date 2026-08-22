@@ -348,7 +348,7 @@ declare a timestamp column of their own, and the name is not consistent. Six nam
 | `Orion.Netflow.FlowsByApplication` | `TimeStamp` |
 | `Orion.APM.HistoricalCPULoad` | `Date` ("The date of poll") |
 | `Orion.AlertHistory` | `TimeStamp` |
-| `Orion.Events` | `EventTime` (documented as local time, not UTC) |
+| `Orion.Events` | `EventTime` (the one column documented as local rather than the UTC default) |
 
 The last two are in the table because they are time-series in practice, not because they are
 statistics entities. `Orion.AlertHistory` inherits straight from `System.Entity` and
