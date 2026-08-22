@@ -20,8 +20,10 @@ The checks are the ones the page states as rules:
     it silently reclassifies an unrecognised API response as healthy
 
 That last one is a judgement rather than a schema rule, and it is here because it is the
-mistake the format invites: the fallback defaults to looking harmless, and a provider changing
-one word then turns an alert off rather than on.
+mistake the format invites. An API Poller evaluates status on a number and only on a number,
+so a text-answering endpoint reaches Up/Warning/Critical through the string rules; matching is
+exact, so a provider rewording one status drops that response onto the fallback. Put the
+fallback below the critical threshold and that rewording turns the alert off rather than on.
 """
 
 from __future__ import annotations

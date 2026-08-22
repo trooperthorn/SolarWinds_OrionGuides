@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**218 statements across 60 pages.**
+**219 statements across 60 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -511,9 +511,13 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - What the platform does on import when the GUID already exists — replace, duplicate or reject — is **not documented and unverified here**.
 
-**[Numeric thresholds against text values](../polling/api-pollers.md#numeric-thresholds-against-text-values)**
+**[Choosing the fallback](../polling/api-pollers.md#choosing-the-fallback)**
 
-- Whether matching is case-sensitive, trims whitespace, or supports any wildcard is **not documented and unverified here**.
+- Whether matching is case-sensitive, trims surrounding whitespace, or supports any wildcard is **not documented and unverified here**.
+
+**[The threshold boundary](../polling/api-pollers.md#the-threshold-boundary)**
+
+- Whether the comparison is strict — whether a mapped value exactly equal to `WarningThresholdValue` reads as Warning or as Up — is **not documented and unverified here**, and it matters when the mapped values are small ordinals, because one step in either direction is the difference between two status levels.
 
 ## [device-studio.md](../polling/device-studio.md)
 

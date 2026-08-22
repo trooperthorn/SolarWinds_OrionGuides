@@ -469,13 +469,14 @@ omitted ones.
 | `RequestVariables` | `Orion.APIPoller.RequestVariable` | `Path`/`DisplayName`; values lifted from one response to use in the next |
 | `RequestDetailsOrder` | `RequestDetailsOrder` | Zero-based; the order multi-request templates run in |
 | `ValueToMonitorCollection/ValueToMonitor` | `Orion.APIPoller.ValueToMonitor` | One per metric |
+| `DisplayName` (on a value) | `DisplayName` | The caption a user sees. Describes the metric, not what `Path` returns |
 | `Path` | `Path` | A JSONPath expression |
 | `ThresholdRule` | `ThresholdRule` | `GreaterThan` in the sample |
 | `WarningThresholdValue` | **`WarningThreshold`** | The names differ between file and schema |
 | `CriticalThresholdValue` | **`CriticalThreshold`** | Likewise. `System.Double` in the schema, written as bare integers here |
 | `Type` | `Type` | `Path` in the sample |
-| `StringToNumberTransformationRule` | `Orion.APIPoller.StringToNumberTransformationRule` | `Text`/`Number` pairs |
-| `StringToNumberTransformationOtherValues` | same name | The fallback for text no rule matches |
+| `StringToNumberTransformationRule` | `Orion.APIPoller.StringToNumberTransformationRule` | `Text`/`Number` pairs. How a text response becomes thresholdable at all |
+| `StringToNumberTransformationOtherValues` | same name | The fallback for text no rule matches. Put it above critical |
 | `PollingInterval` | `Orion.APIPoller.PollingConfiguration.PollingInterval` | **Minutes.** `2` is a two-minute poll |
 
 **Five runtime properties have no element in the file.** `Orion.APIPoller.RequestDetails`
@@ -522,48 +523,104 @@ $xml = Get-Content -Raw '.\my-poller.apipoller.template'
 $newTemplateId = Invoke-SwisVerb $swis 'Orion.APIPoller.Templates' 'ImportTemplate' @($xml)
 ```
 
-### Numeric thresholds against text values
+### How a polled value becomes a status
 
-The `StringToNumberTransformation` pair is the part worth understanding, because it is what
-lets a poller alert on an API that returns words.
+This is the part of the format worth understanding properly, because it is not a transformation
+layered on top of a numeric metric — **it is how an API Poller decides Up, Warning or Critical
+at all.**
 
-The platform thresholds on numbers. When the value at `Path` is text, each
-`StringToNumberTransformationRule` maps one exact string to one number, and
-`StringToNumberTransformationOtherValues` catches everything unmatched. The thresholds then
-apply to the mapped number.
+The pipeline is:
 
-In the sample, four rules map an emergency-status vocabulary to `0`–`3`, the fallback is `5`,
-and the rule is `GreaterThan` with warning `1` and critical `2`. So: normal is `0`, the first
-alert level is warning, the second and third are critical — **and any string the rules do not
-recognise becomes `5`, which is also critical.**
+```text
+  HTTP response
+      -> Path            extract one value by JSONPath
+      -> mapping         if the value is text, StringToNumberTransformationRule turns it
+                         into a number; unmatched text becomes
+                         StringToNumberTransformationOtherValues
+      -> ThresholdRule   compare that number against WarningThresholdValue and
+                         CriticalThresholdValue
+      -> status          Up, Warning or Critical
+```
 
-That fallback choice is the design decision to copy. Setting it above the critical threshold
-means *an unrecognised response pages someone*, which is almost always what you want: an API
-that starts returning a new status string is a change you need to hear about, and a fallback
-of `0` would hide it as "normal" forever.
+**The platform evaluates status on a number, and only on a number.** An API that answers in
+words — `operational`, `EEA 2`, `degraded` — cannot be thresholded directly, so the mapping is
+what makes such an endpoint monitorable. That is the feature's purpose, not a workaround.
 
-**Matching is exact-string** — the rules in the sample carry an em dash and parenthesised
-detail, all of which must match the response byte for byte. That is a real fragility: a
-provider rewording `EEA 2 (Reserve < 1,750 MW — emergency generation deployed)` breaks the
-mapping. With a fallback above critical, it breaks loudly, which is the mitigation.
+The schema shows both ends of the pipeline, so you can check either from a query:
 
-Whether matching is case-sensitive, trims whitespace, or supports any wildcard is **not
-documented and unverified here**.
+```sql
+SELECT
+    v.DisplayName,
+    v.Path,
+    v.Metric,
+    v.Status,
+    v.StatusDescription,
+    v.WarningThreshold,
+    v.CriticalThreshold,
+    v.ThresholdRule
+FROM Orion.APIPoller.ValueToMonitor v
+ORDER BY v.DisplayName
+```
 
-### One thing to check in a template you are given
+`Metric` is `System.Double` and holds the number the poller is working with — **the mapped
+value, after any string rule has been applied** — while `Status` is the result of applying
+`ThresholdRule` to it. A poller behaving unexpectedly is usually diagnosed by reading `Metric`:
+if it is sitting at the fallback value, no rule is matching.
 
-A `ValueToMonitor` has both a `Path` and a set of string rules, and nothing makes them agree.
-If the path resolves to a **number**, the string rules cannot match and every poll takes the
-fallback; if it resolves to **text**, the thresholds apply to the mapped number and the
-`DisplayName` should describe the mapping rather than the raw value.
+### `DisplayName` is a label, not a description of the value
 
-The sample shows the tension: its `DisplayName` is `Operating Reserves (MW)` and its `Path`
-ends in `prc_value`, both suggesting a megawatt figure, while its rules and its warning-at-1
-threshold are built for a small ordinal status. Those readings cannot both be right — a
-megawatt reading would exceed a critical threshold of `2` on every poll. Establish which the
-endpoint actually returns before trusting the alert, and align `DisplayName` with whichever it
-is. This is not a flaw in the format; it is the format faithfully recording two different
-intentions.
+`DisplayName` is the caption a user sees on the poller's page and in a widget. It does not have
+to name what `Path` extracts, and there is no rule that it should — the raw value at `Path` is
+not shown to the user, so the label is free to describe the thing being monitored in whatever
+terms the reader needs.
+
+So `DisplayName` of `Operating Reserves (MW)` against a `Path` ending in `prc_value` is not a
+mismatch. The label tells an operator what the metric is about; the path is machinery.
+
+*This distinction was corrected by a long-time SolarWinds administrator after an earlier
+version of this page read the two as needing to agree. They do not.*
+
+### Choosing the fallback
+
+`StringToNumberTransformationOtherValues` catches every value no rule matched, and where you
+put it relative to the critical threshold is the one real design decision in a text-mapped
+poller.
+
+**Put it above critical.** Then a response the rules do not recognise raises an alert instead of
+disappearing. An API that starts returning a new status string is exactly the change you need
+to hear about, and a fallback below the warning threshold classifies it as healthy for as long
+as nobody happens to look.
+
+The shipped sample uses `5` against a critical threshold of `2` for that reason, and
+`tools/check_api_poller_templates.py` reports the opposite arrangement.
+
+**Matching is exact-string.** A rule's `Text` must match the response byte for byte, including
+punctuation and any non-ASCII characters — real status vocabularies contain em dashes,
+parentheses and commas. That makes a provider rewording a status a genuine fragility, and it is
+the second reason the fallback belongs above critical: the rewording then breaks loudly rather
+than silently.
+
+Whether matching is case-sensitive, trims surrounding whitespace, or supports any wildcard is
+**not documented and unverified here**.
+
+### The threshold boundary
+
+`ThresholdRule` is `GreaterThan` in every sample seen here. Whether the comparison is strict —
+whether a mapped value exactly equal to `WarningThresholdValue` reads as Warning or as Up — is
+**not documented and unverified here**, and it matters when the mapped values are small
+ordinals, because one step in either direction is the difference between two status levels.
+
+Read `Metric` and `Status` side by side on your own server for a value you can force, and you
+have the answer:
+
+```sql
+SELECT v.DisplayName, v.Metric, v.WarningThreshold, v.CriticalThreshold, v.Status
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.Metric IS NOT NULL
+```
+
+If you need a specific mapped value to land in a specific status regardless, leave a gap
+between the numbers your rules produce rather than placing them adjacent to a threshold.
 
 ## Practical notes
 

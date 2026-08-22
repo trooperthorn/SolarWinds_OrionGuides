@@ -12,12 +12,17 @@ along with the six Invoke verbs that import, export and assign these.
 
 ## The sample
 
-Two `ValueToMonitor` entries against one request, chosen to show both halves of the format:
+Two `ValueToMonitor` entries against one request, chosen to show both ways a value reaches a
+status:
 
-- **Queue Depth** — a plain numeric metric with warning and critical thresholds and no string
-  rules. This is the ordinary case.
+- **Queue Depth** — a value that is already numeric, thresholded directly. No string rules
+  needed.
 - **Service State** — a text value (`operational`, `degraded`, `maintenance`, `outage`) mapped
-  to numbers so the platform can threshold it, with an unmatched-value fallback of `5`.
+  to numbers, because **the platform evaluates status on numbers only**. The mapping is what
+  makes a word-answering API monitorable at all. Unmatched values fall back to `5`.
+
+`DisplayName` is the caption an operator reads. It describes the metric rather than the raw
+value at `Path`, which nobody sees.
 
 **The fallback is the part to copy.** It sits above the critical threshold of `2`, so a status
 string none of the four rules recognise reads as critical rather than healthy. If the provider
