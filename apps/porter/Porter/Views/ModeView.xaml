@@ -6,25 +6,25 @@
         <TextBlock Foreground="Gray" Margin="0,4,0,18"
                    Text="Export pulls configuration out of this server as files. Import brings exported files in — validated before anything is written."/>
         <UniformGrid Columns="3" HorizontalAlignment="Left">
-            <Button Height="110" Width="220" Margin="0,0,14,0" Click="Export_Click">
+            <Button Height="110" Width="220" Margin="0,0,14,0" AutomationProperties.Name="Export" Click="Export_Click">
                 <StackPanel>
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Export" HorizontalAlignment="Center"/>
+                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Export · Orion Transit" HorizontalAlignment="Center"/>
                     <TextBlock Foreground="Gray" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                               Margin="10,4,10,0" Text="Raw files, or a package with a manifest"/>
+                               Margin="10,4,10,0" Text="Raw files, or a cargo pod (.zip) with a manifest"/>
                 </StackPanel>
             </Button>
-            <Button Height="110" Width="220" Margin="0,0,14,0" Click="Import_Click">
+            <Button Height="110" Width="220" Margin="0,0,14,0" AutomationProperties.Name="Import" Click="Import_Click">
                 <StackPanel>
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Import" HorizontalAlignment="Center"/>
+                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Import · Project Genesis" HorizontalAlignment="Center"/>
                     <TextBlock Foreground="Gray" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
                                Margin="10,4,10,0" Text="Validate, dry-run, then write with a collision policy"/>
                 </StackPanel>
             </Button>
-            <Button Height="110" Width="220" IsEnabled="False">
+            <Button Height="110" Width="220" AutomationProperties.Name="Backup and Restore" IsEnabled="False">
                 <StackPanel>
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Backup &amp; Restore" HorizontalAlignment="Center"/>
+                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Backup &amp; Restore · Cryogenic Stasis" HorizontalAlignment="Center"/>
                     <TextBlock Foreground="Gray" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                               Margin="10,4,10,0" Text="Pinned to v2 — scheduled snapshots and rollback"/>
+                               Margin="10,4,10,0" Text="Pinned to v2 — Freeze (snapshot) and Revive (rollback)"/>
                 </StackPanel>
             </Button>
         </UniformGrid>

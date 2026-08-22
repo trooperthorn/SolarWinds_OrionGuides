@@ -16,15 +16,15 @@ public partial class ModeView : UserControl
     private void Export_Click(object sender, RoutedEventArgs e)
     {
         _shell.ModeIsExport = true;
-        _shell.Go(new AreaView(_shell), "Export · choose area");
+        _shell.Go(new AreaView(_shell), "Export · Constellations");
     }
 
     private void Import_Click(object sender, RoutedEventArgs e)
     {
         _shell.ModeIsExport = false;
-        _shell.Go(new AreaView(_shell), "Import · choose area");
+        _shell.Go(new AreaView(_shell), "Import · Constellations");
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
-        => _shell.Go(new ConnectView(_shell), "Connect");
+        => _shell.Go(new ConnectView(_shell), "Connect · Docking");
 }

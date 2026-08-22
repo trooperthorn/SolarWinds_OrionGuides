@@ -88,7 +88,8 @@ public partial class ExportView : UserControl
     {
         var selected = _rows.Count(r => r.IsSelected);
         CountText.Text = $"{selected} of {_rows.Count} selected";
-        ExportBtn.Content = $"Export {selected} selected";
+        ExportBtn.Content = $"Begin Transit ({selected})";
+        ExportBtn.ToolTip = $"Export {selected} selected item{(selected == 1 ? "" : "s")}";
         ExportBtn.IsEnabled = selected > 0;
         if (_headCheck is not null)
         {
@@ -157,12 +158,12 @@ public partial class ExportView : UserControl
 
     private void Browse_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFolderDialog { Title = "Choose the export destination" };
+        var dialog = new OpenFolderDialog { Title = "Landing site — choose the export destination" };
         if (dialog.ShowDialog() == true) DestBox.Text = dialog.FolderName;
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
-        => _shell.Go(new AreaView(_shell), "Export · choose area");
+        => _shell.Go(new AreaView(_shell), "Export · Constellations");
 
     private void Export_Click(object sender, RoutedEventArgs e)
     {
@@ -181,7 +182,7 @@ public partial class ExportView : UserControl
         var session = _shell.Session;
         var platform = _shell.PlatformLabel;
 
-        _shell.Go(new RunView(_shell, "Exporting Modern Dashboards", async (log, ct) =>
+        _shell.Go(new RunView(_shell, "Mission Control — exporting Modern Dashboards", async (log, ct) =>
         {
             var area = new DashboardsArea(session);
             var items = new List<PackageItem>();
@@ -219,6 +220,6 @@ public partial class ExportView : UserControl
             log.Report($"Output → {where}");
             summary.OutputPath = where;
             return summary;
-        }), "Export · running");
+        }), "Export · Mission Control");
     }
 }

@@ -15,7 +15,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Go(new ConnectView(this), "Connect");
+        Go(new ConnectView(this), "Connect · Docking");
     }
 
     public void Go(UserControl view, string crumb)

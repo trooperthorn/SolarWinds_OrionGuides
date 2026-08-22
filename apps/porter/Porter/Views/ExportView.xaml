@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <DockPanel Margin="28">
         <StackPanel DockPanel.Dock="Top">
-            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Export — Modern Dashboards"/>
+            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Export — Modern Dashboards · Cargo Manifest"/>
             <DockPanel Margin="0,10,0,8">
                 <TextBox x:Name="FilterBox" Width="230" DockPanel.Dock="Left"
                          TextChanged="Filter_Changed" VerticalContentAlignment="Center"
@@ -23,17 +23,18 @@
             <StackPanel>
                 <TextBlock FontWeight="SemiBold" Text="Output"/>
                 <RadioButton x:Name="FmtRaw" Content="Raw files" IsChecked="True" Margin="0,8,0,4"/>
-                <RadioButton x:Name="FmtZip" Content="Package (.zip + manifest)" Margin="0,0,0,4"/>
-                <RadioButton x:Name="FmtAes" Content="Encrypted package (.zip.aes)"
+                <RadioButton x:Name="FmtZip" Content="Cargo pod (.zip + manifest)" Margin="0,0,0,4"/>
+                <RadioButton x:Name="FmtAes" Content="Cloaked cargo pod (.zip.aes, encrypted)"
                              Checked="Fmt_Changed" Unchecked="Fmt_Changed"/>
                 <TextBlock Text="Package password" Margin="0,8,0,2" FontSize="12"/>
                 <PasswordBox x:Name="AesPass" IsEnabled="False"/>
-                <TextBlock Text="Destination folder" Margin="0,12,0,2" FontSize="12"/>
+                <TextBlock Text="Landing site — destination folder" Margin="0,12,0,2" FontSize="12"/>
                 <DockPanel>
                     <Button DockPanel.Dock="Right" Content="…" Padding="8,2" Click="Browse_Click"/>
                     <TextBox x:Name="DestBox" IsReadOnly="True"/>
                 </DockPanel>
-                <Button x:Name="ExportBtn" Content="Export 0 selected" FontWeight="SemiBold"
+                <Button x:Name="ExportBtn" Content="Begin Transit (0)" ToolTip="Export the selected items"
+                        AutomationProperties.Name="Export selected" FontWeight="SemiBold"
                         Margin="0,16,0,0" Click="Export_Click"/>
                 <Button Content="Back" Margin="0,8,0,0" Click="Back_Click"/>
             </StackPanel>

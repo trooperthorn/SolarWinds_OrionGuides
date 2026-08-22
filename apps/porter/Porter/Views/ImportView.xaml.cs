@@ -151,7 +151,8 @@ public partial class ImportView : UserControl
     private void UpdateButtons()
     {
         var importable = Importable().Count;
-        ImportBtn.Content = $"Import {importable} file{(importable == 1 ? "" : "s")}";
+        ImportBtn.Content = $"Energize ({importable})";
+        ImportBtn.ToolTip = $"Import {importable} staged file{(importable == 1 ? "" : "s")}";
         ImportBtn.IsEnabled = importable > 0 && _shell.Session is not null;
         DryRunBtn.IsEnabled = _staged.Count > 0 && _shell.Session is not null;
     }
@@ -166,7 +167,7 @@ public partial class ImportView : UserControl
     private void Import_Click(object sender, RoutedEventArgs e) => Run(dryRun: false);
 
     private void Back_Click(object sender, RoutedEventArgs e)
-        => _shell.Go(new AreaView(_shell), "Import · choose area");
+        => _shell.Go(new AreaView(_shell), "Import · Constellations");
 
     private void Run(bool dryRun)
     {
@@ -177,7 +178,8 @@ public partial class ImportView : UserControl
         var session = _shell.Session;
 
         _shell.Go(new RunView(_shell,
-            dryRun ? "Dry run — Modern Dashboards (no writes)" : "Importing Modern Dashboards",
+            dryRun ? "Simulation — Modern Dashboards (Go / No-Go, no writes)"
+                   : "Mission Control — importing Modern Dashboards",
             async (log, ct) =>
         {
             var area = new DashboardsArea(session);
@@ -187,7 +189,7 @@ public partial class ImportView : UserControl
             {
                 summary.Skipped++;
                 summary.SkippedNames.Add($"{file.FileName} — {file.Validation.Summary}");
-                log.Report($"SKIP {file.FileName}: {file.Validation.Summary}");
+                log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {file.Validation.Summary}");
             }
 
             foreach (var file in files)
@@ -209,7 +211,7 @@ public partial class ImportView : UserControl
                             : $"\"{d.Name}\" (skipped with its file)").ToList();
                         var detail = string.Join(", ", parts);
                         summary.SkippedNames.Add($"{file.FileName} — {detail}");
-                        log.Report($"SKIP {file.FileName}: {detail}");
+                        log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
                         SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "skipped", detail);
                         continue;
                     }
@@ -225,7 +227,7 @@ public partial class ImportView : UserControl
 
                     if (dryRun)
                     {
-                        log.Report($"WOULD import {file.FileName}{note}");
+                        log.Report($"GO — would import {file.FileName}{note}");
                         summary.Ok++;
                         continue;
                     }
@@ -236,7 +238,7 @@ public partial class ImportView : UserControl
                     var found = await area.VerifyAsync(verifyKeys, ct);
                     if (found.Count >= verifyKeys.Count(k => k.Length > 0) && found.Count > 0)
                     {
-                        log.Report($"  verified: {string.Join(", ", found.Select(f => $"\"{f.Name}\" (id {f.Id})"))}");
+                        log.Report($"  tricorder — verified: {string.Join(", ", found.Select(f => $"\"{f.Name}\" (id {f.Id})"))}");
                         SessionLog.Log("import", file.FileName, "ok", string.Join(",", found.Select(f => f.Id)));
                         summary.Ok++;
                     }
@@ -249,12 +251,12 @@ public partial class ImportView : UserControl
                 }
                 catch (Exception ex)
                 {
-                    log.Report($"FAILED {file.FileName}: {ex.Message}");
+                    log.Report($"{(dryRun ? "NO-GO" : "FAILED")} {file.FileName}: {ex.Message}");
                     SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "failed", ex.Message);
                     summary.Failed++;
                 }
             }
             return summary;
-        }), dryRun ? "Import · dry run" : "Import · running");
+        }), dryRun ? "Import · Simulation" : "Import · Mission Control");
     }
 }
