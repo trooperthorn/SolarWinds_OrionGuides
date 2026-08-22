@@ -345,6 +345,181 @@ date range can be turned into an id range without touching the `DateTime` column
 is an inference from the names and is **not verified**. They are declared internal, so do
 not build on them: write the `DateTime` predicate instead.
 
+## The rule export format
+
+`ExportRules` returns JSON and `ImportRules` takes it. The console writes the same document
+from **Settings > Log Analyzer Settings > Log Rules > Export**, naming the file
+`LA_rules_<yyyyMMddHHmmss>.json`.
+
+**Source.** Derived by parsing a real export against the 2026.2 schema. SolarWinds documents
+the console workflow but not the document.
+
+### The envelope
+
+```json
+{
+  "Version": 5,
+  "Rules": [ ... ]
+}
+```
+
+`Version` is the document's schema version, `5` in the sample. `Rules` is a flat array — the
+export is a list of whole rules, not a diff, so importing one is importing everything it names.
+
+### A rule
+
+```json
+{
+  "Id": "88f5c2f5-41b4-40e0-8096-515baae915ad",
+  "PolicyId": "c84f61d8-c48b-4da0-a440-f6e0f87e2370",
+  "Name": "rule test",
+  "IsEnabled": true,
+  "Rank": 1,
+  "SourceType": "",
+  "Condition": { ... },
+  "Actions": [ ... ],
+  "TimeWindow": { ... }
+}
+```
+
+| Field | Maps to `Orion.OLM.ProcessingRule` | Notes |
+| --- | --- | --- |
+| `Id` | `RuleDefinitionId` | The GUID identity |
+| `Name` | `Name` | |
+| `IsEnabled` | `Enabled` | Note the name differs between document and entity |
+| `PolicyId` | — | **No corresponding property on the entity** |
+| `Rank` | — | Rule precedence. Not queryable |
+| `SourceType` | — | Empty in the sample |
+
+`ReadOnly` is a property of the entity with no field in the document, which fits: a
+SolarWinds-shipped rule is read-only on the server, and that is a property of the installation
+rather than of the rule.
+
+**`PolicyId` and `Rank` are in the document and not in the entity**, so a rule's grouping and
+its evaluation order cannot be read back with a query — only from an export. That is the main
+reason to keep exports rather than treat the entity as the source of truth. What a policy is,
+and whether `Rank` orders rules globally or within a policy, is **not documented and unverified
+here**.
+
+### Conditions are a tree
+
+```json
+"Condition": {
+  "Operator": "Or",
+  "Conditions": [
+    { "Field": "Community",
+      "Comparison": "DoesNotContain",
+      "ComparisonValues": [ { "TextValue": "value" } ] },
+    { "Field": "IpAddress",
+      "Comparison": "MatchesRegex",
+      "ComparisonValues": [ { "TextValue": "(regexvalue)" } ] }
+  ]
+}
+```
+
+A node either carries an `Operator` and a nested `Conditions` array, or it is a leaf with
+`Field`, `Comparison` and `ComparisonValues`. So arbitrary AND/OR trees are expressible, and
+`ComparisonValues` being an array means one comparison can carry several values.
+
+The sample exercises `Or`, `DoesNotContain` and `MatchesRegex`. **The complete operator and
+comparison vocabularies are not documented and unverified here** — `And` is certain to exist,
+and the presence of `MatchesRegex` implies a matching negative form, but neither is attested by
+anything this repository has seen.
+
+**`Field` names are installation-defined, and discoverable.** `Community` and `IpAddress` in
+the sample are trap fields — `Community` is a declared property of `Orion.OLM.AlertMessage`
+("Trap community"). The authoritative list for your server is a column:
+
+```sql
+SELECT d.FieldDefinitions
+FROM Orion.OLM.RuleProcessingDefinitions d
+```
+
+`Orion.OLM.RuleProcessingDefinitions.FieldDefinitions` is documented as "JSON with field
+definitions", and its sibling `RuleDefinitions` as "JSON with rule processing definitions" —
+which is very likely this same document, readable without an Invoke. That the two are the same
+serialisation is the obvious reading and is **unverified here**; compare the column against an
+export on your own server to confirm.
+
+That entity also notes "You can subscribe to this entity to be notified about changes", so it
+is what to watch if you keep an external copy of the rule set in step.
+
+### Actions
+
+```json
+"Actions": [ { "ActionType": "Alerting", "AlertFireImmediately": true } ]
+```
+
+`Actions` is an array, so a rule can do several things on a match.
+
+**`ActionType` is a string in the document and an integer in the schema.**
+`Orion.OLM.ProcessingRuleActions.ActionType` is `System.Int32`, described as "Numeric value
+identifying the action type (tag assignment, alerting action, ...)". The export writes
+`"Alerting"`. So the two are different representations of the same choice, and the document is
+the readable one.
+
+That gives a name for one action type without giving its number. The mapping between the
+strings and the integers is **not documented and unverified here** — build it for your own
+server by exporting a rule of each kind and comparing against:
+
+```sql
+SELECT a.ActionType, COUNT(a.RuleActionId) AS Actions
+FROM Orion.OLM.ProcessingRuleActions a
+GROUP BY a.ActionType
+```
+
+`AlertFireImmediately` is specific to the alerting action and is the switch between raising the
+alert on the first match and waiting for the rule engine's aggregation — which matters, because
+`Orion.OLM.AlertMessage.HitCount` exists precisely so that one indication can stand for many
+messages.
+
+### Time windows
+
+```json
+"TimeWindow": {
+  "ActiveFrom": "2026-08-22T05:00:00Z",
+  "ActiveTo": "2026-08-22T05:00:00Z",
+  "ActiveDays": "Tuesday"
+}
+```
+
+A rule can be restricted to a period and to named days. **`ActiveFrom` and `ActiveTo` are
+identical in the sample**, which reads as "no time restriction" rather than a zero-length
+window, but that is an inference and is **unverified here**.
+
+`ActiveDays` is a single string holding a day name. Whether several days are expressed as a
+comma-separated list, an array, or a bitmask is **not documented and unverified here** — build
+a rule with two days in the console and export it to find out.
+
+The timestamps are UTC. A rule active `05:00Z` to `17:00Z` does not follow your operators'
+working day across a daylight-saving change.
+
+### Moving a rule set
+
+```powershell
+# Everything: identifiers empty, comma as the separator.
+$json = Invoke-SwisVerb $swis Orion.OLM.ProcessingRule ExportRules @('', ',')
+
+# Or a named subset.
+$json = Invoke-SwisVerb $swis Orion.OLM.ProcessingRule ExportRules @('rule test,another rule', ',')
+
+$summary = Invoke-SwisVerb $target Orion.OLM.ProcessingRule ImportRules @($json.InnerText)
+```
+
+**`ImportRules` is the only import verb in this repository that reports what it did.** Report
+definitions, dashboards, API poller templates and SAM templates all return an id or nothing;
+this one returns `Total`, `Imported`, `Failed`, `Skipped`, an `Errors` collection pairing a rule
+GUID with its messages, and an `ErrorDetail`.
+
+Read `Failed` and `Skipped`. A partially applied import is a success as far as the transport is
+concerned, and `Skipped` being non-zero is the signal that some rules already existed — which
+is as close as the contract comes to telling you how collisions are handled.
+
+Whether an import replaces, merges or skips a rule whose `Id` already exists remains **not
+stated in the schema and unverified here**. The presence of a `Skipped` counter suggests
+skipping rather than replacing, unlike the console's report import, which duplicates and
+renames. Export first, import into a non-production installation, and compare.
+
 ## Worked queries
 
 Every query below has been validated against the 2026.2 schema with
@@ -688,11 +863,14 @@ permissions problem as a collection problem.
 | Claim | Status | How to check on your server |
 |---|---|---|
 | The full list of `Orion.OLM.LogEntryType.Type` values | SolarWinds' export page names `Syslog` and `Traps`; the schema enumerates nothing, and installations that collect log files or VMware events have more | `SELECT LogEntryTypeID, Type, Name, RetentionPeriodInDays FROM Orion.OLM.LogEntryType ORDER BY Type` |
-| The `ActionType` integers on `Orion.OLM.ProcessingRuleActions` | The description names "tag assignment, alerting action" without numbering them | `SELECT ActionType, COUNT(RuleActionId) AS Actions FROM Orion.OLM.ProcessingRuleActions GROUP BY ActionType` |
+| The `ActionType` integers on `Orion.OLM.ProcessingRuleActions` | The description names "tag assignment, alerting action" without numbering them. A rule export writes the string `"Alerting"` for one of them, so the names are known where the numbers are not — see [the rule export format](#actions) | `SELECT ActionType, COUNT(RuleActionId) AS Actions FROM Orion.OLM.ProcessingRuleActions GROUP BY ActionType`, then export a rule of each kind and compare |
 | The `Status` integers on `Orion.OLM.MessageSources` and `Orion.OLM.Nodes` | Documented as "license status" with no value list. `Orion.OLM.Nodes.LicenseStatus` gives the text for its own column; the source entity has no text column | `SELECT Status, COUNT(MessageSourceID) AS Sources FROM Orion.OLM.MessageSources GROUP BY Status`, and the same shape against `Orion.OLM.Nodes` alongside `LicenseStatus` |
-| What `ImportRules` does to rules that already exist | Not stated. The returned `ImportRuleSummary` counts `Imported`, `Failed` and `Skipped` but the contract does not say which existing rules become which | Export first, import into a non-production installation, and compare |
+| What `ImportRules` does to rules that already exist | Not stated. The returned `ImportRuleSummary` counts `Imported`, `Failed` and `Skipped` but the contract does not say which existing rules become which. The presence of a `Skipped` counter points at skipping rather than replacing | Export first, import into a non-production installation, and compare |
 | That `LogEntryID` encodes the receipt date | Inferred from `UidMinForDate`, `UidMaxForDate` and `UidExtractDate` plus the `System.Int64` key. All three verbs are marked internal | `Invoke-SwisVerb $swis Orion.OLM.LogEntry UidExtractDate @($someLogEntryId)` on a test system, and compare against that entry's `DateTime` |
 | The field names available in `Orion.OLM.LogEntryFieldValue` | Defined by the installation's parsing rules, not by the schema | `SELECT TOP 50 Name, COUNT(LogEntryFieldValueID) AS Occurrences FROM Orion.OLM.LogEntryFieldValue WHERE Event.DateTime >= @startUtc GROUP BY Name` |
+| The condition `Operator` and `Comparison` vocabularies | A rule export exercises `Or`, `DoesNotContain` and `MatchesRegex`. `And` is certain to exist; nothing attests the rest | Build a rule in the console using each operator and export it |
+| How `TimeWindow.ActiveDays` expresses more than one day | The sample holds a single day name. Comma-separated, array and bitmask are all plausible | Build a two-day rule in the console and export it |
+| That `Orion.OLM.RuleProcessingDefinitions.RuleDefinitions` holds the same JSON `ExportRules` returns | Both are described as rule processing definitions in JSON, but nothing states they are the same serialisation | `SELECT RuleDefinitions FROM Orion.OLM.RuleProcessingDefinitions` and diff it against an export |
 | The severity strings in `Orion.OLM.HealthIssues.Severity` | The description gives "warn, error" as examples, not as the full set | `SELECT Severity, COUNT(ID) AS Issues FROM Orion.OLM.HealthIssues GROUP BY Severity` |
 
 ## Related pages

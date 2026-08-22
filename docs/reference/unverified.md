@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**230 statements across 62 pages.**
+**237 statements across 62 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -373,6 +373,28 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Verbs](../modules/log-analyzer.md#verbs)**
 
 - The three `Orion.OLM.LogEntry` verbs are all documented as "For internal use only." Their names and signatures are consistent with `LogEntryID` encoding a timestamp, so that a date range can be turned into an id range without touching the `DateTime` column, but that is an inference from the names and is **not verified**.
+
+**[A rule](../modules/log-analyzer.md#a-rule)**
+
+- What a policy is, and whether `Rank` orders rules globally or within a policy, is **not documented and unverified here**.
+
+**[Conditions are a tree](../modules/log-analyzer.md#conditions-are-a-tree)**
+
+- **The complete operator and comparison vocabularies are not documented and unverified here** — `And` is certain to exist, and the presence of `MatchesRegex` implies a matching negative form, but neither is attested by anything this repository has seen.
+- That the two are the same serialisation is the obvious reading and is **unverified here**; compare the column against an export on your own server to confirm.
+
+**[Actions](../modules/log-analyzer.md#actions)**
+
+- The mapping between the strings and the integers is **not documented and unverified here** — build it for your own server by exporting a rule of each kind and comparing against:
+
+**[Time windows](../modules/log-analyzer.md#time-windows)**
+
+- **`ActiveFrom` and `ActiveTo` are identical in the sample**, which reads as "no time restriction" rather than a zero-length window, but that is an inference and is **unverified here**.
+- Whether several days are expressed as a comma-separated list, an array, or a bitmask is **not documented and unverified here** — build a rule with two days in the console and export it to find out.
+
+**[Moving a rule set](../modules/log-analyzer.md#moving-a-rule-set)**
+
+- Whether an import replaces, merges or skips a rule whose `Id` already exists remains **not stated in the schema and unverified here**.
 
 **[What is not verified here](../modules/log-analyzer.md#what-is-not-verified-here)**
 
