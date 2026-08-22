@@ -36,6 +36,7 @@ So this repository:
 | Change something, not just read it | [docs/swis/invoke-verbs.md](docs/swis/invoke-verbs.md) |
 | Automate a task end to end | [docs/automation/](docs/automation/README.md) |
 | Work out why something is or is not being polled | [docs/polling/](docs/polling/README.md) |
+| Make a console widget link and show icons | [docs/webui/](docs/webui/README.md) |
 | Copy a working query | [scripts/swql/](scripts/swql/) |
 | Use this repository from an AI agent | [AGENTS.md](AGENTS.md) |
 
@@ -189,7 +190,7 @@ checks nine things:
 
 | Check | Catches |
 | --- | --- |
-| `test_tools.py` | Regressions in the tools' own judgement, across 174 tests |
+| `test_tools.py` | Regressions in the tools' own judgement, across 179 tests |
 | `validate_swql.py` | A query naming an entity, property, column or navigation that does not exist |
 | `check_data.py` | Extraction that degraded quietly, and reference pages that fell behind |
 | `check_entity_references.py` | An invented entity, member, NetObject prefix, right or type member, or a wrong property type |

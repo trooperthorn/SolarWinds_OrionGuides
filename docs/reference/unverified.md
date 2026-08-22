@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**151 statements across 47 pages.**
+**158 statements across 49 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -670,6 +670,35 @@ Read this before relying on this repository for something load-bearing. If you h
 **[9. Bind parameters instead of building query text](../swql/performance.md#9-bind-parameters-instead-of-building-query-text)**
 
 - Whether SWIS actually reuses a plan across executions of the same parameterised query is **unverified** here; you can test it on your own server by running the same query with different parameter values and comparing the timings reported by `WITH QUERYSTATS`.
+
+## [README.md](../webui/README.md)
+
+**[A caveat that applies to the whole section](../webui/README.md#a-caveat-that-applies-to-the-whole-section)**
+
+- So the SWQL is sound and the UI conventions around it are reported, sourced and marked unverified.
+
+## [custom-query-widget.md](../webui/custom-query-widget.md)
+
+**[The naming convention](../webui/custom-query-widget.md#the-naming-convention)**
+
+- Whether the `_LinkFor_` and `_IconFor_` prefixes themselves are case-sensitive is **not documented by SolarWinds and is unverified here** — community examples write both `[_LinkFor_NODE]` and `[_linkfor_Caption]` and report both working.
+
+**[Where the link value comes from](../webui/custom-query-widget.md#where-the-link-value-comes-from)**
+
+- These console paths are **not part of the SWIS schema and are unverified here**.
+
+**[Where the icon value comes from](../webui/custom-query-widget.md#where-the-icon-value-comes-from)**
+
+- Whether `StatusIcon` holds a bare filename or a path the widget can use unmodified is **not recorded in the schema and is unverified here**.
+- The `Small-` prefix and `.gif` extension are **unverified here**.
+
+**[A worked widget](../webui/custom-query-widget.md#a-worked-widget)**
+
+- What it means for a query that spans several statistics tables is **not documented by SolarWinds and is unverified here**; see [../swql/performance.md](../swql/performance.md) for what a widget query costs and [../swql/gotchas.md](../swql/gotchas.md) for reading uncommitted data.
+
+**[Practical notes](../webui/custom-query-widget.md#practical-notes)**
+
+- They are marked unverified where they appear.
 
 ---
 

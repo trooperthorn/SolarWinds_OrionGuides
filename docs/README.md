@@ -115,6 +115,13 @@ Five separate polling systems that share no entities and reuse each other's colu
 | [polling/technology-polling.md](polling/technology-polling.md) | Technology polling and the declarative poller templates |
 | [polling/api-pollers.md](polling/api-pollers.md) | Collecting from an HTTP endpoint |
 
+## The web console
+
+| Page | Covers |
+| --- | --- |
+| [webui/README.md](webui/README.md) | What this section is, and why the schema cannot verify it |
+| [webui/custom-query-widget.md](webui/custom-query-widget.md) | `_LinkFor_` and `_IconFor_` column conventions, console URLs, a worked widget |
+
 ## Guides
 
 | Page | Covers |

@@ -100,9 +100,14 @@ class SchemaIndex:
 
 STRING_RE = re.compile(r"'(?:[^']|'')*'")
 COMMENT_RE = re.compile(r"--[^\n]*|/\*.*?\*/", re.S)
-# FROM/JOIN <Entity> [AS] [alias]; entity names are dotted, aliases are bare words.
+# FROM/JOIN <Entity>[(hint=value, ...)] [AS] [alias]; entity names are dotted, aliases are
+# bare words. The optional parenthesised part is a table hint, written directly against the
+# entity name as Orion.Nodes(nolock=true). It appears throughout SolarWinds' community
+# material, and without it here the alias that follows was read as a member of the entity
+# and every column qualified by that alias was reported as unknown.
 SOURCE_RE = re.compile(
     r"\b(?:from|join)\s+(?P<entity>[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)+)"
+    r"(?:\s*\((?P<hint>[^()]*)\))?"
     r"(?:\s+(?:as\s+)?(?P<alias>(?!on\b|where\b|join\b|inner\b|left\b|right\b|full\b|outer\b|cross\b|group\b|order\b|having\b|with\b|union\b)[A-Za-z_]\w*))?",
     re.I,
 )

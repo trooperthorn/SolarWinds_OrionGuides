@@ -179,6 +179,53 @@ class TestValidator(unittest.TestCase):
         self.assertEqual(self.errors(query), [])
 
 
+class TestTableHints(unittest.TestCase):
+    """A table hint written against the entity name must not be read as an alias.
+
+    Orion.Nodes(nolock=true) n appears throughout SolarWinds' community material, and the
+    console widget examples use it on every source. Without the hint in the source pattern
+    the parser stopped at the entity name, took "nolock" for the alias, and then reported
+    every column qualified by the real alias as an unknown member -- a wall of errors on a
+    query that is correct.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import validate_swql
+
+        cls.mod = validate_swql
+        cls.schema = validate_swql.SchemaIndex(VERSION)
+
+    def test_a_hinted_source_resolves_its_alias(self):
+        q = "SELECT n.Caption, n.NodeID FROM Orion.Nodes(nolock=true) n"
+        self.assertEqual([f for f in self.mod.validate(q, self.schema) if f.level == "ERROR"], [])
+
+    def test_every_source_in_a_join_may_carry_a_hint(self):
+        q = ("SELECT c.ComponentName, n.Caption "
+             "FROM Orion.APM.Component(nolock=true) c "
+             "JOIN Orion.Nodes(nolock=true) n ON n.NodeID = c.ApplicationID")
+        self.assertEqual([f for f in self.mod.validate(q, self.schema) if f.level == "ERROR"], [])
+
+    def test_the_hint_does_not_become_the_alias(self):
+        q = "SELECT n.Caption FROM Orion.Nodes(nolock=true) n"
+        m = self.mod.SOURCE_RE.search(q)
+        self.assertEqual(m.group("entity"), "Orion.Nodes")
+        self.assertEqual(m.group("alias"), "n")
+        self.assertEqual(m.group("hint"), "nolock=true")
+
+    def test_an_unhinted_source_is_unaffected(self):
+        m = self.mod.SOURCE_RE.search("SELECT n.Caption FROM Orion.Nodes n")
+        self.assertEqual(m.group("entity"), "Orion.Nodes")
+        self.assertEqual(m.group("alias"), "n")
+        self.assertIsNone(m.group("hint"))
+
+    def test_a_bad_column_is_still_caught_through_a_hint(self):
+        # The hint must widen the parse, not weaken the check.
+        q = "SELECT n.Nonesuch FROM Orion.Nodes(nolock=true) n"
+        errors = [f for f in self.mod.validate(q, self.schema) if f.level == "ERROR"]
+        self.assertTrue(errors)
+
+
 class TestEmbeddedExtraction(unittest.TestCase):
     """SWQL inside client scripts has to be found without swallowing surrounding prose."""
 
