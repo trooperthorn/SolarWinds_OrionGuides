@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -16,10 +15,11 @@ public sealed class ExportRow : INotifyPropertyChanged
 {
     private bool _isSelected;
 
-    public required int Id { get; init; }
+    public required string Id { get; init; }
     public required string Name { get; init; }
     public required string UniqueKey { get; init; }
     public required bool IsSystem { get; init; }
+    public string Detail { get; init; } = "";
     public string SystemLabel => IsSystem ? "built-in" : "";
 
     public bool IsSelected
@@ -34,13 +34,24 @@ public sealed class ExportRow : INotifyPropertyChanged
 public partial class ExportView : UserControl
 {
     private readonly MainWindow _shell;
+    private readonly AreaProvider _provider;
     private readonly ObservableCollection<ExportRow> _rows = new();
+    private readonly Dictionary<string, AreaItem> _items = new();
     private CheckBox? _headCheck;
 
-    public ExportView(MainWindow shell)
+    public ExportView(MainWindow shell, AreaProvider provider)
     {
         _shell = shell;
+        _provider = provider;
         InitializeComponent();
+        TitleText.Text = $"Export — {provider.DisplayName} · Cargo Manifest";
+        if (provider.SecurityNotice is string notice)
+        {
+            SecurityNoticeText.Text = notice;
+            SecurityNoticeText.Visibility = Visibility.Visible;
+        }
+        if (provider.OffersStripSensitive) StripSensitiveBox.Visibility = Visibility.Visible;
+        if (provider.RequiresCipherPassword) CipherPanel.Visibility = Visibility.Visible;
         DestBox.Text = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "Porter", DateTime.Now.ToString("yyyy-MM-dd"));
@@ -60,23 +71,36 @@ public partial class ExportView : UserControl
             || row.UniqueKey.Contains(q, StringComparison.OrdinalIgnoreCase);
     }
 
+    private bool _refreshing;
+
     private async Task RefreshAsync()
     {
-        if (_shell.Session is null) return;
+        if (_shell.Session is null || _refreshing) return;
+        _refreshing = true;
         _rows.Clear();
+        _items.Clear();
         try
         {
-            var area = new DashboardsArea(_shell.Session);
-            foreach (var d in await area.ListAsync())
+            foreach (var item in await _provider.ListAsync(CancellationToken.None))
             {
-                var row = new ExportRow { Id = d.Id, Name = d.Name, UniqueKey = d.UniqueKey, IsSystem = d.IsSystem };
+                _items[item.Id] = item;
+                var row = new ExportRow
+                {
+                    Id = item.Id, Name = item.Name, UniqueKey = item.Key,
+                    IsSystem = item.IsSystem, Detail = item.Detail,
+                };
                 row.PropertyChanged += (_, _) => Recount();
                 _rows.Add(row);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Could not list dashboards", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, $"Could not list {_provider.DisplayName}",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _refreshing = false;
         }
         Recount();
     }
@@ -129,7 +153,10 @@ public partial class ExportView : UserControl
         { CollectionViewSource.GetDefaultView(_rows).Refresh(); Recount(); }
 
     private void Fmt_Changed(object sender, RoutedEventArgs e)
-        => AesPass.IsEnabled = FmtAes.IsChecked == true;
+    {
+        if (AesPass is null) return;    // Checked can fire during InitializeComponent
+        AesPass.IsEnabled = FmtAes.IsChecked == true;
+    }
 
     private async void Grid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -168,7 +195,8 @@ public partial class ExportView : UserControl
     private void Export_Click(object sender, RoutedEventArgs e)
     {
         if (_shell.Session is null) return;
-        var picked = _rows.Where(r => r.IsSelected).ToList();
+        var picked = _rows.Where(r => r.IsSelected)
+            .Select(r => _items[r.Id]).ToList();
         if (picked.Count == 0) return;
         if (FmtAes.IsChecked == true && AesPass.Password.Length == 0)
         {
@@ -176,49 +204,86 @@ public partial class ExportView : UserControl
                 "Password required", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        if (_provider.RequiresCipherPassword && CipherPass.Password.Length == 0)
+        {
+            MessageBox.Show("The platform requires a cipher password on every recording export. " +
+                "Enter one — the same password will be needed at import.",
+                "Cipher password required", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         var dest = DestBox.Text;
         var asZip = FmtZip.IsChecked == true || FmtAes.IsChecked == true;
         var aesPassword = FmtAes.IsChecked == true ? AesPass.Password : null;
+        var options = new ExportOptions
+        {
+            StripSensitive = !_provider.OffersStripSensitive || StripSensitiveBox.IsChecked == true,
+            CipherPassword = _provider.RequiresCipherPassword ? CipherPass.Password : null,
+        };
         var session = _shell.Session;
         var platform = _shell.PlatformLabel;
+        var provider = _provider;
 
-        _shell.Go(new RunView(_shell, "Mission Control — exporting Modern Dashboards", async (log, ct) =>
+        _shell.Go(new RunView(_shell, $"Mission Control — exporting {provider.DisplayName}",
+            async (log, ct) =>
         {
-            var area = new DashboardsArea(session);
             var items = new List<PackageItem>();
             var summary = new RunSummary();
-            foreach (var row in picked)
+            if (provider.BulkExport)
             {
                 try
                 {
-                    log.Report($"Export \"{row.Name}\" (id {row.Id}) → Orion.Dashboards.Instances.Export");
-                    var definition = await area.ExportAsync(row.Id, ct);
-                    var file = PackageWriter.Sanitize(row.Name) + ".json";
-                    items.Add(new PackageItem("dashboards", $"dashboards/{file}", row.Name,
-                        Encoding.UTF8.GetBytes(definition),
-                        "Orion.Dashboards.Instances.Import", "skip-or-copy-selected-at-import"));
-                    SessionLog.Log("export", row.Name, "ok", $"dashboard {row.Id}");
-                    summary.Ok++;
+                    log.Report($"Export {picked.Count} item(s) → one {provider.FileExtension} file");
+                    var export = await provider.ExportBulkAsync(picked, options, ct);
+                    items.Add(new PackageItem(provider.Key, $"{provider.Key}/{export.FileName}",
+                        provider.DisplayName, export.Bytes, provider.ImportVia, "bulk"));
+                    SessionLog.Log("export", provider.Key, "ok", $"{picked.Count} items, bulk");
+                    summary.Ok = picked.Count;
                 }
                 catch (Exception ex)
                 {
                     log.Report($"  FAILED: {ex.Message}");
-                    SessionLog.Log("export", row.Name, "failed", ex.Message);
-                    summary.Failed++;
+                    SessionLog.Log("export", provider.Key, "failed", ex.Message);
+                    summary.Failed = picked.Count;
+                }
+            }
+            else
+            {
+                foreach (var item in picked)
+                {
+                    try
+                    {
+                        log.Report($"Export \"{item.Name}\" (id {item.Id})");
+                        var export = await provider.ExportAsync(item, options, ct);
+                        items.Add(new PackageItem(provider.Key, $"{provider.Key}/{export.FileName}",
+                            item.Name, export.Bytes, provider.ImportVia, "skip-or-copy-selected-at-import"));
+                        SessionLog.Log("export", item.Name, "ok", $"{provider.Key} {item.Id}");
+                        summary.Ok++;
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Report($"  FAILED: {ex.Message}");
+                        SessionLog.Log("export", item.Name, "failed", ex.Message);
+                        summary.Failed++;
+                    }
                 }
             }
             string where;
-            if (asZip)
+            if (items.Count == 0)
+            {
+                log.Report("Nothing exported — no output written.");
+                where = dest;
+            }
+            else if (asZip)
             {
                 where = PackageWriter.WritePackage(dest, session.Server, platform, items, aesPassword);
             }
             else
             {
-                var rawDir = Path.Combine(dest, "dashboards");
+                var rawDir = Path.Combine(dest, provider.Key);
                 where = PackageWriter.WriteRaw(rawDir, items);
             }
             log.Report($"Output → {where}");
-            summary.OutputPath = where;
+            summary.OutputPath = items.Count > 0 ? where : null;
             return summary;
         }), "Export · Mission Control");
     }

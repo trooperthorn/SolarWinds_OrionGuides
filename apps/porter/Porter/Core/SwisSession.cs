@@ -131,6 +131,31 @@ public sealed class SwisSession : IDisposable
         return doc.RootElement.Clone();
     }
 
+    /// <summary>POST /Create/{entity} with a JSON property object. Returns the new row's swis URI.</summary>
+    public async Task<string> CreateAsync(string entity, object properties, CancellationToken ct = default)
+    {
+        var body = JsonSerializer.Serialize(properties);
+        using var resp = await _http.PostAsync($"Create/{entity}",
+            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+        var text = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode) throw new SwisException((int)resp.StatusCode, text);
+        using var doc = JsonDocument.Parse(text);
+        return doc.RootElement.GetString() ?? "";
+    }
+
+    /// <summary>POST {swis-uri} with a partial JSON property object — CRUD update.</summary>
+    public async Task UpdateAsync(string uri, object properties, CancellationToken ct = default)
+    {
+        var body = JsonSerializer.Serialize(properties);
+        // The swis:// URI goes into the URL path verbatim; a relative-string PostAsync
+        // would parse "swis://" as an absolute scheme and never reach the server.
+        var target = new Uri(_http.BaseAddress + uri);
+        using var resp = await _http.PostAsync(target,
+            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+        if (!resp.IsSuccessStatusCode)
+            throw new SwisException((int)resp.StatusCode, await resp.Content.ReadAsStringAsync(ct));
+    }
+
     /// <summary>Cheap universal reachability check — one row from the metadata the schema always has.</summary>
     public async Task TestAsync(CancellationToken ct = default)
     {

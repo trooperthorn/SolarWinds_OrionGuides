@@ -3,33 +3,47 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <DockPanel Margin="28">
         <StackPanel DockPanel.Dock="Top">
-            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Import — Modern Dashboards · The Airlock"/>
+            <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold"/>
             <Border AllowDrop="True" Drop="Drop_Files" DragOver="Drag_Over"
                     BorderBrush="#B9C4D2" BorderThickness="2" CornerRadius="6" Margin="0,10,0,10"
                     Padding="16" Background="#FAFBFC">
-                <TextBlock HorizontalAlignment="Center" Foreground="Gray">
-                    Drop dashboard .json files, a cargo pod (.zip), or a cloaked pod (.zip.aes) here — or
+                <TextBlock x:Name="DropText" HorizontalAlignment="Center" Foreground="Gray">
+                    Drop exported files, a cargo pod (.zip), or a cloaked pod (.zip.aes) here — or
                     <Hyperlink Click="Browse_Click">browse</Hyperlink>. Nothing is imported until you say so.
                 </TextBlock>
             </Border>
         </StackPanel>
 
-        <Border DockPanel.Dock="Right" Width="290" Margin="18,0,0,0" Padding="14"
+        <Border DockPanel.Dock="Right" Width="300" Margin="18,0,0,0" Padding="14"
                 BorderBrush="#C9D2DD" BorderThickness="1" CornerRadius="6">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <TextBlock FontWeight="SemiBold" Text="If an item already exists on the target"/>
+                <TextBlock FontWeight="SemiBold" TextWrapping="Wrap"
+                           Text="If an item already exists on the target"/>
                 <RadioButton x:Name="PolicySkip" IsChecked="True" Margin="0,8,0,2">
                     <TextBlock TextWrapping="Wrap"
                                Text="Prime Directive — skip it (every skip is reported by name)"/>
                 </RadioButton>
                 <RadioButton x:Name="PolicyCopy" Margin="0,0,0,8">
-                    <TextBlock TextWrapping="Wrap"
+                    <TextBlock x:Name="PolicyCopyText" TextWrapping="Wrap"
                                Text="Replicate — import as a copy (new GUIDs, renamed '… (Copy)')"/>
                 </RadioButton>
-                <TextBlock Foreground="Gray" FontSize="11.5" TextWrapping="Wrap"
-                           Text="Existence is matched by the file's dashboard unique_key. Copies get every GUID regenerated so the server sees a new object, and the run report shows the new name."/>
+                <TextBlock x:Name="PolicyHint" Foreground="Gray" FontSize="11.5" TextWrapping="Wrap"/>
                 <Separator Margin="0,10"/>
-                <CheckBox x:Name="AllowWarnBox" Content="Import files that carry warnings" IsChecked="True" Checked="AllowWarn_Changed" Unchecked="AllowWarn_Changed"/>
+                <StackPanel x:Name="CipherPanel" Visibility="Collapsed" Margin="0,0,0,8">
+                    <TextBlock TextWrapping="Wrap" FontSize="12"
+                               Text="Recording cipher password (set when the recording was exported)"/>
+                    <PasswordBox x:Name="CipherPass" Margin="0,3,0,0"/>
+                </StackPanel>
+                <CheckBox x:Name="AllowWarnBox" IsChecked="True"
+                          Checked="AllowWarn_Changed" Unchecked="AllowWarn_Changed">
+                    <TextBlock TextWrapping="Wrap" Text="Import files that carry warnings"/>
+                </CheckBox>
+                <CheckBox x:Name="AckSecurityBox" Visibility="Collapsed" Margin="0,6,0,0"
+                          Checked="AllowWarn_Changed" Unchecked="AllowWarn_Changed">
+                    <TextBlock TextWrapping="Wrap" Foreground="#8A5A00"
+                               Text="I reviewed the security flags below and accept them — files marked ✋ stay blocked until this is ticked"/>
+                </CheckBox>
                 <Button x:Name="DryRunBtn" Content="Simulation — Go / No-Go (no writes)"
                         AutomationProperties.Name="Dry run" Margin="0,14,0,0" Click="DryRun_Click"/>
                 <Button x:Name="ImportBtn" Content="Energize (0)" ToolTip="Import the staged files"
@@ -37,6 +51,7 @@
                         Margin="0,8,0,0" Click="Import_Click"/>
                 <Button Content="Back" Margin="0,8,0,0" Click="Back_Click"/>
             </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <ListView x:Name="StageList">

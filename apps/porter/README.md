@@ -1,10 +1,12 @@
 # Porter
 
 A Windows utility that moves SolarWinds Observability Self-Hosted configuration between
-installations over the SWIS API. **v0.1 is the verification build**: the full
-Connect → Direction → Area → Select/Stage → Run workflow, with **Modern Dashboards**
-implemented end-to-end. The other areas are visible in the app with their real SWIS
-mechanism and phase — see the concept document for the plan.
+installations over the SWIS API. **v0.2 implements eight areas end-to-end** behind one
+generic Connect → Direction → Constellation → Select/Stage → Run workflow: Modern
+Dashboards, Alerts, Reports, SAM Templates, WPM Recordings, NCM Device Templates,
+Nodes + Custom Properties, and NCM Compliance Reports. Every area is a provider behind
+the same contract (list, export, validate, collide, import, verify), so the selection
+grid, the Airlock staging, the GO/NO-GO dry run, and the packaging pipeline are shared.
 
 Every SWIS route used here was verified against the extracted 2026.2 contract in this
 repository before it was coded.
@@ -147,17 +149,56 @@ error sentence stay plain. For the record:
 
 | Area | Mechanism (verified 2026.2) | Status |
 | --- | --- | --- |
-| Modern Dashboards | `Orion.Dashboards.Instances.Export/Import` verb pair | **Flight-ready** (implemented) |
-| Alerts | verb pair with strip-sensitive / password-protect options | On the Launch Pad (next build) |
-| Reports | `SELECT Definition` + `CreateReport` | On the Launch Pad (next build) |
-| SAM Templates | `ExportTemplate`/`ImportTemplate` + `StartTestComponents` dry run | On the Launch Pad (next build) |
-| WPM Transactions | recording verb pair (cipher password) + `Exists(guid)` | On the Launch Pad (next build) |
-| NCM Device Templates | `TemplateXml` query + CRUD | On the Launch Pad (next build) |
-| Nodes + Custom Properties | query + `ValidateCustomProperty`/`CreateCustomProperty` + CRUD | On the Launch Pad (next build) |
-| NCM Compliance | deep verb pair — pinned: remediation-script safety gate | In Dry Dock (v2) |
+| Modern Dashboards | `Orion.Dashboards.Instances.Export/Import` verb pair · client-side copy rewrite | **Flight-ready** |
+| Alerts | `Export(id, stripSensitiveData)` / `Import` → `AlertImportResult` · needs manageAlerts | **Flight-ready** |
+| Reports | `SELECT Definition` + `CreateReport` (9 positional params, `limitationCategory` third) | **Flight-ready** |
+| SAM Templates | `ExportTemplate(int)` / `ImportTemplate` — `.apmtemplate`, UniqueId collision key | **Flight-ready** |
+| WPM Recordings | `Export(id, password)` / `Import(content, name, password)` — cipher password mandatory | **Flight-ready** |
+| NCM Device Templates | `TemplateXml` column out · SWIS CRUD Create in · built-ins read-only | **Flight-ready** |
+| Nodes + Custom Properties | one CSV · `CreateCustomProperty` (admin) + per-node `…/CustomProperties` update | **Flight-ready** |
+| NCM Compliance Reports | `GetPolicyReport(id, true)` / `AddPolicyReport(report, true)` + `StartCaching` | **Flight-ready** |
 | Discovery + Credentials | partial by design — secrets never leave a server | In Dry Dock (v2) |
 | Universal Device Pollers | export-only; definitions have no SWIS create | In Dry Dock (v2) |
 | Device Studio | no SWIS route in 2026.2 | Uncharted |
+
+### Per-area behavior worth knowing
+
+- **Alerts** — "Remove sensitive data" is ON by default (accounts, passwords, tokens
+  stripped at export). Import always *creates*; a same-name alert on the target means
+  the file is skipped and reported. A partial import (the server's `MigrationMessage`,
+  e.g. a referenced custom property missing) lands as a warning, not a success.
+- **Reports** — export is the `Definition` column, byte-for-byte what the console's
+  export button writes. Import is `CreateReport` (create-only); name collisions skip.
+  Report *schedules* have no SWIS route anywhere — they never travel.
+- **SAM Templates** — the `.apmtemplate` XML travels verbatim, including every script
+  monitor's `ScriptBody` — Porter warns per file so embedded secrets get reviewed.
+  Assigned credentials never travel; re-choose them after import.
+- **WPM Recordings** — the platform itself demands a cipher password on export and the
+  same one on import (this is the API's own file encryption, separate from Porter's
+  optional `.zip.aes` packaging). Porter wraps the ciphered blob in a small envelope
+  carrying the recording's real name and GUID, so collisions match the true name and
+  the import is never renamed by a sanitized filename; a bare blob from another tool
+  still imports, named after its file. Transactions/monitors have no export route:
+  after importing a recording, re-create its monitors on the target.
+- **NCM Device Templates** — built-ins (`IsDefault`) are listed under "Show built-in"
+  and are read-only server-side; a collision against one is reported as such. Imports
+  land with **auto-detect OFF** — enabling *Use for Auto Detect* is a deliberate
+  console step, so an imported template can never silently re-route existing nodes.
+- **Nodes + Custom Properties** — one CSV: `Caption`, `IPAddress`, then every node
+  custom property, plus annotation rows (`#datatype`, `#allowedvalues`, `#mandatory`,
+  `#default`) so definitions are recreated faithfully — restricted-value lists included.
+  Import pre-flights each new definition with `ValidateCustomProperty`, creates it
+  (admin needed), then writes values matching nodes by IP with Caption fallback.
+  Ambiguous matches are skipped and named, never guessed; every row fails individually
+  and the outcome accounts for all of it. Values with embedded newlines round-trip.
+  SNMP community strings are deliberately not exported.
+- **NCM Compliance Reports** — Porter writes the console's own XML format (UTF-16),
+  so files interchange with the WebUI both ways. Import validation raises a **blocking
+  security flag** for every rule with `ExecuteScriptAutomatically=true` (those rules
+  push configuration to failing devices once cached); the file cannot be imported
+  until the operator ticks the acknowledgement. After import Porter starts compliance
+  caching for just that report. See
+  [docs/modules/ncm-compliance-reports.md](../../docs/modules/ncm-compliance-reports.md).
 
 ## Layout
 
@@ -165,6 +206,6 @@ error sentence stay plain. For the record:
 Porter/
 ├─ app.manifest            requireAdministrator (STIG)
 ├─ Core/                   SwisSession (REST), cert pinning, JSONL log, package writer, AES-GCM
-├─ Areas/                  AreaCatalog (the 11 areas + status) · DashboardsArea · DashboardValidator
+├─ Areas/                  AreaProvider contract + registry · one provider per area · validators
 └─ Views/                  Connect · Mode · Area · Export · Import · Run · PasswordDialog
 ```

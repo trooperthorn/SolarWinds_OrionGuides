@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <DockPanel Margin="28">
         <StackPanel DockPanel.Dock="Top">
-            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Export — Modern Dashboards · Cargo Manifest"/>
+            <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold"/>
             <DockPanel Margin="0,10,0,8">
                 <TextBox x:Name="FilterBox" Width="230" DockPanel.Dock="Left"
                          TextChanged="Filter_Changed" VerticalContentAlignment="Center"
@@ -18,9 +18,22 @@
             </DockPanel>
         </StackPanel>
 
-        <Border DockPanel.Dock="Right" Width="270" Margin="18,0,0,0" Padding="14"
+        <Border DockPanel.Dock="Right" Width="290" Margin="18,0,0,0" Padding="14"
                 BorderBrush="#C9D2DD" BorderThickness="1" CornerRadius="6">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
+                <TextBlock x:Name="SecurityNoticeText" Visibility="Collapsed" TextWrapping="Wrap"
+                           FontSize="11.5" Foreground="#8A5A00" Margin="0,0,0,8"/>
+                <CheckBox x:Name="StripSensitiveBox" Visibility="Collapsed" IsChecked="True"
+                          Margin="0,0,0,8">
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Remove sensitive data — account names, passwords, and token information are stripped from the export"/>
+                </CheckBox>
+                <StackPanel x:Name="CipherPanel" Visibility="Collapsed" Margin="0,0,0,8">
+                    <TextBlock TextWrapping="Wrap" FontSize="12"
+                               Text="Recording cipher password (the platform requires one on every recording export; the same password is needed to import)"/>
+                    <PasswordBox x:Name="CipherPass" Margin="0,3,0,0"/>
+                </StackPanel>
                 <TextBlock FontWeight="SemiBold" Text="Output"/>
                 <RadioButton x:Name="FmtRaw" IsChecked="True" Margin="0,8,0,4">
                     <TextBlock TextWrapping="Wrap" Text="Raw files"/>
@@ -43,6 +56,7 @@
                         Margin="0,16,0,0" Click="Export_Click"/>
                 <Button Content="Back" Margin="0,8,0,0" Click="Back_Click"/>
             </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <DockPanel>
@@ -65,8 +79,9 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" IsReadOnly="True"/>
-                    <DataGridTextColumn Header="Unique key" Binding="{Binding UniqueKey}" Width="300"
+                    <DataGridTextColumn Header="Key" Binding="{Binding UniqueKey}" Width="280"
                                         IsReadOnly="True" FontFamily="Consolas"/>
+                    <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="130" IsReadOnly="True"/>
                     <DataGridTextColumn Header="Built-in" Binding="{Binding SystemLabel}" Width="70"
                                         IsReadOnly="True"/>
                 </DataGrid.Columns>

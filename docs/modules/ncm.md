@@ -320,6 +320,12 @@ error, `5` queued but unused. `LastUpdated` is when the cache was last refreshed
 `LastError` carries the failure message. A compliance query that returns stale numbers is
 almost always a stale cache rather than a stale device.
 
+The console's compliance export file — the three-tier `<PolicyReport>` XML with its
+policies and rules denormalized inline — has its own page:
+[ncm-compliance-reports.md](ncm-compliance-reports.md), including the encoding trap
+(the prolog declares utf-16 over utf-8 bytes) and the `GetPolicyReport` /
+`AddPolicyReport(report, importFlag=true)` round trip.
+
 ## Config change templates and snippets
 
 What the web console calls a **config change template** is `Cirrus.ConfigSnippets` in the API.

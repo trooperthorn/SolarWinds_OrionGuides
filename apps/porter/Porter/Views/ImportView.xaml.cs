@@ -15,22 +15,47 @@ public sealed class StagedFile
 {
     public required string FileName { get; init; }
     public required string Text { get; init; }
-    public required DashboardValidation Validation { get; init; }
-    public string StatusGlyph => Validation.Ok
-        ? (Validation.Warnings.Count > 0 ? "⚠" : "✓") : "✕";
+    public required AreaValidation Validation { get; init; }
+    public string StatusGlyph => !Validation.Ok ? "✕"
+        : Validation.SecurityFlags.Count > 0 ? "✋"
+        : Validation.Warnings.Count > 0 ? "⚠" : "✓";
     public string Summary => Validation.Summary;
 }
 
 public partial class ImportView : UserControl
 {
     private readonly MainWindow _shell;
+    private readonly AreaProvider _provider;
     private readonly ObservableCollection<StagedFile> _staged = new();
 
-    public ImportView(MainWindow shell)
+    public ImportView(MainWindow shell, AreaProvider provider)
     {
         _shell = shell;
+        _provider = provider;
         InitializeComponent();
+        TitleText.Text = $"Import — {provider.DisplayName} · The Airlock";
         StageList.ItemsSource = _staged;
+        if (provider.RequiresCipherPassword) CipherPanel.Visibility = Visibility.Visible;
+        switch (provider.CopyMode)
+        {
+            case CopyMode.NotSupported:
+                PolicyCopy.Visibility = Visibility.Collapsed;
+                PolicyHint.Text = "This area has no copy mechanism — an item that already " +
+                    "exists on the target can only be skipped.";
+                break;
+            case CopyMode.ClientRewrite:
+                PolicyHint.Text = "Existence is matched by each item's key. Copies get every " +
+                    "identity regenerated so the server sees a new object, and the run report " +
+                    "shows the new name.";
+                break;
+            case CopyMode.ServerRename:
+                PolicyCopyText.Text = "Replicate — import anyway; the server itself creates " +
+                    "the duplicate and renames it \"Copy of …\"";
+                PolicyHint.Text = "This area's import verb never overwrites: on a name " +
+                    "collision the server always creates the copy. The run report shows " +
+                    "what the server named it.";
+                break;
+        }
         UpdateButtons();
     }
 
@@ -51,7 +76,7 @@ public partial class ImportView : UserControl
         var dialog = new OpenFileDialog
         {
             Multiselect = true,
-            Filter = "Dashboards and packages|*.json;*.zip;*.aes|All files|*.*",
+            Filter = $"{_provider.FileDialogFilter}|Packages|*.zip;*.aes|All files|*.*",
         };
         if (dialog.ShowDialog() == true) Stage(dialog.FileNames);
     }
@@ -67,12 +92,12 @@ public partial class ImportView : UserControl
                     {
                         FileName = name,
                         Text = text,
-                        Validation = DashboardValidator.Validate(text),
+                        Validation = _provider.Validate(name, text),
                     });
             }
             catch (Exception ex)
             {
-                var invalid = new DashboardValidation();
+                var invalid = new AreaValidation();
                 invalid.Errors.Add(ex.Message);
                 _staged.Add(new StagedFile
                 {
@@ -80,10 +105,17 @@ public partial class ImportView : UserControl
                 });
             }
         }
+        if (_staged.Any(f => f.Validation.SecurityFlags.Count > 0))
+        {
+            AckSecurityBox.Visibility = Visibility.Visible;
+            // Every newly staged flagged file resets the tick — one acknowledgement never
+            // silently covers files that arrived after it was given.
+            AckSecurityBox.IsChecked = false;
+        }
         UpdateButtons();
     }
 
-    /// <summary>A path may be one .json, a .zip of them, or an AES-encrypted package.</summary>
+    /// <summary>A path may be one raw export, a .zip of them, or an AES-encrypted package.</summary>
     private IEnumerable<(string Name, string Text)> ReadCandidates(string path)
     {
         if (path.EndsWith(".aes", StringComparison.OrdinalIgnoreCase))
@@ -108,12 +140,26 @@ public partial class ImportView : UserControl
         {
             if (new FileInfo(path).Length > MaxItemBytes)
                 throw new InvalidDataException($"{Path.GetFileName(path)} exceeds the {MaxItemBytes / (1024 * 1024)} MB limit");
-            yield return (Path.GetFileName(path), File.ReadAllText(path));
+            yield return (Path.GetFileName(path), ReadTextSniffed(File.ReadAllBytes(path)));
         }
     }
 
-    /// <summary>Dashboard JSON is small; anything past this is not a dashboard.</summary>
+    /// <summary>Exports are small; anything past this is not a configuration export.</summary>
     private const long MaxItemBytes = 64L * 1024 * 1024;
+
+    /// <summary>Platform exports lie about their encoding — NCM policy reports declare
+    /// utf-16 in the XML prolog while the file on disk is utf-8. Trust the bytes (BOM),
+    /// never the declaration.</summary>
+    private static string ReadTextSniffed(byte[] bytes)
+    {
+        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+            return Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2);
+        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+            return Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
+        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
+        return Encoding.UTF8.GetString(bytes);
+    }
 
     /// <summary>Reads to the cap and no further — a hostile zip's central directory can lie
     /// about entry sizes, so the guard counts what actually decompresses.</summary>
@@ -130,22 +176,29 @@ public partial class ImportView : UserControl
                 throw new InvalidDataException($"entry decompresses past the {cap / (1024 * 1024)} MB limit");
             buffer.Write(chunk, 0, n);
         }
-        return Encoding.UTF8.GetString(buffer.ToArray());
+        return ReadTextSniffed(buffer.ToArray());
     }
 
-    private static IEnumerable<(string, string)> ReadZip(ZipArchive archive, string label)
+    private IEnumerable<(string, string)> ReadZip(ZipArchive archive, string label)
     {
+        var matching = archive.Entries.Where(en =>
+            en.Name.EndsWith(_provider.FileExtension, StringComparison.OrdinalIgnoreCase) &&
+            !en.Name.Equals("manifest.json", StringComparison.OrdinalIgnoreCase)).ToList();
+        // A Porter cargo pod folders files by area — prefer this area's folder so a
+        // mixed-area package stages only what belongs here; flat zips still stage fully.
+        var inFolder = matching.Where(en => en.FullName.StartsWith(
+            _provider.Key + "/", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (inFolder.Count > 0) matching = inFolder;
         var found = false;
-        foreach (var entry in archive.Entries.Where(en =>
-                     en.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase) &&
-                     !en.Name.Equals("manifest.json", StringComparison.OrdinalIgnoreCase)))
+        foreach (var entry in matching)
         {
             found = true;
             using var stream = entry.Open();
             yield return ($"{label} › {entry.Name}", ReadLimited(stream, MaxItemBytes));
         }
         if (!found)
-            throw new InvalidDataException("the package contains no dashboard .json files");
+            throw new InvalidDataException(
+                $"the package contains no {_provider.FileExtension} files for {_provider.DisplayName}");
     }
 
     private void UpdateButtons()
@@ -153,7 +206,7 @@ public partial class ImportView : UserControl
         // AllowWarnBox ships IsChecked="True", and compiled XAML wires Checked before the
         // later-declared buttons exist — so this runs mid-InitializeComponent. Bail until
         // every control is alive; the constructor calls UpdateButtons() again at the end.
-        if (ImportBtn is null || DryRunBtn is null) return;
+        if (ImportBtn is null || DryRunBtn is null || AckSecurityBox is null) return;
         var importable = Importable().Count;
         ImportBtn.Content = $"Energize ({importable})";
         ImportBtn.ToolTip = $"Import {importable} staged file{(importable == 1 ? "" : "s")}";
@@ -163,7 +216,8 @@ public partial class ImportView : UserControl
 
     private List<StagedFile> Importable()
         => _staged.Where(f => f.Validation.Ok &&
-               (AllowWarnBox.IsChecked == true || f.Validation.Warnings.Count == 0)).ToList();
+               (AllowWarnBox.IsChecked == true || f.Validation.Warnings.Count == 0) &&
+               (f.Validation.SecurityFlags.Count == 0 || AckSecurityBox.IsChecked == true)).ToList();
 
     private void AllowWarn_Changed(object sender, RoutedEventArgs e) => UpdateButtons();
 
@@ -176,17 +230,26 @@ public partial class ImportView : UserControl
     private void Run(bool dryRun)
     {
         if (_shell.Session is null) return;
+        if (!dryRun && _provider.RequiresCipherPassword && CipherPass.Password.Length == 0)
+        {
+            MessageBox.Show("Enter the cipher password the recordings were exported with.",
+                "Cipher password required", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         var files = Importable();
         var skippedInvalid = _staged.Except(files).ToList();
-        var asCopy = PolicyCopy.IsChecked == true;
-        var session = _shell.Session;
+        var asCopy = PolicyCopy.IsChecked == true && _provider.CopyMode != CopyMode.NotSupported;
+        var options = new ImportOptions
+        {
+            CipherPassword = _provider.RequiresCipherPassword ? CipherPass.Password : null,
+        };
+        var provider = _provider;
 
         _shell.Go(new RunView(_shell,
-            dryRun ? "Simulation — Modern Dashboards (Go / No-Go, no writes)"
-                   : "Mission Control — importing Modern Dashboards",
+            dryRun ? $"Simulation — {provider.DisplayName} (Go / No-Go, no writes)"
+                   : $"Mission Control — importing {provider.DisplayName}",
             async (log, ct) =>
         {
-            var area = new DashboardsArea(session);
             var summary = new RunSummary();
 
             foreach (var file in skippedInvalid)
@@ -200,8 +263,8 @@ public partial class ImportView : UserControl
             {
                 try
                 {
-                    var keys = file.Validation.Dashboards.Select(d => d.Key).ToList();
-                    var collisions = await area.FindCollisionsAsync(keys, ct);
+                    var keys = file.Validation.Items.Select(i => i.Key).ToList();
+                    var collisions = await provider.FindCollisionsAsync(keys, ct);
                     var text = file.Text;
                     var verifyKeys = keys;
                     var note = "";
@@ -209,24 +272,28 @@ public partial class ImportView : UserControl
                     if (collisions.Count > 0 && !asCopy)
                     {
                         summary.Skipped++;
-                        var collidingKeys = collisions.Select(c => c.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                        var parts = file.Validation.Dashboards.Select(d => collidingKeys.Contains(d.Key)
-                            ? $"\"{d.Name}\" (already on target)"
-                            : $"\"{d.Name}\" (skipped with its file)").ToList();
+                        var parts = file.Validation.Items.Select(i =>
+                            collisions.TryGetValue(i.Key, out var existing)
+                            ? $"\"{existing}\" (already on target)"
+                            : $"\"{i.Name}\" (skipped with its file)").ToList();
                         var detail = string.Join(", ", parts);
                         summary.SkippedNames.Add($"{file.FileName} — {detail}");
                         log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
                         SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "skipped", detail);
                         continue;
                     }
-                    if (collisions.Count > 0)
+                    if (collisions.Count > 0 && provider.CopyMode == CopyMode.ClientRewrite)
                     {
-                        var (copyText, newNames, newKeys, copyNotes) = DashboardsArea.AsCopy(file.Text);
-                        text = copyText;
-                        verifyKeys = newKeys;
-                        note = $" as copy: {string.Join(", ", newNames.Select(n => $"\"{n}\""))}";
-                        summary.CopyNotes.Add($"{file.FileName} → {string.Join(", ", newNames)}");
-                        foreach (var extra in copyNotes) log.Report($"  note: {extra}");
+                        var rewrite = provider.AsCopy(file.Text);
+                        text = rewrite.Text;
+                        verifyKeys = rewrite.NewKeys;
+                        note = $" as copy: {string.Join(", ", rewrite.NewNames.Select(n => $"\"{n}\""))}";
+                        summary.CopyNotes.Add($"{file.FileName} → {string.Join(", ", rewrite.NewNames)}");
+                        foreach (var extra in rewrite.Notes) log.Report($"  note: {extra}");
+                    }
+                    else if (collisions.Count > 0)
+                    {
+                        note = " — the server will import it as its own \"Copy of …\"";
                     }
 
                     if (dryRun)
@@ -236,20 +303,19 @@ public partial class ImportView : UserControl
                         continue;
                     }
 
-                    log.Report($"Import {file.FileName}{note} → Orion.Dashboards.Instances.Import");
-                    await area.ImportAsync(text, ct);
+                    log.Report($"Import {file.FileName}{note} → {provider.ImportVia}");
+                    var outcome = await provider.ImportAsync(text, verifyKeys, options, ct);
 
-                    var found = await area.VerifyAsync(verifyKeys, ct);
-                    if (found.Count >= verifyKeys.Count(k => k.Length > 0) && found.Count > 0)
+                    if (outcome.Verified)
                     {
-                        log.Report($"  tricorder — verified: {string.Join(", ", found.Select(f => $"\"{f.Name}\" (id {f.Id})"))}");
-                        SessionLog.Log("import", file.FileName, "ok", string.Join(",", found.Select(f => f.Id)));
+                        log.Report($"  tricorder — verified: {outcome.Detail}");
+                        SessionLog.Log("import", file.FileName, "ok", outcome.Detail);
                         summary.Ok++;
                     }
                     else
                     {
-                        log.Report("  WARNING: import call succeeded but the dashboard was not found afterwards");
-                        SessionLog.Log("import", file.FileName, "unverified", null);
+                        log.Report($"  WARNING: {outcome.Detail}");
+                        SessionLog.Log("import", file.FileName, "unverified", outcome.Detail);
                         summary.Warn++;
                     }
                 }

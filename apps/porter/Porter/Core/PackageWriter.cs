@@ -73,7 +73,7 @@ public static class PackageWriter
             }
             var manifest = JsonSerializer.Serialize(new
             {
-                tool = "Porter 0.1",
+                tool = "Porter 0.2",
                 source = new { server, platform = platformVersion, swis = "v3" },
                 created = DateTime.UtcNow.ToString("o"),
                 items = manifestItems,

@@ -65,11 +65,17 @@ public partial class AreaView : UserControl
     private void Card_Click(object sender, RoutedEventArgs e)
     {
         var key = (string)((Button)sender).Tag;
-        if (key != "dashboards") return;
+        if (_shell.Session is null) return;
+        var provider = AreaRegistry.Create(key, _shell.Session);
+        if (provider is null) return;
         if (_shell.ModeIsExport)
-            _shell.Go(new ExportView(_shell), "Export · Modern Dashboards");
+            _shell.Go(new ExportView(_shell, provider), $"Export · {provider.DisplayName}");
+        else if (provider.CanImport)
+            _shell.Go(new ImportView(_shell, provider), $"Import · {provider.DisplayName}");
         else
-            _shell.Go(new ImportView(_shell), "Import · Modern Dashboards");
+            MessageBox.Show($"{provider.DisplayName} is export-only — the platform has no " +
+                "import route for it.", provider.DisplayName,
+                MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
