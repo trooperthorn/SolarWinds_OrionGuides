@@ -37,7 +37,7 @@ ten of twenty-one.
 | [check_links.py](check_links.py) | A relative link or #anchor that no longer resolves |
 | [check_dashboards.py](check_dashboards.py) | A shipped Modern Dashboard file that breaks one of the format's invariants |
 | [check_gate.py](check_gate.py) | A check above that has stopped checking, by seeding errors it must catch |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 188 tests |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 200 tests |
 
 `check_gate.py` is the one that watches the others. A checker that quietly stops reading
 what it claims to read still exits zero, which makes it indistinguishable from a working

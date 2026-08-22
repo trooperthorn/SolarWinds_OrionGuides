@@ -37,13 +37,93 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_GLOB = os.path.join(ROOT, "scripts", "dashboards", "*.json")
 
-# `AS [Two Words]` and `AS OneWord`. Aliasing is how every dataField in every sample export
-# is produced, so an id that is not an alias is the thing to report.
-ALIAS_RE = re.compile(r"\bAS\s+(?:\[([^\]]+)\]|(\w+))", re.I)
+# A dataField id is the name of a column the query returns, which is the alias when there is
+# one and the bare property name when there is not: `ONodes.Status` returns `Status`. An
+# earlier version of this check looked only for `AS`, and reported 40 false positives across
+# five real files that use the unaliased form throughout.
+COMMENT_RE = re.compile(r"--[^\n]*")
+AS_RE = re.compile(r"\bas\s+(?:\[(?P<b>[^\]]+)\]|(?P<w>\w+))\s*$", re.I)
+TAIL_RE = re.compile(r"(?:\[(?P<b>[^\]]+)\]|(?P<w>\w+))\s*$")
+
+
+def split_top_level(text: str) -> list[str]:
+    """Split a select list on commas that are not inside brackets or a string literal."""
+    out: list[str] = []
+    depth = 0
+    cur: list[str] = []
+    i = 0
+    while i < len(text):
+        c = text[i]
+        if c == "'":
+            end = text.find("'", i + 1)
+            end = len(text) - 1 if end == -1 else end
+            cur.append(text[i:end + 1])
+            i = end + 1
+            continue
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            depth -= 1
+        if c == "," and depth == 0:
+            out.append("".join(cur))
+            cur = []
+            i += 1
+            continue
+        cur.append(c)
+        i += 1
+    out.append("".join(cur))
+    return out
+
+
+def select_list(swql: str) -> str:
+    """The text between the outermost SELECT and the FROM that closes it.
+
+    Tracked by bracket depth so a subquery's own FROM does not end the scan -- several real
+    files wrap an aggregate over a derived table, where the first FROM in the string belongs
+    to the inner query.
+    """
+    text = COMMENT_RE.sub("", swql)
+    start = re.search(r"\bselect\b", text, re.I)
+    if not start:
+        return ""
+    depth = 0
+    i = start.end()
+    while i < len(text):
+        c = text[i]
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            depth -= 1
+        elif depth == 0 and re.match(r"\bfrom\b", text[i:], re.I):
+            return text[start.end():i]
+        i += 1
+    return text[start.end():]
 
 
 def aliases(swql: str) -> set[str]:
-    return {a or b for a, b in ALIAS_RE.findall(swql)}
+    """The column names a query returns, as far as they can be read off the select list."""
+    out: set[str] = set()
+    for item in split_top_level(select_list(swql)):
+        # One real file carries stray line-continuation backslashes at the end of each
+        # select item (`AS [Day]\`), left behind by whatever it was pasted from. Whether
+        # the console tolerates them is unverified, but they are not what this check is
+        # about, so they are normalised away rather than reported as a missing alias.
+        item = item.strip().rstrip("\\").strip()
+        if not item:
+            continue
+        named = AS_RE.search(item)
+        if named:
+            out.add(named.group("b") or named.group("w"))
+            continue
+        # An unaliased expression ending in `)` -- CONCAT(...), COUNT(...) -- gets a name
+        # from the server that cannot be predicted from the text, so it is left alone
+        # rather than guessed at.
+        if item.endswith(")"):
+            continue
+        tail = TAIL_RE.search(item)
+        if tail:
+            out.add(tail.group("b") or tail.group("w"))
+    return out
 
 
 def check(path: str) -> list[str]:
@@ -51,7 +131,11 @@ def check(path: str) -> list[str]:
     try:
         with open(path, encoding="utf-8") as fh:
             doc = json.load(fh)
-    except json.JSONDecodeError as exc:
+    except FileNotFoundError:
+        return [f"{rel}: no such file"]
+    except OSError as exc:
+        return [f"{rel}: cannot be read: {exc}"]
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         return [f"{rel}: not valid JSON: {exc}"]
 
     problems: list[str] = []
@@ -134,12 +218,13 @@ def check(path: str) -> list[str]:
                 continue
             if block.get("id") != tile_id:
                 problems.append(f"{rel}: tile {tile_id}: its own id field says {block.get('id')}")
-            component = (
-                block.get("providers", {}).get("adapter", {}).get("properties", {}).get("componentId")
-            )
-            if component != tile_id:
+            # componentId is absent from whole working files, so its absence is not a
+            # defect -- only a value that disagrees with the tile it sits in.
+            adapter_props = block.get("providers", {}).get("adapter", {}).get("properties", {})
+            if "componentId" in adapter_props and adapter_props["componentId"] != tile_id:
                 problems.append(
-                    f"{rel}: tile {tile_id}: adapter componentId says {component}"
+                    f"{rel}: tile {tile_id}: adapter componentId says "
+                    f"{adapter_props['componentId']}"
                 )
 
     # Table columns bind data fields by id, and sort by a column id rather than a field.
@@ -157,13 +242,16 @@ def check(path: str) -> list[str]:
             column_ids.add(column.get("id"))
             bindings = column.get("formatter", {}).get("properties", {}).get("dataFieldIds", {})
             for role, value in bindings.items():
-                if value is not None and value not in field_ids:
+                # ThresholdFormatterComponent carries instanceId and siteId as "" throughout
+                # every real file. An empty string is an unset slot, not a binding.
+                if value and value not in field_ids:
                     problems.append(
                         f"{rel}: column {column.get('label')!r} binds {role} to {value!r}, "
                         f"which is not a dataField of its query"
                     )
+        # sortBy is "" on tables that are left unsorted, which is not a broken reference.
         sort_by = config.get("sorterConfiguration", {}).get("sortBy")
-        if sort_by is not None and sort_by not in column_ids:
+        if sort_by and sort_by not in column_ids:
             problems.append(
                 f"{rel}: {widget.get('name', '?')!r} sorts by {sort_by!r}, which is not one of "
                 f"its column ids (sortBy takes a column id, not a data field)"
@@ -191,7 +279,7 @@ def main() -> None:
                 doc = json.load(fh)
             widgets += len(doc.get("widgets", []))
             queries += json.dumps(doc).count('"swql"')
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError):
             pass
 
     print(

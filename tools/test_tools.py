@@ -289,6 +289,50 @@ class TestEmbeddedExtraction(unittest.TestCase):
         self.assertEqual(found, [])
 
 
+class TestNoiseStripping(unittest.TestCase):
+    """Comments and string literals have to be recognised in one pass, not two.
+
+    Both cases here came from real dashboard queries and both produced a bogus warning that
+    would have been believed, because a warning on a query nobody can run is indistinguishable
+    from a real one.
+    """
+
+    def test_a_double_dash_inside_a_string_is_not_a_comment(self):
+        # A CSS custom property assigned as a colour: the `--` is inside the quotes.
+        q = "SELECT CASE WHEN a = 1 THEN 'var(--nui-color-semantic-ok)' END AS C FROM Orion.Nodes"
+        clean = validate_swql.strip_noise(q)
+        self.assertNotIn("var(", clean)
+        self.assertIn("FROM Orion.Nodes", clean)
+
+    def test_a_quote_inside_a_comment_does_not_open_a_string(self):
+        q = "SELECT Caption FROM Orion.Nodes -- don't let this swallow the line\nWHERE NodeID = 1"
+        clean = validate_swql.strip_noise(q)
+        self.assertIn("WHERE NodeID = 1", clean)
+
+    def test_an_escaped_quote_inside_a_string_is_handled(self):
+        q = "SELECT Caption FROM Orion.Nodes WHERE Caption = 'it''s here' AND NodeID = 1"
+        clean = validate_swql.strip_noise(q)
+        self.assertIn("AND NodeID = 1", clean)
+
+    def test_offsets_are_preserved_so_snippets_stay_aligned(self):
+        q = "SELECT Caption FROM Orion.Nodes -- trailing comment"
+        self.assertEqual(len(validate_swql.strip_noise(q)), len(q))
+
+    def test_a_bracketed_alias_containing_parens_is_not_a_function_call(self):
+        # `AS [LastLatency(ms)]` is a real alias in a real dashboard.
+        schema = validate_swql.SchemaIndex(VERSION)
+        q = "SELECT ROUND(n.ResponseTime, 1) AS [LastLatency(ms)] FROM Orion.Nodes n"
+        warned = [f for f in validate_swql.validate(q, schema) if "LastLatency" in str(f)]
+        self.assertEqual(warned, [])
+
+    def test_a_genuinely_unknown_function_is_still_warned_about(self):
+        # The masking above must not silence the check it runs inside.
+        schema = validate_swql.SchemaIndex(VERSION)
+        q = "SELECT Nonsensify(n.Caption) AS C FROM Orion.Nodes n"
+        warned = [f for f in validate_swql.validate(q, schema) if "Nonsensify" in str(f)]
+        self.assertEqual(len(warned), 1, [str(f) for f in warned])
+
+
 class TestDashboardExtraction(unittest.TestCase):
     """A Modern Dashboard file stores each query twice, and both copies have to be found.
 
@@ -417,6 +461,74 @@ class TestDashboardExtraction(unittest.TestCase):
     def test_bracketed_and_bare_aliases_are_both_recognised(self):
         found = check_dashboards.aliases("SELECT a AS [Two Words], b AS One FROM Orion.Nodes")
         self.assertEqual(found, {"Two Words", "One"})
+
+    def test_an_unaliased_column_is_named_by_its_property(self):
+        # Whole real files are written this way; reading only `AS` reported 40 false positives.
+        found = check_dashboards.aliases(
+            "SELECT ONodes.Status, ONodes.DetailsUrl, NNodes.NodeCaption FROM Orion.Nodes AS ONodes")
+        self.assertEqual(found, {"Status", "DetailsUrl", "NodeCaption"})
+
+    def test_an_unaliased_expression_is_not_guessed_at(self):
+        # The server names it; the text does not say what, so claiming a name would be wrong.
+        found = check_dashboards.aliases("SELECT CONCAT(a, b), c AS Named FROM Orion.Nodes")
+        self.assertEqual(found, {"Named"})
+
+    def test_a_subquerys_from_does_not_end_the_select_list(self):
+        found = check_dashboards.aliases(
+            "SELECT COUNT(*) AS [Total] FROM (SELECT x AS Inner1 FROM Orion.Nodes GROUP BY x)")
+        self.assertEqual(found, {"Total"})
+
+    def test_a_comma_inside_a_function_call_does_not_split_the_list(self):
+        found = check_dashboards.aliases(
+            "SELECT CONCAT(a, ', ', b) AS [Joined], c FROM Orion.Nodes")
+        self.assertEqual(found, {"Joined", "c"})
+
+    def test_an_absent_component_id_is_not_a_defect(self):
+        # Fourteen tiles across two working exports omit it entirely.
+        doc = json.loads(json.dumps(self.ENVELOPE))
+        doc["widgets"][0] = {
+            "type": "kpi", "unique_key": "w", "name": "W",
+            "configuration": {
+                "tiles": {"properties": {"nodes": ["kpi_1"]}},
+                "kpi_1": {
+                    "id": "kpi_1",
+                    "providers": {
+                        "dataSource": {"properties": {
+                            "swql": "SELECT COUNT(n.NodeID) AS TheCount FROM Orion.Nodes n",
+                            "dataFields": [{"id": "TheCount", "label": "TheCount", "dataType": "System.Int32"}]}},
+                        "adapter": {"properties": {"dataSource": {"properties": {
+                            "swql": "SELECT COUNT(n.NodeID) AS TheCount FROM Orion.Nodes n",
+                            "dataFields": [{"id": "TheCount", "label": "TheCount", "dataType": "System.Int32"}]}}}},
+                    },
+                    "properties": {"widgetData": {"label": "x", "backgroundColor": "y", "units": ""}},
+                },
+            },
+        }
+        path = self.write(doc)
+        try:
+            self.assertEqual(check_dashboards.check(path), [])
+        finally:
+            os.unlink(path)
+
+    def test_a_disagreeing_component_id_is_still_a_defect(self):
+        doc = json.loads(json.dumps(self.ENVELOPE))
+        doc["widgets"][0] = {
+            "type": "kpi", "unique_key": "w", "name": "W",
+            "configuration": {
+                "tiles": {"properties": {"nodes": ["kpi_1"]}},
+                "kpi_1": {
+                    "id": "kpi_1",
+                    "providers": {"adapter": {"properties": {"componentId": "kpi_2"}}},
+                    "properties": {},
+                },
+            },
+        }
+        path = self.write(doc)
+        try:
+            problems = check_dashboards.check(path)
+        finally:
+            os.unlink(path)
+        self.assertTrue(any("componentId says kpi_2" in p for p in problems), problems)
 
 
 @requires_data

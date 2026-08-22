@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**207 statements across 59 pages.**
+**215 statements across 59 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -757,18 +757,26 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - `parent` — `null` in every export seen. Presumably the clone source, matching `Orion.Dashboards.Instances.ParentID` — **unverified**
 - `private` — `null` on the dashboard, `false` on widgets. Visibility; **unverified**
+- `groupId`/`groupRank`/`groupName` read as dashboard grouping and `routeId`/`dashboardRoutes` as custom URL routing, but every value seen is empty, so what they do is **undocumented and unverified here**.
 
-**[The grid is 12 columns](../webui/modern-dashboards.md#the-grid-is-12-columns)**
+**[The grid is 12 columns wide](../webui/modern-dashboards.md#the-grid-is-12-columns-wide)**
 
 - What `true` would mean is **undocumented and unverified here**; the plausible reading is a link to a widget owned by another dashboard rather than an embedded copy.
 
 **[The header block, common to all types](../webui/modern-dashboards.md#the-header-block-common-to-all-types)**
 
-- Note that `collapsed: true` appears together with `collapsible: false` throughout the samples, which suggests `collapsed` is ignored unless `collapsible` is set — **unverified here**.
+- The reading that `collapsed` is inert unless `collapsible` is set fits the evidence but is still **unverified here**; what is now clear is that you should write the pair the way the console does, or omit both, rather than inventing `collapsed: false`.
 
-**[Column formatters](../webui/modern-dashboards.md#column-formatters)**
+**[The `content` node](../webui/modern-dashboards.md#the-content-node)**
 
-- The complete value sets for `iconFormat`, `entityIcon`, `visualization` and the `DatetimeFormatterComponent` `option` field are **not documented and unverified here**.
+- What it enables is **undocumented and unverified here**.
+
+**[Formatter property values](../webui/modern-dashboards.md#formatter-property-values)**
+
+- The full set of valid threshold names is **not documented and unverified here**.
+- Whether `label` is honoured by the other link formatters is **unverified here**.
+- What the values select is **not documented and unverified here**.
+- The complete value sets for `iconFormat`, `entityIcon`, `visualization` and `option` are **not documented and unverified here**.
 
 **[The colour tokens](../webui/modern-dashboards.md#the-colour-tokens)**
 
@@ -776,11 +784,20 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Proportional (donut) configuration](../webui/modern-dashboards.md#proportional-donut-configuration)**
 
-- Neither list is necessarily complete and both are **unverified here** beyond what the samples exercise.
+- An empty `"editor": {}` sits alongside it on all 18, purpose **unverified here**.
+- None of these lists is necessarily complete and all are **unverified here** beyond what the samples exercise.
 
-**[`unique_key` collisions, which both authors produced](../webui/modern-dashboards.md#unique_key-collisions-which-both-authors-produced)**
+**[`unique_key` collisions, and the reuse that is fine](../webui/modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine)**
 
 - What the platform does with a duplicate key is **not documented and unverified here**.
+
+**[One name that does not resolve](../webui/modern-dashboards.md#one-name-that-does-not-resolve)**
+
+- Which one is **unverified here**.
+
+**[Two artefacts worth knowing about](../webui/modern-dashboards.md#two-artefacts-worth-knowing-about)**
+
+- Whether the console tolerates them is **unverified here**, but they are worth removing before you copy such a query.
 
 ## [ncm-change-template-language.md](../webui/ncm-change-template-language.md)
 

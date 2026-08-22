@@ -67,11 +67,18 @@ json.dump(json.loads(raw), open("my-dashboard.json", "w"), indent=2)
 PY
 ```
 
+Regenerating every GUID is broader than strictly necessary — a `kpi_…` tile id is scoped to
+its widget and may legitimately be reused — but it is simpler than remembering which kind of id
+you are looking at, and costs nothing.
+
 Then rename the dashboard, and check the invariants still hold before importing:
 
 ```bash
-python3 -c "import json,sys,collections; d=json.load(open(sys.argv[1])); c=collections.Counter(w['unique_key'] for w in d['widgets']); print({k:v for k,v in c.items() if v>1} or 'no duplicate widget keys')" my-dashboard.json
+python3 tools/check_dashboards.py scripts/dashboards/minimal-dashboard.json
 ```
+
+substituting the path to the file you just wrote. With no argument at all it checks every
+dashboard in this directory, which is what `make check` runs.
 
 If you change a query, change **both** copies of it — under
 `providers.dataSource.properties.swql` and again under

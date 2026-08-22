@@ -4,10 +4,10 @@ A Modern Dashboard — the console calls the feature **Dashboards**, under `/app
 exports as a single JSON file. That file is the whole dashboard: layout, widgets, every SWQL
 query, every column formatter and every colour.
 
-Nothing about the format is documented by SolarWinds. This page is derived by parsing **four
-real exports from two independent authors** and checking every entity, property and query they
-contain against the 2026.2 schema. Where the two authors agree, the rule is stated plainly;
-where only one exercises a feature, it says so.
+Nothing about the format is documented by SolarWinds. This page is derived by parsing **nine
+real exports from three independent authors** and checking every entity, property and query
+they contain against the 2026.2 schema. Where all three authors agree, the rule is stated
+plainly; where only one exercises a feature, it says so.
 [modern-dashboard-authoring.md](modern-dashboard-authoring.md) is the other half: how to write
 one from scratch, including for an AI asked to generate a whole file.
 
@@ -59,10 +59,26 @@ Four keys, and the split between the last three is the thing to understand first
 | `private` | `null` on the dashboard, `false` on widgets. Visibility; **unverified** |
 | `widgets[]` | Placements, not definitions |
 
-### The grid is 12 columns
+One author's export carries eight further dashboard-level keys, all empty:
+
+```json
+"groupId": null, "groupRank": null, "groupMemberName": null, "groupName": null,
+"dashboardType": null, "routeId": "", "dashboardRoutes": [], "configuration": null
+```
+
+The other two authors' files omit them entirely and import the same way, so they are optional.
+`groupId`/`groupRank`/`groupName` read as dashboard grouping and `routeId`/`dashboardRoutes` as
+custom URL routing, but every value seen is empty, so what they do is **undocumented and
+unverified here**.
+
+### The grid is 12 columns wide
 
 `location` is `{x, y, cols, rows}` in grid cells, with `x` and `y` zero-based from the top
-left. Across three real dashboards, every layout fills exactly **12 columns**:
+left. Across all nine dashboards, **`x + cols` never exceeds 12** — that is the invariant. It
+is not that every row is full: trailing rows are frequently partial, and the samples end rows
+at 10, 8, 6 and 2 columns. So 12 is the width of the canvas, not a sum each row has to reach.
+
+A typical layout, with a partial final row:
 
 ```text
  x=0                                    x=10
@@ -137,9 +153,29 @@ widget, which is not something the type name suggests.
 }
 ```
 
-`url` makes the widget title a hyperlink. Note that `collapsed: true` appears together with
-`collapsible: false` throughout the samples, which suggests `collapsed` is ignored unless
-`collapsible` is set — **unverified here**.
+All 75 widgets across the nine files carry a header block, but not all of its keys.
+
+`url` makes the widget title a hyperlink. Only six headers set it, all to
+`/orion/netperfmon/alerts.aspx`; the other 69 leave it `""`.
+
+`collapsible` and `collapsed` are **omitted together on 6 headers**, so both are optional. On
+the 69 that declare them, `collapsed` is `true` every single time, while `collapsible` is
+`false` on 60 and `true` on 9. So `collapsed: false` is never written by the console at all,
+and `collapsed: true` alongside `collapsible: false` is the ordinary case rather than a
+mistake. The reading that `collapsed` is inert unless `collapsible` is set fits the evidence
+but is still **unverified here**; what is now clear is that you should write the pair the way
+the console does, or omit both, rather than inventing `collapsed: false`.
+
+### The `content` node
+
+One file carries a further sibling of `header`, on a KPI widget:
+
+```json
+"content": { "properties": { "isEditable": true } }
+```
+
+It appears five times in one author's export and nowhere else, and the other files' KPI widgets
+render without it. What it enables is **undocumented and unverified here**.
 
 ### The refresher and interaction handler
 
@@ -159,9 +195,16 @@ Both live under the oddly named `"/"` key, which is the widget-root configuratio
 }
 ```
 
-`interval` is in **seconds**. `${data.rowData.<Field>}` is a template referring to a column of
-the widget's own result set — that is how a KPI tile becomes clickable, with `Link` being an
-ordinary aliased column in the SWQL.
+`interval` is in **seconds**. Fourteen refreshers appear across the nine files: thirteen at
+`45` with `overrideDefaultSettings: false`, and one at `90` with `overrideDefaultSettings:
+true` — so the flag does get set, and it reads as "use my interval rather than the console
+default". Three refreshers carry `enabled: false`, which keeps the block but stops the widget
+polling.
+
+`${data.rowData.<Field>}` is a template referring to a column of the widget's own result set —
+that is how a KPI tile becomes clickable, with `Link` being an ordinary aliased column in the
+SWQL. All 25 interaction handlers in all nine files use the identical url
+`${data.rowData.Link}`, so the column name `Link` is a convention worth keeping.
 
 ## The data source, and the duplication that will catch you
 
@@ -196,11 +239,26 @@ builder. Every query in the samples is `hand-edit`.
 ### `dataFields` declares the result shape
 
 Each entry is `{id, label, dataType}`, where `id` must match a column name the SWQL returns.
-Checked across all three files: **every `dataField` id appears in its own query**. The widget
-uses these ids to wire columns to formatters, so a mismatch means a blank column rather than
-an error.
+Checked across all nine files: **every `dataField` id is a column of its own query**. The
+widget uses these ids to wire columns to formatters, so a mismatch means a blank column rather
+than an error.
 
-`dataType` values seen are `System.String`, `System.Int32` and `System.DateTime`.
+**The returned column name is the alias if there is one and the bare property name if there is
+not.** `ONodes.Status` with no `AS` returns a column called `Status`, and one author writes
+whole queries in that style:
+
+```sql
+SELECT ONodes.Status, ONodes.DetailsUrl, NNodes.Vendor, NNodes.NodeCaption
+FROM Orion.Nodes AS ONodes
+INNER JOIN NCM.Nodes AS NNodes ON NNodes.CoreNodeID = ONodes.NodeID
+```
+
+with `dataFields` of exactly `Status`, `DetailsUrl`, `Vendor`, `NodeCaption`. An expression
+without an alias — a `CONCAT(...)` or `COUNT(...)` — gets a server-assigned name that cannot
+be read off the text, so always alias those.
+
+`dataType` values seen, in frequency order: `System.String`, `System.Int32`, `System.Double`,
+`System.DateTime`, `System.Single`, `System.Int64`, `System.Byte`, `System.Decimal`.
 
 ## Table configuration
 
@@ -218,7 +276,10 @@ an error.
 ```
 
 `sortBy` refers to a **column id**, not a data field. Columns carry their own generated ids of
-the form `column_<uuid>`.
+the form `column_<uuid>`. A table left unsorted writes `sortBy: ""` rather than omitting it,
+and `descendantSorting` is written as `true` (10), `false` (5) **or `""`** (13) — an empty
+string where a boolean belongs, which the console evidently reads as false. Treat `""` in
+either field as "not set" rather than as a broken reference.
 
 ### Column formatters
 
@@ -241,27 +302,75 @@ A column binds one or more data fields to a rendering component:
 }
 ```
 
-| `componentType` | Renders | `dataFieldIds` keys |
-| --- | --- | --- |
-| `RawFormatterComponent` | Plain text | `value` |
-| `LinkFormatterComponent` | A hyperlink | `value`, `link` (+ `targetSelf`) |
-| `EntityLinkFormatterComponent` | Link with a status or vendor icon | `value`, `link`, `status`, `vendor` |
-| `StatusFormatterComponent` | A status indicator | `value` |
-| `SeverityFormatterComponent` | A severity icon and label | `value` (+ `visualization`) |
-| `DatetimeFormatterComponent` | A formatted timestamp | `value` (+ `option`, `replaceDate`) |
-| `ThresholdFormatterComponent` | A value rendered against thresholds | `value` |
-| `GenericValueFormatterComponent` | Used as a chart legend formatter | — |
+Nine `componentType`s appear across the nine files, in frequency order:
+
+| `componentType` | Uses | Renders | `dataFieldIds` keys |
+| --- | --- | --- | --- |
+| `RawFormatterComponent` | 50 | Plain text | `value` |
+| `EntityLinkFormatterComponent` | 34 | Link with a status, vendor or entity-type icon | `value`, `link`, `status`, `vendor` (+ `label`) |
+| `ThresholdFormatterComponent` | 22 | A value against a named platform threshold | `value`, `instanceId`, `siteId` (+ `thresholdName`, `visualization`) |
+| `LinkFormatterComponent` | 21 | A hyperlink | `value`, `link` (+ `targetSelf`) |
+| `GenericValueFormatterComponent` | 18 | Used as a chart legend formatter | — |
+| `SimpleNumberFormatterComponent` | 11 | A bare number | `value` (+ `prefixIcon`, `suffixText`) |
+| `DatetimeFormatterComponent` | 4 | A formatted timestamp | `value` (+ `option`, `replaceDate`) |
+| `SeverityFormatterComponent` | 3 | A severity icon and label | `value` (+ `visualization`) |
+| `StatusFormatterComponent` | 2 | A status indicator | `value` |
+
+The list is still **not complete** — these are the types nine files happened to use.
 
 `isActive: false` keeps a column in the file but hides it — useful when a field is only there
 to feed another column's formatter.
 
-`iconFormat` values seen: `status`, `vendor`, `entityTypeWithStatus`. With the last one,
-`entityIcon` names the glyph — `network-device` and `network-interface` across the four files.
-`targetSelf: true` opens in the same tab; `false` opens a new one. `visualization` takes
-`iconWithLabel` and `barChart`.
+### Formatter property values
 
-The complete value sets for `iconFormat`, `entityIcon`, `visualization` and the
-`DatetimeFormatterComponent` `option` field are **not documented and unverified here**.
+`iconFormat` takes four values: `status` (17), `entityTypeWithStatus` (9), `vendor` (6) and
+`entityType` (2). With either of the `entityType` forms, `entityIcon` names the glyph —
+`network-device`, `rule`, `network-interface`, `policy` and `network-path` across the nine
+files. `targetSelf: true` opens in the same tab; `false` opens a new one.
+
+`visualization` takes `barChart` (22, always on a threshold column) and `iconWithLabel` (3, on
+a severity column).
+
+**`ThresholdFormatterComponent` binds to a threshold the platform already defines**, by name,
+rather than to numbers in the file:
+
+```json
+"formatter": {
+  "componentType": "ThresholdFormatterComponent",
+  "properties": {
+    "dataFieldIds": { "value": "CPULoad", "instanceId": "", "siteId": "" },
+    "thresholdName": "Nodes.Stats.CpuLoad",
+    "visualization": "barChart"
+  }
+}
+```
+
+That is what makes a dashboard bar turn amber at the same point the rest of the console does.
+The names seen are `Nodes.Stats.CpuLoad`, `Nodes.Stats.PercentMemoryUsed`,
+`Nodes.Stats.ResponseTime`, `Nodes.Stats.PercentLoss`,
+`NPM.Interfaces.Stats.InPercentUtilization`, `NPM.Interfaces.Stats.OutPercentUtilization` and
+`SRM.StorageControllers.Stats.Utilization`. `instanceId` and `siteId` are `""` in **every one
+of the 22 instances** — an unset slot rather than a field binding, presumably for scoping a
+per-object threshold override. The full set of valid threshold names is **not documented and
+unverified here**.
+
+`EntityLinkFormatterComponent` also accepts a `label` key, which two columns use to separate
+the text from the value:
+
+```json
+"dataFieldIds": { "status": "NodeStatus", "vendor": null,
+                  "label": "NodeName", "value": "NodeDetailsUrl", "link": "NodeDetailsUrl" }
+```
+
+Here `value` and `link` are both the URL and `label` carries what the reader sees. Whether
+`label` is honoured by the other link formatters is **unverified here**.
+
+`DatetimeFormatterComponent`'s `option` is written **both as a string and as an integer** —
+`"0"` twice, `0` once and `1` once — so the console evidently accepts either. What the values
+select is **not documented and unverified here**.
+
+The complete value sets for `iconFormat`, `entityIcon`, `visualization` and `option` are
+**not documented and unverified here**.
 
 ## KPI configuration
 
@@ -297,10 +406,43 @@ Each id in `nodes` must have a matching sibling key on `configuration`:
 ```
 
 **One tile is one query.** Six tiles means six queries, each returning a single row. `units` is
-the caption under the number; `label` is a separate string, blank in every sample.
+the caption under the number, and `label` is a separate string — blank in one author's files,
+but the tile's name (`"Down"`, `"Warning"`) in another's.
 
-`adapter.properties.componentId` repeats the tile's own id — a third place the same GUID
-appears, after the object key and `id`.
+### Most of a tile block is optional
+
+The block above is the fullest form. Counting all **100 tile blocks** across the nine files
+shows how much of it the console will do without:
+
+| Key | Present |
+| --- | --- |
+| `properties.widgetData` | 100 / 100 |
+| `providers.adapter.properties.thresholds` | 88 / 100 |
+| `componentType` | 86 / 100 |
+| `providers.adapter.providerId` | 86 / 100 |
+| `providers.adapter.properties.componentId` | 86 / 100 |
+| `providers.adapter.properties.propertyPath` | 86 / 100 |
+| `properties.configuration` | 80 / 100 |
+
+Only `widgetData` — the label, colour and units — is universal. Fourteen tiles across two
+authors' working exports carry an adapter with nothing but a nested `dataSource`, no
+`providerId`, no `componentId`, no `componentType` on the block:
+
+```json
+"kpi_3d1205d9-595a-49b3-b1a6-04d50ea1be4d": {
+  "id": "kpi_3d1205d9-595a-49b3-b1a6-04d50ea1be4d",
+  "providers": {
+    "dataSource": { "providerId": "KpiSwqlDatasourceService", "properties": { "swql": "...", "dataFields": [ ... ] } },
+    "adapter": { "properties": { "dataSource": { "properties": { "swql": "...", "dataFields": [ ... ] } } } }
+  },
+  "properties": { "widgetData": { "label": "100% Availability", "backgroundColor": "var(--nui-color-semantic-ok)", "units": "" } }
+}
+```
+
+That is the same minimal adapter shape a `table` widget uses. So write the full form — it is
+what the console emits when you build a tile in the UI — but **the absence of `componentId` is
+not a defect**, and a checker that insists on it will reject working files. Where `componentId`
+*is* present it always equals the tile's own id, in all 86 cases.
 
 ### The colour tokens
 
@@ -344,20 +486,42 @@ theme changes. The full token set is **not documented and unverified here**.
 
 The five `*Field` properties are the whole binding: each names a **column of the query**.
 `colorMappingField` is why the sample query computes a hex colour per row with a `CASE`, and
-`linkMappingField` is what makes each slice clickable.
+`linkMappingField` is what makes each slice clickable. `categoryField`, `valueField`,
+`dataFormat`, `iconMappingField` and `colorMappingField` are on all 18 proportional widgets;
+`linkMappingField` on 13 of them, so a chart without clickable slices simply omits it.
 
-`dataFormat: "custom"` accompanies that per-row mapping, and is the only value in all four
-files.
+`dataFormat: "custom"` accompanies that per-row mapping, and is the only value in all nine
+files. An empty `"editor": {}` sits alongside it on all 18, purpose **unverified here**.
 
-`chartOptions.type` takes `DonutChart`, `PieChart` or `HorizontalBarChart`.
-`legendPlacement` takes `Bottom`, `Right` or `None`. Neither list is necessarily complete and
-both are **unverified here** beyond what the samples exercise.
+`chartOptions.type` takes `DonutChart` (12), `PieChart` (5) or `HorizontalBarChart` (1).
+`legendPlacement` takes `Right` (14), `Bottom` (3) or `None` (1), and `legendFormatter` is
+present on all 18, always `GenericValueFormatterComponent`. None of these lists is necessarily
+complete and all are **unverified here** beyond what the samples exercise.
 
-## `unique_key` collisions, which both authors produced
+Unlike a table, a proportional widget's adapter is a full one, with its own provider id:
+
+```json
+"adapter": {
+  "providerId": "NOVA_DATASOURCE_ADAPTER",
+  "properties": {
+    "componentId": "chart",
+    "propertyPath": "widgetData",
+    "dataSource": { "properties": { "swql": "...", "dataFields": [ ... ] } }
+  }
+}
+```
+
+`componentId` is the literal string `"chart"` — the node's own key — rather than a GUID, on
+all 18. That makes three distinct adapter shapes in the format: `NOVA_KPI_DATASOURCE_ADAPTER`
+for a KPI tile, `NOVA_DATASOURCE_ADAPTER` for a chart, and an anonymous
+`{"properties": {"dataSource": ...}}` for a table.
+
+## `unique_key` collisions, and the reuse that is fine
 
 `unique_key` is the only thing joining a placement to a definition, and **nothing enforces
-that it is unique.** Both authors' files break it, in two different ways, and neither break is
-visible from the console.
+that it is unique.** One author's file breaks it, in two different ways, and neither break is
+visible from the console. A third author's five files are clean — 43 definitions, 43 distinct
+keys — so this is a defect a careful author avoids, not something the format forces on you.
 
 **Within one file.** In the second author's 27-widget dashboard, there are only **14 distinct
 `unique_key` values**. One key is used for seven separate widget definitions:
@@ -373,7 +537,7 @@ Seven different names, seven different queries, one key — and seven placements
 it. Another key covers seven interface widgets the same way, and a third covers two. The
 pattern is unmistakable: the widget was copied in the editor and the key came with it.
 
-**Across files.** In the first author's three dashboards, the widget
+**Across files.** In another author's three dashboards, the widget
 `f4c74926-35af-4044-b921-dc2468e81c58` ("All Active Alerts") appears in all three with the
 **same key and different content** — the Alert Status copy links its Site column to the System
 Status dashboard, while the other two link to Alert Status.
@@ -394,33 +558,99 @@ A one-line check before you import anything:
 python3 -c "import json,sys,collections; d=json.load(open(sys.argv[1])); c=collections.Counter(w['unique_key'] for w in d['widgets']); print({k:v for k,v in c.items() if v>1} or 'no duplicate widget keys')" dashboard.json
 ```
 
+### A KPI tile id is not a `unique_key`, and reusing one is normal
+
+This is the distinction to get right, because the two look alike and only one of them matters.
+
+A `kpi_…` id keys an object *inside one widget's* `configuration`, so it only has to be unique
+within that widget. Reuse across widgets is common and evidently harmless: one author uses the
+same four tile ids in **fourteen different KPI widgets**, and another uses
+`kpi_3d1205d9-595a-49b3-b1a6-04d50ea1be4d` for the single tile in **all six** of a dashboard's
+widgets — six different queries, six different labels, one id, and the dashboard works.
+
+So the rule is narrower than "regenerate every GUID": a **widget** `unique_key` must be unique
+across the file, while a **tile** id only has to be unique within its widget. Regenerating both
+on a copy still costs nothing and removes the need to remember which is which.
+
 ## What this repository verified
 
-Four exports from two independent authors, parsed and checked against the extracted 2026.2
+Nine exports from three independent authors, parsed and checked against the extracted 2026.2
 schema:
 
-| Check | Author A (3 files) | Author B (1 file) |
-| --- | --- | --- |
-| Envelope keys and `version` | `1`, four keys | identical |
-| Grid width | 12 columns | 12 columns |
-| `dataSource` / `adapter` SWQL byte-identical | 32 of 32 | **69 of 69** |
-| `dataField` ids present in their own query | all | all, across 138 data sources |
-| Placements resolving to a definition | all | all |
-| KPI `tiles.nodes` ids having a config block | all | all |
-| Distinct SWQL statements | 17 | 69 |
-| Statements using only platform names that exist | 17 of 17 | 12 clean, 57 naming a custom property |
+| | Author A | Author B | Author C |
+| --- | --- | --- | --- |
+| Files | 3 | 1 | 5 |
+| Widget definitions | 17 | 27 | 31 |
+| Embedded SWQL strings | 64 | 138 | 90 |
+| Envelope: `version: 1` and the four keys | yes | yes | yes |
+| `x + cols` never exceeding 12 | yes | yes | yes |
+| `dataSource` / `adapter` copies byte-identical | 32 / 32 | **69 / 69** | 45 / 45 |
+| `dataField` ids present in their own query | all | all | all |
+| Placements resolving to a definition | all | all | all |
+| KPI `tiles.nodes` ids having a config block | all | all | all |
+| Distinct widget `unique_key`s | 17 / 17 | **14 / 27** | 31 / 31 |
 
-**Every unresolved name in either author's file is a custom property**, not a mistake:
-`Site` for author A, and `Responsible_Group`, `Device_Type` and `Link_Type` for author B.
-Custom properties are columns each customer adds to extend the product, so no extracted schema
-can contain them — that is the point of them. See
+**146 of 146 dataSource/adapter pairs are byte-identical** across all nine files. That is the
+strongest single result here: the duplication is not decorative, and nothing in three authors'
+independent work ever lets the two copies drift.
+
+The one defect that shows up is the `unique_key` collision in author B's file, described above.
+Author C's five files are clean on every check.
+
+**Every unresolved name in any author's file is a custom property**, not a mistake: `Site` for
+author A, and `Responsible_Group`, `Device_Type` and `Link_Type` for author B. Custom
+properties are columns each customer adds to extend the product, so no extracted schema can
+contain them — that is the point of them. See
 [../automation/custom-properties.md](../automation/custom-properties.md) for enumerating the
 ones your own server has, which is how you would validate a dashboard against your
 installation rather than against the stock schema.
 
 Every *platform* entity used checks out, including `Orion.Dashboards.Instances`, whose
 `DisplayName` and `InstanceSiteId` are inherited from `System.Entity` and
-`Orion.Dashboards.Entity` rather than declared on it.
+`Orion.Dashboards.Entity` rather than declared on it. Author C's files widen the entity
+surface considerably, reaching `NCM.Nodes`, `NCM.NodesView`, `NCM.ConfigArchive`,
+`NCM.LatestTransferJobStatus`, `NCM.NodeProperties`, `Cirrus.CacheDiffResults`,
+`Cirrus.NCM_NCMJobs`, `Orion.NetPath.ServiceAssignments`, `Orion.NetPath.Tests`,
+`Orion.StatusInfo` and `Orion.ResponseTime` — all of which resolve.
+
+### One name that does not resolve
+
+`NCM.NodesView` is used by a working dashboard — selecting `CoreNodeID`, `NodeName`,
+`NodeStatus`, `LeftConfigID`, `RightConfigID` and `RunningVsStartupStatus` from it to show
+running-versus-startup config conflicts — and **it is not in the published 2026.2 schema**. It
+is not a custom property either: custom properties are columns on an existing entity, and this
+is an entity name.
+
+The schema has 72 `NCM.*` entities, including `NCM.Nodes` and `NCM.FirmwareOperationsView`, so
+both the namespace and the `…View` suffix convention are real. The likely readings are that it
+exists on the author's version but is absent from the SDK's published metadata, or that it was
+added or removed between versions. Which one is **unverified here**. Check your own server
+before relying on it:
+
+```sql
+SELECT e.FullName, e.BaseType
+FROM Metadata.Entity e
+WHERE e.FullName LIKE 'NCM.%View'
+```
+
+That is the general lesson rather than a one-off: the extracted schema in this repository is
+one published version, and a working dashboard can legitimately name something it does not
+contain. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
+
+### Two artefacts worth knowing about
+
+**Stray line-continuation backslashes.** One widget in author B's file carries a `\` at the end
+of most lines of its SWQL, including after a column alias (`AS [Day]\`), left behind by
+whatever it was pasted from. Whether the console tolerates them is **unverified here**, but
+they are worth removing before you copy such a query.
+
+**`_LinkFor_` and `_IconFor_` column names in a Modern Dashboard.** Author C's NetPath query
+aliases columns `[_LinkFor_Destination]` and `[_IconFor_Destination]`. Those names are the
+*classic* console's Custom Query widget convention — see
+[custom-query-widget.md](custom-query-widget.md) — and mean nothing to a Modern Dashboard,
+which binds columns explicitly through `dataFieldIds`. The query works because the formatter
+names those columns, not because of what they are called. It is a habit carried across from
+the old widget, and harmless, but do not expect the naming alone to create a link here.
 
 ## See also
 

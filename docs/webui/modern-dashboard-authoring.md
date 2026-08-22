@@ -9,21 +9,28 @@ presentation hung off each one.
 
 ## The five rules that decide whether a file works
 
-Everything else is detail. These are the invariants, all confirmed across four real exports
-from two independent authors:
+Everything else is detail. These are the invariants, all confirmed across nine real exports
+from three independent authors:
 
-1. **Every `unique_key` is a fresh GUID, and duplicates are a bug.** Copying a widget without
-   regenerating its key is the single most common defect in real files — see
-   [modern-dashboards.md](modern-dashboards.md#unique_key-collisions-which-both-authors-produced).
+1. **Every widget `unique_key` is a fresh GUID, and duplicates are a bug.** Copying a widget
+   without regenerating its key is the most common defect in real files — see
+   [modern-dashboards.md](modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine).
+   Note that a `kpi_…` **tile** id is a different thing: it is scoped to its widget, and reusing
+   one across widgets is normal.
 2. **Every placement resolves to a definition.** `dashboards[].widgets[].unique_key` must
    appear in the top-level `widgets[]` array.
 3. **The SWQL is written twice and both copies must match** — under
    `providers.dataSource.properties.swql` and again under
-   `providers.adapter.properties.dataSource.properties.swql`.
-4. **Every `dataFields[].id` is a column the query returns.** A mismatch renders a blank
-   column rather than raising an error.
-5. **A KPI tile listed in `tiles.properties.nodes` has a sibling configuration block** with
-   the same id, and that id appears a third time in `adapter.properties.componentId`.
+   `providers.adapter.properties.dataSource.properties.swql`. All **146 pairs across all nine
+   files** are byte-identical, which makes this the best-attested rule here.
+4. **Every `dataFields[].id` is a column the query returns** — the alias if there is one, and
+   the bare property name if there is not, so `ONodes.Status` returns `Status`. A mismatch
+   renders a blank column rather than raising an error.
+5. **Every KPI tile listed in `tiles.properties.nodes` has a sibling configuration block**
+   with the same id. Only that much is universal: `componentType`,
+   `adapter.providerId` and `adapter.properties.componentId` are each present on 86 of the 100
+   tiles seen and absent from working files, so **write them, but do not treat their absence as
+   an error**. Where `componentId` is present it always equals its tile's id.
 
 ## Build it query-first
 
@@ -234,7 +241,27 @@ Then verify before importing:
 python3 tools/validate_swql.py -
 ```
 
-and check the structural invariants:
+and check the structural invariants, which is what
+[`tools/check_dashboards.py`](../../tools/check_dashboards.py) exists for — point it at any
+dashboard file, not just the ones in this repository:
+
+```bash
+python3 tools/check_dashboards.py scripts/dashboards/minimal-dashboard.json
+```
+
+```text
+1 dashboard file(s), 2 widget definition(s) and 4 embedded query/queries checked
+every shipped dashboard satisfies the invariants in docs/webui/modern-dashboard-authoring.md
+```
+
+Give it the path to your own export in place of that one.
+
+It enforces all five rules above plus the column bindings, and it is deliberately quiet about
+the things real files legitimately do: an absent `componentId`, an empty `sortBy`, the `""`
+placeholders in a threshold column. Every one of those was a false positive it reported before
+being run against a wider sample.
+
+For a quick look at just the collision rule, without the repository:
 
 ```bash
 python3 -c "import json,sys,collections; d=json.load(open(sys.argv[1])); c=collections.Counter(w['unique_key'] for w in d['widgets']); print({k:v for k,v in c.items() if v>1} or 'no duplicate widget keys')" dashboard.json
@@ -246,7 +273,8 @@ and no reason why.
 
 ## Gotchas
 
-**Copying a widget copies its key.** Both authors' files carry collisions. Regenerate.
+**Copying a widget copies its key.** One author's file carries collisions across 27 widgets.
+Regenerate the widget key; a `kpi_…` tile id is scoped to its widget and may be reused.
 
 **The SWQL lives in two places.** Edit both.
 
@@ -264,8 +292,18 @@ dashboard breaks every link into it, silently.
 than a problem — validate against your own server with `Metadata.Property`, per
 [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
-**`collapsed: true` appears with `collapsible: false`** throughout. Set `collapsible` if you
-mean it to collapse.
+**`collapsed: true` appears with `collapsible: false`** throughout — 60 of the 69 headers that
+declare the pair, with the other 9 setting both true and 6 headers omitting both. `collapsed:
+false` appears nowhere in any file. Write the pair the way the console does, or leave both out,
+and set `collapsible: true` if you mean the widget to collapse.
+
+**A `ThresholdFormatterComponent` column takes a `thresholdName`**, binding the bar to a
+threshold the platform already defines (`Nodes.Stats.CpuLoad` and friends) rather than to
+numbers in the file. Its `instanceId` and `siteId` are `""` in every real instance.
+
+**An unaliased select item still names a column.** `ONodes.Status` returns `Status`. But an
+unaliased *expression* — a `CONCAT(...)` or `COUNT(...)` — gets a server-assigned name you
+cannot predict, so alias those.
 
 ## See also
 

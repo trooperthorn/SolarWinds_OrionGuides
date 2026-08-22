@@ -114,11 +114,52 @@ SOURCE_RE = re.compile(
 # A dotted reference: head.segment[.segment...]
 DOTTED_RE = re.compile(r"\b([A-Za-z_]\w*)((?:\.[A-Za-z_]\w*)+)\b")
 FUNC_RE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+BRACKET_QUALIFIED_RE = re.compile(r"\b[A-Za-z_]\w*\s*\.\s*\[[^\]]*\]")
+BRACKET_RE = re.compile(r"\[[^\]]*\]")
 
 
 def strip_noise(q: str) -> str:
-    q = COMMENT_RE.sub(" ", q)
-    return STRING_RE.sub("''", q)
+    """Blank out string literals and comments in one left-to-right pass.
+
+    Doing it in two passes gets one real case wrong whichever order you pick. A dashboard
+    query assigns CSS colour tokens as literals -- `'var(--nui-color-semantic-ok)'` -- and
+    stripping comments first sees the `--` inside that string and eats the rest of the line,
+    leaving an unterminated quote and a bogus `var(` function call. Stripping strings first
+    breaks the mirror case, an apostrophe inside a comment. Only a single scan that respects
+    whichever construct opens first handles both.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(q)
+    while i < n:
+        c = q[i]
+        if c == "'":
+            j = i + 1
+            while j < n:
+                if q[j] == "'":
+                    if j + 1 < n and q[j + 1] == "'":   # '' is an escaped quote
+                        j += 2
+                        continue
+                    break
+                j += 1
+            out.append("''")
+            i = j + 1
+            continue
+        if q.startswith("--", i):
+            j = q.find("\n", i)
+            j = n if j == -1 else j
+            out.append(" " * (j - i))
+            i = j
+            continue
+        if q.startswith("/*", i):
+            j = q.find("*/", i + 2)
+            j = n if j == -1 else j + 2
+            out.append(" " * (j - i))
+            i = j
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
 
 
 class Finding:
@@ -225,8 +266,10 @@ def validate(query: str, schema: SchemaIndex) -> list[Finding]:
             )
             break
 
-    # 3. Function names.
-    for m in FUNC_RE.finditer(clean):
+    # 3. Function names. Bracket-quoted identifiers are masked first: an alias may contain
+    # parentheses -- `AS [LastLatency(ms)]` appears in a real dashboard -- and would
+    # otherwise read as a call to a function named LastLatency.
+    for m in FUNC_RE.finditer(BRACKET_RE.sub(" ", clean)):
         fname = m.group(1)
         if fname.lower() in KEYWORDS or fname.lower() in schema.functions:
             continue
@@ -251,8 +294,6 @@ def validate(query: str, schema: SchemaIndex) -> list[Finding]:
 # Text that is not a column reference and must be removed before the bare names are read:
 # a bracket-quoted identifier, which may follow a qualifier that would otherwise be left
 # stranded; a bound parameter; a numeric literal.
-BRACKET_QUALIFIED_RE = re.compile(r"\b[A-Za-z_]\w*\s*\.\s*\[[^\]]*\]")
-BRACKET_RE = re.compile(r"\[[^\]]*\]")
 PARAM_RE = re.compile(r"@\w+")
 NUMBER_RE = re.compile(r"\b\d[\w.]*\b")
 AS_ALIAS_RE = re.compile(r"\bas\s+([A-Za-z_]\w*)", re.I)

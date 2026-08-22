@@ -58,7 +58,7 @@
             "url": "/orion/netperfmon/nodes.aspx",
             "description": "One tile, one single-row query.",
             "collapsible": false,
-            "collapsed": false
+            "collapsed": true
           }
         },
         "tiles": {
@@ -152,7 +152,7 @@
             "url": "/orion/netperfmon/nodes.aspx",
             "description": "Every node not currently in an Up state.",
             "collapsible": false,
-            "collapsed": false
+            "collapsed": true
           }
         },
         "table": {

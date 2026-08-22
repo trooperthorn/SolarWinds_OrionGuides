@@ -31,3 +31,10 @@ Orion.something
 # tools/validate_swql.py output block to show what the checker prints for an entity that
 # does not exist at all, as against one that is only wrong in its capitalisation.
 Orion.NotAnEntity
+
+# Used by a real, working Modern Dashboard export (running-versus-startup config conflicts)
+# and genuinely absent from the published 2026.2 schema, which has 72 other NCM.* entities
+# including the sibling NCM.FirmwareOperationsView. docs/webui/modern-dashboards.md reports
+# it as an unresolved name and says to check Metadata.Entity on your own server, so the
+# absence is the point being made rather than a mistake in the page.
+NCM.NodesView
