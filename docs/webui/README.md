@@ -31,6 +31,8 @@ reported, sourced and marked unverified. Read
 | Page | Covers |
 | --- | --- |
 | [custom-query-widget.md](custom-query-widget.md) | Turning a SWQL result into a linked, icon-bearing table: the `_LinkFor_` and `_IconFor_` column conventions, console URL shapes, and a worked widget |
+| [ncm-change-templates.md](ncm-change-templates.md) | What an NCM config change template is, its directives, the parameters that become form fields, and managing them through `Cirrus.ConfigSnippets` |
+| [ncm-change-template-language.md](ncm-change-template-language.md) | The template scripting language: variables and macros, operators, string functions, loops, CLI blocks and custom properties |
 
 ## Where these come from
 

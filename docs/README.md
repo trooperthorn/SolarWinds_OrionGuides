@@ -121,6 +121,8 @@ Five separate polling systems that share no entities and reuse each other's colu
 | --- | --- |
 | [webui/README.md](webui/README.md) | What this section is, and why the schema cannot verify it |
 | [webui/custom-query-widget.md](webui/custom-query-widget.md) | `_LinkFor_` and `_IconFor_` column conventions, console URLs, a worked widget |
+| [webui/ncm-change-templates.md](webui/ncm-change-templates.md) | NCM config change templates: directives, parameters, and the `Cirrus.ConfigSnippets` API |
+| [webui/ncm-change-template-language.md](webui/ncm-change-template-language.md) | The change template scripting language, end to end |
 
 ## Guides
 

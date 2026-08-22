@@ -229,6 +229,12 @@ def check_tool_invocations(files: list[str]) -> tuple[int, list[str]]:
             proc = subprocess.run(
                 shlex.split(line, comments=True), cwd=ROOT,
                 capture_output=True, text=True, timeout=180,
+                # A documented command may read stdin -- validate_swql.py takes "-" for a
+                # query on standard input. Inheriting this process's stdin leaves it
+                # blocking on a terminal that will never send anything, and the whole
+                # check dies on the timeout. EOF is the right answer here: the command
+                # runs, reads nothing, and exits.
+                stdin=subprocess.DEVNULL,
             )
         except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
             problems.append(f"{rel}: `{line[:90]}` could not be run: {exc}")
@@ -354,7 +360,8 @@ def main() -> None:
             checked += 1
             try:
                 proc = subprocess.run(
-                    shlex.split(cmd), cwd=ROOT, capture_output=True, text=True, timeout=180
+                    shlex.split(cmd), cwd=ROOT, capture_output=True, text=True,
+                    timeout=180, stdin=subprocess.DEVNULL,
                 )
             except (subprocess.TimeoutExpired, OSError) as exc:
                 failures.append(f"{rel}: `{cmd}` could not be run: {exc}")

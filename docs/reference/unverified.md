@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**158 statements across 49 pages.**
+**165 statements across 51 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -699,6 +699,38 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Practical notes](../webui/custom-query-widget.md#practical-notes)**
 
 - They are marked unverified where they appear.
+
+## [ncm-change-template-language.md](../webui/ncm-change-template-language.md)
+
+**[Two kinds of variable, and they are not interchangeable](../webui/ncm-change-template-language.md#two-kinds-of-variable-and-they-are-not-interchangeable)**
+
+- Whether `${CRLF}` works inside a change template as opposed to a command script is **unverified**; the community source that lists it flags the same doubt.
+
+**[String functions](../webui/ncm-change-template-language.md#string-functions)**
+
+- Whether `octetPosition` counts from 0 or from 1 is **not stated in the source and is unverified here** — test it before shipping a template that rewrites addresses.
+
+**[Control flow](../webui/ncm-change-template-language.md#control-flow)**
+
+- Whether a template can rely on that when exactly one device is selected is **unverified here**.
+
+**[Special characters need a variable](../webui/ncm-change-template-language.md#special-characters-need-a-variable)**
+
+- Which characters need this treatment beyond `|` and `@` is **not documented and is unverified here**.
+
+## [ncm-change-templates.md](../webui/ncm-change-templates.md)
+
+**[The directives](../webui/ncm-change-templates.md#the-directives)**
+
+- Whether any display type other than `Listbox` is supported is **not documented by SolarWinds and is unverified here**.
+
+**[The parameter types are SWIS entities](../webui/ncm-change-templates.md#the-parameter-types-are-swis-entities)**
+
+- Whether the template engine accepts a navigation the schema declares but SolarWinds' own examples never use is **unverified here**.
+
+**[What this repository can and cannot check](../webui/ncm-change-templates.md#what-this-repository-can-and-cannot-check)**
+
+- Directive names, the `Listbox:` syntax, the signature grammar and everything in [ncm-change-template-language.md](../webui/ncm-change-template-language.md) come from SolarWinds' documentation and from THWACK, and **cannot be verified here**.
 
 ---
 

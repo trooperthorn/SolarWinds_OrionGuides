@@ -1623,6 +1623,20 @@ class TestOutputPairing(unittest.TestCase):
             self.assertNotIn("```", cmd)
             self.assertNotIn("```", out)
 
+    def test_a_command_reading_stdin_gets_eof_rather_than_blocking(self):
+        # validate_swql.py takes "-" for a query on standard input, and the guides document
+        # it. Inheriting this process's stdin left the runner blocking on a terminal that
+        # would never send anything, and the whole check died on the 180-second timeout.
+        import subprocess
+        import sys
+
+        proc = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "tools", "validate_swql.py"), "-"],
+            cwd=ROOT, capture_output=True, text=True, timeout=60,
+            stdin=subprocess.DEVNULL,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
     def test_an_elision_marker_allows_a_gap_but_a_missing_line_still_fails(self):
         actual = ["Verb.Name", "  returns: number", "  requires: admin"]
         ok, _ = self.mod.matches(["Verb.Name", "...", "  requires: admin"], actual)

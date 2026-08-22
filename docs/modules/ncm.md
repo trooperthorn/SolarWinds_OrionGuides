@@ -337,6 +337,12 @@ snippet *configs* keyed by `ConfigID`, with its own `AddSnippet`, `UpdateSnippet
 `DeleteSnippet` verbs requiring the Administrator NCM role. Do not reach for it when you meant
 `Cirrus.ConfigSnippets`.
 
+The template *language* — the directives, the parameters that become form fields, the
+operators, the CLI blocks — is documented in
+[../webui/ncm-change-templates.md](../webui/ncm-change-templates.md) and
+[../webui/ncm-change-template-language.md](../webui/ncm-change-template-language.md), since it
+is a console feature rather than a schema one.
+
 `Cirrus.Nodes.ParseMacros(nodeId, macro)` expands NCM's macro syntax against one node, which
 is how you preview what a template will actually send before you send it.
 `Cirrus.Settings.SetCustomMacros`, `DeleteCustomMacros` and `SetGlobalMacroForAllNodes` manage
