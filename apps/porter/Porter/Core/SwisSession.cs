@@ -24,14 +24,24 @@ public sealed class SwisSession : IDisposable
     public string? LastUntrustedThumbprint { get; private set; }
     public string? LastUntrustedSubject { get; private set; }
 
+    /// <summary>Whether the caller asked for chain verification. Off by default in the UI,
+    /// because a stock installation presents the self-signed "SolarWinds-Orion" certificate.
+    /// Unverified sessions still record the presented certificate's fingerprint.</summary>
+    public bool VerifyTls { get; }
+    public string? PresentedThumbprint { get; private set; }
+    public string? PresentedSubject { get; private set; }
+
     private readonly HttpClient _http;
     private bool _pinUseLogged;
+    private bool _tlsNoted;
 
-    public SwisSession(string server, int port, bool windowsAuth, string? username, string? password)
+    public SwisSession(string server, int port, bool windowsAuth, string? username, string? password,
+        bool verifyTls)
     {
         Server = server;
         Port = port;
         WindowsAuth = windowsAuth;
+        VerifyTls = verifyTls;
         Username = windowsAuth ? null : username;
 
         var handler = new HttpClientHandler
@@ -59,8 +69,23 @@ public sealed class SwisSession : IDisposable
     {
         if (errors == System.Net.Security.SslPolicyErrors.None) return true;
         if (cert is null) return false;
-        // STIG posture: verification is never switched off. A self-signed certificate can be
-        // pinned by SHA-256 thumbprint, explicitly, once — and the pin is logged.
+        if (!VerifyTls)
+        {
+            // Accepted without verification (the default, for the stock SolarWinds-Orion
+            // self-signed certificate) — but never silently: the fingerprint is recorded in
+            // the Captain's Log once per session, so a changed certificate is visible.
+            if (!_tlsNoted)
+            {
+                _tlsNoted = true;
+                PresentedThumbprint = Convert.ToHexString(SHA256.HashData(cert.RawData));
+                PresentedSubject = cert.Subject;
+                SessionLog.Log("tls", $"{Server}:{Port}", "unverified-accepted",
+                    $"{PresentedSubject} · SHA-256 {PresentedThumbprint}");
+            }
+            return true;
+        }
+        // Verification on: a self-signed certificate can still be pinned by SHA-256
+        // thumbprint, explicitly, once — and the pin is logged.
         var thumb = Convert.ToHexString(SHA256.HashData(cert.RawData));
         if (CertPinStore.IsPinned(Server, Port, thumb))
         {

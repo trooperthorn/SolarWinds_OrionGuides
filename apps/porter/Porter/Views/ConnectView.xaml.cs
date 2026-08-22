@@ -45,10 +45,13 @@ public partial class ConnectView : UserControl
         SwisSession? session = null;
         try
         {
-            session = new SwisSession(server, port, winAuth, UserBox.Text.Trim(), PassBox.Password);
+            var verifyTls = VerifyTlsBox.IsChecked == true;
+            session = new SwisSession(server, port, winAuth, UserBox.Text.Trim(), PassBox.Password, verifyTls);
             await session.TestAsync();
             var label = await PlatformLabelAsync(session);
-            Ok($"Connected — {server}:{port} · {label}");
+            var tlsNote = session.VerifyTls ? "TLS verified"
+                : $"TLS unverified — fingerprint logged{(session.PresentedThumbprint is null ? "" : $" ({session.PresentedThumbprint[..12]}…)")}";
+            Ok($"Docking complete — {server}:{port} · {label} · {tlsNote}");
             SessionLog.Log("connect", $"{server}:{port}", "ok", winAuth ? "windows-auth" : UserBox.Text.Trim());
             if (connectAfter)
             {
@@ -70,7 +73,7 @@ public partial class ConnectView : UserControl
                 $"Subject: {subject}\n" +
                 $"SHA-256: {thumb}\n\n" +
                 "Pin this certificate for this server? The pin is recorded in the audit log.",
-                "Untrusted certificate", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                "First contact — unknown certificate", MessageBoxButton.YesNo, MessageBoxImage.Warning);
             if (pin == MessageBoxResult.Yes)
             {
                 CertPinStore.Pin(server, port, thumb);

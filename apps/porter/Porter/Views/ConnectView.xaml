@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid Margin="36" MaxWidth="640" HorizontalAlignment="Left">
         <StackPanel>
-            <TextBlock FontSize="22" FontWeight="SemiBold" Text="Connect to a SolarWinds Platform server"/>
+            <TextBlock FontSize="22" FontWeight="SemiBold" Text="Docking — connect to a SolarWinds Platform server"/>
             <TextBlock Foreground="Gray" Margin="0,4,0,16"
                        Text="IP address, hostname, or FQDN. Porter speaks SWIS over REST (default port 17774)."/>
 
@@ -42,12 +42,18 @@
                 </StackPanel>
             </Grid>
 
-            <TextBlock Foreground="Gray" FontSize="12" Margin="0,0,0,12"
-                       Text="Passwords are never stored. TLS verification stays on — a self-signed certificate can be pinned by thumbprint, and the pin is logged."/>
+            <CheckBox x:Name="VerifyTlsBox" Margin="0,2,0,8">
+                <TextBlock TextWrapping="Wrap"
+                    Text="Verify TLS certificate — leave off for the stock self-signed 'SolarWinds-Orion' certificate; turn on once a domain-trusted certificate is bound to SWIS (see README)"/>
+            </CheckBox>
+            <TextBlock Foreground="Gray" FontSize="12" Margin="0,0,0,12" TextWrapping="Wrap"
+                       Text="Passwords are never stored. With verification off, every session records the presented certificate's SHA-256 fingerprint in the Captain's Log; with it on, an unknown certificate can be pinned by thumbprint."/>
 
             <StackPanel Orientation="Horizontal">
-                <Button x:Name="TestBtn" Content="Test connection" Click="Test_Click"/>
-                <Button x:Name="ConnectBtn" Content="Connect" FontWeight="SemiBold" Click="Connect_Click"/>
+                <Button x:Name="TestBtn" Content="Pathfinder — test" ToolTip="Test the connection without keeping it"
+                        AutomationProperties.Name="Test connection" Click="Test_Click"/>
+                <Button x:Name="ConnectBtn" Content="Dock — connect" FontWeight="SemiBold"
+                        AutomationProperties.Name="Connect" Click="Connect_Click"/>
             </StackPanel>
 
             <TextBlock x:Name="StatusText" Margin="0,16,0,0" TextWrapping="Wrap"/>
