@@ -25,6 +25,9 @@ entity whose name equals the listed prefix or begins with that prefix plus a dot
 |---|---|---|---|---|
 | [npm](npm.md) | Network Performance Monitor | Interfaces, wireless, routing, NetPath, multicast | `Orion.NPM.`, `Orion.Routing.`, `Orion.Packages.Wireless.`, `Orion.WirelessHeatMap.`, `Orion.NetPath.` | 139 |
 | [sam](sam.md) | Server and Application Monitor | Template-based application monitoring, components, AppInsight for SQL, IIS and Exchange | `Orion.APM.` | 140 |
+
+SAM's export format has its own page: [sam-templates.md](sam-templates.md) documents the
+`.apmtemplate` document that `ExportTemplate` and `ImportTemplate` move.
 | [ncm](ncm.md) | Network Configuration Manager | Device configuration backup, compliance policies, config transfer, firmware, inventory | `Cirrus.` and `NCM.` | 129 |
 | [nta](nta.md) | NetFlow Traffic Analyzer | Flow records, applications, protocols, conversations, CBQoS | `Orion.Netflow.` | 49 |
 | [ipam](ipam.md) | IP Address Manager | Subnets, IP addresses, conflicts, DHCP scopes and leases, DNS zones and records | `IPAM.` | 77 |

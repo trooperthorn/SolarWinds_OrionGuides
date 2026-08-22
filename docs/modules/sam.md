@@ -436,6 +436,11 @@ applies templates to the members of a group, configured through
 | `StartTestComponents` | `nodeId`, `templateUniqueId`, `credentialId` | array of job GUIDs |
 | `GetTestComponentStatus` | `jobs` (array of job GUIDs) | array |
 
+`ImportTemplate` and `ExportTemplate` move the `.apmtemplate` document, whose format is
+documented in [sam-templates.md](sam-templates.md). Note that `ExportTemplate` takes the
+**integer** `ApplicationTemplateID` while `StartTestComponents` takes the **GUID** `UniqueId`;
+both get called "the template id" in conversation.
+
 `StartTestComponents` and `GetTestComponentStatus` are the pair to reach for when you want
 to know whether a template *would* work against a node before committing to assigning it.
 `StartTestComponents` takes `templateUniqueId`, which is the template's

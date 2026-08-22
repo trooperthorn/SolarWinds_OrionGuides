@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**225 statements across 61 pages.**
+**230 statements across 62 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -426,6 +426,28 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What is not verified here](../modules/qoe.md#what-is-not-verified-here)**
 
 - ## What is not verified here
+
+## [sam-templates.md](../modules/sam-templates.md)
+
+**[The root is an array](../modules/sam-templates.md#the-root-is-an-array)**
+
+- Whether `ImportTemplate` accepts a document with more than one `ApplicationTemplate`, and what it returns if it does — the verb's return type is a single `number` — is **not documented and unverified here**.
+
+**[Settings are a typed key/value map](../modules/sam-templates.md#settings-are-a-typed-keyvalue-map)**
+
+- That the value can be anything else is an inference from the name and is **unverified here**.
+
+**[Components](../modules/sam-templates.md#components)**
+
+- `EvidenceType`, `CategoryDisplayName` and `ApplicationItemType` are `None` and `VisibilityMode` is `Visible` on **all 67 components** in the three samples; their other legal values are **not documented and unverified here**.
+
+**[Thresholds](../modules/sam-templates.md#thresholds)**
+
+- Its syntax is **not documented and unverified here**.
+
+**[Moving a template between servers](../modules/sam-templates.md#moving-a-template-between-servers)**
+
+- Whether `ImportTemplate` rejects, replaces or duplicates a template whose `UniqueId` already exists is **not documented and unverified here**.
 
 ## [sam.md](../modules/sam.md)
 

@@ -68,6 +68,7 @@ Per-product deep dives. An entity only exists if its module is licensed and inst
 | [modules/README.md](modules/README.md) | Index, with entity counts and how to detect what is installed |
 | [modules/npm.md](modules/npm.md) | Network Performance Monitor |
 | [modules/sam.md](modules/sam.md) | Server and Application Monitor |
+| [modules/sam-templates.md](modules/sam-templates.md) | The `.apmtemplate` export format, and moving a template between servers |
 | [modules/ncm.md](modules/ncm.md) | Network Configuration Manager |
 | [modules/nta.md](modules/nta.md) | NetFlow Traffic Analyzer |
 | [modules/srm.md](modules/srm.md) | Storage Resource Monitor |
