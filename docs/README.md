@@ -32,6 +32,7 @@ The SolarWinds Information Service: how to reach it and what it offers.
 | [swis/uris.md](swis/uris.md) | The URI format, the system identifier, and entities that have none |
 | [swis/invoke-verbs.md](swis/invoke-verbs.md) | Calling verbs, and how to set parameters in every client |
 | [swis/verb-catalog.md](swis/verb-catalog.md) | The verbs worth knowing, grouped by task |
+| [swis/invoke-at-scale.md](swis/invoke-at-scale.md) | Running Invoke unattended: risk surface, runaways, and scaling |
 | [swis/metadata-introspection.md](swis/metadata-introspection.md) | Asking a live server about its own schema |
 
 ## The query language

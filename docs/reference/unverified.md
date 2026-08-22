@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**181 statements across 54 pages.**
+**187 statements across 55 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -574,6 +574,29 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Other status-shaped properties to know before writing a filter](../schema/status-codes.md#other-status-shaped-properties-to-know-before-writing-a-filter)**
 
 - `ChildStatus` — `System.Int32` — `Orion.Nodes` — Declared with no summary, so what it rolls up is **unverified**. Compare it against `Status` on your own server before filtering on it
+
+## [invoke-at-scale.md](../swis/invoke-at-scale.md)
+
+**[Authorization is thinner than it looks](../swis/invoke-at-scale.md#authorization-is-thinner-than-it-looks)**
+
+- **This repository can verify the contract and cannot verify the server.** Where the two might disagree, test on a system you can afford to be wrong about.
+
+**["Random" is misleading, and the real rule is worse](../swis/invoke-at-scale.md#random-is-misleading-and-the-real-rule-is-worse)**
+
+- Both are unverified here.
+
+**[The account that could do more than the task needed](../swis/invoke-at-scale.md#the-account-that-could-do-more-than-the-task-needed)**
+
+- Whether they scope what a verb can *act on* is **not stated in the schema and is unverified here** — do not rely on a limitation as a safety control for Invoke without testing it.
+
+**[Classify every verb you call](../swis/invoke-at-scale.md#classify-every-verb-you-call)**
+
+- The third question has a specific trap: **an empty array is not always a no-op.** Whether a verb given an empty list does nothing or does everything is not stated anywhere in the contract, and it is **unverified here**.
+- None of it is stated in the schema; it is inferred from what the verbs do and is **unverified here**.
+
+**[Gotchas](../swis/invoke-at-scale.md#gotchas)**
+
+- **Account limitations scope what an account sees.** Whether they scope what a verb acts on is unverified here.
 
 ## [invoke-verbs.md](../swis/invoke-verbs.md)
 

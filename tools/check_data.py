@@ -245,6 +245,52 @@ def main() -> None:
         if quoted:
             c.note(f"{quoted} sample-query count(s) quoted in the docs all match the {real} on disk")
 
+    # The Invoke risk-surface figures. docs/swis/invoke-at-scale.md is a safety page and its
+    # numbers are its argument: "355 verbs return void" is the reason it gives for reading
+    # back rather than trusting a response. A rebuild that moved them would leave the advice
+    # attached to figures that no longer support it.
+    try:
+        vpath = os.path.join(ROOT, "data", "schema", args.version, "verbs.json")
+        with open(vpath, encoding="utf-8") as fh:
+            allverbs = json.load(fh)
+    except Exception as exc:  # pragma: no cover
+        allverbs = []
+        c.note(f"invoke surface not checked ({exc})")
+
+    if allverbs:
+        def _params(v):
+            return v.get("parameters") or []
+
+        surface = {
+            "Return `System.Void`": sum(1 for v in allverbs
+                                        if (v.get("returns") or "") == "System.Void"),
+            "Take no parameters at all": sum(1 for v in allverbs if not _params(v)),
+            "Take at least one array argument": sum(
+                1 for v in allverbs
+                if any((p.get("type") or "").startswith("array") for p in _params(v))),
+            "Take **only** an array argument": sum(
+                1 for v in allverbs
+                if len(_params(v)) == 1
+                and (_params(v)[0].get("type") or "").startswith("array")),
+            "Declare **no right** at the verb level": sum(
+                1 for v in allverbs if not (v.get("accessControl") or [])),
+        }
+        page = os.path.join(ROOT, "docs", "swis", "invoke-at-scale.md")
+        if os.path.isfile(page):
+            text = open(page, encoding="utf-8", errors="replace").read()
+            checked = 0
+            for label, actual in surface.items():
+                m = re.search(rf"\| {re.escape(label)} \| ([\d,]+) \|", text)
+                if not m:
+                    continue
+                checked += 1
+                c.require(
+                    int(m.group(1).replace(",", "")) == actual,
+                    f"invoke-at-scale.md says {m.group(1)} verbs {label}; the contract has {actual}",
+                )
+            if checked:
+                c.note(f"{checked} Invoke risk-surface figure(s) match the {args.version} contract")
+
     # The test count, which two READMEs quote. It is the one figure in this repository that
     # a reader can check in a second and that nothing was checking, so it was the one most
     # likely to be quietly wrong: every commit that adds a test invalidates it.

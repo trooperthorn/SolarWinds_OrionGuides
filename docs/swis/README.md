@@ -175,6 +175,9 @@ four hundred nodes without four hundred HTTP requests. See
   argument contract, how to pass parameters from each client, and worked examples.
 - [verb-catalog.md](verb-catalog.md) is the shortlist of verbs worth knowing, grouped by
   the task you are trying to do.
+- [invoke-at-scale.md](invoke-at-scale.md) is what to read before running any of it
+  unattended: the risk surface derived from the contract, the failure modes that turn a
+  working script into an incident, and how to scale one safely.
 - [metadata-introspection.md](metadata-introspection.md) shows how to ask a live server
   about its own schema, which is the authority for the version in front of you.
 
