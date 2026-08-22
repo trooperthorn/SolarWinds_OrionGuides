@@ -329,7 +329,7 @@ so the body is:
 ["N:1", "2026-08-21T18:00:00Z", "2026-08-21T20:00:00Z", false, false]
 ```
 
-794 of the 958 verbs in 2026.2 publish typed parameters in the Swagger contract, so for
+848 of the 1021 verbs in 2026.2 publish typed parameters in the Swagger contract, so for
 those the names, types, order and required flags are all checkable before you write the
 call.
 

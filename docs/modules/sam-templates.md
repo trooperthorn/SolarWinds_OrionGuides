@@ -267,16 +267,27 @@ renames rather than replacing — see
 [../automation/report-definitions.md](../automation/report-definitions.md#importing-a-definition-that-is-already-there)
 — but that is a different subsystem and the behaviour does not necessarily carry across.
 
+**There is no built-in-versus-custom flag to build an export inventory on.** Unlike
+`Orion.AlertConfigurations.Canned` ([../automation/alerts.md](../automation/alerts.md)) or
+`Cli.DeviceTemplates.IsDefault` ([ncm-device-templates.md](ncm-device-templates.md)), the
+entity carries no built-in indicator: `IsMockTemplate = FALSE` excludes only mock rows, and
+`CustomApplicationType` is empty on ordinary template-based rows whoever wrote them. A SWQL
+`WHERE` clause cannot restrict the inventory to user-authored templates, so filter
+client-side instead — by your own naming convention, or by `Created` and `LastModified`
+dates.
+
 ### Test before you assign
 
 ```powershell
-$jobs = Invoke-SwisVerb $swis 'Orion.APM.ApplicationTemplate' 'StartTestComponents' @(
+$results = Invoke-SwisVerb $swis 'Orion.APM.ApplicationTemplate' 'StartTestComponents' @(
     $nodeId, $templateUniqueId, $credentialId)
 ```
 
 `StartTestComponents` runs the template's components against a real node without creating an
-application, and returns job GUIDs to feed to `GetTestComponentStatus`. Each result carries
-`ComponentId`, `JobId`, `Status` and `Message`, where `Status` is one of `Undefined`,
+application, and returns an array of `TestComponentResult` objects — the same shape
+`GetTestComponentStatus` returns. Each element carries `ComponentId`, `JobId`, `Status` and
+`Message`; the `JobId` members are the GUID strings to feed back to `GetTestComponentStatus`
+as its `jobs` array. `Status` is one of `Undefined`,
 `Available`, `NotAvailable`, `PartlyAvailable`, `NotLicensed`, `Warning`, `Critical`,
 `IsDisabled`, `Unmanaged`, `Unplugged`, `NotRunning`, `Unreachable`.
 
@@ -321,3 +332,4 @@ constructing the document from nothing.
   exportable XML artefact, where export is a query rather than a verb
 - [../automation/credentials.md](../automation/credentials.md) — the credential sets a template
   is assigned with
+- [apps/porter](../../apps/porter/README.md) — a shipped Windows utility whose SAM provider implements the `ExportTemplate`/`ImportTemplate` round trip documented here, with the script-body review warning

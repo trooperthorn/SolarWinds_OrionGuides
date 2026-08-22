@@ -518,11 +518,17 @@ The subquery must return exactly one column. This is the readable way to express
 have at least one down interface" without a join that multiplies rows, and it needs no
 `DISTINCT`.
 
-### EXISTS
+### EXISTS and NOT EXISTS
 
 `exists` is in SWQL Studio's keyword list, so the correlated form is recognised. Mark this
 one **attested, not documented**: no SolarWinds documentation page or sample in this
-repository's sources uses it, so verify it parses on your version before depending on it.
+repository's sources uses it. This repository's own recipe pages, however, lean on the
+negated form routinely:
+[cookbook.md](../guides/cookbook.md), [node-management.md](../automation/node-management.md)
+and [standard-pollers.md](../polling/standard-pollers.md) all ship `NOT EXISTS` queries as
+ready-to-run recommendations. Treat the construct as reliable in practice, while
+remembering that the attestation is this repository's usage plus the keyword list, not a
+SolarWinds documentation page.
 
 ```sql
 SELECT TOP 50 n.Caption
@@ -531,6 +537,22 @@ WHERE EXISTS (
     SELECT a.ApplicationID
     FROM Orion.APM.Application a
     WHERE a.NodeID = n.NodeID AND a.Status = 2
+)
+ORDER BY n.Caption
+```
+
+The anti-join form, `NOT EXISTS`, is what those recipes use. This is
+[standard-pollers.md](../polling/standard-pollers.md)'s "nodes that are not being polled at
+all", unchanged:
+
+```sql
+SELECT n.NodeID, n.Caption, n.IPAddress, n.ObjectSubType, n.EngineID
+FROM Orion.Nodes n
+WHERE NOT EXISTS (
+    SELECT p.PollerID
+    FROM Orion.Pollers p
+    WHERE p.NetObjectType = 'N'
+      AND p.NetObjectID = n.NodeID
 )
 ORDER BY n.Caption
 ```

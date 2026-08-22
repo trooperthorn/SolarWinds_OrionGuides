@@ -223,6 +223,43 @@ are invokable and fully typed, so they belong in the verb list, but there is no 
 record for them and `schema_query.py show` cannot reach them. Filter the field out if you
 are joining verbs to entities and want the join to stay total.
 
+### types.json
+
+The answer to "what do I get back". One JSON object, 309 type names to definitions,
+holding the shape of every non-scalar type a verb takes or returns. Three kinds:
+
+- `object`, 218 of them, each with a `members` array of `{name, type}` records;
+- `string`, 90 of them, each with an `enum` array listing the legal values — these are the
+  .NET enums that verbs take and return as plain string names (see
+  [invoke-verbs.md](../swis/invoke-verbs.md#enum-parameters-travel-as-string-names));
+- `array`, 1.
+
+Resolve a verb's `returns` into its shape by using the type name as the key:
+
+```bash
+jq '.["SolarWinds.AgentManagement.Contract.AgentMode"]' data/schema/2026.2/types.json
+```
+
+```json
+{
+  "name": "SolarWinds.AgentManagement.Contract.AgentMode",
+  "kind": "string",
+  "enum": [
+    "Auto",
+    "Active",
+    "Passive"
+  ]
+}
+```
+
+Member types nest. `Orion.APM.ApplicationTemplate.StartTestComponents` declares
+`returns: "array"` with `returnsItems: "SolarWinds.APM.Common.Models.TestComponentResult"`,
+and that key resolves here to an `object` whose members are `ComponentId` (number),
+`JobId` (string), `Status` (itself another type in this file) and `Message` (string).
+`manifest.json`'s `verbsWithKnownReturnShape: 542` counts the verbs whose `returns`
+resolves to a key in this file; a verb returning an array carries the item type in
+`returnsItems` instead — 70 records do, and 36 of those item types resolve here too.
+
 ### relationships.json
 
 A flat edge list, 2992 records, six fields each. Covered in full in

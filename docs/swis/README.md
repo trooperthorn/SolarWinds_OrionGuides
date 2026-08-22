@@ -10,7 +10,7 @@ and every automation script ultimately goes through SWIS. If you are writing cod
 Orion, SWIS is the contract you write against.
 
 This guide documents SWIS schema version **2026.2**, which contains 2067 entities,
-19328 properties, 958 verbs (794 of which publish typed parameters) and 2992 navigation
+19328 properties, 1021 verbs (848 of which publish typed parameters) and 2992 navigation
 edges across 1501 relationship definitions. Each relationship is navigable from both ends,
 which is why there are twice as many edges as definitions.
 
@@ -134,8 +134,10 @@ python3 tools/schema_query.py verb Orion.Nodes Unmanage
 python3 tools/schema_query.py verbs --entity Orion.AlertActive
 ```
 
-Of the 958 verbs in 2026.2, 794 publish typed parameters in the Swagger contract, so for
-those the parameter names, types, order and required flags are all machine-checkable.
+Of the 1021 verbs in 2026.2, 848 publish typed parameters, so for those the parameter
+names, types, order and required flags are all machine-checkable. 937 of them have
+`/Invoke/` paths in the Swagger contract; the remaining 84 appear only in the schema
+pages.
 
 ### Bulk amortizes the round trip
 

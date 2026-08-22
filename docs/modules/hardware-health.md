@@ -436,9 +436,13 @@ SELECT
 FROM Orion.HardwareHealth.HardwareItemValueStatistics st
 JOIN Orion.HardwareHealth.HardwareItem hi ON hi.ID = st.HardwareItemID
 WHERE st.HardwareItemID = @sensorId
-  AND st.ObservationTimestamp >= AddDay(-7, GetDate())
+  AND st.ObservationTimestamp >= ToUtc(AddDay(-7, GetDate()))
 ORDER BY st.ObservationTimestamp
 ```
+
+The `ToUtc` wrapper on the bound matters: `ObservationTimestamp` stores UTC, so
+`AddDay(-7, GetDate())` on its own shifts the window by the SQL Server's UTC offset. See
+[../swql/date-and-time.md](../swql/date-and-time.md) for the rule.
 
 ### BMC fans and power supplies
 
@@ -587,5 +591,7 @@ rather than a monitoring gap.
 - [../reference/netobject-types.md](../reference/netobject-types.md) for the NetObject
   prefixes: `HWH` for hardware, `HWHT` for a hardware type, `HWHS` for a sensor.
 - [../reference/verb-index.md](../reference/verb-index.md) for every verb with parameters.
+- [../swql/date-and-time.md](../swql/date-and-time.md) for why time bounds against UTC
+  statistics columns are written `ToUtc(AddDay(-7, GetDate()))`.
 - SolarWinds:
   [Hardware Health](https://solarwinds.github.io/OrionSDK/docs/hardware-health/).

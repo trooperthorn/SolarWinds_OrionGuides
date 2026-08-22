@@ -1,7 +1,8 @@
 # Verb catalog
 
-SWIS schema 2026.2 declares **1021 verbs** across **186 entities**. Of those, **848 publish
-typed, named, ordered parameters** and **332 return `System.Void`**. This page is not all 1021.
+SWIS schema 2026.2 declares **1021 verbs** across **191 entities** (186 with schema pages
+plus 5 contract-only entities such as `Orion.SRM.BusinessLayer`). Of those, **848 publish
+typed, named, ordered parameters** and **355 return `System.Void`**. This page is not all 1021.
 It is the subset you are most likely to need, grouped by the task you are trying to do, plus
 the commands to query the remaining ones yourself.
 
@@ -382,6 +383,32 @@ Both `Orion.Netflow.NodeSources` and `Orion.Netflow.InterfaceSources` declare `i
 `Orion.HardwareHealth.HardwareInfoBase` declares nothing at the entity level, which leaves
 `IsHardwareHealthEnabled` the only ungated row here. It is a read, which is consistent.
 
+## Dashboards
+
+`Orion.Dashboards.Instances` declares 16 verbs. The six below cover the export/import
+round trip and the widget-level edits; the JSON document that `Export` returns and
+`Import` takes is documented field by field in
+[../webui/modern-dashboards.md](../webui/modern-dashboards.md).
+
+| Entity | Verb | Parameters | Requires | What it does |
+|:---|:---|:---|:---|:---|
+| `Orion.Dashboards.Instances` | `Export` | `dashboardId` | not declared | Returns the dashboard as its JSON export document, as a string. |
+| `Orion.Dashboards.Instances` | `Import` | `definition` | not declared | Takes the whole JSON document as one string. Returns `System.Void`, so verify arrival with a follow-up query. |
+| `Orion.Dashboards.Instances` | `Clone` | `dashboardID, displayName, asPrivate` | not declared | Server-side copy of a dashboard under a new display name. Returns a string. |
+| `Orion.Dashboards.Instances` | `AddWidget` | `dashboardID, widgetID, position, isReference?` | not declared | Adds a widget to a dashboard at a position. |
+| `Orion.Dashboards.Instances` | `RemoveWidget` | `dashboardID, widgetID` | not declared | Removes a widget from a dashboard. |
+| `Orion.Dashboards.Instances` | `SetVisibility` | `dashboardID, asPrivate` | not declared | Sets whether the dashboard is private. |
+
+None of the 16 verbs declares a right of its own, and the entity declares all five
+operations, `invoke` included, for `everyone`. Note the casing: `Export` names its
+parameter `dashboardId` while the other verbs use `dashboardID`; arguments travel
+positionally, so only generated wrapper code notices. The remaining ten are one command
+away:
+
+```bash
+python3 tools/schema_query.py verbs --entity Orion.Dashboards.Instances
+```
+
 ## Schema and service verbs
 
 | Entity | Verb | Parameters | Requires | What it does |
@@ -460,7 +487,7 @@ Verb counts per namespace:
 jq -r 'group_by(.namespace)[] | "\(.[0].namespace)\t\(length)"' "$V" | sort -k2 -nr
 ```
 
-Verbs that take an array as their only parameter. There are 55 of them, and they are exactly
+Verbs that take an array as their only parameter. There are 61 of them, and they are exactly
 the set that needs the PowerShell leading-comma workaround described in
 [invoke-verbs.md](invoke-verbs.md#the-single-array-argument-pitfall):
 
@@ -469,9 +496,9 @@ jq -r '.[] | select((.parameters | length) == 1 and .parameters[0].type == "arra
        | "\(.entity).\(.name)(\(.parameters[0].name))"' "$V"
 ```
 
-Verbs whose parameter list is empty. **164 records fall into this bucket, and it has two
+Verbs whose parameter list is empty. **173 records fall into this bucket, and it has two
 different meanings**: the verb genuinely takes no arguments, or its signature was not
-published in machine-readable form. 84 of the 164 have no `/Invoke/` path in the Swagger
+published in machine-readable form. 84 of the 173 have no `/Invoke/` path in the Swagger
 contract at all, 70 of those in the `Cortex` namespace. Treat an empty `parameters` array as
 "unknown, go and check the server" rather than "takes nothing":
 

@@ -331,6 +331,10 @@ into the two segment entities below. `Orion.Netflow.IPAddressGroupRanges` holds 
 address ranges: `IPRangeStart`, `IPRangeEnd`, `CIDRPrefix`, `IsIPv6`, `System`,
 `LowerBoundNormalized`, `UpperBoundNormalized`, plus a denormalised `IPAddressGroupName`.
 
+None of the four declares create, update or delete, so a group's ranges are not written
+with CRUD. The write path is the `SetIPRanges`, `DeleteIpGroups` and `CreateFromIPAMGroup`
+verbs described in [IP address group management](#ip-address-group-management).
+
 `Orion.Netflow.IPGroupSegments` and `Orion.Netflow.IPGroupsBySegments` are the internal
 mapping NTA uses to attach a group to a flow efficiently: a flow row stores
 `SourceIPGroupSegmentID` and `DestinationIPGroupSegmentID`, not a group id. You rarely
@@ -408,8 +412,14 @@ From a node, the navigation properties are `CBQoSPolicies`, `CBQoSPolicyActions`
 
 ## Verbs
 
-NTA publishes seven verbs across two entities. Everything else in the module is either
-read-only or managed with CRUD.
+NTA publishes 12 verbs across four entities. Seven sit on the two source entities below,
+whose schema pages declare them. The other five sit on two management facades —
+`Orion.Netflow.IPAddressGroupsManagement` and `Orion.Netflow.IPGroupExternalRelation` —
+that exist only in the Swagger contract: they have no schema page and no properties, so
+`schema_query.py show` fails on them with an unknown-entity error, but
+`verbs --entity Orion.Netflow.IPAddressGroupsManagement` lists them and every one has an
+`/Invoke/` path. Everything else in the module is read-only or, as with
+`Orion.Netflow.CBQoSSource`, managed with CRUD.
 
 ### `Orion.Netflow.NodeSources`
 
@@ -461,6 +471,53 @@ WHERE EntityName = 'Orion.Netflow.InterfaceSources'
   AND VerbName = 'SetExporterFlowDirection'
 ORDER BY Position
 ```
+
+### IP address group management
+
+The write path for [IP address groups](#ip-address-groups) is verbs, not CRUD.
+`Orion.Netflow.IPAddressGroups` and `Orion.Netflow.IPAddressGroupRanges` declare no
+operations at all in the extracted schema, so an insert against either fails; the ranges
+are written through `Orion.Netflow.IPAddressGroupsManagement`, a contract-only verb anchor:
+
+| Verb | Parameters, in order | Returns |
+|---|---|---|
+| `SetIPRanges` | `ipGroupId` (`number`), `ipRanges` (`array<IPRange>`), `autoResolveApplicationConflicts` (`boolean`) | `ManageIpGroupsResult` |
+| `DeleteIpGroups` | `ipGroupIds` (`array<number>`), `autoResolveApplicationConflicts` (`boolean`) | `ManageIpGroupsResult` |
+| `DeleteAllIpGroups` | `autoResolveApplicationConflicts` (`boolean`) | `ManageIpGroupsResult` |
+| `SetIpGroupsAsModified` | none | void |
+
+Unlike `SetExporterFlowDirection` above, the argument types here are fully declared in
+`data/schema/2026.2/types.json`. Each `IPRange` element is an object of four members:
+`StartIP`, `EndIP` and `CIDR` as strings, and `CIDRBased` as a boolean. The
+`ManageIpGroupsResult` that comes back carries `Result` — a string enum, one of `Succeed`,
+`ApplicationCollision`, `InvalidIpGroupId`, `GenericError` — plus an
+`ApplicationCollisions` array naming each colliding application definition
+(`ApplicationId`, `ApplicationName`, `ApplicationPort`, `IpGroupId`, `IpGroupName`,
+`IsAutoResolveVictim` among its members) and a `Message` string. That is what
+`autoResolveApplicationConflicts` governs: whether a collision between the new ranges and
+an application definition is resolved for you or reported back. Pass `false` on a first
+call and read `ApplicationCollisions` before letting the server resolve anything.
+
+Two of the four deserve extra care. `DeleteAllIpGroups` takes a single boolean and removes
+every IP address group on the server — there is no id list to narrow it. And
+`SetIpGroupsAsModified` takes nothing and returns nothing; the contract records no summary
+for it, so what it actually marks as modified is **unverified** here.
+
+The second facade, `Orion.Netflow.IPGroupExternalRelation`, holds the bridge from IPAM:
+
+| Verb | Parameters, in order | Returns |
+|---|---|---|
+| `CreateFromIPAMGroup` | `externalIpGroupId` (`number`) | void |
+
+It materialises an NTA IP address group from a group that already exists in IPAM's tree
+(see [ipam.md](ipam.md)), so address space curated once in IPAM can be reused for flow
+reporting. The contract states nothing beyond the parameter name about which id it expects;
+IPAM's tree rows key on `IPAM.GroupNode.GroupId`, and confirming that is the id it wants is
+a one-call test on your own server.
+
+There is no verb that creates a native NTA IP address group from a name — in the 2026.2
+contract, `SetIPRanges` addresses an existing `ipGroupId`, and only `CreateFromIPAMGroup`
+creates one. Creating a group from scratch remains a console operation.
 
 ### NTA alerts are ordinary alerts
 
@@ -970,6 +1027,7 @@ out permissions before concluding the data is missing.
 - [npm.md](npm.md) for `Orion.NPM.Interfaces`, which every flow query eventually joins to.
 - [qoe.md](qoe.md) for Quality of Experience, the other traffic-content module, which uses
   packet inspection rather than flow export.
+- [ipam.md](ipam.md) for the IPAM group tree that `CreateFromIPAMGroup` reads from.
 - [../platform/modules.md](../platform/modules.md) for the whole-schema module map.
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) for positional argument handling.
 - [../swis/crud.md](../swis/crud.md) and [../swis/uris.md](../swis/uris.md) for creating and

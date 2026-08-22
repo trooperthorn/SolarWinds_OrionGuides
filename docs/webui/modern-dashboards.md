@@ -53,7 +53,7 @@ Four keys, and the split between the last three is the thing to understand first
 | Field | Meaning |
 | --- | --- |
 | `unique_key` | The dashboard's own GUID |
-| `name` | The display name. **This string is load-bearing** — see the self-reference pattern below |
+| `name` | The display name. **This string is load-bearing**: other dashboards look one up by name to build links to it, so a rename breaks those links silently — see [the self-referencing link pattern](modern-dashboard-authoring.md#the-self-referencing-link-pattern) |
 | `parent` | `null` in every export seen. Presumably the clone source, matching `Orion.Dashboards.Instances.ParentID` — **unverified** |
 | `feature` | `null` in every export seen; matches `Orion.Dashboards.Instances.Feature` |
 | `private` | `null` on the dashboard, `false` on widgets. Visibility; **unverified** |
@@ -130,11 +130,11 @@ in every export; keep them in sync.
 | `kpi` | A row of coloured number tiles | `KpiSwqlDatasourceService` |
 | `proportional` | A chart of parts against a whole | `ProportionalSwqlDatasourceService` |
 
-All four files use only these three, with the same three provider ids. Other widget types
+All nine files use only these three, with the same three provider ids. Other widget types
 certainly exist in the product and the list here is **not complete**.
 
 **`proportional` is not "a donut".** It is the part-to-whole chart widget, and
-`chartOptions.type` picks the rendering. Across the four files that field takes `DonutChart`,
+`chartOptions.type` picks the rendering. Across the nine files that field takes `DonutChart`,
 `PieChart` and `HorizontalBarChart` — so a horizontal bar chart is also a `proportional`
 widget, which is not something the type name suggests.
 
@@ -229,7 +229,7 @@ Every widget carries its query under `providers.dataSource.properties`:
 ```
 
 **The SWQL and `dataFields` appear twice**, once under `dataSource` and again nested inside
-`adapter.properties.dataSource`. In all three sample files, across **32 such pairs, the two
+`adapter.properties.dataSource`. In all nine sample files, across **146 such pairs, the two
 copies are byte-identical**. Treat that as an invariant: edit one and you must edit the other.
 It is the single easiest way to produce a file that imports and then behaves inconsistently.
 
@@ -572,6 +572,71 @@ So the rule is narrower than "regenerate every GUID": a **widget** `unique_key` 
 across the file, while a **tile** id only has to be unique within its widget. Regenerating both
 on a copy still costs nothing and removes the need to remember which is which.
 
+## Exporting and importing
+
+The console's export button is one route; `Orion.Dashboards.Instances` is the other. The
+entity publishes sixteen verbs in the 2026.2 contract and grants every operation, `invoke`
+included, to `everyone`, and three of the verbs are the whole file story:
+
+```bash
+python3 tools/schema_query.py verb Orion.Dashboards.Instances Export
+```
+
+```text
+Orion.Dashboards.Instances.Export
+  returns: string
+  REST:    POST /Invoke/Orion.Dashboards.Instances/Export
+  parameters (1):
+    dashboardId: number (required)
+```
+
+`Export(dashboardId)` takes the numeric `DashboardID` and returns the JSON this page
+documents, as one string. `Import(definition)` is the reverse — the whole file travels as
+the single string argument, so over REST the body is a JSON array whose one element is the
+file serialised as a string, not the file spliced in as an object. The round trip in
+PowerShell has the same two traps as any string-returning verb:
+
+```powershell
+# Invoke-SwisVerb returns XML; .InnerText is the JSON string you want.
+$exported = Invoke-SwisVerb $swis 'Orion.Dashboards.Instances' 'Export' @(42)
+Set-Content 'dashboard.json' $exported.InnerText
+
+# Get-Content splits into lines by default. -Raw gives you one string.
+$definition = Get-Content 'dashboard.json' -Raw
+Invoke-SwisVerb $swis 'Orion.Dashboards.Instances' 'Import' @($definition)
+```
+
+**`Import` returns `System.Void`**, so a clean return tells you nothing about what arrived.
+The file's `dashboards[].unique_key` is the same value as the server-side
+`Orion.Dashboards.Instances.UniqueKey` property — inherited from `Orion.Dashboards.Entity`
+along with `Owner`, `Private`, `IsSystem` and `LastUpdate` — which is what makes arrival
+checkable:
+
+```sql
+SELECT DashboardID, DisplayName
+FROM Orion.Dashboards.Instances
+WHERE UniqueKey = @key
+```
+
+Run the same query **before** importing, as a collision check. What `Import` does when the
+`UniqueKey` already exists on the server — update in place or a second dashboard — is
+**unverified here**, so find out whether you are about to collide and decide deliberately
+rather than learning the answer from a production server. To land a copy next to a
+still-present original, rewrite the file first — see
+[duplicating a dashboard onto the same server](modern-dashboard-authoring.md#duplicating-a-dashboard-onto-the-same-server).
+
+`Clone(dashboardID, displayName, asPrivate)` is the server-side copy of a single dashboard,
+no file involved, and it corroborates the `parent` reading above: the contract documents
+`ParentID` as "ID of the dashboard from which given dashboard was cloned". Note the
+contract's own inconsistency while you are here — `Export` declares `dashboardId` as a
+number, while `Clone` and the widget-editing verbs declare `dashboardID` as a string.
+
+The other thirteen verbs (`AddWidget`, `RemoveWidget`, `UpdateWidgetLocation`,
+`SetVisibility`, `DereferenceWidget`, `WidgetToReference`, `RestoreToOriginal` and the rest)
+edit a dashboard in place. Their signatures are in the contract —
+`python3 tools/schema_query.py verbs --entity Orion.Dashboards.Instances` — but their
+semantics are undocumented and **unverified here**.
+
 ## What this repository verified
 
 Nine exports from three independent authors, parsed and checked against the extracted 2026.2
@@ -667,3 +732,5 @@ Dashboard the string is just an alias, so its casing is free — but it must the
 - [variables.md](variables.md) — the other `${...}` system, which is unrelated to
   `${data.rowData.…}`
 - [../swql/README.md](../swql/README.md) — the query language every widget is built on
+- [../swis/invoke-verbs.md](../swis/invoke-verbs.md) — how `Export`, `Import` and `Clone`
+  are called, REST and PowerShell

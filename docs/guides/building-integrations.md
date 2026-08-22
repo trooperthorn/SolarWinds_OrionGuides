@@ -786,6 +786,20 @@ Three details in that file are the ones worth copying rather than the structure:
 - `open_window` treats a failed write as an unknown outcome and resolves it with a query.
   That pattern generalises to every non-idempotent operation here.
 
+### A complete integration ships in this repository
+
+The skeleton above is deliberately minimal. For a full-scale integration built against
+the same contract, read [`apps/porter/`](../../apps/porter/): a Windows utility that
+moves eight configuration areas — Modern Dashboards, alert definitions, reports, SAM
+templates, WPM recordings, NCM device templates, nodes with custom properties, and NCM
+compliance policy reports — between installations over SWIS. Every route it uses was
+verified against the extracted 2026.2 contract before it was coded, each area is a
+provider behind one shared contract (list, export, validate, collide, import, verify),
+and [its README](../../apps/porter/README.md) names the exact verb or column each area
+travels through. The per-area providers are the executable form of the export/import
+sections in these guides, which makes them worth reading next to the pages that document
+the same routes in prose.
+
 ## Before you ship
 
 - [ ] The integration has its own Orion account, with only the rights its verbs declare.

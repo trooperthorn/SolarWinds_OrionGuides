@@ -662,6 +662,11 @@ In 2026.2 both take two further optional parameters covering sensitive data (an 
 carries a password, for instance) and a protection password, so the older one-argument calls
 still work unchanged.
 
+Note the asymmetric naming in those two signatures: the same concept is `stripSensitiveData`
+on `Export` and `stripSensitiveInformation` on `Import`. Arguments travel positionally, so
+the wire call does not care, but keep the spellings straight in wrapper code and
+documentation — neither verb recognises the other's name.
+
 The round trip through a file has two PowerShell traps, both of which SolarWinds calls out:
 
 ```powershell
@@ -687,6 +692,26 @@ contract declares five:
 
 The last two are the ones that turn a silent partial import into a diagnosable one, and they
 are the reason to read the whole result rather than just `AlertId`.
+
+**`Import` always creates.** The `AlertId` in the result is a newly created definition every
+time: there is no overwrite-by-reference or update-in-place mode, so importing the same XML
+twice gives you two alerts. `Name` carries no uniqueness constraint, which is why the
+duplicates accumulate silently — a sync script built on repeated `Import` does not converge.
+Pre-check before importing:
+
+```sql
+SELECT ac.AlertID, ac.Name, ac.Canned, ac.Enabled
+FROM Orion.AlertConfigurations ac
+WHERE ac.Name = @name
+```
+
+Treat any non-empty result as a collision and choose deliberately: skip, rename, or
+delete-then-import (deleting a definition is an entity CRUD delete, which needs
+`manageAlerts`). After the import, verify the landing with
+`SELECT AlertID, Name, Enabled FROM Orion.AlertConfigurations WHERE AlertID = @alertId`
+bound from `AlertImportResult.AlertId`, and treat the import as failed or partial when
+`AlertDefinitionIsNotSupported` or `IncorrectPasswordForDecryptSensitiveData` is true or
+`MigrationMessage` is non-empty.
 
 ## What fired in a window: alert history
 
@@ -1203,6 +1228,7 @@ does not. See [scheduling.md](scheduling.md).
 | The members of `ActionDefinition`, `AlertingActionContext` and `ReportingActionContext`, the two arguments to `TestAlertingAction` and `TestReportingAction` | The contract names the parameters and their types but does not describe the types | `SELECT Position, Name, Type, IsOptional, XmlTemplate FROM Metadata.VerbArgument WHERE EntityName = 'Orion.Actions'` |
 | Whether `Orion.AlertHistory.TimeStamp` and `Orion.AlertActive.TriggeredDateTime` are UTC | Undocumented in the schema, and neither name ends in `Utc` | The `MinuteDiff` measurement query above |
 | The `Severity` and alert-history `EventType` value tables | Taken from SolarWinds' published alerts page, not from the extracted schema. The `SuppressionMode` values are not in this category: they come from the 2026.2 contract | [Alert Entities](https://solarwinds.github.io/OrionSDK/docs/alerts/) |
+| The internal structure of the exported alert definition XML | Not documented here: no sample export has been parsed for this repository, so the element inventory, how trigger and reset conditions are encoded, where action definitions and macros sit, and what changes when `stripSensitiveData` or `protectionPassword` is used are all unrecorded — unlike the other console export formats this repository documents field by field | Export one out-of-box alert and one custom alert with actions, write each `.InnerText` to a file, and read them |
 
 ## Related pages
 
@@ -1217,3 +1243,4 @@ does not. See [scheduling.md](scheduling.md).
 - [../swql/date-and-time.md](../swql/date-and-time.md) for the UTC handling in the history queries
 - [../reference/netobject-types.md](../reference/netobject-types.md) for `EntityNetObjectId` prefixes
 - [../../scripts/swql/05-alerts.swql](../../scripts/swql/05-alerts.swql), runnable versions of these queries
+- [apps/porter](../../apps/porter/README.md) — a shipped Windows utility whose Alerts provider implements the Export/Import round trip on this page, strip-sensitive on by default and collisions skipped by name

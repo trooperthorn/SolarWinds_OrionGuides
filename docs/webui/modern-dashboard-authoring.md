@@ -54,8 +54,9 @@ columns. That is the most common surprise in the format.
 ## Columns exist to feed formatters
 
 A table column binds data fields to a rendering component, so the query needs a column for
-each input the formatter takes — not just the visible value. The pattern throughout both
-authors' files is to select the display value, the link, and the status side by side:
+each input the formatter takes — not just the visible value. The pattern throughout two of
+the three authors' files is to select the display value, the link, and the status side by
+side:
 
 ```sql
 SELECT
@@ -89,12 +90,12 @@ ORDER BY n.Status DESC
 ```
 
 Set `isActive: false` on a column you want to keep in the file but not display — that is how
-both authors park a field that only exists to feed something else.
+both of those authors park a field that only exists to feed something else.
 
 ## The self-referencing link pattern
 
-Both authors independently use the same technique for one dashboard to link to another, and it
-is the most quietly clever thing in these files. A dashboard's URL contains its numeric id,
+Two of the three authors independently use the same technique for one dashboard to link to
+another, and it is the most quietly clever thing in these files. A dashboard's URL contains its numeric id,
 which differs per installation — so rather than hard-code it, the query looks it up:
 
 ```sql
@@ -121,10 +122,35 @@ special rights:
 python3 tools/schema_query.py show Orion.Dashboards.Instances
 ```
 
+## Duplicating a dashboard onto the same server
+
+Import creates whatever the file says, so re-importing an unmodified export next to its
+original offers the server a dashboard with the same name and the same `unique_key`s it
+already has — the duplicate-key situation whose outcome is
+[unverified](modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine). A copy
+that behaves as a copy is a four-step rewrite of the file:
+
+1. **Regenerate `dashboards[].unique_key` and every `widgets[].unique_key`**, remapping the
+   placements through the same old→new map so each placement still resolves to its
+   definition (rules 1 and 2).
+2. **Rename the dashboard** — `dashboards[].name` — since the original still owns the old
+   name.
+3. **Rewrite the quoted dashboard-name literals inside the embedded SWQL** wherever the file
+   uses the self-referencing pattern above. A `WHERE i.DisplayName = 'Site Summary - System
+   Status'` left unrewritten makes the copy's links quietly point at the still-present
+   original — the one failure in this list that stays invisible until someone clicks.
+4. **Leave every GUID inside SWQL strings and URLs untouched.** Those reference server-side
+   objects, not parts of the file; the two `unique_key` families in step 1 are the only
+   identity the file itself owns.
+
+For a single dashboard there is a server-side alternative that skips the file entirely:
+`Orion.Dashboards.Instances.Clone(dashboardID, displayName, asPrivate)` — see
+[exporting and importing](modern-dashboards.md#exporting-and-importing).
+
 ## The `?filters=` grammar
 
 Appending a filter to a dashboard URL is how these dashboards drill down. The grammar, read
-off both authors' files:
+off two authors' files:
 
 ```text
 /apps/platform/dashboard/{DashboardID}?filters={InstanceSiteId}_{Entity}_{Property}:{op}:{value}
@@ -144,7 +170,7 @@ Several filters are joined by `-`:
 | `{op}` | `eq` or `ne` |
 | `{value}` | The literal value |
 
-Entities used as filter targets across the four files: `Orion.Nodes`,
+Entities used as filter targets across those authors' four files: `Orion.Nodes`,
 `Orion.NodesCustomProperties`, `Orion.NPM.Interfaces`, `Orion.AlertConfigurations`,
 `Orion.HardwareHealth.HardwareInfo` and `Orion.Wireless.AccessPoints`.
 
@@ -154,7 +180,8 @@ a `:` can be escaped — the separators are unescaped in every sample, so a site
 a hyphen would be ambiguous.
 
 A companion widget makes the filter clearable: a one-row table whose only column links to the
-dashboard's own URL with no `?filters=` on it. Both authors ship one, labelled "Reset".
+dashboard's own URL with no `?filters=` on it. Both of those authors ship one, labelled
+"Reset".
 
 ## KPI tiles link through the interaction handler
 
@@ -316,3 +343,4 @@ cannot predict, so alias those.
   query language every widget is built on
 - [../swis/metadata-introspection.md](../swis/metadata-introspection.md) — validating names
   against your own installation
+- [apps/porter](../../apps/porter/README.md) — a shipped Windows utility whose Modern Dashboards provider implements the export/import round trip and the same-server duplicate rewrite documented on this page

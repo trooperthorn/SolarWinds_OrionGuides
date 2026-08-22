@@ -152,7 +152,7 @@ what the web console shows.
 ### Storage arrays
 
 `Orion.SRM.StorageArrays` is the centre of the module. It has 65 properties, 24 outgoing
-relationships and four of SRM's seven non-custom-property verbs, and almost every useful
+relationships and four verbs of its own, and almost every useful
 query either starts here or joins back to here for a name.
 
 Identity and inventory: `StorageArrayID` (the key), `ID` (the array's own identifier
@@ -479,8 +479,13 @@ building on it.
 
 ## Verbs
 
-SRM publishes 52 verbs, but 45 of them are the standard five-verb custom property management
-set repeated across nine custom property entities. Seven verbs do anything SRM-specific.
+SRM publishes 108 verbs across 13 entities, and they split into two very different groups.
+The entities with rendered schema pages carry 52: 45 of them are the standard five-verb
+custom property management set repeated across nine custom property entities, and seven do
+anything SRM-specific. The other 56 sit on `Orion.SRM.BusinessLayer`, a verb-only entity
+that exists in the Swagger contract but has no schema page, so it is easy to miss — the
+[BusinessLayer section below](#orionsrmbusinesslayer) covers it. The seven schema-page
+verbs first.
 
 | Entity | Verb | Positional parameters | Returns |
 |---|---|---|---|
@@ -551,7 +556,69 @@ row, then pass that row's `MigrationType`, `MigrationObject` and `ObjectID` stra
 This changes how a production array is polled, so read the row before you act on it and
 expect a gap in collection while it runs.
 
-The extracted schema records **no required right** on any of these seven verbs, and none of
+### `Orion.SRM.BusinessLayer`
+
+`Orion.SRM.BusinessLayer` is a verb anchor rather than an entity: it has no properties, no
+rows and no rendered schema page, so `schema_query.py show Orion.SRM.BusinessLayer` fails
+with an unknown-entity error and the entity indexes never list it. The verbs are real. The
+extraction carries all 56 from the Swagger contract (each record is marked
+`sourceOnly: "swagger"` — [../schema/using-the-data.md](../schema/using-the-data.md)
+explains the marker), every one has an `/Invoke/` path, and every one is fully typed:
+
+```bash
+python3 tools/schema_query.py verbs --entity Orion.SRM.BusinessLayer
+python3 tools/schema_query.py verb Orion.SRM.BusinessLayer UnmanageArrays
+```
+
+Many of the 56 are internal plumbing (`LogOIP`, `ReportJobDuration`,
+`StoreResponderArray`) or single-purpose getters. The ones an operator reaches for group
+into three workflows.
+
+**Onboarding and discovery.** An alternative to the three `Orion.SRM.StorageArrays` verbs
+above, with a credential test and an asynchronous discovery step in the middle:
+
+| Verb | Positional parameters | Returns |
+|---|---|---|
+| `AddCredential` | `credential` (the platform's shared credential object), `credType` | credential id |
+| `TestCredentials` | `connectionInfo` | an error-state string, one of `Unknown`, `CannotConnect`, `AlreadyConnected`, `CannotCreateSocket`, `InvalidLocator`, `AccessDenied`, `FIPSRestricted`, `NamespaceDoesNotExists`, `NotSupported` |
+| `AddProvider` | `provider` (a `ProviderInfo` object) | provider id |
+| `SubmitTestConnectionJob` | `connectionInfos` (array) | job id |
+| `GetTestConnectionJobResult` | `testConnectionJobId` | connection test results |
+| `SubmitDiscoveryJob` | `connectionInfos` (array), `groupId` (array) | discovery job id |
+| `GetDiscoveryJobResult` | `discoveryId` | discovered arrays plus per-target result codes |
+| `ImportArrays` | `engineId`, `deviceGroupId`, `providers` (array), `arrays` (array) | void |
+
+The submit/get pairs are asynchronous: the submit verb returns a job id string, and you
+poll the matching get verb for the result. The credential family — `AddCredential`,
+`GetCredential`, `GetCredentialNames`, `GetCredentialType`, `UpdateCredential`,
+`DeleteCredentials`, `CheckIfCredentialNameExists`, `TestCredentials` — is documented in
+full in [../automation/credential-integration.md](../automation/credential-integration.md),
+including the fact that `AddCredential` takes the same shared credential type the rest of
+the platform uses.
+
+**Lifecycle.** Deletion and maintenance windows for whole arrays; all three take arrays of
+`Orion.SRM.StorageArrays.StorageArrayID` values:
+
+| Verb | Positional parameters | Returns |
+|---|---|---|
+| `DeleteArrays` | `ids` (array) | void |
+| `UnmanageArrays` | `ids` (array), `from`, `until` | void |
+| `RemanageArrays` | `ids` (array) | void |
+
+`DeleteArrays` and `DeleteCredentials` take only an array of ids, the destructive
+single-array-argument shape [../swis/invoke-at-scale.md](../swis/invoke-at-scale.md) warns
+about — one malformed call can address every array on the server. `UnmanageArrays`' `from`
+and `until` are typed `string` in the contract, not `DateTime`.
+
+**Polling.**
+
+| Verb | Positional parameters | Returns |
+|---|---|---|
+| `UpdateArrayPollingIntervals` | `storageArrayId`, `statCollection`, `rediscoveryInterval`, `topologyInterval`, `controllerInterval` | number |
+| `UpdatePollingEngine` | `objectsTableName`, `keyColumnName`, `ids` (array), `engineId` | number |
+
+The extracted schema records **no required right** on any of these verbs — the seven on
+schema-page entities and all 56 on `Orion.SRM.BusinessLayer` alike — and none of
 SRM's nine monitored object entities declares access control at all. That is not the same as
 "anyone may call them", it means the rendered schema page did not carry the information.
 Verify with a low-privilege account before assuming either way.
@@ -571,11 +638,13 @@ WHERE EntityName LIKE 'Orion.SRM.%'
 ORDER BY EntityName, VerbName, Position
 ```
 
-Note also what is **not** here. SRM's monitored objects inherit `UnManaged`,
+Note also where unmanage lives. SRM's monitored objects inherit `UnManaged`,
 `UnManageFrom` and `UnManageUntil` from `System.ManagedEntity`, so you can filter on them,
 but none of them publishes `Unmanage` or `Remanage` verbs the way `Orion.Nodes`,
-`Orion.Volumes` and `Orion.NPM.Interfaces` do. See
-[../swis/verb-catalog.md](../swis/verb-catalog.md) for the verbs that do exist.
+`Orion.Volumes` and `Orion.NPM.Interfaces` do. At the array level the verbs exist anyway —
+`Orion.SRM.BusinessLayer.UnmanageArrays(ids, from, until)` and `RemanageArrays(ids)` — they
+are just not attached to the object entity. Below the array there is no unmanage verb at
+all. See [../swis/verb-catalog.md](../swis/verb-catalog.md) for the verbs that do exist.
 
 ## Worked queries
 
@@ -744,7 +813,7 @@ SELECT
     AVG(cs.CapacityAllocated) AS AvgAllocated,
     AVG(cs.CapacityFree) AS AvgFree
 FROM Orion.SRM.LUNCapacityStatistics cs
-WHERE cs.ObservationTimestamp >= AddDay(-30, GetDate())
+WHERE cs.ObservationTimestamp >= ToUtc(AddDay(-30, GetDate()))
   AND cs.LUNID = @lunId
 GROUP BY cs.LUN.Caption, DateTrunc('day', cs.ObservationTimestamp)
 ORDER BY DateTrunc('day', cs.ObservationTimestamp)
@@ -846,7 +915,7 @@ SELECT
     sa.LastCapacityPollTime,
     sa.LastPerformancePollTime,
     sa.LastTopologyPollTime,
-    MinuteDiff(sa.LastPerformancePollTime, GetDate()) AS MinutesSincePerformancePoll
+    MinuteDiff(sa.LastPerformancePollTime, GetUtcDate()) AS MinutesSincePerformancePoll
 FROM Orion.SRM.StorageArrays sa
 WHERE sa.UnManaged = FALSE
 ORDER BY sa.LastPerformancePollTime
@@ -856,7 +925,10 @@ ORDER BY sa.LastPerformancePollTime
 declares 48 of the 51 columns `Orion.Engines` declares; the three missing are
 `MasterEngineID`, `DetailsUrl` and `DisplayName`, and `DisplayName` remains queryable
 because it is inherited from `System.Entity`. A single engine falling behind shows up here
-as a group of arrays sharing one `PollingEngine` value and one stale timestamp.
+as a group of arrays sharing one `PollingEngine` value and one stale timestamp. The
+second argument of the `MinuteDiff` has to be `GetUtcDate()`: the poll timestamps are
+stored in UTC, so measuring them against the local `GetDate()` clock would report the SQL
+Server's UTC offset as staleness on an array polled seconds ago.
 
 ### Storage events in the last week
 
@@ -879,7 +951,10 @@ ORDER BY e.EventTime DESC
 
 `NetObjectType` on the resulting rows will be one of SRM's prefixes, and
 [../reference/netobject-types.md](../reference/netobject-types.md) turns those back into
-entity names.
+entity names. The plain `GetDate()` in the bound is deliberate: `Orion.Events.EventTime` is
+the schema's documented local-time exception, unlike the UTC statistics columns elsewhere
+on this page — see
+[../swql/date-and-time.md](../swql/date-and-time.md#the-eventtime-exception).
 
 ## Gotchas
 
@@ -934,10 +1009,12 @@ from, or reach the threshold through its navigation property from the object it 
 `Orion.SRM.PoolToPoolsMapping` for rows before writing `SUM(CapacityUserTotal)` across an
 array's pools.
 
-**SRM objects can be unmanaged but have no unmanage verb.** They inherit `UnManaged`,
-`UnManageFrom` and `UnManageUntil` from `System.ManagedEntity`, and the web console can put
-them in a maintenance window, but there is no `Orion.SRM.LUNs.Unmanage` to call. Filter on the
-column; do not go looking for the verb.
+**Unmanage verbs exist at the array level only, and not on the object entity.** SRM
+objects inherit `UnManaged`, `UnManageFrom` and `UnManageUntil` from
+`System.ManagedEntity`, and the web console can put them in a maintenance window, but there
+is no `Orion.SRM.LUNs.Unmanage` to call. Whole arrays are the exception:
+`Orion.SRM.BusinessLayer.UnmanageArrays` and `RemanageArrays` take arrays of
+`StorageArrayID` values. For anything below the array, filter on the column.
 
 **Account limitations silently filter results.** Two accounts running the same array report
 legitimately get different rows, so an unexpectedly empty result is often a permissions
@@ -967,6 +1044,11 @@ WHERE FullName LIKE 'Orion.SRM.%'
   the `Add*` functions on a statistics query.
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) for the positional argument rules the
   `Add*` verbs depend on, including the single-array-argument trap.
+- [../swis/invoke-at-scale.md](../swis/invoke-at-scale.md) for the safety rails around
+  array-of-ids verbs such as `DeleteArrays` and `DeleteCredentials`.
+- [../automation/credential-integration.md](../automation/credential-integration.md) for the
+  `Orion.SRM.BusinessLayer` credential verbs and how they map onto the platform's shared
+  credential store.
 - [../reference/netobject-types.md](../reference/netobject-types.md) for the SRM NetObject
   prefixes: `SMP` provider, `SMSA` storage array, `SMSP` pool, `SML` LUN, `SMV` NAS volume,
   `SMVS` vServer, `SMS` file share.
@@ -980,7 +1062,7 @@ WHERE FullName LIKE 'Orion.SRM.%'
   [Creating Custom Properties](https://solarwinds.github.io/OrionSDK/docs/creating-custom-properties/)
   and
   [Managing Custom Properties](https://solarwinds.github.io/OrionSDK/docs/managing-custom-properties/)
-  for the verb set that makes up 45 of SRM's 52 verbs.
+  for the verb set that makes up 45 of the 52 verbs on SRM's schema-page entities.
 - SolarWinds:
   [Unmanaging Entities](https://solarwinds.github.io/OrionSDK/docs/unmanaging-entities/) for
   how `Unmanage` works on the entities that do publish it, which SRM's do not.

@@ -273,6 +273,13 @@ WHERE n.NodeID = @nodeId
 `PollNow` returns `System.Void`, so "it worked" means `LastSync` moved, not that the call
 returned 200. See [../swis/invoke-verbs.md](../swis/invoke-verbs.md).
 
+`IsPollingError` in that result is worth reading too: sustained SNMP, WMI or WinRM polling
+errors (10 minutes of continuous failure by default) drive a node to Critical even while
+ICMP reports it Up, and this column is where that state surfaces from a query.
+[node-status-calculation.md](node-status-calculation.md#2-polling-errors-independent-of-icmp)
+covers the mechanism, the setting that governs the window, and the caveat that the
+column-to-feature link is read off the property's name rather than documented.
+
 ## Removing and disabling a poller
 
 Two different operations with two different consequences.
@@ -778,6 +785,8 @@ another.
 ## Related pages
 
 - [README.md](README.md) for the other four polling systems and how to tell them apart.
+- [node-status-calculation.md](node-status-calculation.md) for how the values these pollers
+  collect become a node status, and why `IsPollingError` can turn a pinging node Critical.
 - [universal-device-pollers.md](universal-device-pollers.md) for UnDPs, the system most often
   mistaken for this one.
 - [../automation/node-management.md](../automation/node-management.md) for the first half of

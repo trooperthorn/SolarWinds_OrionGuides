@@ -594,6 +594,19 @@ and must be added through the verb.
 `RemoveIpRange` handles both families and only removes addresses that IPAM currently
 manages. All three take the subnet's `GroupId`.
 
+### Bulk import: the spreadsheet has no verb
+
+The console can import subnets and addresses in bulk from a spreadsheet, and the schema
+shows the machinery around that feature — `IPAM.UIJob` tracks the long-running job and
+`IPAM.ImportStarted` is the indication it raises — but **no SWIS verb corresponds to it**:
+none of IPAM's 67 verbs in the 2026.2 contract takes or produces a file, and there is no
+export verb either. The scriptable equivalent is a loop over the verbs above:
+`CreateSubnetForGivenParentNode` (or the CRUD insert on `IPAM.Subnet`) per subnet, then
+`AddIpRange` where the subnet is too large for automatic address creation. **Unverified:**
+the column headers the console's spreadsheet import accepts are not recorded in the
+extracted schema; if you need the file route, generate a template by exporting from your
+own console and keep its headers rather than inventing them.
+
 ### Groups and supernets
 
 | Verb | Parameters, in order | Notes |

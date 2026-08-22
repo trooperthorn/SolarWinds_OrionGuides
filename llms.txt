@@ -17,6 +17,19 @@ Everything below works offline. No server, no network, no credentials.
 - [README.md](README.md): what the repository is and how it is built
 - [docs/README.md](docs/README.md): the documentation index
 
+## Documentation sections
+
+- [docs/platform/README.md](docs/platform/README.md): what the product is — architecture, modules, versions and naming
+- [docs/swis/README.md](docs/swis/README.md): the API — connecting, REST, CRUD, URIs, Invoke, introspection
+- [docs/swql/README.md](docs/swql/README.md): the query language — reference, functions, joins, date/time, gotchas
+- [docs/schema/README.md](docs/schema/README.md): the data model — entities, inheritance, relationships, key entities
+- [docs/modules/README.md](docs/modules/README.md): one page per module — NPM, SAM, NCM, NTA, IPAM, VMAN and the rest
+- [docs/automation/README.md](docs/automation/README.md): task guides — node lifecycle, maintenance, alerts, discovery, reporting
+- [docs/polling/README.md](docs/polling/README.md): the five polling systems, and why a new node monitors nothing
+- [docs/webui/README.md](docs/webui/README.md): the web console — variables, widgets, dashboards, change templates
+- [docs/guides/getting-started.md](docs/guides/getting-started.md): guides — getting started, cookbook, troubleshooting, building integrations
+- Export file formats, documented field by field from real files: SAM `.apmtemplate` ([docs/modules/sam-templates.md](docs/modules/sam-templates.md)), NCM device templates ([docs/modules/ncm-device-templates.md](docs/modules/ncm-device-templates.md)) and compliance policy reports ([docs/modules/ncm-compliance-reports.md](docs/modules/ncm-compliance-reports.md)), report XML ([docs/automation/report-definitions.md](docs/automation/report-definitions.md)), Modern Dashboards ([docs/webui/modern-dashboards.md](docs/webui/modern-dashboards.md)), API Poller templates ([docs/polling/api-pollers.md](docs/polling/api-pollers.md))
+
 ## Look something up
 
 - `python3 tools/schema_query.py find <keyword> --properties`: which entity holds this

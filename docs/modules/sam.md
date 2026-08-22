@@ -433,8 +433,8 @@ applies templates to the members of a group, configured through
 | `ExportTemplate` | `templateId` | string |
 | `DeleteTemplate` | `applicationTemplateId` | void |
 | `UpdateApplicationTemplateSettings` | `applicationTemplateId`, `settings` | void |
-| `StartTestComponents` | `nodeId`, `templateUniqueId`, `credentialId` | array of job GUIDs |
-| `GetTestComponentStatus` | `jobs` (array of job GUIDs) | array |
+| `StartTestComponents` | `nodeId`, `templateUniqueId`, `credentialId` | array of `TestComponentResult` |
+| `GetTestComponentStatus` | `jobs` (array of job GUIDs) | array of `TestComponentResult` |
 
 `ImportTemplate` and `ExportTemplate` move the `.apmtemplate` document, whose format is
 documented in [sam-templates.md](sam-templates.md). Note that `ExportTemplate` takes the
@@ -444,8 +444,12 @@ both get called "the template id" in conversation.
 `StartTestComponents` and `GetTestComponentStatus` are the pair to reach for when you want
 to know whether a template *would* work against a node before committing to assigning it.
 `StartTestComponents` takes `templateUniqueId`, which is the template's
-`UniqueId` **GUID**, not its integer `ApplicationTemplateID`. It returns job GUIDs that you
-feed back into `GetTestComponentStatus` until the test completes.
+`UniqueId` **GUID**, not its integer `ApplicationTemplateID`. Both verbs return an array of
+`TestComponentResult` objects — `ComponentId`, `JobId`, `Status`, `Message` — not bare GUID
+strings: pull the `JobId` member out of each element and feed those GUID strings back to
+`GetTestComponentStatus` as its `jobs` array until the test completes. `Status` is the
+string enumeration `SolarWinds.APM.Common.Models.Status`, whose twelve values are listed in
+[sam-templates.md](sam-templates.md).
 
 `DeleteTemplate` is destructive well beyond the template. SolarWinds' own sample notes it:
 "Removing the template also removes all applications created from this template." Count the
@@ -621,6 +625,12 @@ WHERE d.LastBackup < AddDay(-1, GetDate())
 ORDER BY d.LastBackup
 ```
 
+`LastBackup` is left unwrapped deliberately: it is a value read from the monitored SQL
+Server rather than a timestamp the platform stamped itself, so which clock it is on is
+genuinely uncertain. At day granularity the comparison tolerates any plausible offset;
+before tightening the window, measure the column on your own data (see
+[../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone)).
+
 ### SQL data files close to full
 
 `UsedSpacePercentage` is precomputed, so there is no need to divide `UsedSpace` by `Size`
@@ -690,10 +700,16 @@ SELECT
     AVG(st.PercentAvailability) AS AvgPercentAvailability
 FROM Orion.APM.ApplicationStatus st
 JOIN Orion.APM.Application a ON a.ApplicationID = st.ApplicationID
-WHERE st.TimeStamp >= AddDay(-7, GetDate())
+WHERE st.TimeStamp >= ToUtc(AddDay(-7, GetDate()))
 GROUP BY a.Name, a.Node.Caption
 ORDER BY AVG(st.PercentAvailability)
 ```
+
+`ToUtc(AddDay(-7, GetDate()))` rather than a bare `AddDay(-7, GetDate())` is deliberate.
+`TimeStamp` states no timezone in the schema, so the platform-wide rule applies — assume the
+column holds UTC — and an unwrapped `AddDay(-7, GetDate())` is a local-time value that
+silently shifts the window by the SQL Server's UTC offset. See
+[../swql/date-and-time.md](../swql/date-and-time.md).
 
 ### Component thresholds as currently applied
 
@@ -724,7 +740,7 @@ SELECT TOP 50
     conn.PacketLoss,
     conn.LastSeenTimeStamp
 FROM Orion.APM.ApplicationTcpConnection conn
-WHERE conn.LastSeenTimeStamp >= AddHour(-24, GetDate())
+WHERE conn.LastSeenTimeStamp >= ToUtc(AddHour(-24, GetDate()))
 ORDER BY conn.Latency DESC
 ```
 
@@ -899,6 +915,9 @@ applications out.
 - [../swis/crud.md](../swis/crud.md) for creating and updating the settings entities.
 - [../swis/uris.md](../swis/uris.md) for the SWIS URI format, which is what
   `Set-SwisObject` needs when you edit a template or a setting in place.
+- [../swql/date-and-time.md](../swql/date-and-time.md) for the
+  `ToUtc(AddDay(-7, GetDate()))` bound shape the sample queries use, and for measuring
+  which clock a column is on.
 - [../reference/verb-index.md](../reference/verb-index.md) for every verb with parameters.
 - [../reference/netobject-types.md](../reference/netobject-types.md) for the NetObject
   prefix table.

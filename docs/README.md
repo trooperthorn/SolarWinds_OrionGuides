@@ -71,6 +71,7 @@ Per-product deep dives. An entity only exists if its module is licensed and inst
 | [modules/sam-templates.md](modules/sam-templates.md) | The `.apmtemplate` export format, and moving a template between servers |
 | [modules/ncm.md](modules/ncm.md) | Network Configuration Manager |
 | [modules/ncm-device-templates.md](modules/ncm-device-templates.md) | The `.ConfigMgmtCommands` device template format: CLI commands, prompt detection, and the three execution modes |
+| [modules/ncm-compliance-reports.md](modules/ncm-compliance-reports.md) | The compliance policy report export: the three-tier PolicyReport XML, the `GetPolicyReport`/`AddPolicyReport` round trip, and the encoding trap |
 | [modules/nta.md](modules/nta.md) | NetFlow Traffic Analyzer |
 | [modules/srm.md](modules/srm.md) | Storage Resource Monitor |
 | [modules/vman.md](modules/vman.md) | Virtualization Manager |
@@ -82,6 +83,7 @@ Per-product deep dives. An entity only exists if its module is licensed and inst
 | [modules/log-analyzer.md](modules/log-analyzer.md) | Log Analyzer |
 | [modules/qoe.md](modules/qoe.md) | Quality of Experience |
 | [modules/hardware-health.md](modules/hardware-health.md) | Hardware sensors |
+| [modules/scm.md](modules/scm.md) | Server Configuration Monitor |
 | [modules/cloud.md](modules/cloud.md) | AWS, Azure and GCP monitoring |
 | [modules/agents.md](modules/agents.md) | The SolarWinds agent |
 
@@ -153,7 +155,7 @@ Lookup tables. Most are generated from the extracted data and must not be edited
 | --- | --- |
 | [reference/README.md](reference/README.md) | What is generated, what is written, and which to use when |
 | [reference/entity-index.md](reference/entity-index.md) | All 2067 entities with base type, operations and counts |
-| [reference/verb-index.md](reference/verb-index.md) | All 958 verbs with positional signatures and required rights |
+| [reference/verb-index.md](reference/verb-index.md) | All 1021 verbs with positional signatures and required rights |
 | [reference/netobject-types.md](reference/netobject-types.md) | NetObject prefixes, key properties, parent entities |
 | [reference/status-codes.md](reference/status-codes.md) | Status ids, names, ranks and meanings |
 | [reference/swql-function-index.md](reference/swql-function-index.md) | Every SWQL function with signature and example |

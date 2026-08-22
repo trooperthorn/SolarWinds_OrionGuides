@@ -344,6 +344,37 @@ credential: `CredentialsId` refers to a row in the target server's own credentia
 which has to exist there first. And an imported template is a new row with a new id, so
 nothing that referenced the old id follows it.
 
+### Removing a poller
+
+There is no delete verb. `DeleteTemplate` removes a row from the template library, and
+nothing in the six verbs above removes a poller — so decommissioning one is a CRUD delete
+against the poller row's URI:
+
+```powershell
+$uri = Get-SwisData $swis @'
+SELECT p.Uri FROM Orion.APIPoller.ApiPoller p WHERE p.ID = @id
+'@ @{ id = $pollerId }
+
+Remove-SwisObject $swis -Uri $uri
+```
+
+That needs `admin`: `Orion.APIPoller.ApiPoller` grants delete, like every entity write
+here, to `admin` only. Removal is therefore the one lifecycle operation `manageNodes`
+cannot perform, which extends the rights asymmetry described above — an account that can
+create pollers through the verbs cannot remove them.
+
+Whether the delete cascades to the poller's `RequestDetails`, headers, values and metrics
+rows is **not recorded in the schema and is unverified here**. After deleting one, check
+for orphans:
+
+```sql
+SELECT r.ID, r.ApiPollerId, r.Url
+FROM Orion.APIPoller.RequestDetails r
+WHERE r.ApiPollerId NOT IN (
+    SELECT p.ID FROM Orion.APIPoller.ApiPoller p
+)
+```
+
 ## The template library
 
 ```sql
@@ -497,6 +528,13 @@ accept, is **not documented and unverified here**.
 You do not have to. The supported path is to build the poller once in the console —
 **Settings > All Settings > API Poller**, or the API Poller tab on a node — and export it. The
 console writes the GUID, the timestamps and the serialisation details for you.
+
+A complete, importable example also ships in this repository:
+[scripts/api-pollers/example-service-status.apipoller.template](../../scripts/api-pollers/example-service-status.apipoller.template)
+— one request carrying one numeric metric and one text status mapped to numbers, with the
+fallback placed above critical. It is validated by `tools/check_api_poller_templates.py` on
+every build, and [its README](../../scripts/api-pollers/README.md) says what to replace
+before importing it.
 
 Authoring the XML directly is still reasonable for a template you want to generate, and the
 rules that matter are:
@@ -652,6 +690,7 @@ ORDER BY COUNT(v.ID)
 
 - [README.md](README.md) for the other four polling systems and how to tell them apart
 - [standard-pollers.md](standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments
+- [../../scripts/api-pollers/](../../scripts/api-pollers/) for the shipped, build-validated `.apipoller.template` example
 - [../automation/credentials.md](../automation/credentials.md) for the credential store `CredentialsId` points at
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) for the Invoke contract and array arguments
 - [../swql/gotchas.md](../swql/gotchas.md) for the `StatusInfo` navigation

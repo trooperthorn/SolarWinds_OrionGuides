@@ -316,3 +316,4 @@ than every device matching the OID.
   change template scripting language, including `${CRLF}`
 - [../automation/credentials.md](../automation/credentials.md) — the credentials a CLI session
   authenticates with
+- [apps/porter](../../apps/porter/README.md) — a shipped Windows utility whose device-template provider implements the TemplateXml-out, CRUD-create-in round trip documented here

@@ -43,6 +43,15 @@ document is a serialised object graph. Two consequences follow throughout: **ele
 alphabetical order within each type**, and **an unset value is written `i:nil="true"` rather
 than omitted**.
 
+One habit from elsewhere on the platform applies when reading these files: console exports
+are known to lie about their declared encoding — the NCM compliance export declares
+`utf-16` in its prolog while the bytes on disk are UTF-8, so the rule is to trust the byte
+order mark and the actual bytes, never the prolog (see
+[../modules/ncm-compliance-reports.md](../modules/ncm-compliance-reports.md#the-file)). What
+the four report samples' prologs declared and what their bytes contained was not recorded
+when they were parsed, so whether report exports share the mismatch is **unverified here**;
+sniff rather than assume.
+
 | Element | Maps to `Orion.Report` | Notes |
 | --- | --- | --- |
 | `Name` | `Name` | The report's identity in Manage Reports |
@@ -53,6 +62,7 @@ than omitted**.
 | `LicenseFeatureName` | `LicenseFeatureName` | `NPM`, `HardwareHealth` — gates the report on a licensed module |
 | `OrionFeatureName` | `OrionFeatureName` | `i:nil` in all four |
 | `ReportGuid` | — | Identity across servers. **Not** `ReportID`, which is local. Reissued on import if it collides — see [Importing a definition that is already there](#importing-a-definition-that-is-already-there) |
+| `Header/Title`, `Header/SubTitle` | `Title`, `SubTitle` | The only two columns whose file representation is nested — inside `<Header>` — rather than top-level. The casing is `SubTitle`, matching the entity property |
 
 `ReportID`, `Owner`, `Type`, `LegacyPath`, `RecipientList` and `LastRenderDuration` are columns
 on `Orion.Report` with no element in the file. They are installation state rather than report
@@ -396,6 +406,12 @@ controls.
 </Footer>
 ```
 
+`Header/Title` and `Header/SubTitle` are what `Orion.Report.Title` and `Orion.Report.SubTitle`
+hold, and what the `title` and `subtitle` arguments of `CreateReport`/`UpdateReport`
+correspond to — neither has a top-level element of its own. A title change therefore has two
+carriers, the verb argument and the element inside the `definition` you pass, so change both
+rather than relying on one to win.
+
 `Footer.CustomText` is free text and is worth setting to something meaningful — a shipped
 report's copyright line is a poor label for a report you wrote.
 
@@ -479,7 +495,9 @@ report would be far worse than a stray copy — but it does mean cleanup is manu
 **What `CreateReport` does in the same situation is a narrower question, still unverified
 here.** The verb is a different entry point from the console's import, and it takes `name`,
 `description`, `category`, `title` and `subtitle` as **arguments alongside** the `definition`
-document, which contains all five again as elements. Which copy wins, and whether the verb
+document. Name, description and category (and `limitationCategory`) recur as top-level
+elements of that document; title and subtitle recur only inside `<Header>`, as `Header/Title`
+and `Header/SubTitle` — they have no top-level element. Which copy wins, and whether the verb
 applies the same `Copy of ` rename, is not documented anywhere this repository has seen. Until
 that is settled, treat `CreateReport` as create-only and reach for `UpdateReport` when a report
 already exists.
@@ -522,3 +540,4 @@ python3 -c "import sys,re; d=open(sys.argv[1]).read(); [print(m) for m in re.fin
   `_LinkFor_` convention solves the same problem as `orion.core.link.entity`
 - [accounts-and-permissions.md](accounts-and-permissions.md) — `manageReports`, and why
   limitations change what a report returns
+- [apps/porter](../../apps/porter/README.md) — a shipped Windows utility whose Reports provider implements the Definition-column export and `CreateReport` import documented here

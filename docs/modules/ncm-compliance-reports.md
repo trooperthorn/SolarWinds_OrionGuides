@@ -99,16 +99,25 @@ entities are read-only. Positional JSON bodies on the REST endpoint.
 | Step | Call |
 | --- | --- |
 | Inventory | `SELECT PolicyReportID, Name, Grouping, ReportStatus, CacheStatus FROM Cirrus.PolicyReports` |
-| Export | `GetPolicyReport(reportId, exportFlag=true)` → the full nested object (maps 1:1 to the file's elements) |
-| Import | `AddPolicyReport(report, importFlag=true)` → the **new server-assigned GUID**; nested policies and rules persist in the same call |
+| Export | `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true → the full nested object (maps 1:1 to the file's elements) |
+| Import | `AddPolicyReport(report, importFlag)` with `importFlag` true → the **new server-assigned GUID**; nested policies and rules persist in the same call |
+| Compose from existing | `AddPolicyReport(report, importFlag)` with `importFlag` false and `AssignedPoliciesList` filled — persists only the report row and links policies already on the server |
 | Per-item | `GetPolicy(policyId, exportFlag)` / `GetPolicyRule(ruleId)` / `AddPolicy(policy, importFlag)` / `AddPolicyRule(rule)` |
-| Rule dry run | `TestRule(policyRule, configText)` / `TestRuleOnBackedUpConfig(policyRule, configId)` — evaluate an unsaved rule against real config |
-| Activate | `StartCaching([reportId])` — an imported report shows nothing until cached; **always pass the specific GUID** (an empty array re-caches every report on the server) |
+| Rule dry run | `TestRule(policyRule, config)` / `TestRuleOnBackedUpConfig(policyRule, configId)` — evaluate an unsaved rule against real config |
+| Activate | `StartCaching(selectedReportsIds)` — an imported report shows nothing until cached; **always pass the specific GUID in the array** (an empty array re-caches every report on the server) |
 
 Round-trip gotchas:
 
 - The file's `ID` is advisory: `AddPolicyReport` always assigns a fresh GUID.
   Resolve by `Name` after import.
+- The contract carries **two parallel child representations**, and `importFlag` picks
+  which one counts. `PolicyReport` has `AssignedPolicies` (full nested `Policy` objects —
+  the file's shape) *and* `AssignedPoliciesList` (an array of ID strings); `Policy` has
+  `AssignedPolicyRules` and `AssignedRulesList` the same way. `importFlag=true` persists
+  the nested copies. `importFlag=false` persists only the top-level object and resolves
+  the ID lists against policies and rules that already exist on the server — the route
+  for composing a report from shared, already-imported children instead of duplicating
+  them. The ID-list members never appear in the console export file.
 - Contract member names differ from SWQL columns (`Comments`/`Group` vs
   `Comment`/`Grouping`; rule `SimplePatternText` vs column `Pattern`) — map file
   fields to the verb contract, never to column names.
@@ -124,7 +133,7 @@ Round-trip gotchas:
 
 The Porter utility in this repository (`apps/porter`) implements this round trip as
 its NCM Compliance area: console-compatible XML out (UTF-16, matching element order),
-`AddPolicyReport(report, true)` in, name-collision skip, and `StartCaching` for the
+`AddPolicyReport` with `importFlag` true in, name-collision skip, and `StartCaching` for the
 new report. Its import validation raises a **blocking security flag** for every
 auto-executing remediation rule; the file cannot be imported until the operator
 explicitly acknowledges the flags.

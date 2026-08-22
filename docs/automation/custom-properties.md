@@ -279,9 +279,11 @@ Orion.NodesCustomProperties.ModifyCustomProperty(
 | 8 | `SourceName` | string | no |
 | 9 | `propertyDisplayName` | string | no |
 
-Two things to notice. `ValueType` is absent, so you cannot change a property's data type this
-way. And **`Values` replaces the list, it does not add to it.** An empty or null list has the
-effect of allowing any value, which is how you remove a restriction.
+Three things to notice. `ValueType` is absent, so you cannot change a property's data type
+this way. `PropertyName` is how the verb finds the definition, not a writable field, so it
+cannot rename one either. And **`Values` replaces the list, it does not add to it.** An
+empty or null list has the effect of allowing any value, which is how you remove a
+restriction.
 
 Adding one allowed value therefore means read, append, write back. This is SolarWinds' own
 recipe from the Managing Custom Properties page, adapted:
@@ -401,6 +403,20 @@ FROM Orion.CustomProperty cp
 WHERE cp.Table = 'NodesCustomProperties'
 ORDER BY cp.Field
 ```
+
+### `DataType` is not `ValueType`
+
+`Orion.CustomProperty.DataType` holds the SQL storage type of the column — a `string`
+property reads back as `nvarchar`, not `string` — while `CreateCustomProperty` wants one of
+the six `ValueType` strings. So an inventory read from this catalogue cannot be replayed
+into `CreateCustomProperty` as-is: re-creating a definition on a second server means
+translating `DataType` plus `MaxLength` back into `ValueType` plus `Size`. The expected
+correspondence is the standard SQL storage mapping — `nvarchar` → `string` (with `Size`
+taken from `MaxLength`), `int` → `integer`, `datetime` → `datetime`, `real` → `single`,
+`float` → `double`, `bit` → `boolean` — but beyond the `nvarchar` case it is not recorded in
+the published schema, so verify it once on your own server by defining one property of each
+type and reading `DataType` back. Passing a `DataType` value such as `nvarchar` straight
+through as `ValueType` is not one of the six allowed values.
 
 `Orion.CustomPropertyValues` holds the allowed-value lists:
 
@@ -683,6 +699,10 @@ ORDER BY cp.Field
 - **Forgetting `/CustomProperties` on the URI.** Updating the node URI with a custom property
   name in the bag fails, because the property is not on `Orion.Nodes`.
 - **`ModifyCustomProperty` wiping the allowed-value list.** It replaces. Read, append, write.
+- **Renaming a property.** There is no rename — `PropertyName` is how `ModifyCustomProperty`
+  finds the definition. A new name means `DeleteCustomProperty`, a fresh `Create*`, and
+  re-writing the value on every object, so pick names carefully and treat a rename as a
+  migration.
 - **Reusing the create argument array for `ValidateCustomProperty`.** Different list,
   different order.
 - **Assuming one signature fits all entities.**
@@ -707,3 +727,4 @@ ORDER BY cp.Field
 - [../swis/bulk-operations.md](../swis/bulk-operations.md) for tagging many objects at once
 - [../swql/joins-and-navigation.md](../swql/joins-and-navigation.md) for navigation versus explicit joins
 - Official: [Managing Custom Properties](https://solarwinds.github.io/OrionSDK/docs/managing-custom-properties/)
+- [apps/porter](../../apps/porter/README.md) — a shipped Windows utility whose Nodes + Custom Properties provider implements definition recreation (`ValidateCustomProperty` → `Create…`) and per-node value writes as one CSV round trip

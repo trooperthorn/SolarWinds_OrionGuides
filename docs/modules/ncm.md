@@ -324,7 +324,7 @@ The console's compliance export file — the three-tier `<PolicyReport>` XML wit
 policies and rules denormalized inline — has its own page:
 [ncm-compliance-reports.md](ncm-compliance-reports.md), including the encoding trap
 (the prolog declares utf-16 over utf-8 bytes) and the `GetPolicyReport` /
-`AddPolicyReport(report, importFlag=true)` round trip.
+`AddPolicyReport` round trip, with `importFlag` true to persist the nested children.
 
 ## Config change templates and snippets
 
@@ -400,6 +400,41 @@ That XML is the `.ConfigMgmtCommands` document, and
 `EnableIdentifier` decides whether a session is privileged, the `${…}` macros including the
 ones that reference other commands, and how the console's three script-execution modes map onto
 these verbs. **There is no import or export verb** — `Cli.DeviceTemplates` is plain CRUD.
+
+### Testing CLI connectivity and credentials
+
+Alongside the device-template pair, `Cli.CliSessionSettings` is a name/value settings table
+(`SettingName`, `SettingValue`) that also anchors the four verbs for testing CLI
+connectivity and credentials against a device — the pre-check that belongs before
+`ExecuteScriptOnNodes` in the template-testing sequence
+[ncm-device-templates.md](ncm-device-templates.md) walks through. Entity access is `read`
+for `everyone` and `create`, `read`, `update`, `delete`, `invoke` for `manageNodes`, so
+invoking them needs `manageNodes`.
+
+| Verb | Parameters, in order | Returns |
+|---|---|---|
+| `ValidateCliCredentials` | `hostName`, `userName`, `password`, `enablePassword`, `port` (number), `useKeyboardInteractiveAuthentication` (boolean), `systemOid`, `systemDescription`, `engineId` (number) | boolean |
+| `ValidateCliCredentialsExtended` | `hostName`, `userName`, `password`, `enablePassword`, `protocol`, `port` (number), `useKeyboardInteractiveAuthentication` (boolean), `systemOid`, `systemDescription`, `engineId` (number) | an `OperationResult` object: `OperationName`, `Data`, `IsError` |
+| `GetCliConnectionTestResult` | `cliTestConnectionData` (a `CliTestConnectionData` object) | a `CliTestResult` object: `TestId`, `Engine`, `RemoteHost`, `TestLog` (array of strings), `TestProperties`, `IsError`, `ErrorMessage` |
+| `GetCurrentCliConnectionParameters` | none | a `CliConnectionData` object |
+
+`ValidateCliCredentialsExtended` differs from the plain form in two ways: it inserts a
+`protocol` argument in fifth position — a string enum, one of `Raw`, `Telnet`, `Ssh1`,
+`Ssh2`, `SshAuto`, `Rlogin`, sent as the bare name — and it returns a typed result whose
+`Data` and `IsError` say what happened, rather than a bare boolean. The
+`CliConnectionData` object that `GetCurrentCliConnectionParameters` returns (and that
+`GetCliConnectionTestResult` takes nested inside its argument) is fully declared in
+`data/schema/2026.2/types.json`: protocol, ports, timeout, proxy settings and the SSH
+algorithm lists (`EncryptionList`, `HMacList`, `KeyExchangeList`, `KeySignatureList`)
+among its 23 members.
+
+Both `Validate*` verbs are recent additions, so they are absent on older servers:
+`ValidateCliCredentials` appears in the
+[2025.4 to 2026.2 schema changes](../reference/schema-changes-2025.4-to-2026.2.md) but not
+the 2026.1 to 2026.2 delta, and `ValidateCliCredentialsExtended` is new in 2026.2 itself
+([2026.1 to 2026.2 schema changes](../reference/schema-changes-2026.1-to-2026.2.md)).
+Confirm with `python3 tools/schema_query.py verbs --entity Cli.CliSessionSettings`, or
+`Metadata.Verb` on a live server.
 
 ## The approval queue
 
@@ -561,7 +596,11 @@ verbs behind it, `ExecuteRtn(ipAddress, commandLine)` and `RunRtn(args)`.
 
 NCM declares **160 verbs**, 132 in `Cirrus.` and 28 in `NCM.`. That is the richest verb
 surface of any module in the platform, and it is concentrated: nine `Cirrus.` entities and
-eight `NCM.` entities carry all of them.
+eight `NCM.` entities carry all of them. Two smaller pockets sit outside that count: the
+four connection-testing verbs on `Cli.CliSessionSettings`
+([above](#testing-cli-connectivity-and-credentials)), and a 29th `NCM.` verb,
+`NCM.SwisEntityTemplate.Ping`, which exists only in the Swagger contract and takes nothing
+and returns a boolean.
 
 | Entity | Verbs | Theme |
 |---|---|---|
@@ -1406,6 +1445,8 @@ permissions hypothesis before it is a data one.
 ## Related pages
 
 - [README.md](README.md) for the module index and how to check what is installed.
+- [scm.md](scm.md) for Server Configuration Monitor, which does for server configuration
+  what NCM does for device configuration — profiles, change records and baselines.
 - [../platform/modules.md](../platform/modules.md) for the whole-schema module map and why the
   namespace prefixes do not match the product names.
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) for positional arguments, serialisation

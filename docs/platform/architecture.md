@@ -110,10 +110,12 @@ Writes take one of two other routes:
    First, SWIS defines no URI for an entity type without at least one key property, so
    those types cannot be used with CRUD at all
    ([SWIS URIs](https://solarwinds.github.io/OrionSDK/docs/uris/)). Second, an entity
-   declares which operations it supports: 250 of the 2067 entities in 2026.2 declare
-   `create`, and the rest do not.
+   declares which operations it supports: 239 of the 2067 entities in 2026.2 declare
+   `create`, and the rest do not (a further 11 publish a `/Create/{Entity}` REST path
+   without declaring the operation; [../swis/crud.md](../swis/crud.md) covers the
+   distinction).
 2. **Invoke verbs**, which are named operations that an entity declares. 2026.2 exposes
-   958 verbs, 794 of them with typed parameters. Verbs exist because some changes are not
+   1021 verbs, 848 of them with typed parameters. Verbs exist because some changes are not
    expressible as a row update. `Orion.AlertActive.Acknowledge(alertObjectIds, notes)`
    records who acknowledged an alert and when. `Orion.Nodes.Unmanage(netObjectId,
    unmanageTime, remanageTime, isRelative, allowOverlapping)` puts a node into maintenance

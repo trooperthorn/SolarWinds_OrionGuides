@@ -22,6 +22,10 @@ This checks six shapes, chosen because each makes the subject of the count unamb
     There the entity is the section heading, not a name in the sentence.
   - a summary table whose columns are counts, headed ``| Entity | Properties | Verbs |``.
     The header names what each column holds, so a row needs no prose around it.
+  - whole-schema totals: ``2026.2 exposes 1021 verbs``, ``848 of which publish typed
+    parameters``, ``the 2067 entities``, ``239 ... declare create``. These drifted
+    silently across a re-extraction once; now every page stating one is held to the
+    shipped data.
 
 Precision is the whole design constraint. Prose counts subsets far more often than it
 counts totals, and "two verbs on ``Cirrus.ConfigArchive``: ``Diff`` and ``CompareConfigs``"
@@ -88,6 +92,32 @@ NAMESPACE_FORMS = [
     # **16 entities**, all under `Orion.AgentManagement.`".
     re.compile(rf"{NUM}\s+entities\*{{0,2}},?\s+(?:all\s+)?(?:under|in)\s+`(?P<ns>[A-Z][\w.]*?)\.?`", re.I),
     re.compile(rf"`(?P<ns>[A-Z][\w.]*?)\.?`[^.`]{{0,30}}?\bholds\s+\*{{0,2}}{NUM}\s+entities", re.I),
+]
+
+# Whole-schema totals. Anchored to the exact phrasings the overview pages use, so a
+# subset sentence ("SRM publishes 108 verbs") can never match: the noun must be tied to
+# the schema itself, not to an entity or namespace.
+GLOBAL_FORMS = [
+    ("verbs", re.compile(
+        r"(?:2026\.2 exposes|extraction holds|schema holds|All)\s+(?P<n>[\d,]+)\s+verbs?"
+        r"(?:,\s+(?P<t>[\d,]+)\s+of them with typed parameters)?")),
+    ("verbs", re.compile(
+        r"(?P<n>[\d,]+)\s+verbs?\s+\((?P<t>[\d,]+) of which publish typed parameters\)")),
+    ("typed verbs", re.compile(
+        r"(?P<n>[\d,]+) of the [\d,]+ verbs in 2026\.2 publish typed parameters")),
+    # Only the denominator position ("N of the T entities in 2026.2") is safely a
+    # total; a bare "N entities in 2026.2" is usually a subset with its qualifier
+    # trailing ("… declare a Status property").
+    ("entities", re.compile(
+        r"of the (?P<n>[\d,]+)\s+(?:documented\s+)?entities in (?:the )?2026\.2")),
+    ("entities", re.compile(r"Of (?P<n>[\d,]+) entities in 2026\.2,")),
+    ("entities", re.compile(r"2026\.2[:,]?\s+(?P<n>[\d,]+)\s+entities")),
+    ("creatable entities", re.compile(
+        r"(?P<n>[\d,]+) (?:of the [\d,]+ (?:documented )?entities in 2026\.2 )?are creatable")),
+    ("creatable entities", re.compile(
+        r"Of [\d,]+ entities in 2026\.2, (?P<n>[\d,]+) are creatable")),
+    ("create-declaring entities", re.compile(
+        r"(?P<n>[\d,]+) of the [\d,]+ entities[^.]{0,60}?declare\s+create")),
 ]
 
 ARITY_FORM = re.compile(
@@ -175,6 +205,25 @@ class Schema:
                     for member in self.entities[ancestor][f]:
                         seen.add(member["name"].lower())
         return declared, len(seen)
+
+    def global_totals(self) -> dict[str, int]:
+        """Whole-schema totals the overview pages state in prose."""
+        def declares_create(record: dict) -> bool:
+            for grant in record.get("accessControl") or []:
+                if any("create" in str(op).lower() for op in grant.get("operations") or []):
+                    return True
+            return False
+        return {
+            "entities": len(self.entities),
+            "verbs": len(self.verbs),
+            "typed verbs": sum(1 for v in self.verbs if v.get("parameters")),
+            # Two different truths: canCreate is the capability flag (250 in 2026.2);
+            # declaring the create operation in accessControl is stricter (239).
+            "creatable entities": sum(
+                1 for r in self.entities.values() if r.get("canCreate")),
+            "create-declaring entities": sum(
+                1 for r in self.entities.values() if declares_create(r)),
+        }
 
     def descendants(self, base: str) -> int:
         return sum(1 for r in self.entities.values() if base in (r.get("inheritance") or []))
@@ -319,6 +368,19 @@ def claims_in(sentence: str, schema: Schema):
             if claimed is None or not actual:
                 continue
             yield (f"entities under {namespace}.", claimed, actual, m.group(0), "")
+
+    totals = schema.global_totals()
+    for label, form in GLOBAL_FORMS:
+        for m in form.finditer(sentence):
+            claimed = to_int(m.group("n"))
+            if claimed is None:
+                continue
+            yield (label, claimed, totals[label], m.group(0), "whole-schema total")
+            if label == "verbs" and m.groupdict().get("t"):
+                t = to_int(m.group("t"))
+                if t is not None:
+                    yield ("typed verbs", t, totals["typed verbs"], m.group(0),
+                           "whole-schema total")
 
     for m in ARITY_FORM.finditer(sentence):
         qualified, claimed = m.group("verb"), to_int(m.group("n"))

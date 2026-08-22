@@ -117,6 +117,8 @@ docs/
   schema/       the data model: entities, inheritance, relationships, key entities
   modules/      one page per module: NPM, SAM, NCM, NTA, IPAM, VMAN and the rest
   automation/   task guides: node lifecycle, maintenance, alerts, discovery, pollers
+  polling/      the five polling systems, and why a new node monitors nothing
+  webui/        the web console: variables, widgets, dashboards, change templates
   guides/       start to finish: getting started, cookbook, troubleshooting, integrations
   reference/    generated enumerations: every entity, verb, prefix, status, function
 data/
@@ -127,6 +129,12 @@ scripts/
   powershell/   SwisPowerShell examples
   python/       a dependency-light REST client
   curl/         the raw wire protocol
+  dashboards/   an importable Modern Dashboard file, build-validated
+  api-pollers/  an importable API Poller template, build-validated
+apps/
+  porter/       a Windows utility that moves configuration between installations over
+                SWIS; every route it uses was verified against the extracted contract
+reference/      the community SWQL examples workbook that `make data` reads
 tools/          extraction, query, validation, and generation scripts
 ```
 
@@ -186,7 +194,7 @@ make check           # the whole gate
 
 `make check` is what CI runs, and it is deliberately strict, because the value of this
 repository is that a reader does not have to verify it against a live server first. It
-checks nine things:
+checks eleven things:
 
 | Check | Catches |
 | --- | --- |

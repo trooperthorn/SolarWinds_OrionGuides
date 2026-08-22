@@ -31,6 +31,15 @@ recorded in `Orion.Websites`, which carries `ServerName`, `IPAddress`, `Port`, `
 `FQDN`, and they are separate from polling engines: a web server presents data, it does
 not collect any. See [../platform/architecture.md](../platform/architecture.md).
 
+## Cipher password
+
+The password the WPM recording verbs use to encrypt and decrypt an exported recording
+file: `Orion.SEUM.Recordings.Export(recordingId, password)` ciphers the file it returns,
+and `Import` and `Update` take the same value to decipher it. It is a key for the file
+rather than a site credential, so the same value must be supplied on both sides of a
+transfer, and getting it wrong produces a failed import rather than a corrupted
+recording. See [../modules/wpm.md](../modules/wpm.md).
+
 ## Container
 
 The base entity behind groups. `Orion.Container` inherits from `System.ManagedEntity` and
@@ -277,6 +286,15 @@ the SDK all still say `Orion`. Read `Orion.` as "the platform" rather than as th
 a product, and treat all three names as the same thing when searching documentation. See
 [../platform/versions-and-naming.md](../platform/versions-and-naming.md).
 
+## Policy report
+
+An NCM compliance artifact with three tiers: one report groups policies, each policy
+names the nodes and config type its rules apply to, and each rule is a test with optional
+remediation. The console exports a whole report — policies and rules included — as one
+`PolicyReport` XML file, and the API round trip is `GetPolicyReport` and `AddPolicyReport`
+on `Cirrus.PolicyReports`. See
+[../modules/ncm-compliance-reports.md](../modules/ncm-compliance-reports.md).
+
 ## Poller
 
 A named piece of collection logic, and by extension the assignment that points one at an
@@ -361,7 +379,7 @@ Server Configuration Monitor, which polls servers for their configuration and re
 it drifts from a baseline. Its entities are prefixed `Orion.SCM.`:
 `Orion.SCM.ServerConfiguration` holds the nodes it monitors, `Orion.SCM.Profiles` and
 `Orion.SCM.ProfileElements` say what to collect from them, and `Orion.SCM.Baseline` is the
-comparison point. See [../platform/modules.md](../platform/modules.md).
+comparison point. See [../modules/scm.md](../modules/scm.md).
 
 ## SolarWinds Observability Self-Hosted
 

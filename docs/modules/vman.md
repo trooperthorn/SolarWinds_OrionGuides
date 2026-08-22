@@ -426,8 +426,9 @@ documents it inline: 0 unknown, 1 green (success), 2 yellow (warning), 3 red. Do
 `Orion.StatusInfo` to it.
 
 `Timestamp` and `LastSeenTimestamp` say so in their own schema summaries: both are
-documented as UTC, unlike most platform datetime columns which are local server time.
-Compare them against `GetUtcDate()`, not `GetDate()`; see
+documented as UTC. That is unusual only in being stated — most platform datetime columns
+carry no zone statement at all and are assumed UTC, with `Orion.Events.EventTime` the
+documented exception. Compare them against `GetUtcDate()`, not `GetDate()`; see
 [../swql/date-and-time.md](../swql/date-and-time.md) for why mixing the two produces
 off-by-hours results. **Unverified:** `AcknowledgedTime` sits beside them but its summary
 names no zone, so do not assume it matches; acknowledge an alarm at a known wall-clock time
@@ -778,7 +779,7 @@ SELECT
     AVG(st.AvgCPUUsageMHz) AS MeanCpuMHz
 FROM Orion.VIM.VMStatistics st
 INNER JOIN Orion.VIM.VirtualMachines vm ON vm.VirtualMachineID = st.VirtualMachineID
-WHERE st.DateTime > AddDay(-7, GetDate())
+WHERE st.DateTime > ToUtc(AddDay(-7, GetDate()))
 GROUP BY vm.Name, vm.Host.HostName
 HAVING AVG(st.AvgCpuReady) > 5
 ORDER BY AVG(st.AvgCpuReady) DESC
@@ -786,7 +787,9 @@ ORDER BY AVG(st.AvgCpuReady) DESC
 
 The `st.DateTime` bound is not optional. `Orion.VIM.VMStatistics` is one of the largest tables
 the module writes, and it is `DateTime` here rather than `ObservationTimestamp`, even though
-the entity inherits both.
+the entity inherits both. The `ToUtc` wrapper is what keeps the seven-day window aligned
+with the UTC values the column stores — `AddDay(-7, GetDate())` on its own shifts the
+window by the SQL Server's UTC offset.
 
 ### Cluster capacity, as a forecast rather than a snapshot
 

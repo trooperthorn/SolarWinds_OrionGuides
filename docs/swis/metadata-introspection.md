@@ -565,7 +565,7 @@ over guessing on their behalf.
   sample queries and SWQL Studio use them, but it is worth knowing the declared type if a
   comparison behaves oddly.
 - **Verbs whose `parameters` list is empty in the offline data are exactly the case this page
-  solves.** 164 of the 958 verb records in `data/schema/2026.2/verbs.json` carry no parameter
+  solves.** 173 of the 1021 verb records in `data/schema/2026.2/verbs.json` carry no parameter
   list, and 84 of those have no `/Invoke/` path in the Swagger contract either. For any of
   them, `Metadata.VerbArgument` on your own server is the only reliable answer.
 

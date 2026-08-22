@@ -80,6 +80,18 @@ The response body is the JSON serialisation of the verb's return value. `Metadat
 returning `System.Void` has no meaningful value to send back, so treat a `2xx` as success and
 confirm the effect with a follow-up query rather than by parsing the body.
 
+A verb that takes no parameters still `POST`s a JSON array, the empty one.
+`Metadata.Entity.GetSchemaLoadTime` takes nothing and returns a string:
+
+```bash
+curl -sS -X POST -u "$ORION_USER:$ORION_PASS" --cacert "$ORION_CA" \
+  -H 'Content-Type: application/json' -d '[]' \
+  'https://myorion.example.com:17774/SolarWinds/InformationService/v3/Json/Invoke/Metadata.Entity/GetSchemaLoadTime'
+```
+
+Whether SWIS also accepts such a request with no body at all is not something this
+repository has verified; send `[]`.
+
 A real call with curl, unmanaging node 42 for a four hour window:
 
 ```bash
@@ -94,6 +106,31 @@ curl -sS -X POST \
 Notice that the JSON types match the declared parameter types: `netObjectId` is a string,
 `unmanageTime` and `remanageTime` are strings holding ISO-8601 timestamps, and `isRelative`
 and `allowOverlapping` are JSON booleans, not the strings `"false"`.
+
+### Enum parameters travel as string names
+
+A parameter whose declared type is a .NET enum is passed as the enum value's **name**: a
+JSON string over REST, a plain string in PowerShell and Python. `Cirrus.ApproveQueue`
+`SetApprovalMode` takes a single `mode` parameter of type
+`SolarWinds.NCM.Contracts.InformationService.eApprovalMode`, so the REST body is
+`["OneLevel"]`, not a number. SolarWinds' own `NPM.DiscoverAndAddInterfacesOnNode.ps1`
+sample passes `'AddDefaultPollers'` the same way for the enum `pollers` parameter of
+`Orion.NPM.Interfaces.AddInterfacesOnNode` (see
+[../automation/discovery.md](../automation/discovery.md)).
+
+The legal values are part of the extracted contract. The repo tool prints them:
+
+```bash
+python3 tools/schema_query.py verb Cirrus.ApproveQueue SetApprovalMode
+# mode: SolarWinds.NCM.Contracts.InformationService.eApprovalMode (required)
+#     one of: ApprovalDisabled, OneLevel, TwoLevelWebUploader, TwoLevelAll
+```
+
+Offline, 23 parameters in `data/schema/2026.2/verbs.json` carry an inline `enum` array,
+and `data/schema/2026.2/types.json` defines 90 string-kind enum types with their value
+lists. Enum members inside **return** shapes are declared as string enums too:
+`AddInterfacesOnNode` returns a `LiteDiscoveryResult` whose `Result` member is one of
+`Succeed`, `InvalidNode` or `GenericError`, so compare against the name, not a number.
 
 ### Optional trailing arguments may be omitted
 
@@ -237,7 +274,7 @@ although those print like strings they are not `System.String` at serialisation 
 The same shape applies to `Orion.AlertActive.ClearAlert(alertObjectIds)`,
 `Orion.AlertActive.Unacknowledge(alertObjectIds)`, `Orion.Events.Acknowledge(eventIDs)`,
 `Orion.ADM.NodeInventory.PollNow(nodeIds)` and every other one-parameter verb whose parameter
-is an array. There are 55 of them in 2026.2;
+is an array. There are 61 of them in 2026.2;
 [verb-catalog.md](verb-catalog.md#with-jq-against-dataschema20262verbsjson) has a `jq` recipe
 that lists the lot. To check one:
 

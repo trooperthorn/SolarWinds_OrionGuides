@@ -25,16 +25,7 @@ entity whose name equals the listed prefix or begins with that prefix plus a dot
 |---|---|---|---|---|
 | [npm](npm.md) | Network Performance Monitor | Interfaces, wireless, routing, NetPath, multicast | `Orion.NPM.`, `Orion.Routing.`, `Orion.Packages.Wireless.`, `Orion.WirelessHeatMap.`, `Orion.NetPath.` | 139 |
 | [sam](sam.md) | Server and Application Monitor | Template-based application monitoring, components, AppInsight for SQL, IIS and Exchange | `Orion.APM.` | 140 |
-
-SAM's export format has its own page: [sam-templates.md](sam-templates.md) documents the
-`.apmtemplate` document that `ExportTemplate` and `ImportTemplate` move.
 | [ncm](ncm.md) | Network Configuration Manager | Device configuration backup, compliance policies, config transfer, firmware, inventory | `Cirrus.` and `NCM.` | 129 |
-
-NCM's file formats have their own pages:
-[ncm-device-templates.md](ncm-device-templates.md) documents the `.ConfigMgmtCommands` document
-that tells NCM how to hold a Telnet or SSH session with a given kind of device, and
-[ncm-compliance-reports.md](ncm-compliance-reports.md) documents the policy report export —
-the three-tier PolicyReport XML and its GetPolicyReport/AddPolicyReport round trip.
 | [nta](nta.md) | NetFlow Traffic Analyzer | Flow records, applications, protocols, conversations, CBQoS | `Orion.Netflow.` | 49 |
 | [ipam](ipam.md) | IP Address Manager | Subnets, IP addresses, conflicts, DHCP scopes and leases, DNS zones and records | `IPAM.` | 77 |
 | [udt](udt.md) | User Device Tracker | Switch ports, endpoints, MAC and IP history, users, watch lists | `Orion.UDT.` | 85 |
@@ -46,22 +37,44 @@ the three-tier PolicyReport XML and its GetPolicyReport/AddPolicyReport round tr
 | [log-analyzer](log-analyzer.md) | Log Analyzer | Syslog messages, SNMP traps, log file entries, processing rules | `Orion.OLM.` | 21 |
 | [hardware-health](hardware-health.md) | Hardware Health | Fans, power supplies, temperature sensors, chassis, blades, racks | `Orion.HardwareHealth.` | 33 |
 | [qoe](qoe.md) | Quality of Experience | Packet-inspection applications, categories, probes and probe assignments | `Orion.DPI.` | 14 |
+| [scm](scm.md) | Server Configuration Monitor | Server configuration profiles, monitored elements, baselines, drift detection | `Orion.SCM.` | 23 |
 | [cloud](cloud.md) | Cloud monitoring | AWS and Azure accounts, instances, volumes, cloud metrics | `Orion.Cloud.` | 148 |
 | [agents](agents.md) | Agent management | Deployed agents, plugins, versions, agent-based polling | `Orion.AgentManagement.` | 16 |
 
 The namespace prefixes and entity counts come from the extracted schema. The Module column is
-this section's page name rather than a code the data defines: eleven of the sixteen match the
+this section's page name rather than a code the data defines: eleven of the seventeen match the
 `module` field in
 [`data/reference/netobject-types.json`](../../data/reference/netobject-types.json), which
 spells Virtualization Manager `VIM` and agent management `Agent`, and carries no rows at all
-for Log Analyzer, Hardware Health or Cloud. The full product names are spelled out here for
-orientation; SolarWinds' own SDK documentation names some of them in full and refers to others
-only by their code, as [../platform/modules.md](../platform/modules.md) explains.
+for Log Analyzer, Hardware Health, Cloud or Server Configuration Monitor. The full product
+names are spelled out here for orientation; SolarWinds' own SDK documentation names some of
+them in full and refers to others only by their code, as
+[../platform/modules.md](../platform/modules.md) explains.
 
 Several modules contribute entities outside their headline prefix, and the individual
 pages say so. NPM is the clearest case: beyond the 139 entities above it also owns the F5
 family (`Orion.F5.`, 24 entities), the Cisco UCS family (`Orion.UCS.`, 8), and an older
 wireless shape under `Orion.Wireless.` (14).
+
+### Console file formats
+
+Three pages in this section document an export file format field by field rather than a
+module. [sam-templates.md](sam-templates.md) documents the `.apmtemplate` document that
+`ExportTemplate` and `ImportTemplate` move. [ncm-device-templates.md](ncm-device-templates.md)
+documents the `.ConfigMgmtCommands` document that tells NCM how to hold a Telnet or SSH
+session with a given kind of device, and
+[ncm-compliance-reports.md](ncm-compliance-reports.md) documents the policy report export —
+the three-tier PolicyReport XML and its GetPolicyReport/AddPolicyReport round trip.
+
+The other console export formats this repository documents live outside this section:
+[../automation/report-definitions.md](../automation/report-definitions.md) for the report
+export XML,
+[../automation/alerts.md](../automation/alerts.md#exporting-and-importing-a-definition) for
+alert definitions,
+[../webui/modern-dashboards.md](../webui/modern-dashboards.md) for the Modern Dashboard
+JSON file, and
+[../polling/api-pollers.md](../polling/api-pollers.md#the-apipollertemplate-file-format) for
+`.apipoller.template` files.
 
 ## Prefixes are engineering names, not product names
 

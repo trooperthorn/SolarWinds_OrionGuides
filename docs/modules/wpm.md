@@ -435,9 +435,9 @@ These four are what make recordings portable between installations, which is the
 automate WPM at all: record once in a test environment, export, import into production, and
 create transactions for each location.
 
-The `password` argument is not a site credential. The schema describes it as the password
-used to cipher the file on export and decipher it on import, so the same value has to be
-supplied to both. Getting it wrong produces a failed import rather than a corrupted
+The `password` argument — the **cipher password** — is not a site credential. The schema
+describes it as the password used to cipher the file on export and decipher it on import,
+so the same value has to be supplied to both. Getting it wrong produces a failed import rather than a corrupted
 recording.
 
 Note the asymmetry in `recordingGuid` versus `recordingId`. `Exists` takes the recording's
@@ -469,6 +469,66 @@ python3 tools/schema_query.py verb Orion.SEUM.Recordings Export
 ```
 
 which prints the return shape alongside the parameters.
+
+**`Import` and `Update` take the `Content` string, not the `RecordingFileContent` object.**
+The contract declares Import's `recordingFileContent` parameter as a plain `string`, while
+`Export` returns the two-member object, so unwrap before sending — the first argument is the
+`Content` member:
+
+```powershell
+# On the target server. $exported is the Export result from above.
+$newId = Invoke-SwisVerb $swis 'Orion.SEUM.Recordings' 'Import' `
+    @($exported.Content, 'Checkout journey', $filePassword)
+```
+
+Over REST the body is the same three positional arguments, content string first:
+
+```bash
+curl -sS -X POST -u 'svc-automation:...' -H 'Content-Type: application/json' \
+  -d '["<content-string>", "Checkout journey", "filePass"]' \
+  'https://myorion.example.com:17774/SolarWinds/InformationService/v3/Json/Invoke/Orion.SEUM.Recordings/Import'
+```
+
+`Update` wants the same unwrapped string as its second argument:
+`@($recordingId, $exported.Content, $recordingName, $filePassword)`.
+
+**`Import` always creates; `Update` is the only overwrite.** `Import` makes a new recording
+named `recordingName` and returns its new `RecordingId` even when the target already has a
+recording by that name, so a migration script that re-runs `Import` accumulates duplicates.
+`Update` rewrites an existing recording under its existing `RecordingId`, and because
+transactions reference their recording by that id, the transactions made from it keep
+playing the updated script — nothing transaction-side needs recreating. The target-side
+decision is therefore `Exists` first:
+
+```powershell
+if (Invoke-SwisVerb $swis 'Orion.SEUM.Recordings' 'Exists' @($rec.Guid)) {
+    $targetId = Get-SwisData $swis `
+        'SELECT RecordingId FROM Orion.SEUM.Recordings WHERE Guid = @guid' @{ guid = $rec.Guid }
+    Invoke-SwisVerb $swis 'Orion.SEUM.Recordings' 'Update' `
+        @($targetId, $exported.Content, $rec.Name, $filePassword) | Out-Null
+} else {
+    Invoke-SwisVerb $swis 'Orion.SEUM.Recordings' 'Import' `
+        @($exported.Content, $rec.Name, $filePassword) | Out-Null
+}
+```
+
+Whether `Import` carries the source recording's `Guid` across is not stated in the schema;
+the table at the end of this page has the check. If it does not, `Exists` against the source
+`Guid` keeps answering false on the target, and the flow above degrades to matching by
+`Name`.
+
+**What moves and what does not.** The exported document is the recording alone, and `Import`
+lands a recording with no transactions — `Transactions.Create` is still the only WPM verb
+that creates a monitored object. Everything configured per transaction stays behind on the
+source server: the transactions themselves, their `Frequency`, `WarningThreshold` and
+`CriticalThreshold` (columns on `Orion.SEUM.Transactions`), their run parameters
+(`Orion.SEUM.TransactionRunParameters`) and their custom-property values
+(`Orion.SEUM.TransactionCustomProperties`). After an import, recreate all of it:
+`Transactions.Create(recordingId, agentId)` per location, then CRUD for the rest. Whether
+the recording's own hosted rows ride inside the ciphered `Content` — `RecordingSteps`, and
+the security-relevant `RecordingAuthentications` and `RecordingCertificates` — is not
+stated either, and the unverified table has that check too. Do not assume stored credentials
+did or did not cross servers until you have run it.
 
 ### Recorder compatibility
 
@@ -883,6 +943,10 @@ verbs have five.** No `allowOverlapping`. A generic wrapper will fail against it
 **The unmanage verbs want a NetObject string.** Transaction 17 is `T:17`. A bare integer is
 rejected.
 
+**`Recordings.Import` takes the `Content` string and always creates.** Unwrap the
+`RecordingFileContent` object `Export` returns, and expect a new `RecordingId` on every
+call — `Update` with the target's `RecordingId` is the overwrite path.
+
 **Never select `Password`, `ProxyPassword` or the recording authentication columns.** All
 four are declared readable by `everyone` and none of them belongs in a report.
 
@@ -919,6 +983,8 @@ server.
 | What `Orion.SEUM.Websites` is populated from | Six columns (`WebsiteID`, `ServerName`, `IPAddress`, `Port`, `SSLEnabled`, `Type`) with no relationships to anything else in the module | `SELECT TOP 25 w.WebsiteID, w.ServerName, w.IPAddress, w.Port, w.SSLEnabled, w.Type FROM Orion.SEUM.Websites w` |
 | Which `Version` values on `Orion.SEUM.Recordings` a given release supports | The summary says the field "determines if recording is supported" but does not enumerate the supported set | `SELECT r.Version, COUNT(r.RecordingId) AS Recordings FROM Orion.SEUM.Recordings r GROUP BY r.Version` and then `CheckRecorderCompatibility` against your recorder |
 | What the `Content` member of `SolarWinds.SEUM.Common.Models.RecordingFileContent` holds | The contract does enumerate the type: two `string` members, `Content` and `Name`. The encoding of the file content itself is not stated | `python3 tools/schema_query.py verb Orion.SEUM.Recordings Export` for the shape, then invoke `Export` once and inspect the returned `XmlElement` |
+| Whether `Import` preserves the source recording's `Guid` | Not stated. `Import` takes content, name and password and returns only the new integer id | Export a recording, import it on a second server, then compare `SELECT r.Guid FROM Orion.SEUM.Recordings r WHERE r.RecordingId = @newId` against the source row's `Guid` |
+| Whether `RecordingSteps`, `RecordingAuthentications` and `RecordingCertificates` travel inside the exported `Content` | Not stated. All three are hosted by the recording, but the exported file is ciphered and its contents are not enumerated | Export a recording that has stored credentials, import it on a clean server, and query all three entities for the new `RecordingId` |
 | The retention windows behind the detail, rolled-up and report tiers | Configured per installation, not in the schema | Compare `SELECT MIN(d.Timestamp) AS Oldest FROM Orion.SEUM.StepResponseTimeDetail d` against the same on `Orion.SEUM.StepResponseTime` and `Orion.SEUM.StepResponseTimeReport` |
 
 There is no WPM page in SolarWinds' published OrionSDK documentation and no WPM sample script
@@ -950,3 +1016,4 @@ has the introspection queries.
   and report tiers.
 - [`../../scripts/swql/15-voip-and-web-transactions.swql`](../../scripts/swql/15-voip-and-web-transactions.swql)
   for more verified sample queries against this module.
+- [apps/porter](../../apps/porter/README.md) — a shipped Windows utility whose WPM provider implements the recording Export/Import round trip, cipher password and Content-string unwrap included

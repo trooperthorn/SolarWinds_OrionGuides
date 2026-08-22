@@ -9,11 +9,11 @@ doing saves a lot of wasted effort.
 2. **Scripted exports.** A SWQL query run from PowerShell, Python or curl, written to a file
    and picked up by whatever consumes it. No console object exists at all.
 
-The second is where automation lives. The report entities are queryable and are worth
-understanding for inventory and audit, but their `Definition` is an opaque serialisation that
-this repository cannot verify, so building a report by writing that string is not something to
-attempt from a script. Building the same output as a scripted export is straightforward, and
-the rest of this page is mostly about doing that well.
+The second is where automation lives. The report entities are queryable and worth
+understanding for inventory and audit, and their `Definition` is the same XML the console's
+export button writes — [report-definitions.md](report-definitions.md) documents it field by
+field, and `CreateReport`/`UpdateReport` write it. But for a data extract, a scripted export
+is still the better tool, and the rest of this page is mostly about doing that well.
 
 ## The reporting entities
 
@@ -119,6 +119,25 @@ ORDER BY COUNT(t.ScheduleTaskID) DESC
 
 If a `ScheduleType` value looks report-shaped, they are unified on your release. If not, query
 both when you want the full picture of "what runs on this server without a person".
+
+### Schedules have no API route
+
+The four job entities are query-only in 2026.2: `Orion.ReportJobs`, `Orion.ReportSchedules`,
+`Orion.ReportJobDefinitions` and `Orion.ReportJobUrls` declare **zero verbs** and no
+`create`, `update` or `delete` operation, so a scheduled delivery cannot be created, rewired
+or deleted through SWIS. The one schedule-adjacent verb,
+`Orion.Frequencies.SaveReportFrequencies`, writes only the recurrence row — nothing in the
+contract links a frequency to a job (see
+[scheduling.md](scheduling.md#frequencies-are-shared-which-is-why-they-have-verbs)). Do not
+attempt a CRUD create on `Orion.ReportJobs` either; the entity declares no `create`
+operation.
+
+The practical consequences: a scheduled delivery can only be created and edited in the
+console, and migrating report schedules between servers via SWIS is not possible. What the
+API can do is audit — the queries under
+[What is scheduled, and when](#what-is-scheduled-and-when) join the jobs to their reports
+and frequencies, and exporting that inventory is the documentation for a manual rebuild on
+the target server.
 
 ### `Orion.Reporting.ExecuteSQL`
 
@@ -683,7 +702,9 @@ lexicographic order rather than numeric if you do.
 ### What is scheduled, and when
 
 Which jobs exist, which reports each renders, and on what recurrence. Three entities, because
-the platform normalises the relationship.
+the platform normalises the relationship. These queries are an audit, not a management
+surface — the job entities are query-only, as
+[Schedules have no API route](#schedules-have-no-api-route) explains.
 
 ```sql
 SELECT
@@ -756,8 +777,10 @@ filter silently. Check the account before the query, every time.
 **`Get-SwisData` does not expose `totalRows`.** It returns rows, not the envelope. Use a
 separate `COUNT` query, or go through REST if you need the envelope.
 
-**`Orion.Report.Definition` is opaque here.** Read it to find reports that reference an entity;
-do not write it from a script.
+**`Orion.Report.Definition` is documented, not opaque.**
+[report-definitions.md](report-definitions.md) covers the XML field by field, and
+`CreateReport`/`UpdateReport` write it. Hand-editing one still means understanding the GUID
+indirection documented there, so read that page before changing a definition from a script.
 
 **`ExecuteSQL` is raw T-SQL and needs `admin`.** It bypasses SWQL entirely, and the physical
 schema it queries is not a contract across releases.
