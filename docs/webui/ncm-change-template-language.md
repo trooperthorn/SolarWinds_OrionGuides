@@ -10,6 +10,122 @@ with the source named. What *is* checked is the entity and property names the ex
 navigate, which are ordinary `NCM.` entities — see
 [ncm-change-templates.md](ncm-change-templates.md#the-parameter-types-are-swis-entities).
 
+## What language is this?
+
+It reads like something you have seen before, and that is not an accident, but it is not any
+existing language. The contract offers no help: `Cirrus.ConfigSnippets.AdvancedScript` is a
+plain `System.String` and nothing in the schema names a parser, a grammar or a language
+version. So what follows is a **syntactic comparison against the documented material only**,
+not a claim about how SolarWinds implemented it.
+
+The short answer: **a bespoke DSL, assembled from four recognisable conventions.** Nothing
+matches it end to end, and every individual feature has a clear ancestor.
+
+| Feature | In a template | Closest existing form | Verdict |
+| --- | --- | --- | --- |
+| Blocks and comments | `{ }`, `//`, `/* */` | C family | C-family |
+| Loop | `foreach (@x in @y)` | C# `foreach (var x in y)` | C# |
+| Declaration | `string @x = 'y'` | C#, Java, C | Type-first, C-family |
+| Array parameter | `NCM.Interfaces[] @p` | C#, Java | Suffix `[]`, C-family |
+| Variable sigil | `@name` | **T-SQL** `DECLARE @name` | T-SQL |
+| String literal | `'single quotes'` | **T-SQL**, SQL | SQL, not C# |
+| Concatenation | `+` | T-SQL and C# both | Either |
+| Built-in functions | `SubString`, `IndexOf` | **.NET `String`** methods | .NET, as free functions |
+| Word operators | `contains`, `startsWith`, `endsWith` | .NET `String` methods, used infix | Bespoke as operators |
+| Case-sensitive variants | `containsExact` | Nothing standard | Bespoke |
+| Doc block | `.PARAMETER_LABEL @x` in a comment | **PowerShell comment-based help** | PowerShell |
+| Macro | `${StorageAddress}` | Shell, Java properties, Velocity, MSBuild | Generic |
+| Member access | `@node.Vendor` | Universal | Resolves against SWIS entities |
+| Device block | `CLI { }` | Nothing standard | Bespoke |
+
+### The four ancestors
+
+**C# supplies the body.** `foreach (@x in @y)` is the giveaway: Java writes
+`for (X x : list)`, JavaScript writes `for (x of list)`, VB writes `For Each x In y`, and
+Velocity writes `#foreach($x in $list)` with no braces. Only the C# form combines `foreach`,
+the keyword `in`, and braces. Type-first declarations and the `[]` array suffix point the same
+way.
+
+**T-SQL supplies the variables and the strings.** `@name` as a variable sigil is T-SQL's
+`DECLARE @foo`, not C#. Perl uses `@` too, but only for arrays, and `@ContextNode` is not an
+array. Single-quoted string literals are SQL rather than C#, which uses double quotes. So the
+sigil and the quoting come from the database side of the house.
+
+**.NET supplies the function library.** `SubString(string str, int startIndex, int length)` is
+`String.Substring(int startIndex, int length)` with the receiver moved into the first
+argument, and `IndexOf(string str, string search)` is `String.IndexOf(string value)` the same
+way. Even the way SolarWinds documents them — return type first, typed parameters — is C#
+signature notation. `contains`, `startsWith` and `endsWith` are `String.Contains`,
+`String.StartsWith` and `String.EndsWith` promoted to infix operators.
+
+**PowerShell supplies the documentation block.** This is the least obvious and the most
+exact. PowerShell's comment-based help is a block comment containing dotted keywords:
+
+```text
+<#
+.SYNOPSIS
+.DESCRIPTION
+.PARAMETER Name
+#>
+```
+
+A change template writes `.CHANGE_TEMPLATE_DESCRIPTION` and `.PARAMETER_LABEL @ContextNode`
+inside `/* */`. Same idea, same shape, same trick of parsing a comment — including a directive
+that takes a parameter name as its argument.
+
+**Why that mixture?** It is what you would predict from the vendor. Orion is a .NET product on
+SQL Server, and its verb payload types are .NET namespaces like
+`SolarWinds.NCM.Contracts.InformationService.ConfigSnippet`. Engineers writing C# and T-SQL
+all day, designing a small language for network administrators, reached for the conventions
+already in their hands.
+
+### If you know C#, what does not transfer
+
+This is the practical half of the comparison. The body looks enough like C# that the
+differences are the things that will catch you.
+
+| C# habit | In a template |
+| --- | --- |
+| `"double quotes"` | Single quotes only |
+| `else if` | Does not exist. Nest, or restructure |
+| `;` terminators | Not used |
+| `var` | No inference; write the type |
+| `str.Length`, `str.Substring(..)` | `StrLength(@str)`, `SubString(@str, ..)` — free functions, not methods |
+| `str.Contains(x)` is **case-sensitive** | `contains` is **case-insensitive**; `containsExact` is the sensitive one |
+| `&&`, `\|\|`, `!` | **Not documented at all** — see below |
+| `for`, `while`, `do` | Only `foreach` is documented |
+| `return`, methods, `try`/`catch` | None documented |
+| Arithmetic on numbers | Only `+` on strings is documented |
+
+The case-sensitivity inversion in the middle of that table is the one most likely to produce a
+template that works in testing and misfires later. In .NET, `Contains` is ordinal and
+case-sensitive; here the bare word is the insensitive form and you opt *in* to sensitivity
+with `Exact`.
+
+**Boolean combinators are the notable gap.** No SolarWinds material and no community example
+this repository has seen shows two conditions combined in one `if`. Whether `&&`, `and`, `AND`
+or anything else works is **unverified here**. The documented way to express a conjunction is
+a nested `if`, and that is what the examples do. Test before relying on anything shorter.
+
+### What it is not
+
+Ruled out by direct comparison, in case any of these were your first guess:
+
+- **Not PowerShell.** Variables would be `$name`, the block comment `<# #>`, operators
+  `-contains` and `-eq`.
+- **Not Perl.** `@` marks an array there, and `@ContextNode` is not one.
+- **Not T-SQL**, despite the sigil and quotes. T-SQL has no braces, no `foreach`, and requires
+  `DECLARE`/`SET`.
+- **Not Velocity, Jinja or a template engine of that family.** Those use directive prefixes
+  (`#foreach`, `{% for %}`) rather than braces, and have no type declarations.
+- **Not Tcl**, which Cisco EEM uses and which a network engineer might reasonably expect.
+- **Not JavaScript.** No `var`/`let`, no `for...of`, and types on parameters.
+
+The one construct with no ancestor at all is `CLI { }`: a block whose contents leave the
+language entirely and become device command text, with variable substitution on the way out.
+The nearest analogues are inline assembly in C or a heredoc in a shell — a region where the
+host language stops interpreting and starts emitting.
+
 ## Two kinds of variable, and they are not interchangeable
 
 This is the first thing to get straight, because the two look similar and behave nothing alike.

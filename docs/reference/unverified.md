@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**165 statements across 51 pages.**
+**166 statements across 51 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -701,6 +701,10 @@ Read this before relying on this repository for something load-bearing. If you h
 - They are marked unverified where they appear.
 
 ## [ncm-change-template-language.md](../webui/ncm-change-template-language.md)
+
+**[If you know C#, what does not transfer](../webui/ncm-change-template-language.md#if-you-know-c-what-does-not-transfer)**
+
+- Whether `&&`, `and`, `AND` or anything else works is **unverified here**.
 
 **[Two kinds of variable, and they are not interchangeable](../webui/ncm-change-template-language.md#two-kinds-of-variable-and-they-are-not-interchangeable)**
 
