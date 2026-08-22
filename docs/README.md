@@ -112,6 +112,7 @@ Five separate polling systems that share no entities and reuse each other's colu
 | --- | --- |
 | [polling/README.md](polling/README.md) | The map: which system is which, and how to tell them apart |
 | [polling/standard-pollers.md](polling/standard-pollers.md) | `Orion.Pollers`: why a new node monitors nothing until pollers are assigned |
+| [polling/node-status-calculation.md](polling/node-status-calculation.md) | How node status is calculated, why `Status` and `PolledStatus` differ, and where the reason is stored |
 | [polling/universal-device-pollers.md](polling/universal-device-pollers.md) | UnDPs: an SNMP OID you defined yourself |
 | [polling/device-studio.md](polling/device-studio.md) | The read-only `Orion.DeviceStudio.*` entities |
 | [polling/technology-polling.md](polling/technology-polling.md) | Technology polling and the declarative poller templates |

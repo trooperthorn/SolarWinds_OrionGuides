@@ -97,12 +97,13 @@ checked that against SolarWinds' own published tables:
 
 | Published set | Members | Found in the 2026.2 schema |
 | --- | --- | --- |
-| Node variables | 60 | **60** on `Orion.Nodes` |
+| Node variables | 60 | **60** on `Orion.Nodes` (57 declared, 3 inherited) |
 | Volume variables | 23 | **23** on `Orion.Volumes` |
 | `SNMPv3Credentials.*` | 16 | **16** on `Orion.SNMPv3Credentials` |
 | `PCUs.*` | 16 | **16** on `Cortex.Orion.PowerControlUnit` |
+| Node status root cause | 2 | **2** on `Orion.Nodes` |
 
-116 of 116. That correspondence is what makes the context enumerable, and it also settles a
+118 of 118. That correspondence is what makes the context enumerable, and it also settles a
 question the schema alone could not: **a dotted `M=` walks a navigation property.** `Stats`,
 `SNMPv3Credentials` and `PCUs` are all real navigation properties of `Orion.Nodes`, and
 SolarWinds publishes variables that go through them.

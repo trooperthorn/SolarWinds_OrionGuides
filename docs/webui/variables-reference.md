@@ -124,8 +124,10 @@ worth reading twice: both report 100% or 0% and neither is a real availability p
 
 These resolve against `Orion.Nodes` when the alert's `ObjectType` is a node.
 
-**All 60 are declared properties of `Orion.Nodes` in 2026.2**, checked against the extracted
-schema. That correspondence is what makes the whole `SwisEntity` context enumerable — see
+**All 60 are members of `Orion.Nodes` in 2026.2**, checked against the extracted schema. 57 are
+declared on `Orion.Nodes` itself; `UnManaged`, `UnManageFrom` and `UnManageUntil` are inherited
+from `System.ManagedEntity`, which is why they resolve even though they do not appear in the
+entity's own property list. That correspondence is what makes the whole `SwisEntity` context enumerable — see
 [variables.md](variables.md#the-member-list-is-the-property-list).
 
 | Variable | Description |
@@ -202,6 +204,25 @@ the same idea, so the two are not interchangeable.
 one of its 162 navigation properties, so the prefixed form has nothing to resolve through.
 The unprefixed form is written above. This is a **discrepancy between the published table and
 the schema**, not a verified correction — test both if you need that value.
+
+### The two root-cause variables
+
+SolarWinds documents two further node variables outside the main table, alongside the enhanced
+node status calculation feature they exist for:
+
+| Variable | Renders |
+| --- | --- |
+| `${N=SwisEntity;M=NodeStatusRootCause}` | Why the node is in its current status: the thresholds crossed and the child objects in a degraded state |
+| `${N=SwisEntity;M=NodeStatusRootCauseWithLinks}` | The same, with each object hyperlinked as HTML |
+
+Both are declared `System.String` properties of `Orion.Nodes` in 2026.2, so they follow the
+same rule as the 60 above. Use the `WithLinks` form only where HTML will be rendered.
+
+They matter because under enhanced status calculation a node can be Critical for a reason that
+appears nowhere else in its own row — see
+[../polling/node-status-calculation.md](../polling/node-status-calculation.md). For an
+integration that needs to branch on the cause rather than print it, query
+`Orion.NodeChildStatusDetail` instead of parsing this string.
 
 ### Node variables that walk a navigation property
 

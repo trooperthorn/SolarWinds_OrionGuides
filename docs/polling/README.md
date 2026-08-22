@@ -95,6 +95,7 @@ have to be true.
 | Page | Covers |
 | --- | --- |
 | [standard-pollers.md](standard-pollers.md) | `Orion.Pollers`: the poller type string, adding and removing assignments, letting discovery choose them, polling intervals, engine placement |
+| [node-status-calculation.md](node-status-calculation.md) | What a node's status actually means: ICMP, polling errors and child objects, the rollup modes, and the entities that expose the reason |
 | [universal-device-pollers.md](universal-device-pollers.md) | UnDPs: an SNMP OID you defined, assigned through CRUD but defined in a Windows application |
 | [device-studio.md](device-studio.md) | The three `Orion.DeviceStudio.*` entities, read-only, and the id space they share with technology polling |
 | [technology-polling.md](technology-polling.md) | `Orion.Technology`, `Orion.TechnologyPolling` and its assignments, the four bulk enable and disable verbs, and the declarative poller templates |

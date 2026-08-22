@@ -220,7 +220,9 @@ readable by `everyone`:
 | `DisplayProperties` | `System.String` |
 
 The published 2026.2 schema gives no summary text for any of these twelve, so the names and
-types above are verified but their meanings beyond the obvious are unverified. `StatusId`,
+types above are verified but their meanings beyond the obvious are unverified. **Its 2026.2
+companion does carry summaries**, and is the better table to use — see
+[below](#classifying-a-status-without-hard-coding-an-integer). `StatusId`,
 `StatusName`, `ShortDescription` and `Ranking` line up with the four columns of the table on
 this page, which is the pairing you need in practice. `CategoryStatusMap` is named in the
 description of status 29 as the mechanism for bucketing statuses, and `Color`,
@@ -340,15 +342,70 @@ which reports five two-hop routes and no direct one: through `Orion.VIM.Hosts` (
 `Orion.Cman.Container`. Every one of those resolves the *other* object's status, not the
 node's.
 
+## Classifying a status without hard-coding an integer
+
+2026.2 added `Orion.Web.LegacyModules.RollupStatusInfo`, and unlike `Orion.StatusInfo` **every
+one of its 16 properties carries summary text**. Among them is a set of boolean flags that
+classify each status:
+
+```sql
+SELECT
+    r.StatusId,
+    r.StatusName,
+    r.ShortDescription,
+    r.RollupWorseStatusRank,
+    r.IsCritical,
+    r.IsWarning,
+    r.IsDown,
+    r.IsUp,
+    r.IsUnknown
+FROM Orion.Web.LegacyModules.RollupStatusInfo r
+ORDER BY r.RollupWorseStatusRank
+```
+
+The ten flags are `IsCritical`, `IsWarning`, `IsDown`, `IsUp`, `IsUnknown`, `IsUnmanaged`,
+`IsUnreachable`, `IsExternal`, `IsInactive` and `IsDisabled`. The first eight are exactly the
+eight status names SolarWinds lists as the platform's status options.
+
+**This is the way to write a status filter that survives an upgrade.** `WHERE r.IsDown =
+'True'` keeps working when SolarWinds adds a status; `WHERE Status = 2` does not, and neither
+does a hand-maintained list of "the down-ish integers".
+
+`RollupWorseStatusRank` is documented as *"The rank for rollup status comparison"*, which makes
+it the ordering behind Worst and Best rollup mode — see
+[../polling/node-status-calculation.md](../polling/node-status-calculation.md#status-rollup-mode).
+
+The entity is new in 2026.2. On an earlier version, `Orion.StatusInfo.Ranking` and the table on
+this page are what you have.
+
 ## `Status` versus `PolledStatus`
 
-`Orion.Nodes` declares both `Status` and `PolledStatus`, both `System.Int32`. That much is
-verified. How the two differ is **not verified**: the published 2026.2 schema attaches no
-summary text to either property, and neither the OrionSDK documentation nor any SolarWinds
-sample script in this repository's sources explains it. Do not guess, and do not let a
-report guess on your behalf.
+`Orion.Nodes` declares both `Status` and `PolledStatus`, both `System.Int32`.
 
-Two things you can rely on without running anything:
+**`PolledStatus` is what polling found. `Status` is what the platform calculated from it.**
+
+SolarWinds' *Calculate node status in the SolarWinds Platform* settles this: the node status
+rollup table has the columns *Final Node Status | Polled Status | Child 1 Status | Child 2
+Status*, so the two are the input and the output of the same calculation. `PolledStatus` is
+the node's own reachability as ICMP reported it; `Status` combines that with polling errors on
+the other protocols, with threshold breaches, and with the state of child objects, according
+to the node's rollup mode.
+
+They therefore differ **by design and routinely** on any installation using enhanced status
+calculation, which is the default on new installations. A node with `PolledStatus = 1` (Up)
+and `Status = 14` (Critical) is not inconsistent — it is a node answering pings whose SNMP
+credentials have stopped working, or whose CPU threshold is breached, or which has a critical
+child object.
+
+[../polling/node-status-calculation.md](../polling/node-status-calculation.md) is the whole
+mechanism: the three inputs, the rollup modes, the Mixed truth table, and the entities that
+expose the reason.
+
+**Which one to filter on:** `PolledStatus` if you mean "can I reach it", `Status` if you mean
+"is anything wrong with it". The old habit of treating `Status` as a reachability claim is the
+thing to unlearn.
+
+Two further things you can rely on without running anything:
 
 - `PolledStatus` is declared on `Orion.Nodes` alone. It is the only property named
   `PolledStatus` anywhere in the 19328 properties of the 2026.2 schema, so it is not
@@ -359,8 +416,17 @@ Two things you can rely on without running anything:
   `PolledStatus` will disagree with each other at exactly the moment somebody is looking,
   and the alert engine will get the blame.
 
-[../swql/gotchas.md](../swql/gotchas.md#3-status-versus-polledstatus-on-orionnodes) has the
-two queries that settle the difference on your own server in about a minute.
+To see the divergence on your own server, and the reason for each case:
+
+```sql
+SELECT n.Caption, n.PolledStatus, n.Status, n.NodeStatusRootCause
+FROM Orion.Nodes n
+WHERE n.Status <> n.PolledStatus
+ORDER BY n.Caption
+```
+
+[../swql/gotchas.md](../swql/gotchas.md#3-status-versus-polledstatus-on-orionnodes) has two
+more queries on the same difference.
 
 ## Other status-shaped properties to know before writing a filter
 
@@ -371,7 +437,7 @@ way to build a report that is subtly wrong.
 | --- | --- | --- | --- |
 | `Status` | `System.Int32` | `System.DashboardEntity`, inherited widely | The integer this page is about |
 | `PolledStatus` | `System.Int32` | `Orion.Nodes` only | Undocumented relationship to `Status` |
-| `ChildStatus` | `System.Int32` | `Orion.Nodes` | Declared with no summary, so what it rolls up is **unverified**. Compare it against `Status` on your own server before filtering on it |
+| `ChildStatus` | `System.Int32` | `Orion.Nodes` | The rolled-up status of the node's children, rendered as the sub-icon under **classic** status calculation. What it rolls up is set globally by *Web Console settings > Child Status Rollup Mode*: worst of all children, worst of interfaces only, or nothing at all. See [../polling/node-status-calculation.md](../polling/node-status-calculation.md#classic-calculation-and-what-child-status-means-there) |
 | `CustomStatus` | `System.Boolean` | `Orion.Nodes` | A boolean flag, not a status code |
 | `GroupStatus` | `System.String` | `Orion.Nodes` | A string, so it is not a status integer at all |
 | `StatusDescription` | `System.String` | `System.ManagedEntity` | "Textual information about the status of this entity" |

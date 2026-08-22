@@ -18,8 +18,9 @@ them are declared on the entities those navigations reach:
 | `SNMPv3Credentials.*` | 16 | 16 |
 | `PCUs.*` | 16 | 16 |
 | `Stats.MinResponseTime` | 1 | 1 |
+| Node status root cause | 2 | 2 |
 
-116 for 116. A published variable is a schema member, without exception in the material this
+118 for 118. A published variable is a schema member, without exception in the material this
 repository has seen.
 
 **The inference is the converse: a schema member is probably an addressable variable.** That
@@ -30,12 +31,21 @@ So treat every name below as a **candidate**. The test is one alert message and 
 
 ## Why this is worth having anyway
 
-`Orion.Nodes` declares 102 properties. SolarWinds publishes 60 of them as variables. The
-other 45 include the things a modern estate actually wants in an alert — cloud identifiers,
-load averages, hardware UUIDs, the root cause of a status rollup — and their absence from the
-published table is much more likely to be an un-updated document than a deliberate exclusion.
+`Orion.Nodes` declares 102 properties. **59 of them are published as variables** — the 57 in
+SolarWinds' node table plus the two root-cause macros described above. The remaining **43** are
+listed here.
 
-## `Orion.Nodes` — 45 declared, unpublished
+(SolarWinds' node table has 60 entries, but three of them — `UnManaged`, `UnManageFrom` and
+`UnManageUntil` — are inherited from `System.ManagedEntity` rather than declared on
+`Orion.Nodes`, so they do not come out of the 102. That is the arithmetic: 102 − 59 = 43.)
+
+The 43 include the things a modern estate actually wants in an alert — cloud identifiers, load
+averages, hardware UUIDs — and their absence from the published table is much more likely to be
+an un-updated document than a deliberate exclusion. The two root-cause variables are the
+evidence for that reading: they were candidates on this page until SolarWinds turned out to
+document them elsewhere.
+
+## `Orion.Nodes` — 43 declared, unpublished
 
 ```bash
 python3 tools/schema_query.py props Orion.Nodes
@@ -59,14 +69,18 @@ python3 tools/schema_query.py props Orion.Nodes
 | `MemoryAvailable`, `PercentMemoryAvailable` | The complements of the published `MemoryUsed` and `PercentMemoryUsed` |
 | `MinResponseTime` | Published only as `Stats.MinResponseTime` |
 | `NodeDependencies`, `NodeDependenciesWithLinks` | Dependency summary, plain and hyperlinked |
-| `NodeStatusRootCause`, `NodeStatusRootCauseWithLinks` | **Why** the node is in its current status |
 | `OrionIdColumn`, `OrionIdPrefix` | Internal addressing |
 | `RWCommunity` | **Read/write SNMP community string.** See below |
 | `WindowsConnectionUsed` | WMI connection state |
 
-`NodeStatusRootCause` is the one to notice. The published list gives a status and a
-description; this gives the reason, and a `WithLinks` variant that renders as HTML. For an
-alert email that has to say *why*, it is the obvious candidate and it appears in no table.
+> **Two candidates from this page have since been confirmed as published.**
+> `NodeStatusRootCause` and `NodeStatusRootCauseWithLinks` were listed here as promising
+> inferences. SolarWinds documents both, as the macros that accompany enhanced node status
+> calculation, so they have moved to
+> [variables-reference.md](variables-reference.md#the-two-root-cause-variables). They are the
+> first candidates from this page to be confirmed, and the confirmation came from a SolarWinds
+> page this repository had not seen rather than from a test — which is the outcome the method
+> here predicts but cannot produce on its own.
 
 **`RWCommunity` is a credential.** The read-only `Community` is published as a node variable
 and this is its read/write counterpart. Everything in

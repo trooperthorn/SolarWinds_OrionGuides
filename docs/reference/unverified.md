@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**215 statements across 59 pages.**
+**218 statements across 60 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -517,6 +517,28 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether every Device Studio poller has a matching `Orion.TechnologyPolling` row, or only those built on a technology the platform also polls declaratively, is **not recorded in the schema** and is unverified here.
 
+## [node-status-calculation.md](../polling/node-status-calculation.md)
+
+**[2. Polling errors, independent of ICMP](../polling/node-status-calculation.md#2-polling-errors-independent-of-icmp)**
+
+- That it is the flag behind this feature is the obvious reading of the name and is **unverified here** — confirm by breaking a test node's SNMP credential and watching the column.
+
+**[Which contributors are switched on](../polling/node-status-calculation.md#which-contributors-are-switched-on)**
+
+- Whether writing `Enabled` takes effect without a service restart is **not documented and unverified here**; change one on a test server and watch a node's status before you roll it out.
+
+**[The Mixed truth table](../polling/node-status-calculation.md#the-mixed-truth-table)**
+
+- The behaviour of combinations it does not enumerate — more than two children, or children the table does not pair — is **not documented and unverified here**.
+
+**[Where the mode is stored](../polling/node-status-calculation.md#where-the-mode-is-stored)**
+
+- `Orion.Nodes` declares no rollup-mode property in 2026.2, so the per-node setting is **not readable from `Orion.Nodes`** and where it lives is **unverified here**.
+
+**[Classic calculation, and what child status means there](../polling/node-status-calculation.md#classic-calculation-and-what-child-status-means-there)**
+
+- That the setting governs the column is the reading these two documents support and is **unverified here** in the sense that no SolarWinds page states the connection in those words.
+
 ## [standard-pollers.md](../polling/standard-pollers.md)
 
 **[Interfaces: discover, then add with default pollers](../polling/standard-pollers.md#interfaces-discover-then-add-with-default-pollers)**
@@ -580,14 +602,6 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Resolving status on a live server](../schema/status-codes.md#resolving-status-on-a-live-server)**
 
 - The published 2026.2 schema gives no summary text for any of these twelve, so the names and types above are verified but their meanings beyond the obvious are unverified.
-
-**[`Status` versus `PolledStatus`](../schema/status-codes.md#status-versus-polledstatus)**
-
-- How the two differ is **not verified**: the published 2026.2 schema attaches no summary text to either property, and neither the OrionSDK documentation nor any SolarWinds sample script in this repository's sources explains it.
-
-**[Other status-shaped properties to know before writing a filter](../schema/status-codes.md#other-status-shaped-properties-to-know-before-writing-a-filter)**
-
-- `ChildStatus` — `System.Int32` — `Orion.Nodes` — Declared with no summary, so what it rolls up is **unverified**. Compare it against `Status` on your own server before filtering on it
 
 ## [invoke-at-scale.md](../swis/invoke-at-scale.md)
 
