@@ -14,6 +14,33 @@ public partial class ConnectView : UserControl
     {
         _shell = shell;
         InitializeComponent();
+
+        // Coming Back while connected shows the live session; otherwise the last
+        // successful connect is remembered (server, port, auth mode, username — never
+        // the password, which must always be re-entered). The memory read runs off the
+        // UI thread after Loaded: its first touch of %ProgramData%\Porter triggers the
+        // icacls hardening, which must not stall the window from appearing.
+        if (_shell.Session is SwisSession live)
+        {
+            ServerBox.Text = live.Server;
+            PortBox.Text = live.Port.ToString();
+            WinAuthBox.IsChecked = live.WindowsAuth;
+            UserBox.Text = live.Username ?? "";
+            VerifyTlsBox.IsChecked = live.VerifyTls;
+        }
+        else
+        {
+            Loaded += async (_, _) =>
+            {
+                var last = await Task.Run(ConnectionMemory.Load);
+                if (last is null || ServerBox.Text.Trim().Length > 0) return;
+                ServerBox.Text = last.Server;
+                PortBox.Text = last.Port.ToString();
+                WinAuthBox.IsChecked = last.WindowsAuth;
+                UserBox.Text = last.Username;
+                VerifyTlsBox.IsChecked = last.VerifyTls;
+            };
+        }
     }
 
     private void WinAuth_Changed(object sender, RoutedEventArgs e)
@@ -55,6 +82,8 @@ public partial class ConnectView : UserControl
             SessionLog.Log("connect", $"{server}:{port}", "ok", winAuth ? "windows-auth" : UserBox.Text.Trim());
             if (connectAfter)
             {
+                ConnectionMemory.Save(new LastConnection(
+                    server, port, winAuth, UserBox.Text.Trim(), verifyTls));
                 _shell.Session?.Dispose();
                 _shell.Session = session;
                 _shell.PlatformLabel = label;

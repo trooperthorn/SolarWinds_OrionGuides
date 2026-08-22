@@ -150,6 +150,10 @@ public partial class ImportView : UserControl
 
     private void UpdateButtons()
     {
+        // AllowWarnBox ships IsChecked="True", and compiled XAML wires Checked before the
+        // later-declared buttons exist — so this runs mid-InitializeComponent. Bail until
+        // every control is alive; the constructor calls UpdateButtons() again at the end.
+        if (ImportBtn is null || DryRunBtn is null) return;
         var importable = Importable().Count;
         ImportBtn.Content = $"Energize ({importable})";
         ImportBtn.ToolTip = $"Import {importable} staged file{(importable == 1 ? "" : "s")}";

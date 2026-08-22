@@ -10,11 +10,7 @@
         <Button DockPanel.Dock="Bottom" Content="Back" HorizontalAlignment="Left"
                 Margin="0,14,0,0" Click="Back_Click"/>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl x:Name="Cards">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-            </ItemsControl>
+            <ItemsControl x:Name="Cards"/>
         </ScrollViewer>
     </DockPanel>
 </UserControl>

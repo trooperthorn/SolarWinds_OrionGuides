@@ -22,10 +22,15 @@
                 BorderBrush="#C9D2DD" BorderThickness="1" CornerRadius="6">
             <StackPanel>
                 <TextBlock FontWeight="SemiBold" Text="Output"/>
-                <RadioButton x:Name="FmtRaw" Content="Raw files" IsChecked="True" Margin="0,8,0,4"/>
-                <RadioButton x:Name="FmtZip" Content="Cargo pod (.zip + manifest)" Margin="0,0,0,4"/>
-                <RadioButton x:Name="FmtAes" Content="Cloaked cargo pod (.zip.aes, encrypted)"
-                             Checked="Fmt_Changed" Unchecked="Fmt_Changed"/>
+                <RadioButton x:Name="FmtRaw" IsChecked="True" Margin="0,8,0,4">
+                    <TextBlock TextWrapping="Wrap" Text="Raw files"/>
+                </RadioButton>
+                <RadioButton x:Name="FmtZip" Margin="0,0,0,4">
+                    <TextBlock TextWrapping="Wrap" Text="Cargo pod (.zip + manifest)"/>
+                </RadioButton>
+                <RadioButton x:Name="FmtAes" Checked="Fmt_Changed" Unchecked="Fmt_Changed">
+                    <TextBlock TextWrapping="Wrap" Text="Cloaked cargo pod (.zip.aes, encrypted)"/>
+                </RadioButton>
                 <TextBlock Text="Package password" Margin="0,8,0,2" FontSize="12"/>
                 <PasswordBox x:Name="AesPass" IsEnabled="False"/>
                 <TextBlock Text="Landing site — destination folder" Margin="0,12,0,2" FontSize="12"/>

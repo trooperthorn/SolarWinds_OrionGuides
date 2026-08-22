@@ -40,7 +40,9 @@ requirement). Windows refuses an un-elevated launch; the exe carries the UAC shi
 2. Export → Modern Dashboards → select with the checkboxes (Space, Shift+Click,
    Ctrl+A / Ctrl+Shift+A all work) → Raw files, Package (.zip + manifest), or encrypted
    package (.zip.aes, AES-256-GCM).
-3. Reconnect to server B → Import → Modern Dashboards → drop the files or the package.
+3. Reconnect to server B (the Docking screen comes back prefilled from your last
+   connect — change the server name and re-enter the password) → Import → Modern
+   Dashboards → drop the files or the package.
    Every file is validated locally before any API call (envelope, placements,
    duplicate widget keys, the SWQL-stored-twice check).
 4. Pick the collision policy: **Skip** (skips are reported by name) or **Import as copy**
@@ -60,7 +62,10 @@ destination disk. Hostile input is bounded — 64 MB per dashboard file or zip e
 
 ## What is deliberately NOT here
 
-- **Passwords are never stored.** Profiles (when they arrive) hold server + username only.
+- **Passwords are never stored.** Porter remembers the last successful connection —
+  server, port, auth mode, username, and the TLS choice — in
+  `%ProgramData%\Porter\connection.json`, and prefills the Docking screen from it.
+  The password is always re-entered.
 - **TLS is never silent.** Verification defaults off (the platform's own certificate is
   self-signed), but every unverified connection logs the certificate fingerprint, and one
   checkbox turns on full verification with pin-by-thumbprint.

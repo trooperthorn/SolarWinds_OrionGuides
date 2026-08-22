@@ -18,10 +18,14 @@
                 BorderBrush="#C9D2DD" BorderThickness="1" CornerRadius="6">
             <StackPanel>
                 <TextBlock FontWeight="SemiBold" Text="If an item already exists on the target"/>
-                <RadioButton x:Name="PolicySkip" IsChecked="True" Margin="0,8,0,2"
-                             Content="Prime Directive — skip it (every skip is reported by name)"/>
-                <RadioButton x:Name="PolicyCopy" Margin="0,0,0,8"
-                             Content="Replicate — import as a copy (new GUIDs, renamed '… (Copy)')"/>
+                <RadioButton x:Name="PolicySkip" IsChecked="True" Margin="0,8,0,2">
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Prime Directive — skip it (every skip is reported by name)"/>
+                </RadioButton>
+                <RadioButton x:Name="PolicyCopy" Margin="0,0,0,8">
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Replicate — import as a copy (new GUIDs, renamed '… (Copy)')"/>
+                </RadioButton>
                 <TextBlock Foreground="Gray" FontSize="11.5" TextWrapping="Wrap"
                            Text="Existence is matched by the file's dashboard unique_key. Copies get every GUID regenerated so the server sees a new object, and the run report shows the new name."/>
                 <Separator Margin="0,10"/>
