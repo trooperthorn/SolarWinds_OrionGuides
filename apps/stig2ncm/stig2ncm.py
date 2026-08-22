@@ -138,6 +138,66 @@ class SwisClient:
 
 
 # ---------------------------------------------------------------------------
+# SCM policy YAML (Server Configuration Monitor / PolicyEngine)
+# ---------------------------------------------------------------------------
+#
+# SCM compliance policies are YAML documents tagged `!policy` with
+# `pluginName: SCM`. The SWIS import verb takes the document text verbatim —
+# Orion.PolicyEngine.Policy.ImportPolicy(yaml) returns the new PolicyID — so no
+# YAML parsing is needed to import; the light regex scan below is only for
+# previews and sanity checks.
+
+def is_scm_policy_text(text):
+    head = text.lstrip()[:2000]
+    return head.startswith("!policy") or ("pluginName: SCM" in head and "rules:" in text)
+
+
+def scan_scm_policy(text):
+    """Cheap preview of an SCM policy YAML: name, rule ids, severities."""
+    name = ""
+    m = re.search(r"^name:\s*(.+)$", text, re.MULTILINE)
+    if m:
+        name = m.group(1).strip().strip("'\"")
+    rules = re.findall(r"^- displayId:\s*(\S+)", text, re.MULTILINE)
+    severities = re.findall(r"^\s{2}severity:\s*(\S+)", text, re.MULTILINE)
+    counts = {}
+    for s in severities:
+        counts[s] = counts.get(s, 0) + 1
+    return {"name": name, "rules": rules, "severity_counts": counts}
+
+
+def load_scm_policy(path):
+    """Read an SCM policy YAML file, tolerating a UTF-8/UTF-16 BOM."""
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+        text = raw.decode("utf-16")
+    else:
+        text = raw.decode("utf-8-sig")
+    if not is_scm_policy_text(text):
+        raise ValueError(f"{path}: not an SCM compliance policy "
+                         "(expected a YAML document tagged !policy with pluginName: SCM)")
+    return text
+
+
+def import_scm_policy(swis, text):
+    """Import one SCM policy via Orion.PolicyEngine.Policy.ImportPolicy.
+
+    Returns (policy_id, name). Refuses to import when a same-name policy
+    already exists — this tool never overwrites or duplicates.
+    """
+    info = scan_scm_policy(text)
+    existing = swis.query(
+        "SELECT PolicyID, BuiltIn FROM Orion.PolicyEngine.Policy WHERE Name = @n",
+        {"n": info["name"]}) if info["name"] else []
+    if existing:
+        raise SwisError(f"a policy named \"{info['name']}\" already exists "
+                        f"(PolicyID {existing[0]['PolicyID']}); refusing to duplicate")
+    policy_id = swis.invoke("Orion.PolicyEngine.Policy", "ImportPolicy", text)
+    return policy_id, info["name"]
+
+
+# ---------------------------------------------------------------------------
 # XCCDF parsing
 # ---------------------------------------------------------------------------
 
@@ -230,6 +290,17 @@ def load_benchmarks(path):
     elif path.lower().endswith(".xml"):
         with open(path, "rb") as fh:
             benchmarks.append(parse_benchmark(fh.read(), os.path.basename(path)))
+    elif path.lower().endswith(".xsl"):
+        # The .xsl is only the display stylesheet; the data lives in the
+        # *-xccdf.xml sitting next to it. Resolve that silently.
+        folder = os.path.dirname(os.path.abspath(path))
+        siblings = [n for n in sorted(os.listdir(folder)) if n.lower().endswith("-xccdf.xml")]
+        if not siblings:
+            raise ValueError(f"{path}: this is the STIG stylesheet, not the data, and no "
+                             "*-xccdf.xml benchmark was found next to it")
+        for n in siblings:
+            with open(os.path.join(folder, n), "rb") as fh:
+                benchmarks.append(parse_benchmark(fh.read(), n))
     else:
         raise ValueError(f"{path}: not a zip, directory, or XCCDF .xml file")
     if not benchmarks:
@@ -374,7 +445,20 @@ def cmd_download(args):
         print(f"  contains: {b['title']} — {len(b['rules'])} rules")
 
 
+def is_scm_path(path):
+    return os.path.isfile(path) and path.lower().endswith((".yaml", ".yml"))
+
+
 def cmd_parse(args):
+    if is_scm_path(args.path):
+        info = scan_scm_policy(load_scm_policy(args.path))
+        sev = ", ".join(f"{v} {k}" for k, v in sorted(info["severity_counts"].items()))
+        print(f"{info['name']}  (SCM compliance policy)")
+        print(f"  {len(info['rules'])} rules: {sev}")
+        if args.rules:
+            for r in info["rules"]:
+                print(f"    {r}")
+        return
     for b in load_benchmarks(args.path):
         counts = {}
         for r in b["rules"]:
@@ -399,6 +483,13 @@ def make_report_from_args(args):
 
 
 def cmd_build(args):
+    if is_scm_path(args.path):
+        info = scan_scm_policy(load_scm_policy(args.path))
+        print(f"\"{info['name']}\" is an SCM compliance policy: the YAML file itself is "
+              "the import payload — nothing to build.\n"
+              "Import it with:  stig2ncm.py import <file> …  "
+              "(or POST [yamlText] to Invoke/Orion.PolicyEngine.Policy/ImportPolicy)")
+        return
     report = make_report_from_args(args)
     out = args.output or (os.path.splitext(os.path.basename(args.path))[0] + ".ncm-report.json")
     with open(out, "w", encoding="utf-8") as fh:
@@ -411,11 +502,19 @@ def cmd_build(args):
 
 
 def cmd_import(args):
-    report = make_report_from_args(args)
     password = os.environ.get("SWIS_PASSWORD") or getpass.getpass(f"password for {args.user}: ")
     swis = SwisClient(args.host, args.user, password, port=args.port,
                       verify=not args.insecure, ca_file=args.ca_file)
 
+    if is_scm_path(args.path):
+        text = load_scm_policy(args.path)
+        policy_id, name = import_scm_policy(swis, text)
+        print(f"imported SCM policy \"{name}\" (PolicyID {policy_id}).")
+        print("Assign it to nodes under Settings → SCM Settings → Policies, or via "
+              "Orion.PolicyEngine.Policy.AssignToEntity.")
+        return
+
+    report = make_report_from_args(args)
     existing = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
                           {"n": report["Name"]})
     if existing:

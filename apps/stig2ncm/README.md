@@ -1,9 +1,60 @@
-# stig2ncm — DISA STIG → NCM compliance report importer
+# stig2ncm — DISA STIG → SolarWinds compliance importer
 
-A single-file, stdlib-only Python CLI that takes a STIG package exactly as DISA
-publishes it on [public.cyber.mil/stigs/downloads](https://public.cyber.mil/stigs/downloads/)
-and imports it as a SolarWinds NCM compliance policy report over the SWIS API, so every
-STIG requirement becomes a trackable, remediable item in the NCM console.
+Takes DISA STIG content exactly as it is published on
+[public.cyber.mil/stigs/downloads](https://public.cyber.mil/stigs/downloads/) and imports
+it into SolarWinds over the SWIS API, so every STIG requirement becomes a trackable,
+remediable item. Two target modules, detected automatically from the file:
+
+| You give it | It imports into |
+| --- | --- |
+| STIG zip, `*-xccdf.xml`, or the `.xsl` next to it | **NCM** compliance policy report (`Cirrus.PolicyReports`) |
+| SCM compliance policy `.yaml` (`!policy`, `pluginName: SCM`) | **Server Configuration Monitor** (`Orion.PolicyEngine.Policy.ImportPolicy`) |
+
+Two front ends over the same engine: `stig2ncm.py` (CLI, stdlib-only) and
+`stig2ncm_gui.py` (desktop GUI, buildable into a Windows exe).
+
+## The GUI
+
+```
+python3 stig2ncm_gui.py
+```
+
+One window: server IP/FQDN + SWIS port, username/password or a **Login with current
+Windows user** checkbox, then either **Browse/drop a file** (zip, xccdf `.xml`, `.xsl`,
+SCM `.yaml`) or **enter a STIG package URL**. Buttons: Test connection (also reports
+whether NCM and the SCM policy engine are installed on the server), Preview file
+(what would be imported, and into which module), Import.
+
+Build the Windows executable on a Windows machine:
+
+```bat
+pip install pyinstaller
+pyinstaller --onefile --windowed --name STIG2SolarWinds stig2ncm_gui.py
+```
+
+(both `.py` files must be in the same folder; the exe lands in `dist\`). Two optional
+packages unlock extras and can be installed before building so PyInstaller bundles them:
+
+- `requests` + `requests-negotiate-sspi` — required for the "current Windows user"
+  login (SSPI produces the Negotiate token; Windows only). Without them the checkbox
+  reports what to install; username/password login always works.
+- `tkinterdnd2` — drag-and-drop onto the window. Without it, Browse does the same job.
+
+Dropping or browsing to the `.xsl` works — it is only the display stylesheet, so the
+tool silently reads the `*-xccdf.xml` benchmark next to it.
+
+## SCM policies (Server Configuration Monitor)
+
+SCM compliance policies are YAML documents tagged `!policy` with `pluginName: SCM`,
+whose rules carry the actual machine checks (`!scm.registry`, `!scm.powershell` sources
+with `!equals`/`!matches` conditions). The import needs no translation at all: the SWIS
+verb `Orion.PolicyEngine.Policy.ImportPolicy(yaml)` takes the file text verbatim and
+returns the new PolicyID. The tool refuses to import when a same-name policy already
+exists, then leaves assignment to you: Settings → SCM Settings → Policies (or the
+`AssignToEntity` verb). Preview parses nothing server-side — it just scans the YAML for
+the policy name, rule ids and severities.
+
+## The CLI
 
 ```bash
 # 1. Fetch the package from DISA's public mirror (or download it in a browser)
