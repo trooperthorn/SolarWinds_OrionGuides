@@ -90,6 +90,12 @@ matched pair, a report moves by *reading* `Definition` with a query and *writing
 `CreateReport`. That asymmetry is the thing to know before looking for a verb that does not
 exist.
 
+**Importing never overwrites.** A definition whose `ReportGuid` already exists on the server
+imports as a second report, with a fresh GUID and `Copy of ` in front of its name. So a sync
+script built on repeated import accumulates copies rather than converging —
+[report-definitions.md](report-definitions.md#importing-a-definition-that-is-already-there) has
+the detail. `UpdateReport` against a known `ReportID` is what makes a second run idempotent.
+
 ### Report schedules are not `Orion.ScheduleTaskDefinition`
 
 Two scheduling mechanisms exist and the schema keeps them apart. Report delivery is

@@ -52,7 +52,7 @@ than omitted**.
 | `ModuleTitle` | `ModuleTitle` | The module heading; `i:nil` on a core report |
 | `LicenseFeatureName` | `LicenseFeatureName` | `NPM`, `HardwareHealth` — gates the report on a licensed module |
 | `OrionFeatureName` | `OrionFeatureName` | `i:nil` in all four |
-| `ReportGuid` | — | Identity across servers. **Not** `ReportID`, which is local |
+| `ReportGuid` | — | Identity across servers. **Not** `ReportID`, which is local. Reissued on import if it collides — see [Importing a definition that is already there](#importing-a-definition-that-is-already-there) |
 
 `ReportID`, `Owner`, `Type`, `LegacyPath`, `RecipientList` and `LastRenderDuration` are columns
 on `Orion.Report` with no element in the file. They are installation state rather than report
@@ -450,10 +450,39 @@ reading rather than assuming.
 `CreateReport` needs `manageReports`. `Orion.Report` declares **no `create` and no `delete`
 operation**, so the verbs are the only route and entity-level `invoke` governs them.
 
-Whether `CreateReport` rejects a definition whose `ReportGuid` already exists, replaces the
-existing report, or creates a duplicate is **not documented and unverified here**. Test on a lab
-server before relying on re-import as an update; `UpdateReport` against a known `ReportID` is
-the unambiguous way to change one in place.
+### Importing a definition that is already there
+
+**The console duplicates. It never replaces.** Importing a definition whose `ReportGuid`
+already exists on the server produces a *second* report: the platform assigns it a **fresh
+`ReportGuid`** and prefixes its name with **`Copy of `**. The original is untouched.
+
+*Source: tested by a long-time SolarWinds administrator, importing these same definitions
+through **Reports > Manage Reports > Import** on a server that already held them.*
+
+Two things follow, and they matter more than they look:
+
+**Re-import is not an update mechanism.** There is no path by which importing overwrites an
+existing report, so a "sync the reports to this server" script built on repeated import does not
+converge — it accumulates. Import the same file three times and you have the original, `Copy of
+X`, and `Copy of Copy of X`. Use `UpdateReport` against a known `ReportID` to change a report in
+place; that is the only way to make the second run of a script idempotent.
+
+**`ReportGuid` is advisory on import, not authoritative.** The value in the file is what the
+report *was* on the server that exported it. Once a collision is detected the platform issues a
+new one, so you cannot use the GUID in the file to predict what the report will be called on the
+target, and you cannot match on it afterwards to find what you just imported. Match on the name
+you passed instead, or read back the id `CreateReport` returns.
+
+That the console never replaces is the safe design — a silent overwrite of somebody's edited
+report would be far worse than a stray copy — but it does mean cleanup is manual.
+
+**What `CreateReport` does in the same situation is a narrower question, still unverified
+here.** The verb is a different entry point from the console's import, and it takes `name`,
+`description`, `category`, `title` and `subtitle` as **arguments alongside** the `definition`
+document, which contains all five again as elements. Which copy wins, and whether the verb
+applies the same `Copy of ` rename, is not documented anywhere this repository has seen. Until
+that is settled, treat `CreateReport` as create-only and reach for `UpdateReport` when a report
+already exists.
 
 ### What breaks on the way across
 

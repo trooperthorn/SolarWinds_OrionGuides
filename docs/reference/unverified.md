@@ -213,9 +213,9 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - The set of valid `NamedTimeFrame` values, and the shape of `Static` for an absolute range, are **not documented and unverified here**.
 
-**[Moving a report between servers](../automation/report-definitions.md#moving-a-report-between-servers)**
+**[Importing a definition that is already there](../automation/report-definitions.md#importing-a-definition-that-is-already-there)**
 
-- Whether `CreateReport` rejects a definition whose `ReportGuid` already exists, replaces the existing report, or creates a duplicate is **not documented and unverified here**.
+- **What `CreateReport` does in the same situation is a narrower question, still unverified here.** The verb is a different entry point from the console's import, and it takes `name`, `description`, `category`, `title` and `subtitle` as **arguments alongside** the `definition` document, which contains all five again as elements.
 
 ## [reporting.md](../automation/reporting.md)
 
