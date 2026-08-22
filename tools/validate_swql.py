@@ -340,6 +340,39 @@ def queries_from_markdown(path: str) -> list[tuple[str, str]]:
     return out
 
 
+def queries_from_dashboard(path: str) -> list[tuple[str, str]]:
+    """Pull the SWQL out of a Modern Dashboard export.
+
+    A dashboard file carries its queries as JSON string values nested several levels down,
+    and carries each one twice (see docs/webui/modern-dashboards.md). Both copies are
+    returned deliberately: if an edit updates one and misses the other, the stale copy is a
+    real query the widget will run, so it deserves checking on its own.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return []
+    if not isinstance(doc, dict) or "widgets" not in doc or "dashboards" not in doc:
+        return []
+
+    out: list[tuple[str, str]] = []
+
+    def walk(node, trail: str) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "swql" and isinstance(value, str):
+                    out.append((f"{path}#{trail}", value))
+                else:
+                    walk(value, f"{trail}/{key}" if trail else key)
+        elif isinstance(node, list):
+            for i, value in enumerate(node):
+                walk(value, f"{trail}[{i}]")
+
+    walk(doc, "")
+    return out
+
+
 def queries_from_swql(path: str) -> list[tuple[str, str]]:
     """A .swql file may hold several queries separated by blank-line-delimited comments."""
     text = open(path, encoding="utf-8", errors="replace").read()
@@ -414,12 +447,14 @@ def queries_from_path(path: str) -> list[tuple[str, str]]:
         return queries_from_source(path)
     if path.endswith(".swql") or path.endswith(".sql"):
         return queries_from_swql(path)
+    if path.endswith(".json"):
+        return queries_from_dashboard(path)
     return []
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("paths", nargs="*", help=".swql, .md, .ps1, .py, .sh files, directories, or - for stdin")
+    ap.add_argument("paths", nargs="*", help=".swql, .md, .ps1, .py, .sh, dashboard .json, directories, or - for stdin")
     ap.add_argument("--docs", action="append", default=[], help="directory to scan for ```sql blocks")
     ap.add_argument("--version", default=DEFAULT_VERSION)
     ap.add_argument("--strict", action="store_true", help="treat warnings as failures")

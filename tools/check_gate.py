@@ -90,9 +90,16 @@ CASES = [
     (
         "test count",
         "tools/README.md",
-        "Regressions in the judgement above: 180 tests",
-        "Regressions in the judgement above: 179 tests",
+        "Regressions in the judgement above: 188 tests",
+        "Regressions in the judgement above: 187 tests",
         ["tools/check_data.py", "--version", VERSION],
+    ),
+    (
+        "dashboard swql copy",
+        "scripts/dashboards/minimal-dashboard.json",
+        '"swql": "SELECT COUNT(n.NodeID) AS TheCount\\nFROM Orion.Nodes n\\nWHERE n.Status = 2"',
+        '"swql": "SELECT COUNT(n.NodeID) AS TheCount\\nFROM Orion.Nodes n\\nWHERE n.Status = 1"',
+        ["tools/check_dashboards.py"],
     ),
     (
         "relative link",

@@ -38,7 +38,9 @@ def slugify(heading: str) -> str:
     """Approximate GitHub's heading-to-anchor rule."""
     text = re.sub(r"`([^`]*)`", r"\1", heading)
     text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)  # links -> their text
-    text = re.sub(r"[*_~]", "", text)
+    # Emphasis markers are dropped from the rendered text, but an underscore is not: GitHub
+    # keeps it in the anchor, and headings here carry them inside code spans (`unique_key`).
+    text = re.sub(r"[*~]", "", text)
     text = text.strip().lower()
     text = re.sub(r"[^\w\s-]", "", text)
     return re.sub(r"\s+", "-", text)

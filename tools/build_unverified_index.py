@@ -115,7 +115,9 @@ def requalify_links(sentence: str, source_path: str) -> str:
 
 def slug(heading: str) -> str:
     text = re.sub(r"`([^`]*)`", r"\1", heading)
-    text = re.sub(r"[*_~]", "", text).strip().lower()
+    # Emphasis markers go; underscores stay. GitHub keeps them in the anchor, and headings
+    # here carry them inside code spans (`unique_key`). Kept in step with check_links.py.
+    text = re.sub(r"[*~]", "", text).strip().lower()
     text = re.sub(r"[^\w\s-]", "", text)
     return re.sub(r"\s+", "-", text)
 

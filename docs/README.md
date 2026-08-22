@@ -129,6 +129,8 @@ Five separate polling systems that share no entities and reuse each other's colu
 | [webui/custom-query-widget.md](webui/custom-query-widget.md) | `_LinkFor_` and `_IconFor_` column conventions, console URLs, a worked widget |
 | [webui/ncm-change-templates.md](webui/ncm-change-templates.md) | NCM config change templates: directives, parameters, and the `Cirrus.ConfigSnippets` API |
 | [webui/ncm-change-template-language.md](webui/ncm-change-template-language.md) | The change template scripting language, end to end |
+| [webui/modern-dashboards.md](webui/modern-dashboards.md) | The Modern Dashboard export format, read off five real files |
+| [webui/modern-dashboard-authoring.md](webui/modern-dashboard-authoring.md) | Writing a dashboard file, including what an AI prompt has to pin down |
 
 ## Guides
 

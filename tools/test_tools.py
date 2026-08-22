@@ -31,6 +31,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import build_reference_data
+import check_dashboards
 import diff_schema
 import validate_swql
 from schema_query import Schema
@@ -286,6 +287,136 @@ class TestEmbeddedExtraction(unittest.TestCase):
         # checking a string that never runs.
         found = self.extract('q = f"SELECT {col} FROM Orion.Nodes"\n', ".py")
         self.assertEqual(found, [])
+
+
+class TestDashboardExtraction(unittest.TestCase):
+    """A Modern Dashboard file stores each query twice, and both copies have to be found.
+
+    The duplication is the format's own (docs/webui/modern-dashboards.md). An edit that
+    updates one copy and misses the other leaves a stale query the widget can still run, so
+    extracting only the first copy would validate the file and miss exactly that.
+    """
+
+    ENVELOPE = {
+        "version": 1,
+        "dashboards": [{"unique_key": "d", "name": "D", "widgets": [{"unique_key": "w"}]}],
+        "widgets": [
+            {
+                "type": "table",
+                "unique_key": "w",
+                "name": "W",
+                "configuration": {
+                    "table": {
+                        "providers": {
+                            "dataSource": {
+                                "providerId": "TableSwqlDatasourceService",
+                                "properties": {
+                                    "swql": "SELECT n.Caption AS [Node] FROM Orion.Nodes n",
+                                    "dataFields": [{"id": "Node", "label": "Node", "dataType": "System.String"}],
+                                },
+                            },
+                            "adapter": {
+                                "properties": {
+                                    "dataSource": {
+                                        "properties": {
+                                            "swql": "SELECT n.Caption AS [Node] FROM Orion.Nodes n",
+                                            "dataFields": [{"id": "Node", "label": "Node", "dataType": "System.String"}],
+                                        }
+                                    }
+                                }
+                            },
+                        }
+                    }
+                },
+            }
+        ],
+        "remove": None,
+    }
+
+    def write(self, doc):
+        import tempfile
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as fh:
+            json.dump(doc, fh)
+            return fh.name
+
+    def test_both_copies_of_a_query_are_extracted(self):
+        path = self.write(self.ENVELOPE)
+        try:
+            found = validate_swql.queries_from_dashboard(path)
+        finally:
+            os.unlink(path)
+        self.assertEqual(len(found), 2)
+        self.assertEqual({q for _, q in found}, {"SELECT n.Caption AS [Node] FROM Orion.Nodes n"})
+
+    def test_labels_name_the_path_to_each_copy(self):
+        # A file has dozens of queries and they are frequently identical, so a bare filename
+        # would not say which one failed.
+        path = self.write(self.ENVELOPE)
+        try:
+            labels = [label for label, _ in validate_swql.queries_from_dashboard(path)]
+        finally:
+            os.unlink(path)
+        self.assertTrue(any("adapter" in label for label in labels), labels)
+        self.assertEqual(len(set(labels)), 2)
+
+    def test_a_json_file_that_is_not_a_dashboard_yields_nothing(self):
+        # The validator walks scripts/ by extension, so any other .json must be ignored
+        # rather than parsed as a dashboard.
+        path = self.write({"swql": "SELECT Caption FROM Orion.Nodes"})
+        try:
+            self.assertEqual(validate_swql.queries_from_dashboard(path), [])
+        finally:
+            os.unlink(path)
+
+    def test_divergent_copies_are_reported(self):
+        doc = json.loads(json.dumps(self.ENVELOPE))
+        providers = doc["widgets"][0]["configuration"]["table"]["providers"]
+        providers["adapter"]["properties"]["dataSource"]["properties"]["swql"] = "SELECT 1 AS X FROM Orion.Nodes"
+        path = self.write(doc)
+        try:
+            problems = check_dashboards.check(path)
+        finally:
+            os.unlink(path)
+        self.assertTrue(any("copies of the SWQL differ" in p for p in problems), problems)
+
+    def test_a_datafield_that_is_not_an_alias_is_reported(self):
+        # The console renders a blank column rather than raising, which is why this is
+        # checked here instead of being noticed on the page.
+        doc = json.loads(json.dumps(self.ENVELOPE))
+        for props in (
+            doc["widgets"][0]["configuration"]["table"]["providers"]["dataSource"]["properties"],
+            doc["widgets"][0]["configuration"]["table"]["providers"]["adapter"]["properties"]["dataSource"]["properties"],
+        ):
+            props["dataFields"][0]["id"] = "Nodee"
+        path = self.write(doc)
+        try:
+            problems = check_dashboards.check(path)
+        finally:
+            os.unlink(path)
+        self.assertTrue(any("not an alias" in p for p in problems), problems)
+
+    def test_a_duplicated_widget_key_is_reported(self):
+        # The defect both real authors shipped: copy a widget, keep its key.
+        doc = json.loads(json.dumps(self.ENVELOPE))
+        doc["widgets"].append(json.loads(json.dumps(doc["widgets"][0])))
+        path = self.write(doc)
+        try:
+            problems = check_dashboards.check(path)
+        finally:
+            os.unlink(path)
+        self.assertTrue(any("defines 2 widgets" in p for p in problems), problems)
+
+    def test_a_clean_file_is_reported_clean(self):
+        path = self.write(self.ENVELOPE)
+        try:
+            self.assertEqual(check_dashboards.check(path), [])
+        finally:
+            os.unlink(path)
+
+    def test_bracketed_and_bare_aliases_are_both_recognised(self):
+        found = check_dashboards.aliases("SELECT a AS [Two Words], b AS One FROM Orion.Nodes")
+        self.assertEqual(found, {"Two Words", "One"})
 
 
 @requires_data

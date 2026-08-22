@@ -1,0 +1,297 @@
+{
+  "version": 1,
+  "dashboards": [
+    {
+      "unique_key": "a3e4d977-ad65-482c-bf8e-c9f88ea845ac",
+      "name": "Minimal Dashboard Template",
+      "parent": null,
+      "feature": null,
+      "private": null,
+      "widgets": [
+        {
+          "unique_key": "ce6dd7f5-bd73-43c0-bb87-c1835b0d0f92",
+          "location": {
+            "x": 0,
+            "y": 0,
+            "cols": 12,
+            "rows": 1
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "83080656-b082-4a32-8e0f-6f65f2ecb22a",
+          "location": {
+            "x": 0,
+            "y": 1,
+            "cols": 12,
+            "rows": 3
+          },
+          "reference": false
+        }
+      ]
+    }
+  ],
+  "widgets": [
+    {
+      "type": "kpi",
+      "unique_key": "ce6dd7f5-bd73-43c0-bb87-c1835b0d0f92",
+      "name": "Nodes Down",
+      "subtitle": "Count of nodes in a down state",
+      "description": "One tile, one single-row query.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 300,
+                "overrideDefaultSettings": false
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Nodes Down",
+            "subtitle": "Count of nodes in a down state",
+            "url": "/orion/netperfmon/nodes.aspx",
+            "description": "One tile, one single-row query.",
+            "collapsible": false,
+            "collapsed": false
+          }
+        },
+        "tiles": {
+          "properties": {
+            "nodes": [
+              "kpi_b4d5cc99-57fa-46a2-b28a-1c728378ef5f"
+            ]
+          }
+        },
+        "kpi_b4d5cc99-57fa-46a2-b28a-1c728378ef5f": {
+          "id": "kpi_b4d5cc99-57fa-46a2-b28a-1c728378ef5f",
+          "componentType": "KpiComponent",
+          "providers": {
+            "dataSource": {
+              "providerId": "KpiSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT COUNT(n.NodeID) AS TheCount\nFROM Orion.Nodes n\nWHERE n.Status = 2",
+                "dataFields": [
+                  {
+                    "id": "TheCount",
+                    "label": "TheCount",
+                    "dataType": "System.Int32"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_KPI_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "kpi_b4d5cc99-57fa-46a2-b28a-1c728378ef5f",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT COUNT(n.NodeID) AS TheCount\nFROM Orion.Nodes n\nWHERE n.Status = 2",
+                    "dataFields": [
+                      {
+                        "id": "TheCount",
+                        "label": "TheCount",
+                        "dataType": "System.Int32"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                },
+                "thresholds": {
+                  "criticalThresholdValue": 0,
+                  "warningThresholdValue": null,
+                  "showThresholds": false,
+                  "reversedThresholds": false
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "interactive": false
+            },
+            "widgetData": {
+              "label": " ",
+              "backgroundColor": "var(--nui-color-semantic-down)",
+              "units": "Nodes Down"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "83080656-b082-4a32-8e0f-6f65f2ecb22a",
+      "name": "Nodes Not Up",
+      "subtitle": "Worst status first",
+      "description": "Every node not currently in an Up state.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 300,
+                "overrideDefaultSettings": false
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Nodes Not Up",
+            "subtitle": "Worst status first",
+            "url": "/orion/netperfmon/nodes.aspx",
+            "description": "Every node not currently in an Up state.",
+            "collapsible": false,
+            "collapsed": false
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    n.Caption AS [Node],\n    n.DetailsUrl AS [Node_URL],\n    n.Status AS [Node_Status],\n    n.IP_Address AS [IP Address],\n    n.StatusDescription AS [Status Details]\nFROM Orion.Nodes n\nWHERE n.Status <> 1\nORDER BY n.Status DESC",
+                "dataFields": [
+                  {
+                    "id": "Node",
+                    "label": "Node",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Node_URL",
+                    "label": "Node_URL",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Node_Status",
+                    "label": "Node_Status",
+                    "dataType": "System.Int32"
+                  },
+                  {
+                    "id": "IP Address",
+                    "label": "IP Address",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Status Details",
+                    "label": "Status Details",
+                    "dataType": "System.String"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    n.Caption AS [Node],\n    n.DetailsUrl AS [Node_URL],\n    n.Status AS [Node_Status],\n    n.IP_Address AS [IP Address],\n    n.StatusDescription AS [Status Details]\nFROM Orion.Nodes n\nWHERE n.Status <> 1\nORDER BY n.Status DESC",
+                    "dataFields": [
+                      {
+                        "id": "Node",
+                        "label": "Node",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Node_URL",
+                        "label": "Node_URL",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Node_Status",
+                        "label": "Node_Status",
+                        "dataType": "System.Int32"
+                      },
+                      {
+                        "id": "IP Address",
+                        "label": "IP Address",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Status Details",
+                        "label": "Status Details",
+                        "dataType": "System.String"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_59446a26-7779-4377-9485-eeeb743809c8",
+                  "label": "Node",
+                  "isActive": true,
+                  "width": 260,
+                  "formatter": {
+                    "componentType": "EntityLinkFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "status": "Node_Status",
+                        "vendor": null,
+                        "link": "Node_URL",
+                        "value": "Node"
+                      },
+                      "iconFormat": "status",
+                      "entityIcon": null
+                    }
+                  }
+                },
+                {
+                  "id": "column_2fe9826a-4df5-4c4a-bba6-35fbe14730d2",
+                  "label": "IP Address",
+                  "isActive": true,
+                  "width": 160,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "IP Address"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_33c89d23-ef06-44af-9fb1-6269bd64ad86",
+                  "label": "Status",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Status Details"
+                      }
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_59446a26-7779-4377-9485-eeeb743809c8",
+                "descendantSorting": false
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "remove": null
+}

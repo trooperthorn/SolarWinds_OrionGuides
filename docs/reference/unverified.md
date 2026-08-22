@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**196 statements across 57 pages.**
+**207 statements across 59 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -736,6 +736,51 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Practical notes](../webui/custom-query-widget.md#practical-notes)**
 
 - They are marked unverified where they appear.
+
+## [modern-dashboard-authoring.md](../webui/modern-dashboard-authoring.md)
+
+**[The `?filters=` grammar](../webui/modern-dashboard-authoring.md#the-filters-grammar)**
+
+- **Only `eq` and `ne` appear.** Whether the filter engine accepts comparison, `like` or `in` operators is **not documented and unverified here**.
+
+**[Gotchas](../webui/modern-dashboard-authoring.md#gotchas)**
+
+- **Filter values are not escaped.** A value containing `-` or `:` is unverified territory.
+
+## [modern-dashboards.md](../webui/modern-dashboards.md)
+
+**[The envelope](../webui/modern-dashboards.md#the-envelope)**
+
+- `remove` — `null` in every export seen; purpose undocumented and **unverified here**
+
+**[`dashboards[]` — the page and its layout](../webui/modern-dashboards.md#dashboards-the-page-and-its-layout)**
+
+- `parent` — `null` in every export seen. Presumably the clone source, matching `Orion.Dashboards.Instances.ParentID` — **unverified**
+- `private` — `null` on the dashboard, `false` on widgets. Visibility; **unverified**
+
+**[The grid is 12 columns](../webui/modern-dashboards.md#the-grid-is-12-columns)**
+
+- What `true` would mean is **undocumented and unverified here**; the plausible reading is a link to a widget owned by another dashboard rather than an embedded copy.
+
+**[The header block, common to all types](../webui/modern-dashboards.md#the-header-block-common-to-all-types)**
+
+- Note that `collapsed: true` appears together with `collapsible: false` throughout the samples, which suggests `collapsed` is ignored unless `collapsible` is set — **unverified here**.
+
+**[Column formatters](../webui/modern-dashboards.md#column-formatters)**
+
+- The complete value sets for `iconFormat`, `entityIcon`, `visualization` and the `DatetimeFormatterComponent` `option` field are **not documented and unverified here**.
+
+**[The colour tokens](../webui/modern-dashboards.md#the-colour-tokens)**
+
+- The full token set is **not documented and unverified here**.
+
+**[Proportional (donut) configuration](../webui/modern-dashboards.md#proportional-donut-configuration)**
+
+- Neither list is necessarily complete and both are **unverified here** beyond what the samples exercise.
+
+**[`unique_key` collisions, which both authors produced](../webui/modern-dashboards.md#unique_key-collisions-which-both-authors-produced)**
+
+- What the platform does with a duplicate key is **not documented and unverified here**.
 
 ## [ncm-change-template-language.md](../webui/ncm-change-template-language.md)
 

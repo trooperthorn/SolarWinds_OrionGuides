@@ -190,7 +190,7 @@ checks nine things:
 
 | Check | Catches |
 | --- | --- |
-| `test_tools.py` | Regressions in the tools' own judgement, across 180 tests |
+| `test_tools.py` | Regressions in the tools' own judgement, across 188 tests |
 | `validate_swql.py` | A query naming an entity, property, column or navigation that does not exist |
 | `check_data.py` | Extraction that degraded quietly, and reference pages that fell behind |
 | `check_entity_references.py` | An invented entity, member, NetObject prefix, right or type member, or a wrong property type |
@@ -198,6 +198,7 @@ checks nine things:
 | `check_signatures.py` | A verb signature with its arguments wrong or out of order, or a function call with the wrong number |
 | `check_examples.py` | A documented command that does not run, or whose shown output is not what it prints |
 | `check_links.py` | A relative link or #anchor that does not resolve |
+| `check_dashboards.py` | A shipped Modern Dashboard file that breaks one of the format's invariants |
 | `check_gate.py` | A check above that has stopped checking, by seeding errors it must catch |
 
 The last one exists because the others can fail silently. A checker that stops reading
