@@ -665,6 +665,13 @@ the blast-radius query first and keep the output.
 create and update to `manageReports` and `manageAlerts` as well, so an account provisioned for
 reporting can also change polling credentials. That is worth knowing during an access review.
 
+## Across modules
+
+Not every module uses this store. VNQM, IPAM, SRM, VMAN and others carry a credential id with
+no declared relationship behind it, NCM keeps credential material on the node row instead, and
+`Orion.CredentialRelation` is the generic binding table none of the module documentation
+mentions. [credential-integration.md](credential-integration.md) works through the seams.
+
 ## See also
 
 - [discovery.md](discovery.md) for the discovery flow credentials feed into

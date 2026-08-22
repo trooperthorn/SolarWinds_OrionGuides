@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**187 statements across 55 pages.**
+**190 statements across 56 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -40,6 +40,20 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What is not verified here](../automation/alerts.md#what-is-not-verified-here)**
 
 - ## What is not verified here
+
+## [credential-integration.md](../automation/credential-integration.md)
+
+**[`Orion.CredentialRelation` is the mechanism nobody mentions](../automation/credential-integration.md#orioncredentialrelation-is-the-mechanism-nobody-mentions)**
+
+- **What values `EntityType` and `Use` take is not recorded in the schema and is unverified here.** Read the existing rows on your own server before writing new ones — the table is generic enough that a wrong `Use` string is accepted and does nothing.
+
+**[IPAM has its own creation path and its own spelling](../automation/credential-integration.md#ipam-has-its-own-creation-path-and-its-own-spelling)**
+
+- **Which id space `credentialId` belongs to — the shared store or an IPAM-local one — is not stated in the schema and is unverified here.** The width matches `Orion.Credential.ID`, which is suggestive and not proof.
+
+**[The contract type and the entity disagree](../automation/credential-integration.md#the-contract-type-and-the-entity-disagree)**
+
+- Reading it means a verb call per credential — `Orion.SRM.BusinessLayer.GetCredential` is one path, though whether it reports the flag for credentials SRM did not create is **unverified here**.
 
 ## [credentials.md](../automation/credentials.md)
 

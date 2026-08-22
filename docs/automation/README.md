@@ -272,6 +272,7 @@ that reason.
 | [discovery.md](discovery.md) | Network sonar discovery and list resources |
 | [events-and-auditing.md](events-and-auditing.md) | What happened, and who changed it |
 | [credentials.md](credentials.md) | Credential entities and their security posture |
+| [credential-integration.md](credential-integration.md) | Which modules use the shared credential store, which keep their own, and what can be synced |
 | [accounts-and-permissions.md](accounts-and-permissions.md) | Accounts, roles, rights, account limitations |
 | [reporting.md](reporting.md) | Reports and scheduled exports |
 | [scheduling.md](scheduling.md) | Scheduled tasks and maintenance plans |

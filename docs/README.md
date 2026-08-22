@@ -98,6 +98,7 @@ Task guides that combine query, CRUD and Invoke.
 | [automation/discovery.md](automation/discovery.md) | Network sonar discovery and list resources |
 | [automation/dependencies.md](automation/dependencies.md) | Suppressing downstream alerts during an outage |
 | [automation/credentials.md](automation/credentials.md) | Credential entities and their security posture |
+| [automation/credential-integration.md](automation/credential-integration.md) | Credential storage across modules, and the seams between them |
 | [automation/accounts-and-permissions.md](automation/accounts-and-permissions.md) | Accounts, roles, rights, and account limitations |
 | [automation/reporting.md](automation/reporting.md) | Building reports and scheduled exports |
 | [automation/scheduling.md](automation/scheduling.md) | Scheduled tasks and maintenance plans |
