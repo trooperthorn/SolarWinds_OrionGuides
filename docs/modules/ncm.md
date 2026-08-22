@@ -389,6 +389,12 @@ and a manual assignment disables auto detection for that node. Both support full
 `Cirrus.ConfigArchive.DownloadConfigOnNodes` and `ExecuteScriptOnNodes` take is
 `Cli.DeviceTemplates.TemplateXml`.
 
+That XML is the `.ConfigMgmtCommands` document, and
+[ncm-device-templates.md](ncm-device-templates.md) documents it: the command vocabulary, how
+`EnableIdentifier` decides whether a session is privileged, the `${…}` macros including the
+ones that reference other commands, and how the console's three script-execution modes map onto
+these verbs. **There is no import or export verb** — `Cli.DeviceTemplates` is plain CRUD.
+
 ## The approval queue
 
 If approvals are switched on, a config upload or a script execution does not run when it is

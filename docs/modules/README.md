@@ -29,6 +29,10 @@ entity whose name equals the listed prefix or begins with that prefix plus a dot
 SAM's export format has its own page: [sam-templates.md](sam-templates.md) documents the
 `.apmtemplate` document that `ExportTemplate` and `ImportTemplate` move.
 | [ncm](ncm.md) | Network Configuration Manager | Device configuration backup, compliance policies, config transfer, firmware, inventory | `Cirrus.` and `NCM.` | 129 |
+
+NCM's device template format has its own page:
+[ncm-device-templates.md](ncm-device-templates.md) documents the `.ConfigMgmtCommands` document
+that tells NCM how to hold a Telnet or SSH session with a given kind of device.
 | [nta](nta.md) | NetFlow Traffic Analyzer | Flow records, applications, protocols, conversations, CBQoS | `Orion.Netflow.` | 49 |
 | [ipam](ipam.md) | IP Address Manager | Subnets, IP addresses, conflicts, DHCP scopes and leases, DNS zones and records | `IPAM.` | 77 |
 | [udt](udt.md) | User Device Tracker | Switch ports, endpoints, MAC and IP history, users, watch lists | `Orion.UDT.` | 85 |

@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**237 statements across 62 pages.**
+**242 statements across 63 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -399,6 +399,25 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What is not verified here](../modules/log-analyzer.md#what-is-not-verified-here)**
 
 - ## What is not verified here
+
+## [ncm-device-templates.md](../modules/ncm-device-templates.md)
+
+**[The root attributes](../modules/ncm-device-templates.md#the-root-attributes)**
+
+- **`AutoDetectType` is a string in the file and an integer in the entity.** The XML writes `BySystemOid`; the schema documents `AutoDetectType` as `System.Int32` — *"0 uses the system OID; 1 uses the system description."* So `BySystemOid` is `0`, and the string for `1` is presumably `BySystemDescription`, which is **not attested by any of the three samples and is unverified here**.
+- That the longest match wins is the obvious reading of the two shipped samples and is **unverified here**.
+
+**[The macros](../modules/ncm-device-templates.md#the-macros)**
+
+- **Whether any `Command` name can be used as a macro, or only a fixed subset, is not documented and unverified here.** The samples only ever compose the two config-mode commands.
+
+**[Import and export through SWIS](../modules/ncm-device-templates.md#import-and-export-through-swis)**
+
+- Which the platform reads when they disagree is **not documented and unverified here** — set both to the same values, and treat the columns as what auto-detection matches on.
+
+**[What this repository has not verified](../modules/ncm-device-templates.md#what-this-repository-has-not-verified)**
+
+- ## What this repository has not verified
 
 ## [ncm.md](../modules/ncm.md)
 
