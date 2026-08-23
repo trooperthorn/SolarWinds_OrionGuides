@@ -93,12 +93,20 @@ documents in full. The mapping that works:
   pattern lifted from the first config-looking line of the check text, to accelerate
   authoring. Both are honest; silently importing green is not.
 
-The calls, in order (all on `Cirrus.PolicyReports`, positional JSON bodies):
+The calls, in order (all on `Cirrus.PolicyReports`, positional JSON bodies). The tiers
+are created bottom-up and linked by ID lists — the one-call nested alternative,
+`AddPolicyReport(report, importFlag)` with `importFlag` true, is documented to persist the whole tree
+but has been observed in the field creating only the report row over JSON REST:
 
 1. `SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n` — collision check.
-2. `AddPolicyReport(report, importFlag)` with `importFlag` true — persists report,
-   policies and rules in one call, returns the server-assigned GUID.
-3. `StartCaching(selectedReportsIds)` with `[thatGuid]` — the report shows nothing
+2. `AddPolicyRule(rule)` once per check — each returns the new rule GUID.
+3. `AddPolicy(policy, importFlag)` once per benchmark, `importFlag` false with
+   `AssignedRulesList` carrying the rule GUIDs — returns the policy GUID.
+4. `AddPolicyReport(report, importFlag)` with `importFlag` false and
+   `AssignedPoliciesList` carrying the policy GUIDs — returns the report GUID.
+5. `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true — read the tree back and count policies and
+   rules before claiming success.
+6. `StartCaching(selectedReportsIds)` with `[thatGuid]` — the report shows nothing
    until cached, and an empty array would re-cache every report on the server.
 
 ## Path two: server STIGs into SCM

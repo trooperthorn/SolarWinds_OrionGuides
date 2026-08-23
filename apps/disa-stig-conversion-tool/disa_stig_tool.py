@@ -393,12 +393,20 @@ def rule_object(rule, grouping, mode):
 
 
 def build_report(benchmarks, name=None, grouping="DISA STIG", node_where="(Nodes.Vendor = 'Cisco')",
-                 config_type="Any", mode="manual"):
-    """Assemble the full PolicyReport contract object AddPolicyReport(report, true) takes."""
+                 config_type="Any", mode="manual", source_path=None):
+    """Assemble the full PolicyReport contract object for the NCM import.
+
+    Report = the STIG package (named after the zip when the source is one),
+    Policy = the device scope (one per benchmark, filtered by node_where),
+    Rule   = one per XCCDF check.
+    """
     policies = []
     for b in benchmarks:
         policy_group = f"{grouping}/{b['benchmark_id']}" if b["benchmark_id"] else grouping
+        rules = [rule_object(r, policy_group, mode) for r in b["rules"]]
         policies.append({
+            "PolicyId": str(uuid.uuid5(uuid.NAMESPACE_URL,
+                                       "stig2ncm-policy:" + (b["benchmark_id"] or b["title"]))),
             "PolicyName": f"{b['title']} V{b['version']} ({b['release']})"[:250],
             "Comments": f"Imported by the DISA STIG Conversion Tool from {b['source']} (benchmark {b['benchmark_id']}, "
                         f"status date {b['status_date']}).",
@@ -407,9 +415,13 @@ def build_report(benchmarks, name=None, grouping="DISA STIG", node_where="(Nodes
             # nodes; the console's node-picker QUERY blob is optional state.
             "NodeSelectionString": f"Criteria: Where ( {node_where} )",
             "ConfigTypes": config_type,
-            "AssignedPolicyRules": [rule_object(r, policy_group, mode) for r in b["rules"]],
+            "AssignedPolicyRules": rules,
+            "AssignedRulesList": [r["RuleId"] for r in rules],
         })
 
+    if name is None and source_path and source_path.lower().endswith(".zip"):
+        # The report carries the package's name: U_Cisco_IOS_Router_Y26M07_STIG
+        name = os.path.splitext(os.path.basename(source_path))[0]
     if name is None:
         name = benchmarks[0]["title"]
         if len(benchmarks) > 1:
@@ -424,8 +436,67 @@ def build_report(benchmarks, name=None, grouping="DISA STIG", node_where="(Nodes
         "ShowSummaryFlag": True,
         "ShowRulesWithoutViolationFlag": True,
         "AssignedPolicies": policies,
+        "AssignedPoliciesList": [p["PolicyId"] for p in policies],
         "ReportStatus": "Enabled",
     }
+
+
+def _clean_id(value, fallback):
+    """Verb results come back as JSON strings that may carry quotes or braces."""
+    if isinstance(value, str):
+        cleaned = value.strip().strip('"').strip("{}").strip()
+        if cleaned:
+            return cleaned
+    return fallback
+
+
+def import_ncm_report(swis, report, log=print):
+    """Create the report bottom-up: every rule, then every policy, then the report.
+
+    AddPolicyReport(report, importFlag=true) is documented to persist the nested
+    tree in one call, but has been observed in the field creating only the report
+    row over JSON REST. Creating each tier explicitly and linking by ID
+    (AddPolicyRule → AddPolicy → AddPolicyReport with the ID lists) is unambiguous,
+    and the result is verified by reading the report back before caching starts.
+
+    Returns (report_id, policy_count, rule_count) as confirmed by the read-back.
+    """
+    policy_ids = []
+    total_rules = 0
+    for policy in report["AssignedPolicies"]:
+        rules = policy["AssignedPolicyRules"]
+        log(f"creating {len(rules)} rules for policy \"{policy['PolicyName']}\" …")
+        rule_ids = []
+        for i, rule in enumerate(rules, 1):
+            result = swis.invoke("Cirrus.PolicyReports", "AddPolicyRule", rule)
+            rule_ids.append(_clean_id(result, rule["RuleId"]))
+            if i % 25 == 0:
+                log(f"  {i}/{len(rules)} rules created")
+        total_rules += len(rule_ids)
+
+        linked = dict(policy, AssignedPolicyRules=[], AssignedRulesList=rule_ids)
+        result = swis.invoke("Cirrus.PolicyReports", "AddPolicy", linked, False)
+        policy_ids.append(_clean_id(result, policy["PolicyId"]))
+        log(f"created policy \"{policy['PolicyName']}\" with {len(rule_ids)} rules")
+
+    linked_report = dict(report, AssignedPolicies=[], AssignedPoliciesList=policy_ids)
+    report_id = _clean_id(
+        swis.invoke("Cirrus.PolicyReports", "AddPolicyReport", linked_report, False), "")
+    if not report_id:
+        raise SwisError("AddPolicyReport did not return the new report id")
+
+    # Read the report back: the import is only done if the tree actually exists.
+    stored = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True) or {}
+    stored_policies = stored.get("AssignedPolicies") or []
+    stored_rules = sum(len(p.get("AssignedPolicyRules") or []) for p in stored_policies)
+    if not stored_policies or stored_rules == 0:
+        raise SwisError(
+            f"verification failed: report {report_id} was created but holds "
+            f"{len(stored_policies)} policies and {stored_rules} rules "
+            f"(expected {len(policy_ids)} and {total_rules}). Check the account's NCM "
+            "role (WebUploader or higher) and the server's compliance settings.")
+    log(f"verified: report holds {len(stored_policies)} policies and {stored_rules} rules")
+    return report_id, len(stored_policies), stored_rules
 
 
 # ---------------------------------------------------------------------------
@@ -492,6 +563,7 @@ def make_report_from_args(args):
     return build_report(
         benchmarks, name=args.name, grouping=args.grouping,
         node_where=args.node_where, config_type=args.config_type, mode=args.mode,
+        source_path=args.path,
     )
 
 
@@ -538,14 +610,8 @@ def cmd_import(args):
     n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
     print(f"importing \"{report['Name']}\" — {len(report['AssignedPolicies'])} policies, "
           f"{n_rules} rules …")
-    new_id = swis.invoke("Cirrus.PolicyReports", "AddPolicyReport", report, True)
-    if not isinstance(new_id, str) or not new_id:
-        sys.exit(f"error: AddPolicyReport did not return a report id (got {new_id!r})")
-    rows = swis.query("SELECT Name FROM Cirrus.PolicyReports WHERE PolicyReportID = @id",
-                      {"id": new_id})
-    if not rows:
-        sys.exit(f"error: AddPolicyReport returned {new_id} but the report was not found afterwards")
-    print(f"imported: \"{rows[0]['Name']}\" ({new_id})")
+    new_id, n_pol, n_rul = import_ncm_report(swis, report)
+    print(f"imported: \"{report['Name']}\" ({new_id}) — {n_pol} policies, {n_rul} rules")
 
     if args.no_cache:
         print("compliance caching not started (--no-cache); the report shows no data until "
@@ -904,10 +970,14 @@ class App:
                 self._log("Assign it to nodes under Settings → SCM Settings → Policies.")
                 return
             mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
+            # The report is named after the original source (the zip's name when the
+            # source is a URL download too), not the temp file it may have landed in.
+            original = self.url.get().strip() if self.source_kind.get() == "url" else path
             report = build_report(load_benchmarks(path),
-                                       node_where=self.node_where.get().strip()
-                                       or "(Nodes.Vendor = 'Cisco')",
-                                       mode=mode)
+                                  node_where=self.node_where.get().strip()
+                                  or "(Nodes.Vendor = 'Cisco')",
+                                  mode=mode,
+                                  source_path=os.path.basename(original.split("?")[0]))
             existing = swis.query(
                 "SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
                 {"n": report["Name"]})
@@ -918,8 +988,9 @@ class App:
             n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
             self._log(f"importing \"{report['Name']}\" — "
                       f"{len(report['AssignedPolicies'])} policies, {n_rules} rules …")
-            new_id = swis.invoke("Cirrus.PolicyReports", "AddPolicyReport", report, True)
-            self._log(f"imported ({new_id}); starting compliance caching …")
+            new_id, n_pol, n_rul = import_ncm_report(swis, report, log=self._log)
+            self._log(f"imported \"{report['Name']}\" ({new_id}) — "
+                      f"{n_pol} policies, {n_rul} rules; starting compliance caching …")
             swis.invoke("Cirrus.PolicyReports", "StartCaching", [new_id])
             self._log("done — see My Dashboards → Network Configuration → Compliance.")
         self._run_bg(work)

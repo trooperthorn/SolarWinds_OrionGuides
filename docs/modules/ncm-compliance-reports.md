@@ -121,6 +121,14 @@ Round-trip gotchas:
 - Contract member names differ from SWQL columns (`Comments`/`Group` vs
   `Comment`/`Grouping`; rule `SimplePatternText` vs column `Pattern`) — map file
   fields to the verb contract, never to column names.
+- **Field observation:** at least one production server accepted
+  `AddPolicyReport(report, importFlag)` with `importFlag` true over JSON REST and created only the
+  report row — no nested policies or rules landed. The unambiguous alternative is
+  bottom-up composition: `AddPolicyRule` per rule, then `AddPolicy` and
+  `AddPolicyReport` with `importFlag` false and the `AssignedRulesList` /
+  `AssignedPoliciesList` ID lists filled,
+  then `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true to verify the
+  tree before trusting the import.
 - The `Update*` verbs have no `importFlag`, so they touch only their own level;
   cascading replace means delete-then-add, and `DeletePolicyReports(ids,
   deleteChildren=true)` can rip shared policies out from under other reports —

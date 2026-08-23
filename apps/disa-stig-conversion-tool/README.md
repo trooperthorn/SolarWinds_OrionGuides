@@ -82,8 +82,9 @@ nest one zip per STIG are handled too. Packages download from
 | severity high / medium / low | `ErrorLevel` 2 critical / 1 warning / 0 info |
 | VulnDiscussion + check-content + IDs (SV, STIG ID, CCIs) | `Comments` |
 | fixtext (the Fix Text) | `RemediateScript`, type CLI, **never auto-executed** |
-| one benchmark | one policy (`--node-where` scopes the nodes, default Cisco) |
-| one package | one report, `Enabled`, in the `DISA STIG` folder |
+| one XCCDF Group/Rule (each check) | one NCM rule |
+| one benchmark | one policy — the device scope (`--node-where`, default `(Nodes.Vendor = 'Cisco')`) |
+| one package | one report **named after the zip file** (e.g. `U_Cisco_IOS_Router_Y26M07_STIG`), `Enabled`, in the `DISA STIG` folder |
 
 Manual STIGs describe their checks in prose, not machine-checkable patterns, so the
 tool is honest about that:
@@ -167,10 +168,18 @@ The `Cirrus.Policy*` SWQL entities are read-only; all writes are Invoke verbs on
 | Call | Signature (positional) | Used for |
 | --- | --- | --- |
 | Query | `SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n` | Collision check before import |
-| `AddPolicyReport` | `(report, importFlag)` → new report GUID (string) | The import; `importFlag=true` persists the nested policies and rules in the same call |
+| `AddPolicyRule` | `(rule)` → new rule GUID (string) | One call per STIG check — the rules are created first |
+| `AddPolicy` | `(policy, importFlag)` → new policy GUID (string) | One per benchmark, with `importFlag=false` and `AssignedRulesList` carrying the rule GUIDs just created |
+| `AddPolicyReport` | `(report, importFlag)` → new report GUID (string) | Last, with `importFlag=false` and `AssignedPoliciesList` carrying the policy GUIDs |
+| `GetPolicyReport` | `(reportId, exportFlag)` with `exportFlag=true` | Read-back verification: the import only reports success once the returned tree holds the expected policies and rules |
 | `StartCaching` | `(selectedReportsIds)` — array of GUID strings | Activation; **always pass the specific GUID** — an empty array re-caches every report on the server |
-| `GetPolicyReport` | `(reportId, exportFlag)` → PolicyReport object | Round-trip verification/export |
 | `GetPolicy` / `GetPolicyRule` | `(policyId, exportFlag)` / `(ruleId)` | Per-item export |
+
+The tool builds bottom-up (rules → policies → report, linked by ID lists) rather than
+one nested `AddPolicyReport(report, importFlag)` call with `importFlag` true: the nested route is
+documented to persist children, but has been observed in the field creating only the
+report row over JSON REST — an empty report with no policies or rules. The explicit
+route is unambiguous and verifiable.
 
 `Cirrus.PolicyReports.CacheStatus` values, for watching an import become visible:
 `0` not cached, `1` waiting in a queue, `2` caching now, `3` cached, `4` error
