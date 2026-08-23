@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""stig2ncm — DISA STIG → SolarWinds NCM compliance report importer.
+"""DISA STIG Conversion Tool — DISA STIG to SolarWinds compliance importer.
 
 Takes a STIG package as DISA publishes it on https://public.cyber.mil/stigs/downloads/
 (a zip whose payload is one or more XCCDF benchmark files named ``*-xccdf.xml``; the
@@ -8,16 +8,16 @@ rule in an NCM compliance policy report, delivered to the server through the SWI
 verbs on ``Cirrus.PolicyReports``.
 
     Download a package from DISA's public mirror:
-        python stig2ncm.py download U_Cisco_IOS_Router_Y26M07_STIG
+        python disa_stig_tool.py download U_Cisco_IOS_Router_Y26M07_STIG
 
     See what a package contains before touching a server:
-        python stig2ncm.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip
+        python disa_stig_tool.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip
 
     Write the report payload to disk for inspection (JSON, exact import shape):
-        python stig2ncm.py build U_Cisco_IOS_Router_Y26M07_STIG.zip -o report.json
+        python disa_stig_tool.py build U_Cisco_IOS_Router_Y26M07_STIG.zip -o report.json
 
     Import into NCM and start compliance caching for the new report:
-        python stig2ncm.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \\
+        python disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \\
             --host orion.example.com --user admin
 
 The password is read from the SWIS_PASSWORD environment variable, or prompted for.
@@ -353,7 +353,7 @@ def rule_object(rule, grouping, mode):
 
     name = f"{rule['vuln_id']} [{rule['severity']}] {rule['title']}"
     return {
-        "RuleId": str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm:" + rule["rule_id"])),
+        "RuleId": str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm:" + rule["rule_id"])),  # historic namespace string; changing it would change every derived RuleId
         "RuleName": name[:250],
         "Comments": comments,
         "Grouping": grouping,
@@ -375,7 +375,7 @@ def rule_object(rule, grouping, mode):
         "ExecuteScriptAutomatically": False,
         "ExecuteRemediationScriptPerBlock": False,
         "ExecuteScriptInConfigMode": False,
-        "Owner": "stig2ncm",
+        "Owner": "DISA STIG Conversion Tool",
     }
 
 
@@ -387,7 +387,7 @@ def build_report(benchmarks, name=None, grouping="DISA STIG", node_where="(Nodes
         policy_group = f"{grouping}/{b['benchmark_id']}" if b["benchmark_id"] else grouping
         policies.append({
             "PolicyName": f"{b['title']} V{b['version']} ({b['release']})"[:250],
-            "Comments": f"Imported by stig2ncm from {b['source']} (benchmark {b['benchmark_id']}, "
+            "Comments": f"Imported by the DISA STIG Conversion Tool from {b['source']} (benchmark {b['benchmark_id']}, "
                         f"status date {b['status_date']}).",
             "Grouping": grouping,
             # The literal "Criteria:" prefix plus the Where clause is what filters
@@ -405,7 +405,7 @@ def build_report(benchmarks, name=None, grouping="DISA STIG", node_where="(Nodes
     return {
         "ID": str(uuid.uuid4()),  # advisory only — the server assigns its own GUID
         "Name": name[:250],
-        "Comments": "DISA STIG imported by stig2ncm. Sources: "
+        "Comments": "DISA STIG imported by the DISA STIG Conversion Tool. Sources: "
                     + "; ".join(f"{b['source']} ({b['release']})" for b in benchmarks),
         "Group": grouping,
         "ShowSummaryFlag": True,
@@ -429,7 +429,7 @@ def cmd_download(args):
         url = DISA_ZIP_BASE + name
     dest = os.path.join(args.dir, os.path.basename(urllib.parse.urlsplit(url).path))
     print(f"downloading {url}")
-    req = urllib.request.Request(url, headers={"User-Agent": "stig2ncm/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "disa-stig-conversion-tool/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as out:
             while chunk := resp.read(1 << 16):
@@ -487,7 +487,7 @@ def cmd_build(args):
         info = scan_scm_policy(load_scm_policy(args.path))
         print(f"\"{info['name']}\" is an SCM compliance policy: the YAML file itself is "
               "the import payload — nothing to build.\n"
-              "Import it with:  stig2ncm.py import <file> …  "
+              "Import it with:  disa_stig_tool.py import <file> …  "
               "(or POST [yamlText] to Invoke/Orion.PolicyEngine.Policy/ImportPolicy)")
         return
     report = make_report_from_args(args)
@@ -497,7 +497,7 @@ def cmd_build(args):
     n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
     print(f"wrote {out}: report \"{report['Name']}\" — "
           f"{len(report['AssignedPolicies'])} policies, {n_rules} rules")
-    print("import it with:  stig2ncm.py import <same source> …  "
+    print("import it with:  disa_stig_tool.py import <same source> …  "
           "(or POST [report, true] to Invoke/Cirrus.PolicyReports/AddPolicyReport)")
 
 

@@ -142,6 +142,6 @@ explicitly acknowledges the flags.
 
 Reports in this format can also be generated from DISA's own XCCDF STIG downloads
 rather than a console export — one policy per benchmark, one rule per requirement,
-fix text as never-auto-executed remediation. That flow, and the `apps/stig2ncm` tool
+fix text as never-auto-executed remediation. That flow, and the DISA STIG Conversion Tool (`apps/disa-stig-conversion-tool`)
 that implements it (plus the SCM path for server STIG YAML), is documented in
 [../automation/disa-stig-import.md](../automation/disa-stig-import.md).

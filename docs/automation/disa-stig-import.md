@@ -11,7 +11,7 @@ platform can track them in two different modules depending on what the STIG targ
 | Servers (Windows, IIS, SQL Server…) | Server Configuration Monitor compliance | SolarWinds' SCM policy YAML, imported verbatim |
 
 This page is the whole flow for both: what is inside the files, which SWIS calls land
-them, and the `apps/stig2ncm` tool in this repository that does it end to end.
+them, and the DISA STIG Conversion Tool (`apps/disa-stig-conversion-tool`) in this repository that does it end to end.
 
 **Source.** Verified against a real DISA package (Cisco IOS Router, Y26M07 release: NDM
 V3R8 and RTR V3R4 benchmarks, 127 rules) and a real SCM policy export (Microsoft IIS 8.5
@@ -124,15 +124,15 @@ node. Treat a YAML from outside the organisation as executable content.
 
 ## The tool that does all of this
 
-[`apps/stig2ncm/`](../../apps/stig2ncm/README.md) implements both paths with format
+[`apps/disa-stig-conversion-tool/`](../../apps/disa-stig-conversion-tool/README.md) implements both paths with format
 auto-detection — zip, `*-xccdf.xml` or `.xsl` (it silently reads the benchmark next to
 the stylesheet) goes to NCM; `.yaml` goes to SCM — as a stdlib-only CLI and a desktop
 GUI buildable into a Windows executable:
 
 ```bash
-python3 apps/stig2ncm/stig2ncm.py download U_Cisco_IOS_Router_Y26M07_STIG
-python3 apps/stig2ncm/stig2ncm.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip
-python3 apps/stig2ncm/stig2ncm.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
+python3 apps/disa-stig-conversion-tool/disa_stig_tool.py download U_Cisco_IOS_Router_Y26M07_STIG
+python3 apps/disa-stig-conversion-tool/disa_stig_tool.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip
+python3 apps/disa-stig-conversion-tool/disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
     --host orion.example.com --user admin
 ```
 

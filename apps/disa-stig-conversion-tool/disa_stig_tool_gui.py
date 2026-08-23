@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""stig2ncm GUI — import DISA STIG compliance content into SolarWinds.
+"""DISA STIG Conversion Tool — import DISA STIG compliance content into SolarWinds.
 
-A small Windows-friendly desktop front end over stig2ncm.py. Point it at a
+A small Windows-friendly desktop front end over disa_stig_tool.py. Point it at a
 SolarWinds server, pick (or drop, or give the URL of) a STIG file, and import:
 
   * STIG zip / *-xccdf.xml / .xsl  →  NCM compliance policy report
@@ -11,11 +11,11 @@ SolarWinds server, pick (or drop, or give the URL of) a STIG file, and import:
 
 The target module is detected from the file itself; nothing to configure.
 
-Run from source:            python stig2ncm_gui.py
+Run from source:            python disa_stig_tool_gui.py
 Build a Windows .exe:       pip install pyinstaller
-                            pyinstaller --onefile --windowed --name STIG2SolarWinds ^
-                                stig2ncm_gui.py
-    (build on Windows; both stig2ncm files must sit in the same folder)
+                            pyinstaller --onefile --windowed --name DISASTIGConversionTool ^
+                                disa_stig_tool_gui.py
+    (build on Windows; both disa_stig_tool files must sit in the same folder)
 
 Optional extras, both auto-detected at runtime:
   * "Login with current Windows user" needs:  pip install requests requests-negotiate-sspi
@@ -36,10 +36,10 @@ import tkinter as tk
 import urllib.request
 from tkinter import filedialog, messagebox, ttk
 
-# stig2ncm.py sits next to this file, in source and in a PyInstaller bundle alike.
+# disa_stig_tool.py sits next to this file, in source and in a PyInstaller bundle alike.
 sys.path.insert(0, os.path.dirname(os.path.abspath(
     getattr(sys, "_MEIPASS", None) or __file__)))
-import stig2ncm as core  # noqa: E402
+import disa_stig_tool as core  # noqa: E402
 
 try:  # optional: drag-and-drop
     from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -95,7 +95,7 @@ class WindowsAuthClient:
 class App:
     def __init__(self, root):
         self.root = root
-        root.title("STIG → SolarWinds compliance importer")
+        root.title("DISA STIG Conversion Tool")
         root.minsize(680, 560)
         self.log_queue = queue.Queue()
         self._downloaded = None  # temp file path when the source is a URL
@@ -292,7 +292,7 @@ class App:
         name = os.path.basename(url.split("?")[0]) or "stig-download"
         dest = os.path.join(tempfile.gettempdir(), name)
         self._log(f"downloading {url} …")
-        req = urllib.request.Request(url, headers={"User-Agent": "stig2ncm/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "disa-stig-conversion-tool/1.0"})
         ctx = ssl.create_default_context()
         with urllib.request.urlopen(req, timeout=300, context=ctx) as resp, \
                 open(dest, "wb") as out:
@@ -396,6 +396,6 @@ if __name__ == "__main__":
         main()
     except tk.TclError as exc:
         # No display (e.g. run over SSH) — fail with guidance, not a traceback.
-        print(f"could not start the GUI: {exc}\nUse the CLI instead: python stig2ncm.py --help",
+        print(f"could not start the GUI: {exc}\nUse the CLI instead: python disa_stig_tool.py --help",
               file=sys.stderr)
         sys.exit(1)
