@@ -115,6 +115,11 @@ the platform credential store (the `CredentialID` convention covered in
 PolicyEngine namespace — the plumbing behind `ImportPolicyProfile` and
 `ManagedExternally`.
 
+The PolicyEngine side itself — SCM's compliance policies, the `!policy` YAML documents
+SolarWinds ships its DISA STIG and CIS content in, and the
+`Orion.PolicyEngine.Policy.ImportPolicy`/`ExportPolicy` round trip — has its own page:
+[scm-compliance-policies.md](scm-compliance-policies.md).
+
 ### Poll results
 
 `Orion.SCM.Results.PolledElements` is a discovered item on a specific node that matched an
