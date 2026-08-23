@@ -573,6 +573,127 @@ def import_ncm_report(swis, report, log=print):
 
 
 # ---------------------------------------------------------------------------
+# Target detection: which compliance module should this STIG land in?
+# ---------------------------------------------------------------------------
+#
+# The zip/file name and the benchmark title carry the product. Network-vendor
+# keywords route to NCM and also set the policy's node scope; OS keywords route
+# to Server Configuration Monitor.
+
+# keyword (matched case-insensitively) -> the Vendor value NCM nodes report
+NETWORK_VENDORS = {
+    "cisco": "Cisco", "ios ": "Cisco", "ios_": "Cisco", "nx-os": "Cisco",
+    "nx_os": "Cisco", "asa": "Cisco", "juniper": "Juniper", "junos": "Juniper",
+    "arista": "Arista", "palo alto": "Palo Alto", "palo_alto": "Palo Alto",
+    "paloalto": "Palo Alto", "f5 ": "F5", "f5_": "F5", "big-ip": "F5",
+    "bigip": "F5", "fortinet": "Fortinet", "fortigate": "Fortinet",
+    "brocade": "Brocade", "check point": "Check Point", "checkpoint": "Check Point",
+    "arubaos": "Aruba", "aruba": "Aruba", "extreme": "Extreme", "huawei": "Huawei",
+    "dell os10": "Dell", "router": None, "switch": None, "firewall": None,
+    "network device": None,
+}
+
+# keyword -> (display OS name, SWQL filter against Orion.Nodes for assignment)
+SERVER_OSES = {
+    "red hat": ("Red Hat Enterprise Linux", "MachineType LIKE '%Red Hat%'"),
+    "rhel": ("Red Hat Enterprise Linux", "MachineType LIKE '%Red Hat%'"),
+    "ubuntu": ("Ubuntu", "MachineType LIKE '%Ubuntu%'"),
+    "debian": ("Debian", "MachineType LIKE '%Debian%'"),
+    "centos": ("CentOS", "MachineType LIKE '%CentOS%'"),
+    "linux": ("Linux", "MachineType LIKE '%Linux%'"),
+    "windows": ("Windows", "MachineType LIKE '%Windows%'"),
+    "sql server": ("Windows", "MachineType LIKE '%Windows%'"),
+    "iis": ("Windows", "MachineType LIKE '%Windows%'"),
+    "exchange": ("Windows", "MachineType LIKE '%Windows%'"),
+}
+
+
+def detect_target(benchmarks, source_name):
+    """Return ('network', vendor_or_None) or ('server', (os, swql)) or (None, None).
+
+    Vendor keywords win over OS keywords only when they appear and no OS does;
+    a Windows/Linux match routes to SCM even if generic words like 'router'
+    also appear somewhere.
+    """
+    text = " ".join([source_name or ""] + [b["title"] + " " + b["source"]
+                                           for b in benchmarks]).lower()
+    for kw, os_info in SERVER_OSES.items():
+        if kw in text:
+            return "server", os_info
+    vendor = None
+    matched = False
+    for kw, v in NETWORK_VENDORS.items():
+        if kw in text:
+            matched = True
+            if v:
+                vendor = v
+                break
+    if matched:
+        return "network", vendor
+    return None, None
+
+
+def node_where_for(vendor):
+    return f"(Nodes.Vendor LIKE '%{vendor}%')" if vendor else "(Nodes.Vendor = 'Cisco')"
+
+
+# ---------------------------------------------------------------------------
+# Server Compliance: XCCDF -> SCM policy YAML
+# ---------------------------------------------------------------------------
+#
+# SCM's policy engine imports the !policy YAML format (see the shipped IIS 8.5
+# policy and docs/modules/scm-compliance-policies.md). A manual STIG has no
+# machine checks, so each generated rule carries an attestation sentinel: a
+# harmless Write-Host probe whose output never matches, keeping the rule
+# failing — an open action item with the STIG's check and fix text attached —
+# until an operator reviews it. JSON string quoting is valid YAML, which keeps
+# the emitter dependency-free.
+
+def _yq(value):
+    """Quote a scalar for YAML via JSON (JSON strings are valid YAML)."""
+    return json.dumps(value or "", ensure_ascii=False)
+
+
+def xccdf_to_scm_yaml(benchmark):
+    """Convert one XCCDF benchmark into an importable SCM compliance policy."""
+    name = f"{benchmark['title']} V{benchmark['version']} ({benchmark['release']})"[:250]
+    policy_uid = uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-scm:" + (benchmark["benchmark_id"]
+                                                                   or benchmark["title"]))
+    lines = [
+        "!policy",
+        f"name: {_yq(name)}",
+        f"uniqueId: {policy_uid}",
+        "pluginName: SCM",
+        f"description: {_yq('DISA STIG imported by the DISA STIG Conversion Tool from ' + benchmark['source'] + '. Every rule is a manual-review attestation: it reports failed, with the STIG check and fix text attached, until an engineer verifies the setting and replaces or disables the rule. Nothing in this policy changes server configuration.')}",
+        "version: 2",
+        "builtIn: false",
+        "rules:",
+    ]
+    for r in benchmark["rules"]:
+        rule_uid = uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-scm-rule:" + r["rule_id"])
+        check = r["check_content"] or (
+            f"Machine check (SCAP edition): OVAL definition {r['oval_ref']}. "
+            "The manual STIG for this product carries the prose check text."
+            if r.get("oval_ref") else "")
+        probe = f"Write-Host \"{r['vuln_id']} reviewed: False\""
+        lines += [
+            f"- displayId: {_yq(r['vuln_id'])}",
+            f"  uniqueId: {rule_uid}",
+            f"  name: {_yq(r['title'][:250])}",
+            f"  severity: {r['severity'].capitalize()}",
+            f"  description: {_yq(r['discussion'])}",
+            f"  remediationDescription: {_yq(r['fix_text'])}",
+            f"  checkText: {_yq(check)}",
+            "  condition: !matches",
+            f"    expression: {_yq(r['vuln_id'] + ' reviewed: True')}",
+            "    source: !scm.powershell",
+            f"      description: {_yq('STIG ' + r['stig_id'] + ' manual-review attestation')}",
+            f"      script: {_yq(probe)}",
+        ]
+    return "\n".join(lines) + "\n"
+
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -616,7 +737,9 @@ def cmd_parse(args):
             for r in info["rules"]:
                 print(f"    {r}")
         return
-    for b in load_benchmarks(args.path):
+    benchmarks = load_benchmarks(args.path)
+    print(resolve_route("auto", benchmarks, os.path.basename(args.path))[2])
+    for b in benchmarks:
         counts = {}
         for r in b["rules"]:
             counts[r["severity"]] = counts.get(r["severity"], 0) + 1
@@ -631,11 +754,42 @@ def cmd_parse(args):
         print()
 
 
-def make_report_from_args(args):
-    benchmarks = load_benchmarks(args.path)
+def resolve_route(target, benchmarks, source_name, node_where=None):
+    """Decide the destination module for parsed XCCDF benchmarks.
+
+    target: 'auto' | 'network' | 'server' (the dropdown / --target choice).
+    Returns ('network', where_clause, note) or ('server', (os_name, swql), note).
+    """
+    detected, info = detect_target(benchmarks, source_name)
+    explicit_where = node_where and not node_where.lower().startswith("auto") \
+        and not node_where.startswith("(auto")
+    if target == "server" or (target == "auto" and detected == "server"):
+        os_info = info if detected == "server" else ("(OS not recognized)",
+                                                     "MachineType LIKE '%'")
+        why = "detected from the file/benchmark name" if detected == "server" \
+            else "forced by the Server Compliance selection"
+        return "server", os_info, (f"target: Server Configuration Monitor — "
+                                   f"{os_info[0]} ({why})")
+    vendor = info if detected == "network" else None
+    where = node_where if explicit_where else node_where_for(vendor)
+    if target == "network" and detected == "server":
+        note = ("target: NCM (forced by the Network Compliance selection — the file "
+                "looks like a server STIG)")
+    elif vendor:
+        note = f"target: NCM — vendor {vendor} detected, node scope {where}"
+    elif detected == "network":
+        note = f"target: NCM — network device detected, node scope {where}"
+    else:
+        note = (f"target: NCM by default — nothing recognized in the name; "
+                f"node scope {where} (override with the Server Compliance option "
+                "or --target server if this is a server STIG)")
+    return "network", where, note
+
+
+def make_report_from_args(args, benchmarks, node_where):
     return build_report(
         benchmarks, name=args.name, grouping=args.grouping,
-        node_where=args.node_where, config_type=args.config_type, mode=args.mode,
+        node_where=node_where, config_type=args.config_type, mode=args.mode,
         source_path=args.path,
     )
 
@@ -648,8 +802,22 @@ def cmd_build(args):
               "Import it with:  disa_stig_tool.py import <file> …  "
               "(or POST [yamlText] to Invoke/Orion.PolicyEngine.Policy/ImportPolicy)")
         return
-    report = make_report_from_args(args)
-    out = args.output or (os.path.splitext(os.path.basename(args.path))[0] + ".ncm-report.json")
+    benchmarks = load_benchmarks(args.path)
+    kind, info, note = resolve_route(args.target, benchmarks,
+                                     os.path.basename(args.path), args.node_where)
+    print(note)
+    stem = os.path.splitext(os.path.basename(args.path))[0]
+    if kind == "server":
+        for b in benchmarks:
+            out = args.output if args.output and len(benchmarks) == 1 else \
+                f"{stem}.{b['benchmark_id'] or 'benchmark'}.scm-policy.yaml"
+            with open(out, "w", encoding="utf-8") as fh:
+                fh.write(xccdf_to_scm_yaml(b))
+            print(f"wrote {out}: SCM policy \"{b['title']}\" — {len(b['rules'])} rules")
+        print("import with:  disa_stig_tool.py import <same source> --target server …")
+        return
+    report = make_report_from_args(args, benchmarks, info)
+    out = args.output or (stem + ".ncm-report.json")
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2)
     n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
@@ -657,6 +825,19 @@ def cmd_build(args):
           f"{len(report['AssignedPolicies'])} policies, {n_rules} rules")
     print("import it with:  disa_stig_tool.py import <same source> …  "
           "(or POST [report, true] to Invoke/Cirrus.PolicyReports/AddPolicyReport)")
+
+
+def import_scm_benchmarks(swis, benchmarks, os_info, log=print):
+    """Convert each benchmark to an SCM policy and import it via ImportPolicy."""
+    os_name, swql = os_info
+    for b in benchmarks:
+        yaml_text = xccdf_to_scm_yaml(b)
+        policy_id, name = import_scm_policy(swis, yaml_text)
+        log(f"imported SCM policy \"{name}\" (PolicyID {policy_id}) — "
+            f"{len(b['rules'])} manual-review rules")
+    log(f"Assign to your {os_name} nodes under Settings → SCM Settings → Policies "
+        "(or Orion.PolicyEngine.Policy.AssignToEntity). Find them with:")
+    log(f"  SELECT NodeID, Caption, MachineType FROM Orion.Nodes WHERE {swql}")
 
 
 def cmd_import(args):
@@ -672,7 +853,15 @@ def cmd_import(args):
               "Orion.PolicyEngine.Policy.AssignToEntity.")
         return
 
-    report = make_report_from_args(args)
+    benchmarks = load_benchmarks(args.path)
+    kind, info, note = resolve_route(args.target, benchmarks,
+                                     os.path.basename(args.path), args.node_where)
+    print(note)
+    if kind == "server":
+        import_scm_benchmarks(swis, benchmarks, info)
+        return
+
+    report = make_report_from_args(args, benchmarks, info)
     existing = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
                           {"n": report["Name"]})
     if existing:
@@ -700,8 +889,13 @@ def add_source_args(p):
     p.add_argument("path", help="STIG zip, extracted directory, or a single *-xccdf.xml file")
     p.add_argument("--name", help="report name (default: derived from the benchmark title)")
     p.add_argument("--grouping", default="DISA STIG", help="folder for report/policies/rules")
-    p.add_argument("--node-where", default="(Nodes.Vendor = 'Cisco')",
-                   help="NCM node-selection Where clause, e.g. \"(Nodes.Vendor = 'Cisco')\"")
+    p.add_argument("--target", choices=("auto", "network", "server"), default="auto",
+                   help="auto: route by the file/benchmark name (network vendors → NCM, "
+                        "Windows/Linux/RHEL/Debian/Ubuntu/CentOS → SCM). "
+                        "network: NCM compliance only. server: SCM compliance only.")
+    p.add_argument("--node-where", default="auto",
+                   help="NCM node-selection Where clause, e.g. \"(Nodes.Vendor = 'Cisco')\". "
+                        "Default auto: derived from the detected vendor.")
     p.add_argument("--config-type", default="Any",
                    help="config type the rules scan: Any, Running, Startup, …")
     p.add_argument("--mode", choices=("manual", "heuristic"), default="manual",
@@ -847,23 +1041,33 @@ class App:
         self.url_entry = ttk.Entry(src, textvariable=self.url)
         self.url_entry.grid(row=4, column=1, columnspan=2, sticky="ew", **pad)
 
-        # --- NCM options (ignored for SCM yaml) -------------------------------
-        opts = ttk.LabelFrame(frame, text="NCM options (used for zip/xml sources only)",
-                              padding=8)
+        # --- import options ---------------------------------------------------
+        opts = ttk.LabelFrame(frame, text="Import options", padding=8)
         opts.grid(row=2, column=0, columnspan=2, sticky="ew", **pad)
         opts.columnconfigure(1, weight=1)
-        ttk.Label(opts, text="Node scope (Where clause)").grid(row=0, column=0,
-                                                               sticky="w", **pad)
-        self.node_where = tk.StringVar(value="(Nodes.Vendor = 'Cisco')")
-        ttk.Entry(opts, textvariable=self.node_where).grid(row=0, column=1,
+
+        ttk.Label(opts, text="Compliance target").grid(row=0, column=0, sticky="w", **pad)
+        self.target = tk.StringVar()
+        target_box = ttk.Combobox(
+            opts, textvariable=self.target, state="readonly", width=52,
+            values=("Auto Compliance Assignment — route by file name / device type",
+                    "Network Compliance — network devices only (NCM)",
+                    "Server Compliance — server systems (SCM)"))
+        target_box.current(0)
+        target_box.grid(row=0, column=1, sticky="w", **pad)
+
+        ttk.Label(opts, text="NCM node scope (Where clause)").grid(row=1, column=0,
+                                                                   sticky="w", **pad)
+        self.node_where = tk.StringVar(value="(auto — from the detected vendor)")
+        ttk.Entry(opts, textvariable=self.node_where).grid(row=1, column=1,
                                                            sticky="ew", **pad)
-        ttk.Label(opts, text="Rule patterns").grid(row=1, column=0, sticky="w", **pad)
+        ttk.Label(opts, text="NCM rule patterns").grid(row=2, column=0, sticky="w", **pad)
         self.mode = tk.StringVar(value="manual")
         box = ttk.Combobox(opts, textvariable=self.mode, state="readonly", width=52,
                            values=("manual — every rule flags for review (recommended)",
                                    "heuristic — draft patterns from the STIG check text"))
         box.current(0)
-        box.grid(row=1, column=1, sticky="w", **pad)
+        box.grid(row=2, column=1, sticky="w", **pad)
 
         # --- actions and log --------------------------------------------------
         btns = ttk.Frame(frame)
@@ -985,15 +1189,23 @@ class App:
         self._downloaded = dest
         return dest
 
+    def _target_choice(self):
+        label = self.target.get()
+        if label.startswith("Network"):
+            return "network"
+        if label.startswith("Server"):
+            return "server"
+        return "auto"
+
     def _describe(self, path):
-        """Detect the target module and return ('scm'|'ncm', preview lines)."""
+        """Detect the target module and return ('scm-yaml'|'ncm'|'scm', preview lines)."""
         if is_scm_path(path):
             info = scan_scm_policy(load_scm_policy(path))
             sev = ", ".join(f"{v} {k}" for k, v in sorted(info["severity_counts"].items()))
-            return "scm", [f"SCM compliance policy: {info['name']}",
-                           f"  {len(info['rules'])} rules ({sev})",
-                           "  target: Server Configuration Monitor "
-                           "(Orion.PolicyEngine.Policy.ImportPolicy)"]
+            return "scm-yaml", [f"SCM compliance policy: {info['name']}",
+                                f"  {len(info['rules'])} rules ({sev})",
+                                "  target: Server Configuration Monitor "
+                                "(Orion.PolicyEngine.Policy.ImportPolicy)"]
         lines = []
         benchmarks = load_benchmarks(path)
         for b in benchmarks:
@@ -1002,10 +1214,13 @@ class App:
                 counts[r["severity"]] = counts.get(r["severity"], 0) + 1
             sev = ", ".join(f"{counts[s]} {s}" for s in ("high", "medium", "low")
                             if s in counts)
-            lines.append(f"NCM: {b['title']} [{b['edition']} edition]")
+            lines.append(f"{b['title']} [{b['edition']} edition]")
             lines.append(f"  V{b['version']} {b['release']} — {len(b['rules'])} rules ({sev})")
-        lines.append("  target: NCM compliance (Cirrus.PolicyReports.AddPolicyReport)")
-        return "ncm", lines
+        kind, _info, note = resolve_route(self._target_choice(), benchmarks,
+                                          os.path.basename(path),
+                                          self.node_where.get().strip())
+        lines.append("  " + note)
+        return kind, lines
 
     # ---- actions --------------------------------------------------------------
 
@@ -1037,18 +1252,26 @@ class App:
             for line in lines:
                 self._log(line)
             swis = self._client()
-            if kind == "scm":
+            if kind == "scm-yaml":
                 policy_id, name = import_scm_policy(swis, load_scm_policy(path))
                 self._log(f"imported SCM policy \"{name}\" (PolicyID {policy_id}).")
                 self._log("Assign it to nodes under Settings → SCM Settings → Policies.")
                 return
-            mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
+            benchmarks = load_benchmarks(path)
             # The report is named after the original source (the zip's name when the
             # source is a URL download too), not the temp file it may have landed in.
             original = self.url.get().strip() if self.source_kind.get() == "url" else path
-            report = build_report(load_benchmarks(path),
-                                  node_where=self.node_where.get().strip()
-                                  or "(Nodes.Vendor = 'Cisco')",
+            _kind, info, _note = resolve_route(self._target_choice(), benchmarks,
+                                               os.path.basename(path),
+                                               self.node_where.get().strip())
+            if kind == "server":
+                import_scm_benchmarks(swis, benchmarks, info, log=self._log)
+                self._log("done — assign the policies to nodes, then see "
+                          "My Dashboards → Home → Server Configuration.")
+                return
+            mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
+            report = build_report(benchmarks,
+                                  node_where=info,
                                   mode=mode,
                                   source_path=os.path.basename(original.split("?")[0]))
             existing = swis.query(

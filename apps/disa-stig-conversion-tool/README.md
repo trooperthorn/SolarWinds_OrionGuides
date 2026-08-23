@@ -7,8 +7,14 @@ remediable item. Two target modules, detected automatically from the file:
 
 | You give it | It imports into |
 | --- | --- |
-| STIG zip, `*-xccdf.xml`, or the `.xsl` next to it | **NCM** compliance policy report (`Cirrus.PolicyReports`) |
-| SCM compliance policy `.yaml` (`!policy`, `pluginName: SCM`) | **Server Configuration Monitor** (`Orion.PolicyEngine.Policy.ImportPolicy`) |
+| STIG zip / xccdf `.xml` / `.xsl` for a **network device** (Cisco, Juniper, Arista, Palo Alto, F5, Fortinet, …) | **NCM** compliance policy report (`Cirrus.PolicyReports`), node scope auto-set from the vendor |
+| STIG zip / xccdf `.xml` for a **server OS** (Windows, Linux, RHEL, Debian, Ubuntu, CentOS) | **Server Configuration Monitor** — converted to an SCM policy and imported via `Orion.PolicyEngine.Policy.ImportPolicy` |
+| SCM compliance policy `.yaml` (`!policy`, `pluginName: SCM`) | **Server Configuration Monitor**, imported verbatim |
+
+The **Compliance target** dropdown (or `--target`) controls the routing:
+**Auto Compliance Assignment** (default) decides from the file and benchmark
+names as above; **Network Compliance** forces NCM; **Server Compliance** forces
+SCM. Auto falls back to NCM, saying so, when nothing is recognized.
 
 The whole tool is **one self-contained file**, `disa_stig_tool.py` — GUI and CLI
 together, standard library only. Download that single file and it runs; nothing else
@@ -21,8 +27,10 @@ python disa_stig_tool.py          ← no arguments (or a double-click on Windows
 ```
 
 One window: server IP/FQDN + SWIS port, username/password or a **Login with current
-Windows user** checkbox, then either **Browse/drop a file** (zip, xccdf `.xml`, `.xsl`,
-SCM `.yaml`) or **enter a STIG package URL**. Buttons: Test connection (also reports
+Windows user** checkbox, either **Browse/drop a file** (zip, xccdf `.xml`, `.xsl`,
+SCM `.yaml`) or **enter a STIG package URL**, and the **Compliance target** dropdown
+(Auto / Network / Server). The NCM node scope defaults to auto — derived from the
+detected vendor — and stays editable. Buttons: Test connection (also reports
 whether NCM and the SCM policy engine are installed on the server), Preview file
 (what would be imported, and into which module), Import.
 
@@ -113,6 +121,18 @@ tool is honest about that:
 
 `RuleId` GUIDs are derived deterministically from the DISA rule ID (uuid5), so
 re-importing the same STIG release produces the same rule identities.
+
+## Server STIGs into SCM (the Server Compliance route)
+
+A server-OS XCCDF (manual or SCAP) is converted into an SCM compliance policy —
+one `!policy` YAML per benchmark — and imported through `ImportPolicy`. Manual STIGs
+carry no machine checks, so every generated rule is a **manual-review attestation**:
+its condition is a harmless `Write-Host` probe that always reports failed, keeping
+the rule an open action item carrying the STIG's check and fix text until an engineer
+verifies the setting and replaces or disables the rule. Nothing in a generated policy
+changes server configuration. SCM policies carry no node scope in the file —
+assignment is per node after import — so the tool prints the `Orion.Nodes` query
+(by `MachineType` for the detected OS) that lists the nodes to assign.
 
 ## SCM policies (Server Configuration Monitor)
 
