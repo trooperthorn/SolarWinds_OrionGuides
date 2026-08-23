@@ -514,6 +514,91 @@ def build_report(benchmarks, name=None, grouping="DISA STIG", node_where="(Nodes
     }
 
 
+# ---------------------------------------------------------------------------
+# Console XML wire format for the NCM contract objects
+# ---------------------------------------------------------------------------
+#
+# The SolarWinds.NCM.Contracts.Compliance.* types are XML-serialized on the
+# wire. Some servers map a JSON object onto them; others hand the argument to
+# an XML reader and fail with HTTP 400 "Value cannot be null. Parameter name:
+# input" (observed on 2026.2.2). For those, the argument must be the contract
+# XML as a string — the same shape as a console export file, and element order
+# matters because .NET XML deserializers on the receiving side are
+# order-sensitive. Order below is copied from real console exports (and from
+# apps/porter's export writer in this repository).
+
+def _b_str(value):
+    return "true" if value else "false"
+
+
+def _sub(parent, name, text):
+    el = ET.SubElement(parent, name)
+    el.text = text if text else None
+    return el
+
+
+def _rule_xml_into(parent, rule):
+    r = ET.SubElement(parent, "PolicyRule")
+    pats = ET.SubElement(r, "MultiLineRulePatterns")
+    for p in rule.get("MultiLineRulePatterns") or []:
+        m = ET.SubElement(pats, "MultiLineRulePattern")
+        _sub(m, "EndBracket", p.get("EndBracket") or "")
+        _sub(m, "PatternType", str(p.get("PatternType") or "Like"))
+        _sub(m, "Condition", p.get("Condition") or "")
+        _sub(m, "Pattern", p.get("Pattern") or "")
+        _sub(m, "Criteria", _b_str(p.get("Criteria")))
+        _sub(m, "BeginBracket", p.get("BeginBracket") or "")
+    _sub(r, "RuleId", rule.get("RuleId") or "")
+    _sub(r, "RuleName", rule.get("RuleName") or "")
+    _sub(r, "Comments", rule.get("Comments") or "")
+    _sub(r, "Grouping", rule.get("Grouping") or "")
+    _sub(r, "RemediateScript", rule.get("RemediateScript") or "")
+    _sub(r, "ConfigBlockStart", rule.get("ConfigBlockStart") or "")
+    _sub(r, "ConfigBlockEnd", rule.get("ConfigBlockEnd") or "")
+    _sub(r, "ConfigBlockPatternType", str(rule.get("ConfigBlockPatternType") or "Like"))
+    _sub(r, "ConfigBlockMustExist", _b_str(rule.get("ConfigBlockMustExist")))
+    _sub(r, "PatternType", str(rule.get("PatternType") or "Like"))
+    _sub(r, "PatternMustExist", _b_str(rule.get("PatternMustExist")))
+    _sub(r, "AdvancedMode", _b_str(rule.get("AdvancedMode")))
+    _sub(r, "ErrorLevel", str(int(rule.get("ErrorLevel") or 0)))
+    _sub(r, "SimplePatternText", rule.get("SimplePatternText") or "")
+    _sub(r, "ExecuteScriptAutomatically", _b_str(rule.get("ExecuteScriptAutomatically")))
+    _sub(r, "Owner", rule.get("Owner") or "")
+    _sub(r, "RemediateScriptType", str(rule.get("RemediateScriptType") or "CLI"))
+    _sub(r, "ExecuteRemediationScriptPerBlock",
+         _b_str(rule.get("ExecuteRemediationScriptPerBlock")))
+    _sub(r, "ExecuteScriptInConfigMode", _b_str(rule.get("ExecuteScriptInConfigMode")))
+    return r
+
+
+def report_contract_xml(report):
+    """The full nested report as console-export XML — the AddPolicyReport argument."""
+    root = ET.Element("PolicyReport", {
+        "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+    })
+    _sub(root, "ID", report.get("ID") or "")
+    _sub(root, "Name", report.get("Name") or "")
+    _sub(root, "Comments", report.get("Comments") or "")
+    _sub(root, "Group", report.get("Group") or "")
+    _sub(root, "ShowSummaryFlag", _b_str(report.get("ShowSummaryFlag")))
+    _sub(root, "ShowRulesWithoutViolationFlag",
+         _b_str(report.get("ShowRulesWithoutViolationFlag")))
+    pols = ET.SubElement(root, "AssignedPolicies")
+    for p in report.get("AssignedPolicies") or []:
+        pe = ET.SubElement(pols, "Policy")
+        _sub(pe, "NodeSelectionString", p.get("NodeSelectionString") or "")
+        _sub(pe, "ConfigTypes", str(p.get("ConfigTypes") or "Any"))
+        rules_el = ET.SubElement(pe, "AssignedPolicyRules")
+        for r in p.get("AssignedPolicyRules") or []:
+            _rule_xml_into(rules_el, r)
+        _sub(pe, "Grouping", p.get("Grouping") or "")
+        _sub(pe, "Comments", p.get("Comments") or "")
+        _sub(pe, "PolicyName", p.get("PolicyName") or "")
+    _sub(root, "ReportStatus", str(report.get("ReportStatus") or "Enabled"))
+    return ET.tostring(root, encoding="unicode")
+
+
 def _clean_id(value, fallback):
     """Verb results come back as JSON strings that may carry quotes or braces."""
     if isinstance(value, str):
@@ -523,17 +608,54 @@ def _clean_id(value, fallback):
     return fallback
 
 
+def _verify_report(swis, report_id, expected_policies, expected_rules, log):
+    """Read the report back — the import is only done if the tree actually exists."""
+    stored = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True) or {}
+    stored_policies = stored.get("AssignedPolicies") or []
+    stored_rules = sum(len(p.get("AssignedPolicyRules") or []) for p in stored_policies)
+    if not stored_policies or stored_rules == 0:
+        raise SwisError(
+            f"verification failed: report {report_id} was created but holds "
+            f"{len(stored_policies)} policies and {stored_rules} rules "
+            f"(expected {expected_policies} and {expected_rules}). Check the account's NCM "
+            "role (WebUploader or higher) and the server's compliance settings.")
+    log(f"verified: report holds {len(stored_policies)} policies and {stored_rules} rules")
+    return report_id, len(stored_policies), stored_rules
+
+
 def import_ncm_report(swis, report, log=print):
-    """Create the report bottom-up: every rule, then every policy, then the report.
+    """Import the report, adapting to how the server accepts the contract objects.
 
-    AddPolicyReport(report, importFlag=true) is documented to persist the nested
-    tree in one call, but has been observed in the field creating only the report
-    row over JSON REST. Creating each tier explicitly and linking by ID
-    (AddPolicyRule → AddPolicy → AddPolicyReport with the ID lists) is unambiguous,
-    and the result is verified by reading the report back before caching starts.
+    First try creating the tiers bottom-up as JSON objects (AddPolicyRule →
+    AddPolicy → AddPolicyReport linked by ID lists). Some servers' JSON endpoint
+    hands the NCM contract types to an XML deserializer instead and rejects the
+    very first call with HTTP 400 "Value cannot be null. Parameter name: input"
+    (observed on 2026.2.2) — for those, fall back to one nested
+    AddPolicyReport(xmlString, importFlag=true) in the console-export XML wire
+    format, which is exactly what the console's own import sends.
 
+    Either way the result is verified by reading the report back before caching.
     Returns (report_id, policy_count, rule_count) as confirmed by the read-back.
     """
+    n_policies = len(report["AssignedPolicies"])
+    n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
+    try:
+        return _import_ncm_bottom_up(swis, report, log)
+    except SwisError as exc:
+        if "HTTP 400" not in str(exc):
+            raise
+        log(f"the server rejected the JSON contract object ({str(exc).splitlines()[-1]});")
+        log("retrying with the console XML wire format (one nested AddPolicyReport call) …")
+        xml_arg = report_contract_xml(report)
+        report_id = _clean_id(
+            swis.invoke("Cirrus.PolicyReports", "AddPolicyReport", xml_arg, True), "")
+        if not report_id:
+            raise SwisError("AddPolicyReport (XML wire format) did not return "
+                            "the new report id")
+        return _verify_report(swis, report_id, n_policies, n_rules, log)
+
+
+def _import_ncm_bottom_up(swis, report, log):
     policy_ids = []
     total_rules = 0
     for policy in report["AssignedPolicies"]:
@@ -558,18 +680,7 @@ def import_ncm_report(swis, report, log=print):
     if not report_id:
         raise SwisError("AddPolicyReport did not return the new report id")
 
-    # Read the report back: the import is only done if the tree actually exists.
-    stored = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True) or {}
-    stored_policies = stored.get("AssignedPolicies") or []
-    stored_rules = sum(len(p.get("AssignedPolicyRules") or []) for p in stored_policies)
-    if not stored_policies or stored_rules == 0:
-        raise SwisError(
-            f"verification failed: report {report_id} was created but holds "
-            f"{len(stored_policies)} policies and {stored_rules} rules "
-            f"(expected {len(policy_ids)} and {total_rules}). Check the account's NCM "
-            "role (WebUploader or higher) and the server's compliance settings.")
-    log(f"verified: report holds {len(stored_policies)} policies and {stored_rules} rules")
-    return report_id, len(stored_policies), stored_rules
+    return _verify_report(swis, report_id, len(policy_ids), total_rules, log)
 
 
 # ---------------------------------------------------------------------------

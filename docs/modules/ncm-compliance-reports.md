@@ -121,14 +121,18 @@ Round-trip gotchas:
 - Contract member names differ from SWQL columns (`Comments`/`Group` vs
   `Comment`/`Grouping`; rule `SimplePatternText` vs column `Pattern`) — map file
   fields to the verb contract, never to column names.
-- **Field observation:** at least one production server accepted
-  `AddPolicyReport(report, importFlag)` with `importFlag` true over JSON REST and created only the
-  report row — no nested policies or rules landed. The unambiguous alternative is
-  bottom-up composition: `AddPolicyRule` per rule, then `AddPolicy` and
-  `AddPolicyReport` with `importFlag` false and the `AssignedRulesList` /
-  `AssignedPoliciesList` ID lists filled,
-  then `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true to verify the
-  tree before trusting the import.
+- **Field observation (2026.2.2):** the JSON REST endpoint does not reliably map
+  JSON objects onto the `SolarWinds.NCM.Contracts.Compliance.*` types. One server
+  accepted `AddPolicyReport(report, importFlag)` with `importFlag` true and silently created only the
+  report row; another rejected `AddPolicyRule` outright with HTTP 400 "Value cannot
+  be null. Parameter name: input" — the signature of the argument being handed to an
+  XML reader. The wire format that matches how the console itself imports is the
+  contract **XML as a string**: serialize the nested report exactly like a console
+  export file (same element order — the receiving deserializer is order-sensitive,
+  and `IsConfigBlockPatternRegEx` is omitted as computed) and pass that string as the
+  `report` argument. Whichever route is used, verify with
+  `GetPolicyReport(reportId, exportFlag)` (`exportFlag` true) that the stored tree
+  actually holds the policies and rules before trusting the import.
 - The `Update*` verbs have no `importFlag`, so they touch only their own level;
   cascading replace means delete-then-add, and `DeletePolicyReports(ids,
   deleteChildren=true)` can rip shared policies out from under other reports —
