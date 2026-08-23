@@ -137,3 +137,11 @@ its NCM Compliance area: console-compatible XML out (UTF-16, matching element or
 new report. Its import validation raises a **blocking security flag** for every
 auto-executing remediation rule; the file cannot be imported until the operator
 explicitly acknowledges the flags.
+
+## From a DISA STIG package
+
+Reports in this format can also be generated from DISA's own XCCDF STIG downloads
+rather than a console export — one policy per benchmark, one rule per requirement,
+fix text as never-auto-executed remediation. That flow, and the `apps/stig2ncm` tool
+that implements it (plus the SCM path for server STIG YAML), is documented in
+[../automation/disa-stig-import.md](../automation/disa-stig-import.md).

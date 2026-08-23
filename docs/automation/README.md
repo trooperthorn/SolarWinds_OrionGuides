@@ -277,6 +277,7 @@ that reason.
 | [reporting.md](reporting.md) | Reports and scheduled exports |
 | [report-definitions.md](report-definitions.md) | The report definition XML: field addressing, presenters, transforms, embedded console resources |
 | [scheduling.md](scheduling.md) | Scheduled tasks and maintenance plans |
+| [disa-stig-import.md](disa-stig-import.md) | DISA STIG packages end to end: XCCDF into NCM compliance, SCM policy YAML into the policy engine |
 | [high-availability.md](high-availability.md) | HA pools |
 
 Polling has a section of its own, because five separate systems collect against the same

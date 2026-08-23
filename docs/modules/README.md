@@ -58,13 +58,16 @@ wireless shape under `Orion.Wireless.` (14).
 
 ### Console file formats
 
-Three pages in this section document an export file format field by field rather than a
+Four pages in this section document an export file format field by field rather than a
 module. [sam-templates.md](sam-templates.md) documents the `.apmtemplate` document that
 `ExportTemplate` and `ImportTemplate` move. [ncm-device-templates.md](ncm-device-templates.md)
 documents the `.ConfigMgmtCommands` document that tells NCM how to hold a Telnet or SSH
-session with a given kind of device, and
+session with a given kind of device.
 [ncm-compliance-reports.md](ncm-compliance-reports.md) documents the policy report export —
-the three-tier PolicyReport XML and its GetPolicyReport/AddPolicyReport round trip.
+the three-tier PolicyReport XML and its GetPolicyReport/AddPolicyReport round trip. And
+[scm-compliance-policies.md](scm-compliance-policies.md) documents the SCM compliance
+policy YAML — the `!policy` document with its condition/source tag grammar and the
+`Orion.PolicyEngine.Policy` ExportPolicy/ImportPolicy round trip.
 
 The other console export formats this repository documents live outside this section:
 [../automation/report-definitions.md](../automation/report-definitions.md) for the report
