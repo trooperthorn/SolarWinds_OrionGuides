@@ -64,13 +64,25 @@ for inspection or for importing by other tooling.
 
 ## What is actually in a STIG zip
 
-The zip contains one folder per benchmark. The file that matters is
-`*-xccdf.xml` — an [XCCDF 1.1](https://csrc.nist.gov/projects/security-content-automation-protocol/specifications/xccdf)
-benchmark holding every requirement (`Group id="V-…"` → `Rule`). The `STIG_unclass.xsl`
-next to it is only the stylesheet browsers use to render that XML; it carries no data.
-A package can hold several benchmarks — the Cisco IOS Router package has NDM
-(device management, 35 rules) and RTR (routing, 92 rules) — and compilation zips that
-nest one zip per STIG are handled too. Packages download from
+DISA's zips come in three shapes, all handled — benchmarks are discovered by content,
+not filename, since the naming varies (`*-xccdf.xml`, `*Manualxccdf.xml`,
+`*_Benchmark.xml`):
+
+- **xsl + xml (Manual edition)** — a bare [XCCDF 1.1](https://csrc.nist.gov/projects/security-content-automation-protocol/specifications/xccdf)
+  benchmark holding every requirement (`Group id="V-…"` → `Rule`) with prose check
+  text on each. The `STIG_unclass.xsl` next to it is only a browser stylesheet — pure
+  display templates, zero rule data (its check template even *skips* OVAL references).
+- **xml only (SCAP Benchmark edition)** — a SCAP 1.3 `data-stream-collection` wrapping
+  an XCCDF **1.2** benchmark plus OVAL definitions. Rules carry prefixed IDs
+  (stripped on parse), the same fix text as the manual edition, **no** check prose —
+  each check is an OVAL machine-check reference, which the tool records in the rule
+  comments.
+- **Compilation zips** nesting one zip per STIG.
+
+A package can hold several benchmarks (the Cisco IOS Router package has NDM and RTR).
+When both editions of the *same* benchmark are present, the manual one is kept:
+verified on real files, the fix text matches between editions and only the manual has
+the check prose — importing both would just duplicate rules. Packages download from
 `https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/<PackageName>.zip`
 (case-sensitive names).
 

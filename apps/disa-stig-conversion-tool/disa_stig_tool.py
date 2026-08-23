@@ -225,99 +225,169 @@ def extract_tag(description, tag):
     return m.group(1).strip() if m else ""
 
 
-def parse_benchmark(xml_bytes, source_name):
-    """Parse one XCCDF benchmark file into a plain dict."""
-    root = ET.fromstring(xml_bytes)
-    if not root.tag.endswith("Benchmark"):
-        raise ValueError(f"{source_name}: root element is {root.tag}, not an XCCDF Benchmark")
+# DISA publishes two editions. Manual STIGs are bare XCCDF 1.1 benchmarks with prose
+# check text. SCAP Benchmark editions (the xml-only zips, for automated scanners) are
+# SCAP 1.3 data-streams: a <data-stream-collection> root embedding an XCCDF **1.2**
+# benchmark whose ids are prefixed (xccdf_mil.disa.stig_group_V-…) and whose checks
+# are OVAL references instead of prose.
+XCCDF_12_NS = "{http://checklists.nist.gov/xccdf/1.2}"
+_SCAP_ID_PREFIX = re.compile(r"^xccdf_[^_]+(?:\.[^_]+)*_(?:group|rule|benchmark)_")
 
+
+def _strip_scap_prefix(value):
+    return _SCAP_ID_PREFIX.sub("", value or "")
+
+
+def parse_benchmarks(xml_bytes, source_name):
+    """Parse an XCCDF file (manual or SCAP data-stream) into a list of benchmark dicts."""
+    root = ET.fromstring(xml_bytes)
+    found = []
+    for ns in (XCCDF_NS, XCCDF_12_NS):
+        if root.tag == f"{ns}Benchmark":
+            found.append((root, ns))
+        else:
+            found.extend((b, ns) for b in root.iter(f"{ns}Benchmark"))
+    if not found:
+        raise ValueError(f"{source_name}: no XCCDF Benchmark element found "
+                         f"(root is {root.tag})")
+    return [_parse_one_benchmark(b, ns, source_name) for b, ns in found]
+
+
+def parse_benchmark(xml_bytes, source_name):
+    """Back-compatible single-benchmark parse (first benchmark in the file)."""
+    return parse_benchmarks(xml_bytes, source_name)[0]
+
+
+def _parse_one_benchmark(root, ns, source_name):
     def text(elem, name):
-        child = elem.find(f"{XCCDF_NS}{name}")
+        child = elem.find(f"{ns}{name}")
         return (child.text or "").strip() if child is not None else ""
 
     release = ""
-    for pt in root.findall(f"{XCCDF_NS}plain-text"):
+    for pt in root.findall(f"{ns}plain-text"):
         if pt.get("id") == "release-info":
             release = (pt.text or "").strip()
 
-    status = root.find(f"{XCCDF_NS}status")
+    status = root.find(f"{ns}status")
     status_date = status.get("date", "") if status is not None else ""
 
     rules = []
-    for group in root.findall(f"{XCCDF_NS}Group"):
-        rule = group.find(f"{XCCDF_NS}Rule")
+    for group in root.iter(f"{ns}Group"):
+        rule = group.find(f"{ns}Rule")
         if rule is None:
             continue
-        description = rule.findtext(f"{XCCDF_NS}description", default="")
-        check = rule.find(f"{XCCDF_NS}check")
-        check_content = ""
+        description = rule.findtext(f"{ns}description", default="")
+        check = rule.find(f"{ns}check")
+        check_content, oval_ref = "", ""
         if check is not None:
-            check_content = check.findtext(f"{XCCDF_NS}check-content", default="").strip()
+            check_content = check.findtext(f"{ns}check-content", default="").strip()
+            ref = check.find(f"{ns}check-content-ref")
+            if ref is not None and (ref.get("name") or "").startswith("oval:"):
+                oval_ref = ref.get("name")
         rules.append({
-            "vuln_id": group.get("id", ""),                     # V-215662
-            "rule_id": rule.get("id", ""),                      # SV-215662r…_rule
-            "stig_id": text(rule, "version"),                   # CISC-ND-000010
+            "vuln_id": _strip_scap_prefix(group.get("id", "")),   # V-215662
+            "rule_id": _strip_scap_prefix(rule.get("id", "")),    # SV-215662r…_rule
+            "stig_id": text(rule, "version"),                     # CISC-ND-000010
             "severity": rule.get("severity", "medium").lower(),
             "title": text(rule, "title"),
             "discussion": extract_tag(description, "VulnDiscussion"),
             "check_content": check_content,
-            "fix_text": rule.findtext(f"{XCCDF_NS}fixtext", default="").strip(),
-            "ccis": [i.text for i in rule.findall(f"{XCCDF_NS}ident")
+            "oval_ref": oval_ref,
+            "fix_text": rule.findtext(f"{ns}fixtext", default="").strip(),
+            "ccis": [i.text for i in rule.findall(f"{ns}ident")
                      if i.text and (i.get("system") or "").endswith("/cci")],
         })
 
     return {
         "source": source_name,
-        "benchmark_id": root.get("id", ""),
-        "title": root.findtext(f"{XCCDF_NS}title", default="").strip(),
-        "version": root.findtext(f"{XCCDF_NS}version", default="").strip(),
+        "benchmark_id": _strip_scap_prefix(root.get("id", "")),
+        "title": root.findtext(f"{ns}title", default="").strip(),
+        "version": root.findtext(f"{ns}version", default="").strip(),
         "release": release,
         "status_date": status_date,
+        "edition": "scap" if ns == XCCDF_12_NS else "manual",
         "rules": rules,
     }
 
 
+def _try_parse_xml(xml_bytes, name):
+    """Parse benchmarks from bytes, returning [] when the XML is not one.
+
+    Zip discovery goes by content, not filename: DISA's naming varies
+    ("*-xccdf.xml", "*Manualxccdf.xml", "*_Benchmark.xml"), and the stylesheet
+    or a stray XML must simply be skipped rather than fail the whole zip.
+    """
+    head = xml_bytes[:200]
+    if b"<?xml" not in head and b"<" not in head:
+        return []
+    try:
+        return parse_benchmarks(xml_bytes, name)
+    except (ET.ParseError, ValueError):
+        return []
+
+
+def _dedupe_benchmarks(benchmarks):
+    """When both editions of the same benchmark are present, keep the manual one.
+
+    Verified against real files: where both editions carry the same check, the
+    fix text is identical, and only the manual edition has the check prose —
+    importing both would only duplicate rules.
+    """
+    by_id = {}
+    for b in benchmarks:
+        key = b["benchmark_id"] or b["title"]
+        held = by_id.get(key)
+        if held is None or (held["edition"] == "scap" and b["edition"] == "manual"):
+            by_id[key] = b
+    return list(by_id.values())
+
+
 def load_benchmarks(path):
-    """Load every XCCDF benchmark from a STIG zip, a bare XML file, or a directory."""
+    """Load every XCCDF benchmark from a STIG zip, a bare XML file, or a directory.
+
+    Handles all three zip shapes DISA publishes: xsl+xml (manual), xml-only
+    (SCAP data-stream), and compilation zips nesting one zip per STIG.
+    """
     benchmarks = []
     if os.path.isdir(path):
         for dirpath, _dirs, files in os.walk(path):
             for name in sorted(files):
-                if name.lower().endswith("-xccdf.xml"):
+                if name.lower().endswith(".xml"):
                     with open(os.path.join(dirpath, name), "rb") as fh:
-                        benchmarks.append(parse_benchmark(fh.read(), name))
+                        benchmarks.extend(_try_parse_xml(fh.read(), name))
     elif zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as zf:
             for info in sorted(zf.infolist(), key=lambda i: i.filename):
                 base = os.path.basename(info.filename)
-                if base.lower().endswith("-xccdf.xml"):
-                    benchmarks.append(parse_benchmark(zf.read(info), base))
+                if base.lower().endswith(".xml"):
+                    benchmarks.extend(_try_parse_xml(zf.read(info), base))
                 elif base.lower().endswith(".zip"):
                     # Compilation zips (SRG-STIG Library) nest one zip per STIG.
                     inner = io.BytesIO(zf.read(info))
                     with zipfile.ZipFile(inner) as izf:
                         for iinfo in sorted(izf.infolist(), key=lambda i: i.filename):
                             ibase = os.path.basename(iinfo.filename)
-                            if ibase.lower().endswith("-xccdf.xml"):
-                                benchmarks.append(parse_benchmark(izf.read(iinfo), ibase))
+                            if ibase.lower().endswith(".xml"):
+                                benchmarks.extend(_try_parse_xml(izf.read(iinfo), ibase))
     elif path.lower().endswith(".xml"):
         with open(path, "rb") as fh:
-            benchmarks.append(parse_benchmark(fh.read(), os.path.basename(path)))
+            benchmarks.extend(parse_benchmarks(fh.read(), os.path.basename(path)))
     elif path.lower().endswith(".xsl"):
         # The .xsl is only the display stylesheet; the data lives in the
-        # *-xccdf.xml sitting next to it. Resolve that silently.
+        # benchmark XML sitting next to it. Resolve that silently.
         folder = os.path.dirname(os.path.abspath(path))
-        siblings = [n for n in sorted(os.listdir(folder)) if n.lower().endswith("-xccdf.xml")]
-        if not siblings:
+        for n in sorted(os.listdir(folder)):
+            if n.lower().endswith(".xml"):
+                with open(os.path.join(folder, n), "rb") as fh:
+                    benchmarks.extend(_try_parse_xml(fh.read(), n))
+        if not benchmarks:
             raise ValueError(f"{path}: this is the STIG stylesheet, not the data, and no "
-                             "*-xccdf.xml benchmark was found next to it")
-        for n in siblings:
-            with open(os.path.join(folder, n), "rb") as fh:
-                benchmarks.append(parse_benchmark(fh.read(), n))
+                             "XCCDF benchmark XML was found next to it")
     else:
         raise ValueError(f"{path}: not a zip, directory, or XCCDF .xml file")
+    benchmarks = _dedupe_benchmarks(benchmarks)
     if not benchmarks:
-        raise ValueError(f"{path}: no *-xccdf.xml benchmark found inside")
+        raise ValueError(f"{path}: no XCCDF benchmark found inside")
     return benchmarks
 
 
@@ -362,6 +432,9 @@ def rule_object(rule, grouping, mode):
         note,
         "Discussion:\n" + rule["discussion"] if rule["discussion"] else "",
         "Check:\n" + rule["check_content"] if rule["check_content"] else "",
+        ("Machine check (SCAP edition): OVAL definition " + rule["oval_ref"]
+         + " — no manual check text in this edition; the manual STIG for this "
+           "product carries the prose.") if rule.get("oval_ref") and not rule["check_content"] else "",
     ) if part)
 
     name = f"{rule['vuln_id']} [{rule['severity']}] {rule['title']}"
@@ -548,7 +621,7 @@ def cmd_parse(args):
         for r in b["rules"]:
             counts[r["severity"]] = counts.get(r["severity"], 0) + 1
         sev = ", ".join(f"{counts[s]} {s}" for s in ("high", "medium", "low") if s in counts)
-        print(f"{b['title']}")
+        print(f"{b['title']}  [{b['edition']} edition]")
         print(f"  benchmark {b['benchmark_id']}  V{b['version']}  {b['release']}  "
               f"(from {b['source']})")
         print(f"  {len(b['rules'])} rules: {sev}")
@@ -929,7 +1002,7 @@ class App:
                 counts[r["severity"]] = counts.get(r["severity"], 0) + 1
             sev = ", ".join(f"{counts[s]} {s}" for s in ("high", "medium", "low")
                             if s in counts)
-            lines.append(f"NCM: {b['title']}")
+            lines.append(f"NCM: {b['title']} [{b['edition']} edition]")
             lines.append(f"  V{b['version']} {b['release']} — {len(b['rules'])} rules ({sev})")
         lines.append("  target: NCM compliance (Cirrus.PolicyReports.AddPolicyReport)")
         return "ncm", lines
