@@ -10,13 +10,14 @@ remediable item. Two target modules, detected automatically from the file:
 | STIG zip, `*-xccdf.xml`, or the `.xsl` next to it | **NCM** compliance policy report (`Cirrus.PolicyReports`) |
 | SCM compliance policy `.yaml` (`!policy`, `pluginName: SCM`) | **Server Configuration Monitor** (`Orion.PolicyEngine.Policy.ImportPolicy`) |
 
-Two front ends over the same engine: `disa_stig_tool.py` (CLI, stdlib-only) and
-`disa_stig_tool_gui.py` (desktop GUI, buildable into a Windows exe).
+The whole tool is **one self-contained file**, `disa_stig_tool.py` — GUI and CLI
+together, standard library only. Download that single file and it runs; nothing else
+from this repository is required.
 
 ## The GUI
 
 ```
-python3 disa_stig_tool_gui.py
+python disa_stig_tool.py          ← no arguments (or a double-click on Windows) opens the GUI
 ```
 
 One window: server IP/FQDN + SWIS port, username/password or a **Login with current
@@ -29,10 +30,10 @@ Build the Windows executable on a Windows machine:
 
 ```bat
 pip install pyinstaller
-pyinstaller --onefile --windowed --name DISASTIGConversionTool disa_stig_tool_gui.py
+pyinstaller --onefile --windowed --name DISASTIGConversionTool disa_stig_tool.py
 ```
 
-(both `.py` files must be in the same folder; the exe lands in `dist\`). Two optional
+(the exe lands in `dist\`). Two optional
 packages unlock extras and can be installed before building so PyInstaller bundles them:
 
 - `requests` + `requests-negotiate-sspi` — required for the "current Windows user"
