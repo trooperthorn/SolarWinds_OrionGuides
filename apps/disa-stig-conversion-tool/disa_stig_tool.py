@@ -599,6 +599,113 @@ def report_contract_xml(report):
     return ET.tostring(root, encoding="unicode")
 
 
+# ---------------------------------------------------------------------------
+# DataContract XML wire format (the .NET serializer behind "cannot unpackage")
+# ---------------------------------------------------------------------------
+#
+# When the server says it "cannot unpackage" a parameter, it read the XML but
+# the DataContractSerializer rejected it: that serializer wants the contract's
+# namespace and its members in a fixed (alphabetical, absent explicit Order)
+# sequence. These writers emit that shape; `ns` is the contract namespace to
+# try ("" for contracts declared with an empty namespace).
+
+DC_NS = "http://schemas.datacontract.org/2004/07/SolarWinds.NCM.Contracts.Compliance"
+ARRAYS_NS = "http://schemas.microsoft.com/2003/10/Serialization/Arrays"
+
+
+def _dc_el(parent, ns, name, text=None):
+    el = ET.SubElement(parent, f"{{{ns}}}{name}" if ns else name)
+    if text is not None and text != "":
+        el.text = text
+    return el
+
+
+def _dc_string_list(parent, ns, name, values):
+    holder = _dc_el(parent, ns, name)
+    for v in values:
+        item = ET.SubElement(holder, f"{{{ARRAYS_NS}}}string")
+        item.text = v
+
+
+def dc_rule_xml(rule, ns=DC_NS):
+    root = ET.Element(f"{{{ns}}}PolicyRule" if ns else "PolicyRule")
+    _dc_el(root, ns, "AdvancedMode", _b_str(rule.get("AdvancedMode")))
+    _dc_el(root, ns, "Comments", rule.get("Comments") or "")
+    _dc_el(root, ns, "ConfigBlockEnd", rule.get("ConfigBlockEnd") or "")
+    _dc_el(root, ns, "ConfigBlockMustExist", _b_str(rule.get("ConfigBlockMustExist")))
+    _dc_el(root, ns, "ConfigBlockPatternType", str(rule.get("ConfigBlockPatternType") or "Like"))
+    _dc_el(root, ns, "ConfigBlockStart", rule.get("ConfigBlockStart") or "")
+    _dc_el(root, ns, "ErrorLevel", str(int(rule.get("ErrorLevel") or 0)))
+    _dc_el(root, ns, "ExecuteRemediationScriptPerBlock",
+           _b_str(rule.get("ExecuteRemediationScriptPerBlock")))
+    _dc_el(root, ns, "ExecuteScriptAutomatically", _b_str(rule.get("ExecuteScriptAutomatically")))
+    _dc_el(root, ns, "ExecuteScriptInConfigMode", _b_str(rule.get("ExecuteScriptInConfigMode")))
+    _dc_el(root, ns, "Grouping", rule.get("Grouping") or "")
+    _dc_el(root, ns, "IsConfigBlockPatternRegEx", _b_str(rule.get("IsConfigBlockPatternRegEx")))
+    _dc_el(root, ns, "MultiLineRulePatterns")
+    _dc_el(root, ns, "Owner", rule.get("Owner") or "")
+    _dc_el(root, ns, "PatternMustExist", _b_str(rule.get("PatternMustExist")))
+    _dc_el(root, ns, "PatternType", str(rule.get("PatternType") or "Like"))
+    _dc_el(root, ns, "RemediateScript", rule.get("RemediateScript") or "")
+    _dc_el(root, ns, "RemediateScriptType", str(rule.get("RemediateScriptType") or "CLI"))
+    _dc_el(root, ns, "RuleId", rule.get("RuleId") or "")
+    _dc_el(root, ns, "RuleName", rule.get("RuleName") or "")
+    _dc_el(root, ns, "SimplePatternText", rule.get("SimplePatternText") or "")
+    return ET.tostring(root, encoding="unicode")
+
+
+def dc_policy_xml(policy, rule_ids, ns=DC_NS):
+    root = ET.Element(f"{{{ns}}}Policy" if ns else "Policy")
+    _dc_el(root, ns, "AssignedPolicyRules")
+    _dc_string_list(root, ns, "AssignedRulesList", rule_ids)
+    _dc_el(root, ns, "Comments", policy.get("Comments") or "")
+    _dc_el(root, ns, "ConfigTypes", str(policy.get("ConfigTypes") or "Any"))
+    _dc_el(root, ns, "Grouping", policy.get("Grouping") or "")
+    _dc_el(root, ns, "NodeSelectionString", policy.get("NodeSelectionString") or "")
+    _dc_el(root, ns, "PolicyId", policy.get("PolicyId") or "")
+    _dc_el(root, ns, "PolicyName", policy.get("PolicyName") or "")
+    return ET.tostring(root, encoding="unicode")
+
+
+def dc_report_xml(report, policy_ids, ns=DC_NS):
+    root = ET.Element(f"{{{ns}}}PolicyReport" if ns else "PolicyReport")
+    _dc_el(root, ns, "AssignedPolicies")
+    _dc_string_list(root, ns, "AssignedPoliciesList", policy_ids)
+    _dc_el(root, ns, "Comments", report.get("Comments") or "")
+    _dc_el(root, ns, "Group", report.get("Group") or "")
+    _dc_el(root, ns, "ID", report.get("ID") or "")
+    _dc_el(root, ns, "Name", report.get("Name") or "")
+    _dc_el(root, ns, "ReportStatus", str(report.get("ReportStatus") or "Enabled"))
+    _dc_el(root, ns, "ShowRulesWithoutViolationFlag",
+           _b_str(report.get("ShowRulesWithoutViolationFlag")))
+    _dc_el(root, ns, "ShowSummaryFlag", _b_str(report.get("ShowSummaryFlag")))
+    return ET.tostring(root, encoding="unicode")
+
+
+# The wire formats the probe tries, in order. Each entry maps a rule/policy/
+# report to the AddPolicyRule / AddPolicy / AddPolicyReport argument.
+WIRE_FORMATS = {
+    "json": {
+        "label": "JSON contract objects",
+        "rule": lambda r: r,
+        "policy": lambda p, ids: dict(p, AssignedPolicyRules=[], AssignedRulesList=ids),
+        "report": lambda rep, ids: dict(rep, AssignedPolicies=[], AssignedPoliciesList=ids),
+    },
+    "xml-dc": {
+        "label": "DataContract XML strings",
+        "rule": lambda r: dc_rule_xml(r, DC_NS),
+        "policy": lambda p, ids: dc_policy_xml(p, ids, DC_NS),
+        "report": lambda rep, ids: dc_report_xml(rep, ids, DC_NS),
+    },
+    "xml-plain": {
+        "label": "plain XML strings (no namespace)",
+        "rule": lambda r: dc_rule_xml(r, ""),
+        "policy": lambda p, ids: dc_policy_xml(p, ids, ""),
+        "report": lambda rep, ids: dc_report_xml(rep, ids, ""),
+    },
+}
+
+
 def _clean_id(value, fallback):
     """Verb results come back as JSON strings that may carry quotes or braces."""
     if isinstance(value, str):
@@ -623,60 +730,105 @@ def _verify_report(swis, report_id, expected_policies, expected_rules, log):
     return report_id, len(stored_policies), stored_rules
 
 
+class NcmWireError(SwisError):
+    """No wire format the server accepts was found. Carries a console-importable
+    XML file body so the caller can save it and finish the import through the
+    NCM web console (Compliance → Manage Policy Reports → Import)."""
+
+    def __init__(self, message, console_xml):
+        super().__init__(message)
+        self.console_xml = console_xml
+
+
 def import_ncm_report(swis, report, log=print):
-    """Import the report, adapting to how the server accepts the contract objects.
+    """Import the report, probing how this server accepts the NCM contract types.
 
-    First try creating the tiers bottom-up as JSON objects (AddPolicyRule →
-    AddPolicy → AddPolicyReport linked by ID lists). Some servers' JSON endpoint
-    hands the NCM contract types to an XML deserializer instead and rejects the
-    very first call with HTTP 400 "Value cannot be null. Parameter name: input"
-    (observed on 2026.2.2) — for those, fall back to one nested
-    AddPolicyReport(xmlString, importFlag=true) in the console-export XML wire
-    format, which is exactly what the console's own import sends.
+    The JSON endpoint's handling of SolarWinds.NCM.Contracts.Compliance.*
+    varies by server: some map JSON objects, some want the contract serialized
+    as an XML string ("Value cannot be null" / "cannot unpackage" are the two
+    observed rejections). One cheap AddPolicyRule call probes each candidate
+    format — JSON object, DataContract XML, plain XML — and the first one the
+    server accepts is used for the whole bottom-up import (rules → policies →
+    report, linked by ID lists). If none works, a nested console-format
+    AddPolicyReport is tried, and as a last resort NcmWireError hands back a
+    console-importable file so the import can be finished in the web UI.
 
-    Either way the result is verified by reading the report back before caching.
+    The result is verified by reading the report back before caching starts.
     Returns (report_id, policy_count, rule_count) as confirmed by the read-back.
     """
+    probe_rule = report["AssignedPolicies"][0]["AssignedPolicyRules"][0]
+    fmt = None
+    first_rule_id = None
+    rejections = []
+    for name, spec in WIRE_FORMATS.items():
+        try:
+            result = swis.invoke("Cirrus.PolicyReports", "AddPolicyRule",
+                                 spec["rule"](probe_rule))
+            first_rule_id = _clean_id(result, probe_rule["RuleId"])
+            fmt = name
+            log(f"server accepts {spec['label']}")
+            break
+        except SwisError as exc:
+            if "HTTP 400" not in str(exc):
+                raise
+            rejections.append(f"{spec['label']}: {str(exc).splitlines()[-1]}")
+            log(f"server rejected {spec['label']}; trying the next wire format …")
+    if fmt:
+        return _import_ncm_bottom_up(swis, report, log, WIRE_FORMATS[fmt],
+                                     first_rule_id)
+
+    log("no per-item wire format accepted; trying one nested AddPolicyReport "
+        "in the console-export format …")
     n_policies = len(report["AssignedPolicies"])
     n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
     try:
-        return _import_ncm_bottom_up(swis, report, log)
+        report_id = _clean_id(
+            swis.invoke("Cirrus.PolicyReports", "AddPolicyReport",
+                        report_contract_xml(report), True), "")
+        if report_id:
+            return _verify_report(swis, report_id, n_policies, n_rules, log)
+        rejections.append("console-format XML: no report id returned")
     except SwisError as exc:
         if "HTTP 400" not in str(exc):
             raise
-        log(f"the server rejected the JSON contract object ({str(exc).splitlines()[-1]});")
-        log("retrying with the console XML wire format (one nested AddPolicyReport call) …")
-        xml_arg = report_contract_xml(report)
-        report_id = _clean_id(
-            swis.invoke("Cirrus.PolicyReports", "AddPolicyReport", xml_arg, True), "")
-        if not report_id:
-            raise SwisError("AddPolicyReport (XML wire format) did not return "
-                            "the new report id")
-        return _verify_report(swis, report_id, n_policies, n_rules, log)
+        rejections.append(f"console-format XML: {str(exc).splitlines()[-1]}")
+    raise NcmWireError(
+        "this server accepted none of the wire formats for the NCM compliance "
+        "contract types:\n  " + "\n  ".join(rejections) + "\n"
+        "A console-importable report file has been written instead — import it in "
+        "the web console under Compliance → Manage Policy Reports → Import.",
+        '<?xml version="1.0" encoding="utf-16"?>' + report_contract_xml(report))
 
 
-def _import_ncm_bottom_up(swis, report, log):
+def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id):
     policy_ids = []
     total_rules = 0
+    first = True
     for policy in report["AssignedPolicies"]:
         rules = policy["AssignedPolicyRules"]
         log(f"creating {len(rules)} rules for policy \"{policy['PolicyName']}\" …")
         rule_ids = []
         for i, rule in enumerate(rules, 1):
-            result = swis.invoke("Cirrus.PolicyReports", "AddPolicyRule", rule)
+            if first:
+                # The probe already created this rule.
+                rule_ids.append(first_rule_id)
+                first = False
+                continue
+            result = swis.invoke("Cirrus.PolicyReports", "AddPolicyRule",
+                                 spec["rule"](rule))
             rule_ids.append(_clean_id(result, rule["RuleId"]))
             if i % 25 == 0:
                 log(f"  {i}/{len(rules)} rules created")
         total_rules += len(rule_ids)
 
-        linked = dict(policy, AssignedPolicyRules=[], AssignedRulesList=rule_ids)
-        result = swis.invoke("Cirrus.PolicyReports", "AddPolicy", linked, False)
+        result = swis.invoke("Cirrus.PolicyReports", "AddPolicy",
+                             spec["policy"](policy, rule_ids), False)
         policy_ids.append(_clean_id(result, policy["PolicyId"]))
         log(f"created policy \"{policy['PolicyName']}\" with {len(rule_ids)} rules")
 
-    linked_report = dict(report, AssignedPolicies=[], AssignedPoliciesList=policy_ids)
     report_id = _clean_id(
-        swis.invoke("Cirrus.PolicyReports", "AddPolicyReport", linked_report, False), "")
+        swis.invoke("Cirrus.PolicyReports", "AddPolicyReport",
+                    spec["report"](report, policy_ids), False), "")
     if not report_id:
         raise SwisError("AddPolicyReport did not return the new report id")
 
@@ -983,7 +1135,13 @@ def cmd_import(args):
     n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
     print(f"importing \"{report['Name']}\" — {len(report['AssignedPolicies'])} policies, "
           f"{n_rules} rules …")
-    new_id, n_pol, n_rul = import_ncm_report(swis, report)
+    try:
+        new_id, n_pol, n_rul = import_ncm_report(swis, report)
+    except NcmWireError as exc:
+        out = re.sub(r"[^\w.-]+", "_", report["Name"]) + ".ncm-report.xml"
+        with open(out, "wb") as fh:
+            fh.write(exc.console_xml.encode("utf-16"))
+        sys.exit(f"error: {exc}\nwrote {out}")
     print(f"imported: \"{report['Name']}\" ({new_id}) — {n_pol} policies, {n_rul} rules")
 
     if args.no_cache:
@@ -1395,7 +1553,18 @@ class App:
             n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
             self._log(f"importing \"{report['Name']}\" — "
                       f"{len(report['AssignedPolicies'])} policies, {n_rules} rules …")
-            new_id, n_pol, n_rul = import_ncm_report(swis, report, log=self._log)
+            try:
+                new_id, n_pol, n_rul = import_ncm_report(swis, report, log=self._log)
+            except NcmWireError as exc:
+                folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
+                                                            os.W_OK) else tempfile.gettempdir()
+                out = os.path.join(folder,
+                                   re.sub(r"[^\w.-]+", "_", report["Name"]) + ".ncm-report.xml")
+                with open(out, "wb") as fh:
+                    fh.write(exc.console_xml.encode("utf-16"))
+                self._log(f"ERROR: {exc}")
+                self._log(f"wrote {out}")
+                return
             self._log(f"imported \"{report['Name']}\" ({new_id}) — "
                       f"{n_pol} policies, {n_rul} rules; starting compliance caching …")
             swis.invoke("Cirrus.PolicyReports", "StartCaching", [new_id])

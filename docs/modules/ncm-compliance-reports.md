@@ -121,18 +121,22 @@ Round-trip gotchas:
 - Contract member names differ from SWQL columns (`Comments`/`Group` vs
   `Comment`/`Grouping`; rule `SimplePatternText` vs column `Pattern`) — map file
   fields to the verb contract, never to column names.
-- **Field observation (2026.2.2):** the JSON REST endpoint does not reliably map
-  JSON objects onto the `SolarWinds.NCM.Contracts.Compliance.*` types. One server
-  accepted `AddPolicyReport(report, importFlag)` with `importFlag` true and silently created only the
-  report row; another rejected `AddPolicyRule` outright with HTTP 400 "Value cannot
-  be null. Parameter name: input" — the signature of the argument being handed to an
-  XML reader. The wire format that matches how the console itself imports is the
-  contract **XML as a string**: serialize the nested report exactly like a console
-  export file (same element order — the receiving deserializer is order-sensitive,
-  and `IsConfigBlockPatternRegEx` is omitted as computed) and pass that string as the
-  `report` argument. Whichever route is used, verify with
-  `GetPolicyReport(reportId, exportFlag)` (`exportFlag` true) that the stored tree
-  actually holds the policies and rules before trusting the import.
+- **Field observation (2026.2.2):** the JSON REST endpoint's handling of the
+  `SolarWinds.NCM.Contracts.Compliance.*` parameter types varies by server, and two
+  distinct rejections were observed: HTTP 400 "Value cannot be null. Parameter name:
+  input" (a JSON object handed to an XML reader) and HTTP 400 "Verb … cannot
+  unpackage parameter 0" (an XML string the DataContractSerializer refused). One
+  server also accepted the nested JSON call and silently created only the report
+  row. No single wire format is safe to assume: probe with one cheap
+  `AddPolicyRule` call — a JSON object, then the contract as a DataContract XML
+  string (alphabetical members, `http://schemas.datacontract.org/2004/07/…`
+  namespace), then plain no-namespace XML — and use whatever the server accepts;
+  the console-export XML shape as a nested `AddPolicyReport` argument is a further
+  candidate. Whichever route lands, verify with `GetPolicyReport(reportId,
+  exportFlag)` (`exportFlag` true) that the stored tree actually holds the policies
+  and rules before trusting the import — and when nothing is accepted, writing the
+  console-export file and importing through the web console (Compliance → Manage
+  Policy Reports → Import) always works.
 - The `Update*` verbs have no `importFlag`, so they touch only their own level;
   cascading replace means delete-then-add, and `DeletePolicyReports(ids,
   deleteChildren=true)` can rip shared policies out from under other reports —
