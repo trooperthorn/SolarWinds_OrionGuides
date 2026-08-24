@@ -30,12 +30,13 @@ requirement). Windows refuses an un-elevated launch; the exe carries the UAC shi
 ## The v0.1 verification round-trip
 
 1. Run Porter (accept the UAC prompt), connect to server A — username/password or
-   "connect as my current Windows account". **TLS verification defaults to off** because
-   SWIS ships with the self-signed `SolarWinds-Orion` certificate; Porter still records
-   the presented certificate's SHA-256 fingerprint in the session log, so an unexpected
-   endpoint leaves evidence. Tick **Verify TLS certificate** once a domain-trusted
-   certificate is bound to SWIS (procedure below) — then unknown certificates are pinned
-   by SHA-256 thumbprint on first contact. Note: the documented SWIS REST contract
+   "connect as my current Windows account". **TLS verification defaults to on.** SWIS
+   ships with the self-signed `SolarWinds-Orion` certificate; with verification on it is
+   trusted when that exact certificate is installed in a Windows certificate store, or by
+   a one-time SHA-256 thumbprint pin on first contact — and the accepted certificate's
+   fingerprint is recorded in the session log either way, so an unexpected endpoint
+   leaves evidence. Binding a domain-trusted certificate to SWIS (procedure below)
+   removes even the pin step. Note: the documented SWIS REST contract
    offers basic auth only — if the server rejects your Windows session
    with a 401, Porter says so plainly and asks for a username/password (Windows-session
    auth over the SOAP endpoint on 17777 is a pinned item).
@@ -68,16 +69,41 @@ destination disk. Hostile input is bounded — 64 MB per dashboard file or zip e
   server, port, auth mode, username, and the TLS choice — in
   `%ProgramData%\Porter\connection.json`, and prefills the Docking screen from it.
   The password is always re-entered.
-- **TLS is never silent.** Verification defaults off (the platform's own certificate is
-  self-signed), but every unverified connection logs the certificate fingerprint, and one
-  checkbox turns on full verification with pin-by-thumbprint.
+- **TLS is never silent.** Verification defaults on, trusting the `SolarWinds-Orion`
+  certificate through the Windows certificate store or an explicit thumbprint pin.
+  Turning it off is a deliberate lab-only choice, and even then every connection logs
+  the presented certificate's fingerprint.
 - No telemetry, no network egress except the SWIS host you name.
+
+## The SWIS calls executed on import
+
+Every import lands through one of these documented routes (all verified against the
+2026.2 contract; queries for collision checks and read-back verification accompany
+them):
+
+| Area | Import call |
+| --- | --- |
+| Modern Dashboards | `Orion.Dashboards.Instances.Import(dashboard)` (export: `Export`) |
+| Alerts | `Orion.AlertConfigurations.Import(alertXml)` (export: `Export`) |
+| Reports | `Orion.Report.CreateReport(definition)` |
+| SAM templates | `Orion.APM.ApplicationTemplate.ImportTemplate(template)` (export: `ExportTemplate`) |
+| NCM compliance | `Cirrus.PolicyReports.AddPolicyReport(report, importFlag)` then `Cirrus.PolicyReports.StartCaching([newId])` (export: `GetPolicyReport`) |
+| NCM device templates | CRUD `Create` on `Cli.DeviceTemplates` |
+| WPM recordings | `Orion.SEUM.Recordings.Import(recording)` (export: `Export`) |
+| Node custom properties | `Orion.NodesCustomProperties.CreateCustomProperty` / `CreateCustomPropertyWithValues` (validated first with `ValidateCustomProperty`), values via CRUD update on `…/CustomProperties` |
+
+An import whose verification query returns nothing is reported as **No data
+returned** for that item, never as success.
 
 ## TLS: living with — or replacing — the SolarWinds-Orion certificate
 
 SWIS answers on 17774 with a self-signed certificate issued as `SolarWinds-Orion`. No
-Windows machine trusts it, so Porter's **Verify TLS certificate** checkbox defaults to
-**off**. Off is not silent: each session logs the presented certificate's subject and
+Windows machine trusts it out of the box. Porter's **Verify TLS certificate** checkbox
+defaults to **on**, and the self-signed certificate is accepted two ways: install that
+exact certificate in a Windows certificate store (CurrentUser or LocalMachine — Root,
+CA, TrustedPeople or Personal), or pin it once by SHA-256 thumbprint at First Contact.
+Turning verification off is lab-only and is not silent: each session logs the presented
+certificate's subject and
 SHA-256 fingerprint to the Captain's Log (`%ProgramData%\Porter\logs`), so a
 man-in-the-middle still leaves a trail you can diff between sessions.
 

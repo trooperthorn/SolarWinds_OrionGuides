@@ -149,6 +149,6 @@ public sealed class WpmRecordingsProvider : AreaProvider
                 $"\"{row.GetProperty("Name").GetString()}\" (id {newId}) — transactions do not " +
                 "travel: re-create monitors against this recording on the target");
         return new ImportOutcome(false,
-            $"Import returned id {newId} but the row was not found afterwards");
+            $"Import returned id {newId} but no data returned when reading it back (No Data Returned)");
     }
 }

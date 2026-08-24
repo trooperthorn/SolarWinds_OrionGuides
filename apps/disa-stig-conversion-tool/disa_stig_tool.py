@@ -62,11 +62,13 @@ from __future__ import annotations
 import argparse
 import base64
 import getpass
+import hashlib
 import io
 import json
 import os
 import queue
 import re
+import socket
 import ssl
 import sys
 import tempfile
@@ -103,14 +105,59 @@ class SwisError(RuntimeError):
     """A SWIS request failed. Carries the server's message where one was returned."""
 
 
+# Credentials live in memory only: never written to disk, never placed in URLs,
+# and always redacted from anything the tool prints or logs.
+_SECRETS = []
+
+
+def register_secret(value):
+    if value:
+        _SECRETS.append(value)
+
+
+def redact(text):
+    for secret in _SECRETS:
+        text = text.replace(secret, "••••••")
+    return text
+
+
+def fetch_server_cert(host, port=DEFAULT_PORT):
+    """Fetch the certificate SWIS presents, for explicit trust (pinning).
+
+    Returns (pem, sha256_fingerprint, looks_like_stock) where looks_like_stock
+    is True when the certificate carries the stock 'SolarWinds-Orion' name.
+    The fetch itself does not verify — that is the point: the operator inspects
+    the fingerprint once, and every later connection verifies against exactly
+    this certificate.
+    """
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with socket.create_connection((host, port), timeout=30) as sock:
+        with ctx.wrap_socket(sock, server_hostname=host) as tls:
+            der = tls.getpeercert(True)
+    fingerprint = hashlib.sha256(der).hexdigest().upper()
+    fingerprint = ":".join(fingerprint[i:i + 2] for i in range(0, len(fingerprint), 2))
+    return ssl.DER_cert_to_PEM_cert(der), fingerprint, b"SolarWinds-Orion" in der
+
+
 class SwisClient:
     """Minimal SWIS REST client — the same contract scripts/python/swis_client.py shows."""
 
-    def __init__(self, host, username, password, port=DEFAULT_PORT, verify=True, ca_file=None):
+    def __init__(self, host, username, password, port=DEFAULT_PORT, verify=True, ca_file=None,
+                 pinned_pem=None):
         self.base = f"https://{host}:{port}{BASE_PATH}"
         self.username = username
         self.password = password
-        if verify:
+        register_secret(password)
+        if pinned_pem:
+            # Trust exactly the fetched SolarWinds-Orion certificate. The stock
+            # certificate's CN is 'SolarWinds-Orion', not the host name, so the
+            # hostname check is off — the chain check against the pinned
+            # certificate is what authenticates the server.
+            self.ctx = ssl.create_default_context(cadata=pinned_pem)
+            self.ctx.check_hostname = False
+        elif verify:
             self.ctx = ssl.create_default_context(cafile=ca_file)
         else:
             # Only for a lab. Accepts any certificate.
@@ -207,6 +254,9 @@ def import_scm_policy(swis, text):
         raise SwisError(f"a policy named \"{info['name']}\" already exists "
                         f"(PolicyID {existing[0]['PolicyID']}); refusing to duplicate")
     policy_id = swis.invoke("Orion.PolicyEngine.Policy", "ImportPolicy", text)
+    if policy_id is None:
+        raise SwisError("No data returned from Orion.PolicyEngine.Policy.ImportPolicy — "
+                        "the policy was not created")
     return policy_id, info["name"]
 
 
@@ -761,7 +811,10 @@ def _clean_id(value, fallback):
 
 def _verify_report(swis, report_id, expected_policies, expected_rules, log):
     """Read the report back — the import is only done if the tree actually exists."""
-    stored = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True) or {}
+    stored = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True)
+    if not stored:
+        raise SwisError(f"No data returned from GetPolicyReport for report {report_id} — "
+                        "the import cannot be confirmed")
     stored_policies = stored.get("AssignedPolicies") or []
     stored_rules = sum(len(p.get("AssignedPolicyRules") or []) for p in stored_policies)
     if not stored_policies or stored_rules == 0:
@@ -1033,7 +1086,7 @@ def cmd_download(args):
 
 
 def is_scm_path(path):
-    return os.path.isfile(path) and path.lower().endswith((".yaml", ".yml"))
+    return os.path.isfile(path) and path.lower().endswith((".yaml", ".yml", ".scm-profile"))
 
 
 def cmd_parse(args):
@@ -1119,7 +1172,7 @@ def cmd_build(args):
     if kind == "server":
         for b in benchmarks:
             out = args.output if args.output and len(benchmarks) == 1 else \
-                f"{stem}.{b['benchmark_id'] or 'benchmark'}.scm-policy.yaml"
+                f"{stem}.{b['benchmark_id'] or 'benchmark'}.scm-profile"
             with open(out, "w", encoding="utf-8") as fh:
                 fh.write(xccdf_to_scm_yaml(b))
             print(f"wrote {out}: SCM policy \"{b['title']}\" — {len(b['rules'])} rules")
@@ -1150,8 +1203,14 @@ def import_scm_benchmarks(swis, benchmarks, os_info, log=print):
 
 def cmd_import(args):
     password = os.environ.get("SWIS_PASSWORD") or getpass.getpass(f"password for {args.user}: ")
+    register_secret(password)
+    pinned = None
+    if args.pin_server_cert:
+        pinned, fingerprint, stock = fetch_server_cert(args.host, args.port)
+        print(f"pinned the server certificate — SHA-256 {fingerprint}"
+              + (" (stock SolarWinds-Orion certificate)" if stock else ""))
     swis = SwisClient(args.host, args.user, password, port=args.port,
-                      verify=not args.insecure, ca_file=args.ca_file)
+                      verify=not args.insecure, ca_file=args.ca_file, pinned_pem=pinned)
 
     if is_scm_path(args.path):
         text = load_scm_policy(args.path)
@@ -1326,10 +1385,14 @@ class App:
         ttk.Checkbutton(conn, text="Login with current Windows user",
                         variable=self.win_auth, command=self._toggle_auth).grid(
             row=3, column=0, columnspan=2, sticky="w", **pad)
-        self.verify_tls = tk.BooleanVar(value=False)
-        ttk.Checkbutton(conn, text="Verify TLS certificate",
+        self.verify_tls = tk.BooleanVar(value=True)
+        ttk.Checkbutton(conn, text="Verify TLS certificate (default)",
                         variable=self.verify_tls).grid(row=3, column=2, columnspan=2,
                                                        sticky="e", **pad)
+        self.pinned_pem = None  # in-memory only, like the credentials
+        ttk.Button(conn, text="Trust server certificate…",
+                   command=self._on_pin_cert).grid(row=4, column=2, columnspan=2,
+                                                   sticky="e", **pad)
 
         # --- source ----------------------------------------------------------
         src = ttk.LabelFrame(frame, text="STIG source", padding=8)
@@ -1396,6 +1459,9 @@ class App:
         self.preview_btn.pack(side="left", padx=4)
         self.import_btn = ttk.Button(btns, text="Import", command=self._on_import)
         self.import_btn.pack(side="left", padx=4)
+        self.convert_btn = ttk.Button(btns, text="Convert to files (no server)",
+                                      command=self._on_convert)
+        self.convert_btn.pack(side="left", padx=4)
 
         self.log = tk.Text(frame, height=14, state="disabled", wrap="word")
         self.log.grid(row=4, column=0, columnspan=2, sticky="nsew", **pad)
@@ -1437,7 +1503,7 @@ class App:
         self._log(f"dropped: {path}")
 
     def _log(self, msg):
-        self.log_queue.put(msg)
+        self.log_queue.put(redact(str(msg)))
 
     def _drain_log(self):
         try:
@@ -1453,7 +1519,7 @@ class App:
 
     def _busy(self, working):
         state = "disabled" if working else "normal"
-        for b in (self.test_btn, self.preview_btn, self.import_btn):
+        for b in (self.test_btn, self.preview_btn, self.import_btn, self.convert_btn):
             b.configure(state=state)
 
     def _run_bg(self, fn):
@@ -1478,11 +1544,15 @@ class App:
         port = int(self.port.get().strip() or DEFAULT_PORT)
         verify = self.verify_tls.get()
         if self.win_auth.get():
+            if self.pinned_pem:
+                self._log("note: certificate pinning applies to username/password "
+                          "connections; the Windows-user login uses the system trust store")
             return WindowsAuthClient(host, port, verify)
         user = self.user.get().strip()
         if not user:
             raise SwisError("enter a username (or tick Windows-user login)")
-        return SwisClient(host, user, self.password.get(), port=port, verify=verify)
+        return SwisClient(host, user, self.password.get(), port=port, verify=verify,
+                          pinned_pem=self.pinned_pem)
 
     def _resolve_source(self):
         """Return a local file path for the chosen source, downloading a URL if needed."""
@@ -1542,10 +1612,62 @@ class App:
 
     # ---- actions --------------------------------------------------------------
 
+    def _on_pin_cert(self):
+        def work():
+            host = self.host.get().strip()
+            if not host:
+                raise SwisError("enter the SolarWinds server IP/FQDN first")
+            port = int(self.port.get().strip() or DEFAULT_PORT)
+            pem, fingerprint, stock = fetch_server_cert(host, port)
+            self.pinned_pem = pem  # memory only — dropped when the window closes
+            self._log(f"trusted the certificate {host}:{port} presents — "
+                      f"SHA-256 {fingerprint}"
+                      + (" (stock SolarWinds-Orion certificate)" if stock else ""))
+            self._log("this session now verifies against exactly that certificate")
+        self._run_bg(work)
+
+    def _on_convert(self):
+        def work():
+            path = self._resolve_source()
+            kind, lines = self._describe(path)
+            for line in lines:
+                self._log(line)
+            folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
+                                                        os.W_OK) else tempfile.gettempdir()
+            if kind == "scm-yaml":
+                self._log("this file is already an importable SCM policy — nothing to convert")
+                return
+            benchmarks = load_benchmarks(path)
+            original = self.url.get().strip() if self.source_kind.get() == "url" else path
+            _kind, info, _note = resolve_route(self._target_choice(), benchmarks,
+                                               os.path.basename(path),
+                                               self.node_where.get().strip())
+            if kind == "server":
+                for b in benchmarks:
+                    out = os.path.join(folder, re.sub(
+                        r"[^\w.-]+", "_",
+                        b["benchmark_id"] or b["title"]) + ".scm-profile")
+                    with open(out, "w", encoding="utf-8") as fh:
+                        fh.write(xccdf_to_scm_yaml(b))
+                    self._log(f"wrote {out} — {len(b['rules'])} rules")
+                self._log("import in the console: Settings → SCM Settings → Policies "
+                          "→ Add/Import, or later with this tool")
+                return
+            mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
+            reports = build_reports(benchmarks, node_where=info, mode=mode,
+                                    source_path=os.path.basename(original.split("?")[0]))
+            for report in reports:
+                self._log(f"wrote {write_console_file(report, folder)}")
+            self._log("import in the console: Compliance → Manage Policy Reports → Import")
+        self._run_bg(work)
+
     def _on_test(self):
         def work():
             swis = self._client()
             rows = swis.query("SELECT TOP 1 EngineVersion FROM Orion.Engines")
+            if not rows:
+                self._log("No data returned from the Orion.Engines query — connected, "
+                          "but the account may lack read access")
             version = rows[0]["EngineVersion"] if rows else "unknown"
             ncm = swis.query("SELECT COUNT(FullName) AS C FROM Metadata.Entity "
                              "WHERE FullName LIKE 'Cirrus.%'")[0]["C"]
@@ -1656,9 +1778,11 @@ def main():
     pp.add_argument("path", help="STIG zip, directory, or *-xccdf.xml file")
     pp.add_argument("--rules", action="store_true", help="list every rule")
 
-    b = sub.add_parser("build", help="write the NCM report payload to a JSON file")
-    add_source_args(b)
-    b.add_argument("-o", "--output", help="output file (default: <source>.ncm-report.json)")
+    for alias in ("build", "convert"):
+        b = sub.add_parser(alias, help="offline conversion, no server needed: write "
+                           "console-importable files (NCM .ncm-report.xml / SCM .scm-profile)")
+        add_source_args(b)
+        b.add_argument("-o", "--output", help="output file (single-benchmark sources only)")
 
     imp = sub.add_parser("import", help="import into NCM via SWIS and start caching")
     add_source_args(imp)
@@ -1666,6 +1790,10 @@ def main():
     imp.add_argument("--user", required=True)
     imp.add_argument("--port", type=int, default=DEFAULT_PORT)
     imp.add_argument("--ca-file", help="CA bundle that signs the SWIS certificate")
+    imp.add_argument("--pin-server-cert", action="store_true",
+                     help="fetch the server's certificate (the stock self-signed "
+                          "'SolarWinds-Orion' one), print its SHA-256 fingerprint, and "
+                          "verify this session against exactly that certificate")
     imp.add_argument("--insecure", action="store_true",
                      help="skip TLS verification (lab only)")
     imp.add_argument("--no-cache", action="store_true",
@@ -1673,10 +1801,10 @@ def main():
 
     args = top.parse_args()
     try:
-        {"download": cmd_download, "parse": cmd_parse,
-         "build": cmd_build, "import": cmd_import}[args.cmd](args)
+        {"download": cmd_download, "parse": cmd_parse, "build": cmd_build,
+         "convert": cmd_build, "import": cmd_import}[args.cmd](args)
     except (ValueError, OSError, SwisError) as exc:
-        sys.exit(f"error: {exc}")
+        sys.exit(redact(f"error: {exc}"))
 
 
 if __name__ == "__main__":

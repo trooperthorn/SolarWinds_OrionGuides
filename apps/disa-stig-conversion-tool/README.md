@@ -28,11 +28,35 @@ python disa_stig_tool.py          ← no arguments (or a double-click on Windows
 
 One window: server IP/FQDN + SWIS port, username/password or a **Login with current
 Windows user** checkbox, either **Browse/drop a file** (zip, xccdf `.xml`, `.xsl`,
-SCM `.yaml`) or **enter a STIG package URL**, and the **Compliance target** dropdown
-(Auto / Network / Server). The NCM node scope defaults to auto — derived from the
-detected vendor — and stays editable. Buttons: Test connection (also reports
-whether NCM and the SCM policy engine are installed on the server), Preview file
-(what would be imported, and into which module), Import.
+SCM `.yaml`/`.scm-profile`) or **enter a STIG package URL**, and the **Compliance
+target** dropdown (Auto / Network / Server). The NCM node scope defaults to auto —
+derived from the detected vendor — and stays editable. Buttons: Test connection (also
+reports whether NCM and the SCM policy engine are installed on the server), Preview
+file (what would be imported, and into which module), Import, and **Convert to files
+(no server)** — the offline mode below. **Verify TLS certificate is on by default**;
+the **Trust server certificate…** button fetches the certificate SWIS presents (the
+stock self-signed `SolarWinds-Orion` one), shows its SHA-256 fingerprint, and pins the
+session to exactly that certificate — held in memory only, like the credentials.
+
+## Offline conversion — no server connection
+
+When the machine running the tool cannot reach the SolarWinds server, the same
+conversions run without connecting at all — point at the file or URL and convert:
+
+```bash
+python3 disa_stig_tool.py convert U_Cisco_IOS_Router_Y26M07_STIG.zip
+```
+
+(or the **Convert to files (no server)** button in the GUI; `build` is an alias).
+The outputs are the exact payloads the API import would have sent:
+
+- **NCM** → one `.ncm-report.xml` per benchmark, byte-matched to a real console
+  export — import with Compliance → Manage Policy Reports → **Import** in the web
+  console.
+- **SCM** → one `.scm-profile` per benchmark (the `!policy` YAML document) — import
+  through the console, or later with this tool's `import` against the file.
+
+A `.scm-profile` file is also accepted back as an import source.
 
 Build the Windows executable on a Windows machine:
 
@@ -67,8 +91,9 @@ python3 disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
     --host orion.example.com --user admin
 ```
 
-There is also `build`, which writes the exact `AddPolicyReport` payload to a JSON file
-for inspection or for importing by other tooling.
+Add `--pin-server-cert` to trust the server's own `SolarWinds-Orion` certificate for
+the session (its SHA-256 fingerprint is printed). `convert`/`build` is the offline
+mode described above.
 
 ## What is actually in a STIG zip
 
@@ -104,7 +129,7 @@ the check prose — importing both would just duplicate rules. Packages download
 | fixtext (the Fix Text) | `RemediateScript`, type CLI, **never auto-executed** |
 | one XCCDF Group/Rule (each check) | one NCM rule |
 | one benchmark | one policy — the device scope (`--node-where`, default `(Nodes.Vendor = 'Cisco')`) |
-| one package | one report **named after the zip file** (e.g. `U_Cisco_IOS_Router_Y26M07_STIG`), `Enabled`, in the `DISA STIG` folder |
+| one benchmark | one report **named `<zip name> - <benchmark>`** (the router zip yields an NDM report with 35 rules and an RTR report with 92), `Enabled`, in the `DISA STIG` folder — matching the console's own one-policy-per-report exports |
 
 Manual STIGs describe their checks in prose, not machine-checkable patterns, so the
 tool is honest about that:
@@ -145,6 +170,30 @@ exists, then leaves assignment to you: Settings → SCM Settings → Policies (o
 `AssignToEntity` verb). Preview parses nothing server-side — it just scans the YAML for
 the policy name, rule ids and severities.
 
+## Security rules
+
+- **TLS verification is on by default** (GUI checkbox and CLI alike; `--insecure` is a
+  deliberate lab-only override). Three ways to make the stock self-signed
+  `SolarWinds-Orion` certificate verifiable: the GUI's **Trust server certificate…**
+  button / CLI `--pin-server-cert` (fetch once, show the SHA-256 fingerprint, verify
+  every call in the session against exactly that certificate — the hostname check is
+  waived only for the pinned certificate, whose CN is `SolarWinds-Orion`, never in
+  general), `--ca-file` with an exported copy, or binding a domain-trusted certificate
+  to SWIS.
+- **Credentials live in memory only.** Nothing is written to disk, credentials never
+  appear in URLs, and the CLI takes the password from `SWIS_PASSWORD` or an interactive
+  prompt — never a command-line argument.
+- **Passwords are always redacted** from everything the tool prints or logs, including
+  server error messages that might echo them.
+- **"No Data Returned" is said plainly.** Every import is verified by reading the
+  result back; an empty read-back is reported as *No data returned from &lt;call&gt;*,
+  never as success.
+- **SCM configuration text stays on the server.** The tool never reads
+  `Orion.SCM.Results.ElementContents` (collected file/config content) or any other
+  config-bearing API — the only SCM data it touches is policy metadata. Any future
+  feature that would retrieve configuration content will be an explicit
+  `includeConfigText`-style opt-in, defaulting to hashes and metadata.
+
 ## Safety posture
 
 - `ExecuteScriptAutomatically` is always false. A downloaded checklist must never be
@@ -169,6 +218,15 @@ My Dashboards → Home → Server Configuration shows per-node, per-rule pass/fa
 ---
 
 # API data reference
+
+## The SWIS calls executed on import
+
+| Route | Calls, in order |
+| --- | --- |
+| NCM (network STIGs) | Collision check query on `Cirrus.PolicyReports` → wire-format probe with one `AddPolicyRule(rule)` → per report: `AddPolicyRule` per check, `AddPolicy(policy, importFlag)` with the rule-ID list, `AddPolicyReport(report, importFlag)` with the policy-ID list → `GetPolicyReport(reportId, exportFlag)` read-back verification → one `StartCaching([ids])` |
+| NCM fallback | Nested `AddPolicyReport(report, importFlag)` in console-export XML; if every wire format is refused, console-importable `.ncm-report.xml` files are written instead |
+| SCM (server STIGs / `.yaml` / `.scm-profile`) | Collision check query on `Orion.PolicyEngine.Policy` → `ImportPolicy(yaml)` per policy |
+| Test connection | `Orion.Engines` version query + `Metadata.Entity` counts for the `Cirrus.` and `Orion.PolicyEngine.` namespaces |
 
 Everything the tool needs from the platform, verified against the 2026.2 schema and
 verb contracts shipped in this repository (`data/schema/2026.2/`). Deeper treatments:

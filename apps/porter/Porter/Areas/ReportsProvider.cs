@@ -130,6 +130,6 @@ public sealed class ReportsProvider : AreaProvider
             return new ImportOutcome(true,
                 $"\"{row.GetProperty("Name").GetString()}\" (id {newId})");
         return new ImportOutcome(false,
-            $"CreateReport returned id {newId} but the row was not found afterwards");
+            $"CreateReport returned id {newId} but no data returned when reading it back (No Data Returned)");
     }
 }

@@ -84,9 +84,24 @@ public sealed class SwisSession : IDisposable
             }
             return true;
         }
-        // Verification on: a self-signed certificate can still be pinned by SHA-256
-        // thumbprint, explicitly, once — and the pin is logged.
+        // Verification on: the self-signed 'SolarWinds-Orion' certificate is trusted
+        // when the operator has installed that exact certificate in the Windows
+        // certificate store (chain building fails only on the untrusted root and the
+        // CN-vs-hostname mismatch, so an exact RawData match against the store is the
+        // check that means "this is the certificate the system was told to trust").
         var thumb = Convert.ToHexString(SHA256.HashData(cert.RawData));
+        if (IsInSystemStore(cert))
+        {
+            if (!_pinUseLogged)
+            {
+                _pinUseLogged = true;
+                SessionLog.Log("cert-store", $"{Server}:{Port}", "accepted-by-system-store",
+                    $"{cert.Subject} · SHA-256 {thumb}");
+            }
+            return true;
+        }
+        // A self-signed certificate can also be pinned by SHA-256 thumbprint,
+        // explicitly, once — and the pin is logged.
         if (CertPinStore.IsPinned(Server, Port, thumb))
         {
             if (!_pinUseLogged)
@@ -98,6 +113,25 @@ public sealed class SwisSession : IDisposable
         }
         LastUntrustedThumbprint = thumb;
         LastUntrustedSubject = cert.Subject;
+        return false;
+    }
+
+    private static bool IsInSystemStore(X509Certificate2 cert)
+    {
+        foreach (var location in new[] { StoreLocation.CurrentUser, StoreLocation.LocalMachine })
+            foreach (var name in new[] { StoreName.Root, StoreName.CertificateAuthority,
+                                         StoreName.TrustedPeople, StoreName.My })
+            {
+                try
+                {
+                    using var store = new X509Store(name, location);
+                    store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+                    foreach (var candidate in store.Certificates)
+                        if (candidate.RawData.AsSpan().SequenceEqual(cert.RawData))
+                            return true;
+                }
+                catch (CryptographicException) { /* store absent — not an error */ }
+            }
         return false;
     }
 
