@@ -228,7 +228,7 @@ function Get-StigBenchmarks([string]$SourcePath) {
         }
     }
     if ($byId.Count -eq 0) { throw "$SourcePath contains no XCCDF benchmark" }
-    return @($byId.Values)
+    return , @($byId.Values)   # unary comma: stay an array even with one benchmark
 }
 
 # =========================================================================
@@ -425,7 +425,7 @@ function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
             ReportStatus = 'Enabled'
         })
     }
-    return @($reports)
+    return , @($reports)   # unary comma: stay an array even with one report
 }
 
 function Add-El($Xml, $Parent, [string]$Name, [string]$Text) {
@@ -918,6 +918,14 @@ function Invoke-CliRun {
     if ($Path.Count -gt $script:MaxZipFiles) {
         throw "up to $($script:MaxZipFiles) files per run"
     }
+    foreach ($p in $Path) {
+        if (-not (Test-Path -LiteralPath $p)) {
+            throw ("file not found: $p`n" +
+                   "Run with no arguments to open the GUI, or:`n" +
+                   "  -Convert -Path <files>                Local File Conversion Only`n" +
+                   "  -Server <host> -Username <u> -Path <files>   import over SWIS")
+        }
+    }
     # module lock across the batch
     $modules = @($Path | ForEach-Object { Get-FileModule $_ } | Sort-Object -Unique)
     if ($modules.Count -gt 1) {
@@ -1082,7 +1090,7 @@ function Show-StigGui {
     $form.Size = New-Object System.Drawing.Size(760, 700)
     $form.StartPosition = 'CenterScreen'
 
-    $y = 12
+    $script:y = 12
     $mk = { param($ctrl, $x, $w, $h) $ctrl.Location = New-Object System.Drawing.Point($x, $script:y)
             $ctrl.Size = New-Object System.Drawing.Size($w, $h); $form.Controls.Add($ctrl); $ctrl }
     function L([string]$t, [int]$x, [int]$w) {
@@ -1334,9 +1342,19 @@ if ($Path -and $Path.Count -gt 0) {
     try { Invoke-CliRun }
     catch { Write-Error (Hide-Secrets $_.Exception.Message); exit 1 }
 } elseif (-not $NoGui) {
-    if ($env:OS -ne 'Windows_NT' -and -not $IsWindows) {
+    if ($env:OS -ne 'Windows_NT') {
         Write-Error 'the GUI needs Windows (WinForms); on this platform pass -Path (and -Convert or -Server)'
         exit 1
     }
-    Show-StigGui
+    try { Show-StigGui }
+    catch {
+        $msg = Hide-Secrets ($_.Exception.Message + "`n`n" + $_.ScriptStackTrace)
+        try {
+            Add-Type -AssemblyName System.Windows.Forms
+            [void][System.Windows.Forms.MessageBox]::Show($msg,
+                'DISA STIG Conversion Tool - startup error')
+        } catch { }
+        Write-Error $msg
+        exit 1
+    }
 }
