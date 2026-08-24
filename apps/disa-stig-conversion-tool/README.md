@@ -16,9 +16,20 @@ The **Compliance target** dropdown (or `--target`) controls the routing:
 names as above; **Network Compliance** forces NCM; **Server Compliance** forces
 SCM. Auto falls back to NCM, saying so, when nothing is recognized.
 
-The whole tool is **one self-contained file**, `disa_stig_tool.py` — GUI and CLI
-together, standard library only. Download that single file and it runs; nothing else
-from this repository is required.
+The tool ships in **two self-contained single-file editions with identical behavior**
+— pick whichever your environment mandates; both are dependency-free and derive
+byte-identical rule GUIDs, so their outputs are interchangeable:
+
+- **`disa_stig_tool.py`** — Python 3, standard library only (no `orionsdk`).
+- **`disa_stig_tool.ps1`** — Windows PowerShell 5.1+ / PowerShell 7+, built-in .NET
+  classes only (no `SwisPowerShell`, no gallery modules). Run it plain for the
+  WinForms GUI, or `-Convert -Path <files>` / `-Server … -Path <files>` from the
+  command line.
+
+Both GUIs open with a disclaimer — *"This is not built by SolarWinds Inc. or DISA.
+All Code is visible for Code Audit and documentation is available for SWIS calls."* —
+and require acknowledging that imported reports must be checked and that resolution
+falls on Agency application of the DISA STIG standards before the tool opens.
 
 ## The GUI
 
@@ -27,16 +38,26 @@ python disa_stig_tool.py          ← no arguments (or a double-click on Windows
 ```
 
 One window: server IP/FQDN + SWIS port, username/password or a **Login with current
-Windows user** checkbox, either **Browse/drop a file** (zip, xccdf `.xml`, `.xsl`,
-SCM `.yaml`/`.scm-profile`) or **enter a STIG package URL**, and the **Compliance
-target** dropdown (Auto / Network / Server). The NCM node scope defaults to auto —
-derived from the detected vendor — and stays editable. Buttons: Test connection (also
-reports whether NCM and the SCM policy engine are installed on the server), Preview
-file (what would be imported, and into which module), Import, and **Convert to files
-(no server)** — the offline mode below. **Verify TLS certificate is on by default**;
-the **Trust server certificate…** button fetches the certificate SWIS presents (the
-stock self-signed `SolarWinds-Orion` one), shows its SHA-256 fingerprint, and pins the
-session to exactly that certificate — held in memory only, like the credentials.
+Windows user** checkbox with a **live connection status line** beneath it, a file list
+taking **up to 10 STIG files per batch** (zip, xccdf `.xml`, `.xsl`, SCM
+`.yaml`/`.scm-profile`, or a URL), and the **Compliance target** dropdown. A batch
+imports into **one module only — NCM or SCM, never both**: the first file selected
+locks the module (a notice says so), and files of the other kind are skipped with a
+message rather than misprocessed.
+
+Buttons carry their outcome as color: **Test Connection** turns green on success, red
+on failure, and **yellow** when connected but limited — a pre-2023.1 SWIS version
+(the mismatch is written to the log) or the NCM/SCM entities not readable by the
+account. **Import** and **Local File Conversion Only** turn green when everything
+completed, yellow on a partial result, red on failure. Successful imports print a
+green **SUCCESS** line with the report/policy name; errors are prefixed `[NCM]` or
+`[SCM]`. The detailed log is hidden by default behind a **Show detailed log** button
+and expands automatically when there is an issue.
+
+**Verify TLS certificate is on by default**; **Trust server certificate…** fetches the
+certificate SWIS presents (the stock self-signed `SolarWinds-Orion` one), shows its
+SHA-256 fingerprint, and pins the session to exactly that certificate — held in
+memory only, like the credentials.
 
 ## Offline conversion — no server connection
 
@@ -47,7 +68,7 @@ conversions run without connecting at all — point at the file or URL and conve
 python3 disa_stig_tool.py convert U_Cisco_IOS_Router_Y26M07_STIG.zip
 ```
 
-(or the **Convert to files (no server)** button in the GUI; `build` is an alias).
+(or the **Local File Conversion Only** button in the GUI; `build` is an alias — the PowerShell edition uses `-Convert`).
 The outputs are the exact payloads the API import would have sent:
 
 - **NCM** → one `.ncm-report.xml` per benchmark, byte-matched to a real console

@@ -1346,15 +1346,58 @@ class WindowsAuthClient:
         return self._request(f"Invoke/{entity}/{verb}", list(args))
 
 
+DISCLAIMER_TEXT = ("This is not built by SolarWinds Inc. or DISA. All Code is visible "
+                   "for Code Audit and documentation is available for SWIS calls.")
+ACK_TEXT = ("I Acknowledge that I will check the Reports Imported and Understand that "
+            "DISA STIG Reports do not always include explicit instructions to resolve. "
+            "Resolution falls on Agency application of the standards set by the "
+            "DISA STIG System")
+
+MAX_BATCH_FILES = 10
+BTN_GREEN, BTN_YELLOW, BTN_RED = "#c6efce", "#ffeb9c", "#ffc7ce"
+
+
+def file_module(path):
+    """NCM or SCM for one file — the module a batch locks to."""
+    if is_scm_path(path):
+        return "SCM"
+    benchmarks = load_benchmarks(path)
+    kind, _info = detect_target(benchmarks, os.path.basename(path))
+    return "SCM" if kind == "server" else "NCM"
+
+
+def show_disclaimer(root):
+    """Startup gate: the acknowledgment checkbox must be ticked to proceed."""
+    gate = tk.Toplevel(root)
+    gate.title("DISA STIG Conversion Tool")
+    gate.grab_set()
+    gate.protocol("WM_DELETE_WINDOW", lambda: (result.update(ok=False), gate.destroy()))
+    result = {"ok": False}
+    frame = ttk.Frame(gate, padding=16)
+    frame.pack(fill="both", expand=True)
+    ttk.Label(frame, text=DISCLAIMER_TEXT, wraplength=560,
+              font=("TkDefaultFont", 10, "bold")).pack(anchor="w", pady=(0, 12))
+    acked = tk.BooleanVar(value=False)
+    ttk.Checkbutton(frame, text=ACK_TEXT, variable=acked,
+                    command=lambda: proceed.configure(
+                        state="normal" if acked.get() else "disabled")).pack(anchor="w")
+    proceed = ttk.Button(frame, text="Proceed", state="disabled",
+                         command=lambda: (result.update(ok=True), gate.destroy()))
+    proceed.pack(anchor="e", pady=(16, 0))
+    gate.wait_window()
+    return result["ok"]
+
+
 class App:
     def __init__(self, root):
         self.root = root
         root.title("DISA STIG Conversion Tool")
-        root.minsize(680, 560)
+        root.minsize(760, 640)
         self.log_queue = queue.Queue()
-        self._downloaded = None  # temp file path when the source is a URL
+        self.pinned_pem = None       # memory only, like the credentials
+        self.batch_module = None     # locked to NCM or SCM by the first file
 
-        pad = {"padx": 8, "pady": 4}
+        pad = {"padx": 8, "pady": 3}
         frame = ttk.Frame(root, padding=10)
         frame.pack(fill="both", expand=True)
         frame.columnconfigure(1, weight=1)
@@ -1363,24 +1406,20 @@ class App:
         conn = ttk.LabelFrame(frame, text="SolarWinds server", padding=8)
         conn.grid(row=0, column=0, columnspan=2, sticky="ew", **pad)
         conn.columnconfigure(1, weight=1)
-
         ttk.Label(conn, text="Server IP/FQDN").grid(row=0, column=0, sticky="w", **pad)
         self.host = tk.StringVar()
         ttk.Entry(conn, textvariable=self.host).grid(row=0, column=1, sticky="ew", **pad)
         ttk.Label(conn, text="SWIS port").grid(row=0, column=2, sticky="e", **pad)
         self.port = tk.StringVar(value=str(DEFAULT_PORT))
         ttk.Entry(conn, textvariable=self.port, width=7).grid(row=0, column=3, **pad)
-
         ttk.Label(conn, text="Username").grid(row=1, column=0, sticky="w", **pad)
         self.user = tk.StringVar()
         self.user_entry = ttk.Entry(conn, textvariable=self.user)
         self.user_entry.grid(row=1, column=1, columnspan=3, sticky="ew", **pad)
-
         ttk.Label(conn, text="Password").grid(row=2, column=0, sticky="w", **pad)
         self.password = tk.StringVar()
         self.pass_entry = ttk.Entry(conn, textvariable=self.password, show="•")
         self.pass_entry.grid(row=2, column=1, columnspan=3, sticky="ew", **pad)
-
         self.win_auth = tk.BooleanVar(value=False)
         ttk.Checkbutton(conn, text="Login with current Windows user",
                         variable=self.win_auth, command=self._toggle_auth).grid(
@@ -1389,44 +1428,38 @@ class App:
         ttk.Checkbutton(conn, text="Verify TLS certificate (default)",
                         variable=self.verify_tls).grid(row=3, column=2, columnspan=2,
                                                        sticky="e", **pad)
-        self.pinned_pem = None  # in-memory only, like the credentials
+        # live connection status, directly under the login controls
+        self.conn_status = tk.StringVar(value="Connection: not tested")
+        ttk.Label(conn, textvariable=self.conn_status).grid(
+            row=4, column=0, columnspan=2, sticky="w", **pad)
         ttk.Button(conn, text="Trust server certificate…",
                    command=self._on_pin_cert).grid(row=4, column=2, columnspan=2,
                                                    sticky="e", **pad)
 
-        # --- source ----------------------------------------------------------
-        src = ttk.LabelFrame(frame, text="STIG source", padding=8)
+        # --- files (up to MAX_BATCH_FILES; one module per batch) --------------
+        src = ttk.LabelFrame(
+            frame, text=f"STIG files (up to {MAX_BATCH_FILES} — one module per "
+                        "batch: NCM or SCM, never both)", padding=8)
         src.grid(row=1, column=0, columnspan=2, sticky="ew", **pad)
-        src.columnconfigure(1, weight=1)
-
-        self.source_kind = tk.StringVar(value="file")
-        ttk.Radiobutton(src, text="File (zip, xccdf .xml, .xsl, SCM .yaml)",
-                        variable=self.source_kind, value="file",
-                        command=self._toggle_source).grid(row=0, column=0, columnspan=2,
-                                                          sticky="w", **pad)
-        self.file_path = tk.StringVar()
-        self.file_entry = ttk.Entry(src, textvariable=self.file_path)
-        self.file_entry.grid(row=1, column=1, sticky="ew", **pad)
-        self.browse_btn = ttk.Button(src, text="Browse…", command=self._browse)
-        self.browse_btn.grid(row=1, column=2, **pad)
-        drop_hint = "or drop a file anywhere on this window" if HAVE_DND else \
-            "(install tkinterdnd2 to enable drag-and-drop)"
-        ttk.Label(src, text=drop_hint, foreground="gray").grid(
-            row=2, column=1, sticky="w", padx=8)
-
-        ttk.Radiobutton(src, text="STIG package URL (e.g. a dl.dod.cyber.mil zip link)",
-                        variable=self.source_kind, value="url",
-                        command=self._toggle_source).grid(row=3, column=0, columnspan=2,
-                                                          sticky="w", **pad)
+        src.columnconfigure(0, weight=1)
+        self.file_list = tk.Listbox(src, height=5)
+        self.file_list.grid(row=0, column=0, rowspan=3, sticky="ew", **pad)
+        ttk.Button(src, text="Browse…", command=self._browse).grid(row=0, column=1, **pad)
+        ttk.Button(src, text="Remove", command=self._remove_file).grid(row=1, column=1, **pad)
+        ttk.Button(src, text="Clear", command=self._clear_files).grid(row=2, column=1, **pad)
         self.url = tk.StringVar()
-        self.url_entry = ttk.Entry(src, textvariable=self.url)
-        self.url_entry.grid(row=4, column=1, columnspan=2, sticky="ew", **pad)
+        ttk.Entry(src, textvariable=self.url).grid(row=3, column=0, sticky="ew", **pad)
+        ttk.Button(src, text="Add URL", command=self._add_url).grid(row=3, column=1, **pad)
+        self.module_notice = tk.StringVar(
+            value="Module: (select a file — the batch locks to NCM or SCM "
+                  "based on the first file)")
+        ttk.Label(src, textvariable=self.module_notice).grid(
+            row=4, column=0, columnspan=2, sticky="w", **pad)
 
         # --- import options ---------------------------------------------------
         opts = ttk.LabelFrame(frame, text="Import options", padding=8)
         opts.grid(row=2, column=0, columnspan=2, sticky="ew", **pad)
         opts.columnconfigure(1, weight=1)
-
         ttk.Label(opts, text="Compliance target").grid(row=0, column=0, sticky="w", **pad)
         self.target = tk.StringVar()
         target_box = ttk.Combobox(
@@ -1436,12 +1469,9 @@ class App:
                     "Server Compliance — server systems (SCM)"))
         target_box.current(0)
         target_box.grid(row=0, column=1, sticky="w", **pad)
-
-        ttk.Label(opts, text="NCM node scope (Where clause)").grid(row=1, column=0,
-                                                                   sticky="w", **pad)
+        ttk.Label(opts, text="NCM node scope").grid(row=1, column=0, sticky="w", **pad)
         self.node_where = tk.StringVar(value="(auto — from the detected vendor)")
-        ttk.Entry(opts, textvariable=self.node_where).grid(row=1, column=1,
-                                                           sticky="ew", **pad)
+        ttk.Entry(opts, textvariable=self.node_where).grid(row=1, column=1, sticky="ew", **pad)
         ttk.Label(opts, text="NCM rule patterns").grid(row=2, column=0, sticky="w", **pad)
         self.mode = tk.StringVar(value="manual")
         box = ttk.Combobox(opts, textvariable=self.mode, state="readonly", width=52,
@@ -1450,92 +1480,167 @@ class App:
         box.current(0)
         box.grid(row=2, column=1, sticky="w", **pad)
 
-        # --- actions and log --------------------------------------------------
+        # --- actions (tk.Buttons so completion colors show) -------------------
         btns = ttk.Frame(frame)
         btns.grid(row=3, column=0, columnspan=2, sticky="ew", **pad)
-        self.test_btn = ttk.Button(btns, text="Test connection", command=self._on_test)
+        self.test_btn = tk.Button(btns, text="Test Connection", command=self._on_test)
         self.test_btn.pack(side="left", padx=4)
-        self.preview_btn = ttk.Button(btns, text="Preview file", command=self._on_preview)
-        self.preview_btn.pack(side="left", padx=4)
-        self.import_btn = ttk.Button(btns, text="Import", command=self._on_import)
+        self.import_btn = tk.Button(btns, text="Import",
+                                    command=lambda: self._on_batch(offline=False))
         self.import_btn.pack(side="left", padx=4)
-        self.convert_btn = ttk.Button(btns, text="Convert to files (no server)",
-                                      command=self._on_convert)
+        self.convert_btn = tk.Button(btns, text="Local File Conversion Only",
+                                     command=lambda: self._on_batch(offline=True))
         self.convert_btn.pack(side="left", padx=4)
+        self.details_btn = ttk.Button(btns, text="Show detailed log",
+                                      command=self._toggle_details)
+        self.details_btn.pack(side="right", padx=4)
 
-        self.log = tk.Text(frame, height=14, state="disabled", wrap="word")
-        self.log.grid(row=4, column=0, columnspan=2, sticky="nsew", **pad)
+        # --- summary (always visible) + auto-hidden detailed log --------------
+        self.summary = tk.Text(frame, height=8, state="disabled", wrap="word")
+        self.summary.grid(row=4, column=0, columnspan=2, sticky="nsew", **pad)
+        self.summary.tag_configure("success", foreground="#1e7d32")
+        self.summary.tag_configure("fail", foreground="#b00020")
+        self.summary.tag_configure("warn", foreground="#8a6d00")
         frame.rowconfigure(4, weight=1)
+        self.detail = tk.Text(frame, height=10, state="disabled", wrap="word")
+        self.detail.grid(row=5, column=0, columnspan=2, sticky="nsew", **pad)
+        self.detail.grid_remove()
+        frame.rowconfigure(5, weight=1)
 
         self._toggle_auth()
-        self._toggle_source()
         if HAVE_DND:
             root.drop_target_register(DND_FILES)
             root.dnd_bind("<<Drop>>", self._on_drop)
         root.after(150, self._drain_log)
-
-    # ---- UI plumbing --------------------------------------------------------
 
     def _toggle_auth(self):
         state = "disabled" if self.win_auth.get() else "normal"
         self.user_entry.configure(state=state)
         self.pass_entry.configure(state=state)
 
-    def _toggle_source(self):
-        file_mode = self.source_kind.get() == "file"
-        self.file_entry.configure(state="normal" if file_mode else "disabled")
-        self.browse_btn.configure(state="normal" if file_mode else "disabled")
-        self.url_entry.configure(state="disabled" if file_mode else "normal")
+    # ---- logging: colored summary, hidden detail -----------------------------
 
-    def _browse(self):
-        path = filedialog.askopenfilename(
-            title="Select a STIG file",
-            filetypes=[("STIG content", "*.zip *.xml *.xsl *.yaml *.yml"),
-                       ("All files", "*.*")])
-        if path:
-            self.file_path.set(path)
+    def _append(self, widget, msg, tag=None):
+        widget.configure(state="normal")
+        if tag:
+            widget.insert("end", redact(str(msg)) + "\n", tag)
+        else:
+            widget.insert("end", redact(str(msg)) + "\n")
+        widget.see("end")
+        widget.configure(state="disabled")
 
-    def _on_drop(self, event):
-        path = event.data.strip("{}").split("} {")[0]
-        self.source_kind.set("file")
-        self._toggle_source()
-        self.file_path.set(path)
-        self._log(f"dropped: {path}")
+    def _summary_line(self, msg, tag=None):
+        self.root.after(0, self._append, self.summary, msg, tag)
 
-    def _log(self, msg):
+    def _log(self, msg):        # detailed log (worker threads use this)
         self.log_queue.put(redact(str(msg)))
 
     def _drain_log(self):
         try:
             while True:
-                msg = self.log_queue.get_nowait()
-                self.log.configure(state="normal")
-                self.log.insert("end", msg + "\n")
-                self.log.see("end")
-                self.log.configure(state="disabled")
+                self._append(self.detail, self.log_queue.get_nowait())
         except queue.Empty:
             pass
         self.root.after(150, self._drain_log)
 
+    def _toggle_details(self):
+        if self.detail.winfo_viewable():
+            self.detail.grid_remove()
+            self.details_btn.configure(text="Show detailed log")
+        else:
+            self.detail.grid()
+            self.details_btn.configure(text="Hide detailed log")
+
+    def _show_issue(self):
+        self.root.after(0, lambda: (self.detail.grid(),
+                                    self.details_btn.configure(text="Hide detailed log")))
+
+    def _set_button(self, btn, color):
+        self.root.after(0, lambda: btn.configure(bg=color, activebackground=color))
+
+    # ---- file batch ----------------------------------------------------------
+
+    def _add_files(self, paths):
+        for path in paths:
+            if self.file_list.size() >= MAX_BATCH_FILES:
+                self._summary_line(f"at most {MAX_BATCH_FILES} files per batch", "warn")
+                return
+            try:
+                module = file_module(path)
+            except (ValueError, OSError) as exc:
+                self._summary_line(f"skipped {os.path.basename(path)}: {exc}", "fail")
+                continue
+            if self.batch_module is None:
+                self.batch_module = module
+                self.module_notice.set(f"Module: locked to {module} for this batch "
+                                       "(from the first file selected)")
+                self._summary_line(f"notice: this batch is now a {module} import")
+            elif module != self.batch_module:
+                self._summary_line(
+                    f"skipped {os.path.basename(path)}: it is a {module} file, but this "
+                    f"batch is locked to {self.batch_module} — run it in a separate batch",
+                    "warn")
+                continue
+            self.file_list.insert("end", path)
+
+    def _browse(self):
+        paths = filedialog.askopenfilenames(
+            title="Select STIG files",
+            filetypes=[("STIG content", "*.zip *.xml *.xsl *.yaml *.yml *.scm-profile"),
+                       ("All files", "*.*")])
+        if paths:
+            self._add_files(paths)
+
+    def _remove_file(self):
+        for index in reversed(self.file_list.curselection()):
+            self.file_list.delete(index)
+        if self.file_list.size() == 0:
+            self._clear_files()
+
+    def _clear_files(self):
+        self.file_list.delete(0, "end")
+        self.batch_module = None
+        self.module_notice.set("Module: (select a file — the batch locks to NCM or SCM "
+                               "based on the first file)")
+
+    def _on_drop(self, event):
+        self._add_files([p for p in self.root.tk.splitlist(event.data)])
+
+    def _add_url(self):
+        url = self.url.get().strip()
+        if not url:
+            return
+        def work():
+            name = os.path.basename(url.split("?")[0]) or "stig-download"
+            dest = os.path.join(tempfile.gettempdir(), name)
+            self._log(f"downloading {url} …")
+            req = urllib.request.Request(url, headers={"User-Agent": "disa-stig-conversion-tool/1.0"})
+            with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as out:
+                while chunk := resp.read(1 << 16):
+                    out.write(chunk)
+            self._log(f"saved {dest} ({os.path.getsize(dest):,} bytes)")
+            self.root.after(0, self._add_files, [dest])
+        self._run_bg(work)
+
+    # ---- shared helpers ------------------------------------------------------
+
     def _busy(self, working):
         state = "disabled" if working else "normal"
-        for b in (self.test_btn, self.preview_btn, self.import_btn, self.convert_btn):
+        for b in (self.test_btn, self.import_btn, self.convert_btn):
             b.configure(state=state)
 
     def _run_bg(self, fn):
         self._busy(True)
-
         def wrapper():
             try:
                 fn()
-            except Exception as exc:  # surfaced to the log, never a crash
+            except Exception as exc:  # surfaced to the summary, never a crash
+                self._summary_line(f"ERROR: {exc}", "fail")
                 self._log(f"ERROR: {exc}")
+                self._show_issue()
             finally:
                 self.root.after(0, self._busy, False)
-
         threading.Thread(target=wrapper, daemon=True).start()
-
-    # ---- shared helpers ------------------------------------------------------
 
     def _client(self):
         host = self.host.get().strip()
@@ -1554,29 +1659,6 @@ class App:
         return SwisClient(host, user, self.password.get(), port=port, verify=verify,
                           pinned_pem=self.pinned_pem)
 
-    def _resolve_source(self):
-        """Return a local file path for the chosen source, downloading a URL if needed."""
-        if self.source_kind.get() == "file":
-            path = self.file_path.get().strip()
-            if not path or not os.path.isfile(path):
-                raise ValueError("choose a file first")
-            return path
-        url = self.url.get().strip()
-        if not url:
-            raise ValueError("enter the STIG package URL first")
-        name = os.path.basename(url.split("?")[0]) or "stig-download"
-        dest = os.path.join(tempfile.gettempdir(), name)
-        self._log(f"downloading {url} …")
-        req = urllib.request.Request(url, headers={"User-Agent": "disa-stig-conversion-tool/1.0"})
-        ctx = ssl.create_default_context()
-        with urllib.request.urlopen(req, timeout=300, context=ctx) as resp, \
-                open(dest, "wb") as out:
-            while chunk := resp.read(1 << 16):
-                out.write(chunk)
-        self._log(f"saved {dest} ({os.path.getsize(dest):,} bytes)")
-        self._downloaded = dest
-        return dest
-
     def _target_choice(self):
         label = self.target.get()
         if label.startswith("Network"):
@@ -1584,33 +1666,6 @@ class App:
         if label.startswith("Server"):
             return "server"
         return "auto"
-
-    def _describe(self, path):
-        """Detect the target module and return ('scm-yaml'|'ncm'|'scm', preview lines)."""
-        if is_scm_path(path):
-            info = scan_scm_policy(load_scm_policy(path))
-            sev = ", ".join(f"{v} {k}" for k, v in sorted(info["severity_counts"].items()))
-            return "scm-yaml", [f"SCM compliance policy: {info['name']}",
-                                f"  {len(info['rules'])} rules ({sev})",
-                                "  target: Server Configuration Monitor "
-                                "(Orion.PolicyEngine.Policy.ImportPolicy)"]
-        lines = []
-        benchmarks = load_benchmarks(path)
-        for b in benchmarks:
-            counts = {}
-            for r in b["rules"]:
-                counts[r["severity"]] = counts.get(r["severity"], 0) + 1
-            sev = ", ".join(f"{counts[s]} {s}" for s in ("high", "medium", "low")
-                            if s in counts)
-            lines.append(f"{b['title']} [{b['edition']} edition]")
-            lines.append(f"  V{b['version']} {b['release']} — {len(b['rules'])} rules ({sev})")
-        kind, _info, note = resolve_route(self._target_choice(), benchmarks,
-                                          os.path.basename(path),
-                                          self.node_where.get().strip())
-        lines.append("  " + note)
-        return kind, lines
-
-    # ---- actions --------------------------------------------------------------
 
     def _on_pin_cert(self):
         def work():
@@ -1620,131 +1675,172 @@ class App:
             port = int(self.port.get().strip() or DEFAULT_PORT)
             pem, fingerprint, stock = fetch_server_cert(host, port)
             self.pinned_pem = pem  # memory only — dropped when the window closes
-            self._log(f"trusted the certificate {host}:{port} presents — "
-                      f"SHA-256 {fingerprint}"
-                      + (" (stock SolarWinds-Orion certificate)" if stock else ""))
+            note = " (stock SolarWinds-Orion certificate)" if stock else ""
+            self._summary_line(f"trusted the certificate {host}:{port} presents — "
+                               f"SHA-256 {fingerprint}{note}")
             self._log("this session now verifies against exactly that certificate")
         self._run_bg(work)
 
-    def _on_convert(self):
-        def work():
-            path = self._resolve_source()
-            kind, lines = self._describe(path)
-            for line in lines:
-                self._log(line)
-            folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
-                                                        os.W_OK) else tempfile.gettempdir()
-            if kind == "scm-yaml":
-                self._log("this file is already an importable SCM policy — nothing to convert")
-                return
-            benchmarks = load_benchmarks(path)
-            original = self.url.get().strip() if self.source_kind.get() == "url" else path
-            _kind, info, _note = resolve_route(self._target_choice(), benchmarks,
-                                               os.path.basename(path),
-                                               self.node_where.get().strip())
-            if kind == "server":
-                for b in benchmarks:
-                    out = os.path.join(folder, re.sub(
-                        r"[^\w.-]+", "_",
-                        b["benchmark_id"] or b["title"]) + ".scm-profile")
-                    with open(out, "w", encoding="utf-8") as fh:
-                        fh.write(xccdf_to_scm_yaml(b))
-                    self._log(f"wrote {out} — {len(b['rules'])} rules")
-                self._log("import in the console: Settings → SCM Settings → Policies "
-                          "→ Add/Import, or later with this tool")
-                return
-            mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
-            reports = build_reports(benchmarks, node_where=info, mode=mode,
-                                    source_path=os.path.basename(original.split("?")[0]))
-            for report in reports:
-                self._log(f"wrote {write_console_file(report, folder)}")
-            self._log("import in the console: Compliance → Manage Policy Reports → Import")
-        self._run_bg(work)
+    # ---- actions --------------------------------------------------------------
 
     def _on_test(self):
+        self.test_btn.configure(bg="SystemButtonFace" if sys.platform == "win32" else "#d9d9d9")
+        self.conn_status.set("Connection: testing …")
         def work():
-            swis = self._client()
-            rows = swis.query("SELECT TOP 1 EngineVersion FROM Orion.Engines")
-            if not rows:
-                self._log("No data returned from the Orion.Engines query — connected, "
-                          "but the account may lack read access")
+            try:
+                swis = self._client()
+                rows = swis.query("SELECT TOP 1 EngineVersion FROM Orion.Engines")
+            except SwisError as exc:
+                self._set_button(self.test_btn, BTN_RED)
+                self.conn_status.set("Connection: FAILED")
+                self._summary_line(f"connection failed: {exc}", "fail")
+                self._log(str(exc))
+                self._show_issue()
+                return
+            problems = []
             version = rows[0]["EngineVersion"] if rows else "unknown"
+            if not rows:
+                problems.append("No data returned from the Orion.Engines query — "
+                                "connected, but the account may lack read access")
+            match = re.match(r"(\d+)", str(version))
+            if match and int(match.group(1)) < 2023:
+                problems.append(f"SWIS version mismatch: platform {version} predates "
+                                "2023.1 — the REST port is 17778 there, not 17774")
             ncm = swis.query("SELECT COUNT(FullName) AS C FROM Metadata.Entity "
                              "WHERE FullName LIKE 'Cirrus.%'")[0]["C"]
             scm = swis.query("SELECT COUNT(FullName) AS C FROM Metadata.Entity "
                              "WHERE FullName LIKE 'Orion.PolicyEngine.%'")[0]["C"]
-            self._log(f"connected — platform {version}; "
-                      f"NCM {'present' if ncm else 'NOT installed'}, "
-                      f"SCM policy engine {'present' if scm else 'NOT installed'}")
+            if not ncm:
+                problems.append("[NCM] Cirrus entities not present — NCM is not "
+                                "installed or not readable by this account")
+            if not scm:
+                problems.append("[SCM] Orion.PolicyEngine entities not present — SCM is "
+                                "not installed or not readable by this account")
+            if problems:
+                self._set_button(self.test_btn, BTN_YELLOW)
+                self.conn_status.set(f"Connection: limited — platform {version} (see log)")
+                self._summary_line(f"connected with limitations — platform {version}", "warn")
+                for problem in problems:
+                    self._log(problem)
+                self._show_issue()
+            else:
+                self._set_button(self.test_btn, BTN_GREEN)
+                self.conn_status.set(f"Connection: OK — platform {version}")
+                self._summary_line(f"connected — platform {version}; NCM present, "
+                                   "SCM policy engine present", "success")
         self._run_bg(work)
 
-    def _on_preview(self):
+    def _resolve_ncm_where(self, benchmarks, source_name):
+        _kind, info, note = resolve_route(self._target_choice(), benchmarks,
+                                          source_name, self.node_where.get().strip())
+        self._log(note)
+        return info
+
+    def _on_batch(self, offline):
+        btn = self.convert_btn if offline else self.import_btn
+        btn.configure(bg="SystemButtonFace" if sys.platform == "win32" else "#d9d9d9")
+        files = list(self.file_list.get(0, "end"))
+        module = self.batch_module
+        if not files:
+            self._summary_line("select at least one file", "warn")
+            return
         def work():
-            path = self._resolve_source()
-            for line in self._describe(path)[1]:
-                self._log(line)
+            swis = None if offline else self._client()
+            ok = fail = 0
+            for path in files:
+                prefix = f"[{module}]"
+                try:
+                    if module == "SCM":
+                        done = self._do_scm(swis, path, offline, prefix)
+                    else:
+                        done = self._do_ncm(swis, path, offline, prefix)
+                    ok += 1 if done else 0
+                    fail += 0 if done else 1
+                except (SwisError, ValueError, OSError) as exc:
+                    fail += 1
+                    self._summary_line(f"{prefix} FAILED {os.path.basename(path)}: {exc}",
+                                       "fail")
+                    self._log(f"{prefix} {exc}")
+                    self._show_issue()
+            color = BTN_GREEN if fail == 0 else (BTN_YELLOW if ok else BTN_RED)
+            self._set_button(btn, color)
         self._run_bg(work)
 
-    def _on_import(self):
-        def work():
-            path = self._resolve_source()
-            kind, lines = self._describe(path)
-            for line in lines:
-                self._log(line)
-            swis = self._client()
-            if kind == "scm-yaml":
-                policy_id, name = import_scm_policy(swis, load_scm_policy(path))
-                self._log(f"imported SCM policy \"{name}\" (PolicyID {policy_id}).")
-                self._log("Assign it to nodes under Settings → SCM Settings → Policies.")
-                return
-            benchmarks = load_benchmarks(path)
-            # The report is named after the original source (the zip's name when the
-            # source is a URL download too), not the temp file it may have landed in.
-            original = self.url.get().strip() if self.source_kind.get() == "url" else path
-            _kind, info, _note = resolve_route(self._target_choice(), benchmarks,
-                                               os.path.basename(path),
-                                               self.node_where.get().strip())
-            if kind == "server":
-                import_scm_benchmarks(swis, benchmarks, info, log=self._log)
-                self._log("done — assign the policies to nodes, then see "
-                          "My Dashboards → Home → Server Configuration.")
-                return
-            mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
-            reports = build_reports(benchmarks,
-                                    node_where=info,
-                                    mode=mode,
-                                    source_path=os.path.basename(original.split("?")[0]))
+    def _do_scm(self, swis, path, offline, prefix):
+        if is_scm_path(path):
+            if offline:
+                self._summary_line(f"{prefix} {os.path.basename(path)} is already an "
+                                   "importable SCM policy — nothing to convert")
+                return True
+            policy_id, name = import_scm_policy(swis, load_scm_policy(path))
+            self._summary_line(f"SUCCESS {prefix} \"{name}\" (PolicyID {policy_id})",
+                               "success")
+            return True
+        folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
+                                                    os.W_OK) else tempfile.gettempdir()
+        for b in load_benchmarks(path):
+            if offline:
+                out = os.path.join(folder, re.sub(r"[^\w.-]+", "_",
+                                                  b["benchmark_id"] or b["title"])
+                                   + ".scm-profile")
+                with open(out, "w", encoding="utf-8") as fh:
+                    fh.write(xccdf_to_scm_yaml(b))
+                self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
+                                   f"{len(b['rules'])} rules", "success")
+            else:
+                policy_id, name = import_scm_policy(swis, xccdf_to_scm_yaml(b))
+                self._summary_line(f"SUCCESS {prefix} \"{name}\" "
+                                   f"(PolicyID {policy_id}) — {len(b['rules'])} "
+                                   "manual-review rules", "success")
+        return True
+
+    def _do_ncm(self, swis, path, offline, prefix):
+        benchmarks = load_benchmarks(path)
+        info = self._resolve_ncm_where(benchmarks, os.path.basename(path))
+        if not isinstance(info, str):   # forced-server info tuple can't reach here
+            info = node_where_for(None)
+        mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
+        reports = build_reports(benchmarks, node_where=info, mode=mode,
+                                source_path=os.path.basename(path))
+        folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
+                                                    os.W_OK) else tempfile.gettempdir()
+        if offline:
             for report in reports:
-                existing = swis.query(
-                    "SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
-                    {"n": report["Name"]})
-                if existing:
-                    raise SwisError(
-                        f"a report named \"{report['Name']}\" already exists — "
-                        "delete or rename it first; this tool never overwrites")
-            folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
-                                                        os.W_OK) else tempfile.gettempdir()
-            new_ids = []
-            for report in reports:
+                out = write_console_file(report, folder)
                 n_rules = sum(len(p["AssignedPolicyRules"])
                               for p in report["AssignedPolicies"])
-                self._log(f"importing \"{report['Name']}\" — {n_rules} rules …")
-                try:
-                    new_id, _n_pol, n_rul = import_ncm_report(swis, report, log=self._log)
-                except NcmWireError as exc:
-                    self._log(f"ERROR: {exc}")
-                    for rep in reports:
-                        self._log(f"wrote {write_console_file(rep, folder)}")
-                    self._log("import the files through the web console: "
-                              "Compliance → Manage Policy Reports → Import")
-                    return
-                new_ids.append(new_id)
-                self._log(f"imported \"{report['Name']}\" ({new_id}) — {n_rul} rules")
-            self._log("starting compliance caching …")
+                self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
+                                   f"{n_rules} rules", "success")
+            return True
+        for report in reports:
+            existing = swis.query(
+                "SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
+                {"n": report["Name"]})
+            if existing:
+                raise SwisError(f"a report named \"{report['Name']}\" already exists — "
+                                "delete or rename it first; this tool never overwrites")
+        new_ids = []
+        partial = False
+        for report in reports:
+            try:
+                new_id, _n_pol, n_rul = import_ncm_report(swis, report, log=self._log)
+            except NcmWireError as exc:
+                self._summary_line(f"{prefix} {exc}", "warn")
+                for rep in reports:
+                    self._summary_line(
+                        f"{prefix} wrote {os.path.basename(write_console_file(rep, folder))} "
+                        "— import it via Compliance → Manage Policy Reports → Import",
+                        "warn")
+                self._show_issue()
+                partial = True
+                break
+            new_ids.append(new_id)
+            self._summary_line(f"SUCCESS {prefix} \"{report['Name']}\" — {n_rul} rules",
+                               "success")
+        if new_ids:
             swis.invoke("Cirrus.PolicyReports", "StartCaching", new_ids)
-            self._log(f"done — {len(new_ids)} report(s); see My Dashboards → "
-                      "Network Configuration → Compliance.")
-        self._run_bg(work)
+            self._log(f"{prefix} compliance caching started for {len(new_ids)} report(s)")
+        return not partial
 
 
 def run_gui():
@@ -1757,6 +1853,12 @@ def run_gui():
         ttk.Style().theme_use("vista")
     except tk.TclError:
         pass
+    root.withdraw()
+    accepted = show_disclaimer(root)
+    if not accepted:
+        root.destroy()
+        return
+    root.deiconify()
     App(root)
     root.mainloop()
 
