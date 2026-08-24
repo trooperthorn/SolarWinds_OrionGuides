@@ -60,9 +60,15 @@ fails; sniff the byte-order mark and fall back to UTF-8, never believe the prolo
 </Policy>
 ```
 
-- `NodeSelectionString` is three things concatenated: the literal prefix `Criteria:`,
-  an XML-escaped `<QUERY>` document (the console's node-picker state), and a
-  SQL-flavoured ` Where ( … )` suffix that is what actually filters nodes.
+- `NodeSelectionString` is three things concatenated: a literal prefix, an XML-escaped
+  node-picker state document, and a SQL-flavoured suffix that is what actually filters
+  nodes. **The prefix and picker format vary by console version**: the older shipped
+  samples carry `Criteria:` + a `<QUERY>` document + ` Where ( … )`, while exports from
+  a live 2026.2.2 server carry `WebCriteria:` + an `<ArrayOfWebSelectionCriteria>`
+  document (`Id`/`LogicalCondition`/`SelectedColumn`/`MatchType`/`SelectedValue`) +
+  `SQL:Where (Vendor = 'Cisco') `. Column names in the SQL fragment are bare
+  (`Vendor`, not `Nodes.Vendor`). When generating files for import, match the
+  server's own exports.
 - **Policies carry no GUID in the file** — `PolicyName` is the identity. Rules do
   carry a `RuleId` GUID.
 - `ConfigTypes` restricts which downloaded config type the rules scan (`Any`,

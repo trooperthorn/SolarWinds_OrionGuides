@@ -465,53 +465,97 @@ def rule_object(rule, grouping, mode):
     }
 
 
-def build_report(benchmarks, name=None, grouping="DISA STIG", node_where="(Nodes.Vendor = 'Cisco')",
-                 config_type="Any", mode="manual", source_path=None):
-    """Assemble the full PolicyReport contract object for the NCM import.
+def make_node_selection_string(node_where):
+    """The NodeSelectionString in the format real console exports carry.
 
-    Report = the STIG package (named after the zip when the source is one),
-    Policy = the device scope (one per benchmark, filtered by node_where),
-    Rule   = one per XCCDF check.
+    Verified against exports from a live 2026.2.2 server: the literal prefix
+    ``WebCriteria:``, an XML-escaped ArrayOfWebSelectionCriteria document (the
+    console node-picker's state), then ``SQL:Where (…)`` — the part NCM
+    actually filters on. Column names in the SQL fragment are bare (Vendor,
+    not Nodes.Vendor).
     """
-    policies = []
+    where = re.sub(r"\bNodes\.", "", node_where or "").strip()
+    if not where.lower().startswith("("):
+        where = f"({where})"
+    m = re.search(r"Vendor\s*(?:=|LIKE)\s*'%?([^%']+)%?'", where, re.IGNORECASE)
+    criteria = ""
+    if m:
+        vendor = m.group(1)
+        criteria = (
+            '<?xml version="1.0" encoding="utf-16"?>\n'
+            '<ArrayOfWebSelectionCriteria xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
+            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'
+            "  <WebSelectionCriteria>\n"
+            f"    <Id>{uuid.uuid5(uuid.NAMESPACE_URL, 'stig2ncm-criteria:' + vendor)}</Id>\n"
+            "    <LogicalCondition />\n"
+            "    <SelectedColumn>Vendor</SelectedColumn>\n"
+            "    <MatchType>=</MatchType>\n"
+            f"    <SelectedValue>{vendor}</SelectedValue>\n"
+            "  </WebSelectionCriteria>\n"
+            "</ArrayOfWebSelectionCriteria>")
+    return f"WebCriteria:{criteria}SQL:Where {where} "
+
+
+def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vendor = 'Cisco')",
+                  config_type="Any", mode="manual", source_path=None):
+    """Assemble one PolicyReport contract object per benchmark.
+
+    Matching how the console's own exports are structured (one policy per
+    report): each benchmark in the package becomes its own report — the Cisco
+    IOS Router package yields an NDM report (35 rules) and an RTR report
+    (92 rules) — whose single policy carries the device scope and joins the
+    report to its rules.
+    """
+    if name is None and source_path and source_path.lower().endswith(".zip"):
+        name = os.path.splitext(os.path.basename(source_path))[0]
+    reports = []
     for b in benchmarks:
         policy_group = f"{grouping}/{b['benchmark_id']}" if b["benchmark_id"] else grouping
         rules = [rule_object(r, policy_group, mode) for r in b["rules"]]
-        policies.append({
+        policy = {
             "PolicyId": str(uuid.uuid5(uuid.NAMESPACE_URL,
                                        "stig2ncm-policy:" + (b["benchmark_id"] or b["title"]))),
             "PolicyName": f"{b['title']} V{b['version']} ({b['release']})"[:250],
             "Comments": f"Imported by the DISA STIG Conversion Tool from {b['source']} (benchmark {b['benchmark_id']}, "
                         f"status date {b['status_date']}).",
             "Grouping": grouping,
-            # The literal "Criteria:" prefix plus the Where clause is what filters
-            # nodes; the console's node-picker QUERY blob is optional state.
-            "NodeSelectionString": f"Criteria: Where ( {node_where} )",
+            "NodeSelectionString": make_node_selection_string(node_where),
             "ConfigTypes": config_type,
             "AssignedPolicyRules": rules,
             "AssignedRulesList": [r["RuleId"] for r in rules],
+        }
+        base = name or b["title"]
+        report_name = f"{base} - {b['benchmark_id']}" if name and b["benchmark_id"] else base
+        reports.append({
+            "ID": str(uuid.uuid4()),  # advisory only — the server assigns its own GUID
+            "Name": report_name[:250],
+            "Comments": f"DISA STIG imported by the DISA STIG Conversion Tool from "
+                        f"{b['source']} ({b['release']}).",
+            "Group": grouping,
+            "ShowSummaryFlag": True,
+            "ShowRulesWithoutViolationFlag": True,
+            "AssignedPolicies": [policy],
+            "AssignedPoliciesList": [policy["PolicyId"]],
+            "ReportStatus": "Enabled",
         })
+    return reports
 
-    if name is None and source_path and source_path.lower().endswith(".zip"):
-        # The report carries the package's name: U_Cisco_IOS_Router_Y26M07_STIG
-        name = os.path.splitext(os.path.basename(source_path))[0]
-    if name is None:
-        name = benchmarks[0]["title"]
-        if len(benchmarks) > 1:
-            name = re.sub(r"\b(NDM|RTR|Switch|Router)\b.*$", "", name).strip() or name
-            name += " (all benchmarks)"
-    return {
-        "ID": str(uuid.uuid4()),  # advisory only — the server assigns its own GUID
-        "Name": name[:250],
-        "Comments": "DISA STIG imported by the DISA STIG Conversion Tool. Sources: "
-                    + "; ".join(f"{b['source']} ({b['release']})" for b in benchmarks),
-        "Group": grouping,
-        "ShowSummaryFlag": True,
-        "ShowRulesWithoutViolationFlag": True,
-        "AssignedPolicies": policies,
-        "AssignedPoliciesList": [p["PolicyId"] for p in policies],
-        "ReportStatus": "Enabled",
-    }
+
+def build_report(benchmarks, **kwargs):
+    """Back-compatible single-report build (first benchmark only)."""
+    return build_reports(benchmarks, **kwargs)[0]
+
+
+def write_console_file(report, folder="."):
+    """Write a report as a console-importable file, byte-matching real exports:
+    UTF-8 without BOM, CRLF line endings, and the (lying) utf-16 declaration."""
+    out = os.path.join(folder, re.sub(r"[^\w.-]+", "_", report["Name"]) + ".ncm-report.xml")
+    root = ET.fromstring(report_contract_xml(report))
+    ET.indent(root, space="  ")
+    body = '<?xml version="1.0" encoding="utf-16"?>\n' + ET.tostring(root, encoding="unicode")
+    with open(out, "w", encoding="utf-8", newline="\r\n") as fh:
+        fh.write(body)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -897,7 +941,9 @@ def detect_target(benchmarks, source_name):
 
 
 def node_where_for(vendor):
-    return f"(Nodes.Vendor LIKE '%{vendor}%')" if vendor else "(Nodes.Vendor = 'Cisco')"
+    # Bare column names: the SQL fragment in real console exports says Vendor,
+    # not Nodes.Vendor, and exact vendor equality is what the node picker writes.
+    return f"(Vendor = '{vendor}')" if vendor else "(Vendor = 'Cisco')"
 
 
 # ---------------------------------------------------------------------------
@@ -1049,8 +1095,8 @@ def resolve_route(target, benchmarks, source_name, node_where=None):
     return "network", where, note
 
 
-def make_report_from_args(args, benchmarks, node_where):
-    return build_report(
+def make_reports_from_args(args, benchmarks, node_where):
+    return build_reports(
         benchmarks, name=args.name, grouping=args.grouping,
         node_where=node_where, config_type=args.config_type, mode=args.mode,
         source_path=args.path,
@@ -1079,15 +1125,14 @@ def cmd_build(args):
             print(f"wrote {out}: SCM policy \"{b['title']}\" — {len(b['rules'])} rules")
         print("import with:  disa_stig_tool.py import <same source> --target server …")
         return
-    report = make_report_from_args(args, benchmarks, info)
-    out = args.output or (stem + ".ncm-report.json")
-    with open(out, "w", encoding="utf-8") as fh:
-        json.dump(report, fh, indent=2)
-    n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
-    print(f"wrote {out}: report \"{report['Name']}\" — "
-          f"{len(report['AssignedPolicies'])} policies, {n_rules} rules")
-    print("import it with:  disa_stig_tool.py import <same source> …  "
-          "(or POST [report, true] to Invoke/Cirrus.PolicyReports/AddPolicyReport)")
+    reports = make_reports_from_args(args, benchmarks, info)
+    for report in reports:
+        out = write_console_file(report)
+        n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
+        print(f"wrote {out}: report \"{report['Name']}\" — {n_rules} rules "
+              "(console-importable XML)")
+    print("import via the API with:  disa_stig_tool.py import <same source> …  "
+          "or through the web console: Compliance → Manage Policy Reports → Import")
 
 
 def import_scm_benchmarks(swis, benchmarks, os_info, log=print):
@@ -1124,33 +1169,37 @@ def cmd_import(args):
         import_scm_benchmarks(swis, benchmarks, info)
         return
 
-    report = make_report_from_args(args, benchmarks, info)
-    existing = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
-                          {"n": report["Name"]})
-    if existing:
-        sys.exit(f"error: a report named \"{report['Name']}\" already exists "
-                 f"({existing[0]['PolicyReportID']}). Rename with --name, or delete it first — "
-                 "this tool never overwrites.")
+    reports = make_reports_from_args(args, benchmarks, info)
+    for report in reports:
+        existing = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
+                              {"n": report["Name"]})
+        if existing:
+            sys.exit(f"error: a report named \"{report['Name']}\" already exists "
+                     f"({existing[0]['PolicyReportID']}). Rename with --name, or delete it "
+                     "first — this tool never overwrites.")
 
-    n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
-    print(f"importing \"{report['Name']}\" — {len(report['AssignedPolicies'])} policies, "
-          f"{n_rules} rules …")
-    try:
-        new_id, n_pol, n_rul = import_ncm_report(swis, report)
-    except NcmWireError as exc:
-        out = re.sub(r"[^\w.-]+", "_", report["Name"]) + ".ncm-report.xml"
-        with open(out, "wb") as fh:
-            fh.write(exc.console_xml.encode("utf-16"))
-        sys.exit(f"error: {exc}\nwrote {out}")
-    print(f"imported: \"{report['Name']}\" ({new_id}) — {n_pol} policies, {n_rul} rules")
+    new_ids = []
+    for report in reports:
+        n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
+        print(f"importing \"{report['Name']}\" — {n_rules} rules …")
+        try:
+            new_id, _n_pol, n_rul = import_ncm_report(swis, report)
+        except NcmWireError as exc:
+            print(f"error: {exc}")
+            for rep in reports:
+                print(f"wrote {write_console_file(rep)}")
+            sys.exit("import the files through the web console: "
+                     "Compliance → Manage Policy Reports → Import")
+        new_ids.append(new_id)
+        print(f"imported: \"{report['Name']}\" ({new_id}) — {n_rul} rules")
 
     if args.no_cache:
-        print("compliance caching not started (--no-cache); the report shows no data until "
+        print("compliance caching not started (--no-cache); the reports show no data until "
               "you run Update Violations in the console or invoke StartCaching.")
         return
-    # Always pass the specific GUID: an empty array would re-cache every report.
-    swis.invoke("Cirrus.PolicyReports", "StartCaching", [new_id])
-    print("compliance caching started for this report. Watch it under "
+    # Always pass the specific GUIDs: an empty array would re-cache every report.
+    swis.invoke("Cirrus.PolicyReports", "StartCaching", new_ids)
+    print(f"compliance caching started for {len(new_ids)} report(s). Watch them under "
           "My Dashboards → Network Configuration → Compliance.")
 
 
@@ -1163,7 +1212,7 @@ def add_source_args(p):
                         "Windows/Linux/RHEL/Debian/Ubuntu/CentOS → SCM). "
                         "network: NCM compliance only. server: SCM compliance only.")
     p.add_argument("--node-where", default="auto",
-                   help="NCM node-selection Where clause, e.g. \"(Nodes.Vendor = 'Cisco')\". "
+                   help="NCM node-selection Where clause, e.g. \"(Vendor = 'Cisco')\". "
                         "Default auto: derived from the detected vendor.")
     p.add_argument("--config-type", default="Any",
                    help="config type the rules scan: Any, Running, Startup, …")
@@ -1539,36 +1588,40 @@ class App:
                           "My Dashboards → Home → Server Configuration.")
                 return
             mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
-            report = build_report(benchmarks,
-                                  node_where=info,
-                                  mode=mode,
-                                  source_path=os.path.basename(original.split("?")[0]))
-            existing = swis.query(
-                "SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
-                {"n": report["Name"]})
-            if existing:
-                raise SwisError(
-                    f"a report named \"{report['Name']}\" already exists — "
-                    "delete or rename it first; this tool never overwrites")
-            n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
-            self._log(f"importing \"{report['Name']}\" — "
-                      f"{len(report['AssignedPolicies'])} policies, {n_rules} rules …")
-            try:
-                new_id, n_pol, n_rul = import_ncm_report(swis, report, log=self._log)
-            except NcmWireError as exc:
-                folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
-                                                            os.W_OK) else tempfile.gettempdir()
-                out = os.path.join(folder,
-                                   re.sub(r"[^\w.-]+", "_", report["Name"]) + ".ncm-report.xml")
-                with open(out, "wb") as fh:
-                    fh.write(exc.console_xml.encode("utf-16"))
-                self._log(f"ERROR: {exc}")
-                self._log(f"wrote {out}")
-                return
-            self._log(f"imported \"{report['Name']}\" ({new_id}) — "
-                      f"{n_pol} policies, {n_rul} rules; starting compliance caching …")
-            swis.invoke("Cirrus.PolicyReports", "StartCaching", [new_id])
-            self._log("done — see My Dashboards → Network Configuration → Compliance.")
+            reports = build_reports(benchmarks,
+                                    node_where=info,
+                                    mode=mode,
+                                    source_path=os.path.basename(original.split("?")[0]))
+            for report in reports:
+                existing = swis.query(
+                    "SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
+                    {"n": report["Name"]})
+                if existing:
+                    raise SwisError(
+                        f"a report named \"{report['Name']}\" already exists — "
+                        "delete or rename it first; this tool never overwrites")
+            folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
+                                                        os.W_OK) else tempfile.gettempdir()
+            new_ids = []
+            for report in reports:
+                n_rules = sum(len(p["AssignedPolicyRules"])
+                              for p in report["AssignedPolicies"])
+                self._log(f"importing \"{report['Name']}\" — {n_rules} rules …")
+                try:
+                    new_id, _n_pol, n_rul = import_ncm_report(swis, report, log=self._log)
+                except NcmWireError as exc:
+                    self._log(f"ERROR: {exc}")
+                    for rep in reports:
+                        self._log(f"wrote {write_console_file(rep, folder)}")
+                    self._log("import the files through the web console: "
+                              "Compliance → Manage Policy Reports → Import")
+                    return
+                new_ids.append(new_id)
+                self._log(f"imported \"{report['Name']}\" ({new_id}) — {n_rul} rules")
+            self._log("starting compliance caching …")
+            swis.invoke("Cirrus.PolicyReports", "StartCaching", new_ids)
+            self._log(f"done — {len(new_ids)} report(s); see My Dashboards → "
+                      "Network Configuration → Compliance.")
         self._run_bg(work)
 
 
