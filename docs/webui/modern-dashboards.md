@@ -11,6 +11,14 @@ plainly; where only one exercises a feature, it says so.
 [modern-dashboard-authoring.md](modern-dashboard-authoring.md) is the other half: how to write
 one from scratch, including for an AI asked to generate a whole file.
 
+A few claims on this page come from a fourth source instead of a file: [SolarWinds Lab
+#93](https://www.youtube.com/watch?v=9T1VlIvAfdo), "A Step-by-Step Guide to Building Modern
+Dashboards on the Orion Platform" (2020), an official SolarWinds walkthrough recorded in the
+console rather than exported to JSON. It is cited by timestamp wherever it is the source, and
+carries the same evidentiary weight as a THWACK thread elsewhere in this section: useful and
+attributable, but not the schema, so still marked **unverified here** where nothing in `data/`
+can confirm it.
+
 ## The envelope
 
 ```json
@@ -133,6 +141,23 @@ in every export; keep them in sync.
 All nine files use only these three, with the same three provider ids. Other widget types
 certainly exist in the product and the list here is **not complete**.
 
+### A fourth type: `timeseries`
+
+That gap is not hypothetical. [SolarWinds Lab #93](https://www.youtube.com/watch?v=9T1VlIvAfdo)
+(36:20-37:56) builds a fourth type, `timeseries`, backed by a saved
+[PerfStack](perfstack.md) project rather than by hand-edited SWQL: drag the widget, choose
+"PerfStack" as its data model, pick a previously built project by name, and set a relative
+time range (the demo uses "Last 7 days").
+
+None of the nine exports examined for this page contain one, so its `type` string, its data
+provider id, and how the PerfStack project reference and time range are represented under
+`providers.dataSource.properties` are **undocumented and unverified here**. What the console
+demonstrates, rather than a file, is that the widget's data comes from a row already saved in
+`Orion.PerfStack.Projects` — see
+[perfstack.md](perfstack.md#settle-the-grammar-against-your-own-server) — instead of carrying
+its own query the way the other three types do. If you can export a dashboard containing one,
+that is what would close this gap.
+
 **`proportional` is not "a donut".** It is the part-to-whole chart widget, and
 `chartOptions.type` picks the rendering. Across the nine files that field takes `DonutChart`,
 `PieChart` and `HorizontalBarChart` — so a horizontal bar chart is also a `proportional`
@@ -200,6 +225,14 @@ Both live under the oddly named `"/"` key, which is the widget-root configuratio
 true` — so the flag does get set, and it reads as "use my interval rather than the console
 default". Three refreshers carry `enabled: false`, which keeps the block but stops the widget
 polling.
+
+This block is also why a Modern Dashboard feels "live" compared with the classic console.
+[SolarWinds Lab #93](https://www.youtube.com/watch?v=9T1VlIvAfdo) (36:03-36:20) states that the
+page is HTML5-driven and re-renders a widget in place on this interval rather than requiring a
+browser refresh, so a change in the underlying data reaches the screen within one `interval`
+with nothing visibly reloading. That is a behaviour claim about the console, not a schema fact
+the extracted contract can confirm, so treat it as **unverified here** beyond what the
+`refresher` fields themselves already establish.
 
 `${data.rowData.<Field>}` is a template referring to a column of the widget's own result set —
 that is how a KPI tile becomes clickable, with `Link` being an ordinary aliased column in the
@@ -490,6 +523,18 @@ The five `*Field` properties are the whole binding: each names a **column of the
 `dataFormat`, `iconMappingField` and `colorMappingField` are on all 18 proportional widgets;
 `linkMappingField` on 13 of them, so a chart without clickable slices simply omits it.
 
+**Slice order follows the query's row order, and nothing in this JSON names an ordering
+column.** None of the five `*Field` properties controls it, so a custom category order —
+Critical before Warning before Informational, say, rather than alphabetical or by severity
+number — has to come from an `ORDER BY` on a `CASE`-derived sort key that is otherwise unused
+by the chart. [SolarWinds Lab #93](https://www.youtube.com/watch?v=9T1VlIvAfdo) (32:16-33:03)
+builds exactly this and flags a trap worth knowing before you conclude your query is wrong:
+**the widget editor's live preview ignores that ordering while you are still editing the
+query**, rendering the rows in an apparently unsorted order, and only applies it once the
+widget is saved and viewed outside the editor. This is a console behaviour reported from that
+source rather than something checkable against the schema, and is **unverified here** beyond
+what the video shows.
+
 `dataFormat: "custom"` accompanies that per-row mapping, and is the only value in all nine
 files. An empty `"editor": {}` sits alongside it on all 18, purpose **unverified here**.
 
@@ -723,6 +768,19 @@ classic widget both halves of `[_LinkFor_X]` are case-sensitive and a mismatch f
 Dashboard the string is just an alias, so its casing is free — but it must then match the
 `dataFieldIds` entry exactly, which is the same discipline arriving through a different door.
 
+## Modern Dashboard widgets do not work on classic dashboards
+
+Asked directly in [SolarWinds Lab #93](https://www.youtube.com/watch?v=9T1VlIvAfdo)
+(39:53-39:57), the presenter confirms the boundary runs one way only: a Modern Dashboard
+widget cannot be placed on a classic console dashboard. The stated reason is how the widget is
+presented, not the underlying data, which is consistent with `table`, `kpi` and `proportional`
+being HTML5/JSON constructs with no equivalent in the classic widget model. The classic
+console's own way to put a SWQL result on a dashboard is the Custom Query widget — see
+[custom-query-widget.md](custom-query-widget.md) — which is a different mechanism, not a
+downlevel version of this one. This is a vendor statement about the product rather than
+something in `data/`, so it is **unverified here** in the schema sense, though there is no
+mechanism in the file format above that would let it work the other way.
+
 ## See also
 
 - [modern-dashboard-authoring.md](modern-dashboard-authoring.md) — writing one, the filter URL
@@ -734,3 +792,5 @@ Dashboard the string is just an alias, so its casing is free — but it must the
 - [../swql/README.md](../swql/README.md) — the query language every widget is built on
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) — how `Export`, `Import` and `Clone`
   are called, REST and PowerShell
+- [custom-query-widget.md](custom-query-widget.md) — the classic-console widget that plays the
+  equivalent role there

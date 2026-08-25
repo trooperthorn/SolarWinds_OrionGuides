@@ -51,6 +51,78 @@ Then decide, per query, which widget carries it:
 A `kpi` widget with six tiles is six separate single-row queries, not one query with six
 columns. That is the most common surprise in the format.
 
+## Building a widget from the console
+
+Everything above describes the JSON. Most people never write it by hand — they drag a widget
+onto a dashboard in **Settings → Manage Dashboards → (edit)** and fill in a form. This section
+maps that form to the fields it produces, walking the same sequence [SolarWinds Lab
+#93](https://www.youtube.com/watch?v=9T1VlIvAfdo) uses to build a KPI widget (15:11-19:14).
+
+1. **Drag a widget onto the grid, then "finish configuring".** This is where you pick the
+   widget type (`table`, `kpi`, `proportional`, or the undocumented `timeseries` — see
+   [modern-dashboards.md](modern-dashboards.md#a-fourth-type-timeseries)) and whether it
+   starts blank ("from empty widgets") or copies an existing one — see
+   [reusing another dashboard's widget](#reusing-another-dashboards-widget-from-the-console)
+   below for the second path.
+2. **Title, subtitle and description** become `header.properties.title`, `subtitle` and
+   `description` (and are duplicated onto the widget definition's own `name`/`subtitle`/
+   `description` — see [the header block](modern-dashboards.md#the-header-block-common-to-all-types)).
+   The description is optional but worth writing every time: once more than one person on a
+   team can build dashboards, it is the only thing that tells the next person what a widget
+   is for without them reverse-engineering the query.
+3. **"Add a value" (KPI) or the equivalent step for a table/chart** is where you choose between
+   the **graphical query builder** and **hand-editing SWQL**. Hand-editing is what every
+   sample query on both of these pages assumes, and it is also what all 146 embedded queries
+   examined for [modern-dashboards.md](modern-dashboards.md) turn out to be
+   (`type: "hand-edit"` on every one). Paste a query you have already run through
+   `tools/validate_swql.py` here rather than composing it for the first time in this box.
+4. **Validate, then Show records.** Validate is a client-side parse; Show records actually
+   runs the query against your server and previews the rows, which is the point at which a
+   name that resolves in the schema but returns nothing (a permissions filter, an empty
+   result set) becomes visible. Do this before wiring up formatting — there is nothing to
+   format against zero rows.
+5. **Thresholds, background colour and units** (KPI tiles) write
+   `adapter.properties.thresholds.{warningThresholdValue,criticalThresholdValue,showThresholds}`
+   and `properties.widgetData.{backgroundColor,units}` — see
+   [KPI configuration](modern-dashboards.md#kpi-configuration) for the field shapes and the
+   theme colour tokens. Units is free text shown under the number; leave it blank for a bare
+   count, as the sample builds do for an alert count.
+6. **Resize by dragging.** The grid snaps to cell boundaries, and `location.{cols,rows}` is
+   what gets written — see [the grid](modern-dashboards.md#the-grid-is-12-columns-wide).
+
+## Reusing another dashboard's widget from the console
+
+The widget picker's "finish configuring" step (step 1 above) carries a **Source** field that
+defaults to the current dashboard but can be set to "any dashboard" — [SolarWinds Lab
+#93](https://www.youtube.com/watch?v=9T1VlIvAfdo) (34:47-35:37) uses it to browse a colleague's
+published widgets, preview one, and add it to a new dashboard with one click. This is the
+interactive path to the same outcome as copying a widget definition between exported files,
+which [the `unique_key` collision section](modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine)
+covers from the file side.
+
+**The copy is independent once created.** Asked directly in the same session (41:55-42:33),
+the presenter confirms that editing the original afterward does not change the copy — only the
+initial definition is copied, not a live reference to it. That matches the file-format finding
+that a widget is defined once and merely placed by `unique_key`: the console-level copy
+produces a new, separate definition rather than a second placement of the same one.
+
+Whether this console path assigns the copy a **fresh** `unique_key` or reuses the source
+widget's — the one detail that would make it exactly equivalent to the file-copy hazard
+described above — is **unverified here**. It is worth checking with an export taken before and
+after using this feature on your own server before relying on it to avoid the collision
+[`tools/check_dashboards.py`](../../tools/check_dashboards.py) looks for.
+
+## Adding a dashboard to console navigation
+
+A Modern Dashboard is reachable at `/apps/platform/dashboard/{DashboardID}` (the same URL the
+[filter grammar](#the-filters-grammar) below extends), but nothing places it in the console's
+own menu automatically. [SolarWinds Lab #93](https://www.youtube.com/watch?v=9T1VlIvAfdo)
+(38:01-38:56) does this from **Settings → All Settings → Customize Menu Bars**: open the menu
+you want it on, add an entry with that relative URL, leave it opening in the same window
+rather than a new one, and drag it into position. The dashboard will not appear in that
+screen's own picker of existing views — it has to be added by URL, not selected by name — which
+is easy to mistake for the feature not supporting Modern Dashboards at all.
+
 ## Columns exist to feed formatters
 
 A table column binds data fields to a rendering component, so the query needs a column for
@@ -332,6 +404,14 @@ numbers in the file. Its `instanceId` and `siteId` are `""` in every real instan
 unaliased *expression* — a `CONCAT(...)` or `COUNT(...)` — gets a server-assigned name you
 cannot predict, so alias those.
 
+**A proportional widget's slice order looks wrong in the editor even when it isn't.** The
+console applies the query's row order only once the widget renders outside the editing form —
+see [slice order](modern-dashboards.md#proportional-donut-configuration).
+
+**A dashboard added to the menu bar will not show up in that screen's own list to pick from.**
+It has to be added by relative URL — see
+[adding a dashboard to console navigation](#adding-a-dashboard-to-console-navigation).
+
 ## See also
 
 - [modern-dashboards.md](modern-dashboards.md) — the file format, field by field
@@ -344,3 +424,7 @@ cannot predict, so alias those.
 - [../swis/metadata-introspection.md](../swis/metadata-introspection.md) — validating names
   against your own installation
 - [apps/porter](../../apps/porter/README.md) — a shipped Windows utility whose Modern Dashboards provider implements the export/import round trip and the same-server duplicate rewrite documented on this page
+- [perfstack.md](perfstack.md) — the saved-project mechanism behind the undocumented
+  `timeseries` widget type
+- [SolarWinds Lab #93](https://www.youtube.com/watch?v=9T1VlIvAfdo) — the console walkthrough
+  cited throughout the sections above on building, reusing and navigating to a widget
