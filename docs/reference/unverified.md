@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**242 statements across 63 pages.**
+**261 statements across 65 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -83,6 +83,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[ValidateCustomProperty](../automation/custom-properties.md#validatecustomproperty)**
 
 - The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it is unverified here.
+
+**[`DataType` is not `ValueType`](../automation/custom-properties.md#datatype-is-not-valuetype)**
+
+- The expected correspondence is the standard SQL storage mapping — `nvarchar` → `string` (with `Size` taken from `MaxLength`), `int` → `integer`, `datetime` → `datetime`, `real` → `single`, `float` → `double`, `bit` → `boolean` — but beyond the `nvarchar` case it is not recorded in the published schema, so verify it once on your own server by defining one property of each type and reading `DataT...
 
 ## [dependencies.md](../automation/dependencies.md)
 
@@ -192,6 +196,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [report-definitions.md](../automation/report-definitions.md)
 
+**[The skeleton](../automation/report-definitions.md#the-skeleton)**
+
+- What the four report samples' prologs declared and what their bytes contained was not recorded when they were parsed, so whether report exports share the mismatch is **unverified here**; sniff rather than assume.
+
 **[`DataSources` — three ways to choose rows](../automation/report-definitions.md#datasources-three-ways-to-choose-rows)**
 
 - What it governs when the query is arbitrary is **not documented and unverified here**; the plausible reading is that it supplies the account-limitation context, which would make it security-relevant rather than cosmetic.
@@ -215,13 +223,9 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Importing a definition that is already there](../automation/report-definitions.md#importing-a-definition-that-is-already-there)**
 
-- **What `CreateReport` does in the same situation is a narrower question, still unverified here.** The verb is a different entry point from the console's import, and it takes `name`, `description`, `category`, `title` and `subtitle` as **arguments alongside** the `definition` document, which contains all five again as elements.
+- **What `CreateReport` does in the same situation is a narrower question, still unverified here.** The verb is a different entry point from the console's import, and it takes `name`, `description`, `category`, `title` and `subtitle` as **arguments alongside** the `definition` document.
 
 ## [reporting.md](../automation/reporting.md)
-
-**[Reports and scheduled exports](../automation/reporting.md#reports-and-scheduled-exports)**
-
-- The report entities are queryable and are worth understanding for inventory and audit, but their `Definition` is an opaque serialisation that this repository cannot verify, so building a report by writing that string is not something to attempt from a script.
 
 **[Report schedules are not `Orion.ScheduleTaskDefinition`](../automation/reporting.md#report-schedules-are-not-orionscheduletaskdefinition)**
 
@@ -364,6 +368,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - It appears in the rendered schema pages with **no parameters and an unknown return type**, and it is absent from the 2026.2 Swagger contract entirely, so its signature is **unverified here**.
 
+**[Bulk import: the spreadsheet has no verb](../modules/ipam.md#bulk-import-the-spreadsheet-has-no-verb)**
+
+- **Unverified:** the column headers the console's spreadsheet import accepts are not recorded in the extracted schema; if you need the file route, generate a template by exporting from your own console and keep its headers rather than inventing them.
+
 **[DHCP and DNS server management](../modules/ipam.md#dhcp-and-dns-server-management)**
 
 - Treat the `credentials` and `propertiesToUpdate` key/value arrays as unverified in content and inspect `Metadata.VerbArgument.XmlTemplate` on your own server for the keys they expect.
@@ -445,6 +453,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Its `FlowExporterConfiguration` type is declared in SolarWinds' Swagger contract as a bare object with **no properties**, so the field names it expects are **unverified**.
 
+**[IP address group management](../modules/nta.md#ip-address-group-management)**
+
+- And `SetIpGroupsAsModified` takes nothing and returns nothing; the contract records no summary for it, so what it actually marks as modified is **unverified** here.
+
 **[Gotchas](../modules/nta.md#gotchas)**
 
 - Whether verbs exist there on a live server is **unverified**; check with `SELECT v.Entity.FullName, v.Name FROM Metadata.Verb v WHERE v.Entity.FullName LIKE 'Orion.Netflow.%'`.
@@ -496,6 +508,32 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - *This behaviour is unverified here*: neither the schema nor the contract records it.
 - *This verb is not in the extracted 2026.2 schema and not in the Swagger contract*, so it is unverified here.
+
+## [scm-compliance-policies.md](../modules/scm-compliance-policies.md)
+
+**[The SWIS round trip (2026.2, verified)](../modules/scm-compliance-policies.md#the-swis-round-trip-20262-verified)**
+
+- Assign — `AssignToEntity(policyId, entityUri, data)` — `entityUri` is a SWIS URI, and "For SCM policies it needs to be a Node"; `data` is "optional additional data" with no documented content — **unverified**, observe the console's own call before composing one
+- The file's `uniqueId` is how you *recognise* a re-import of the same policy (the `UniqueId` column), not how the server deduplicates it — query `Name`/`UniqueId` first and refuse or delete before importing again. - A `builtIn: true` in the file does not make the imported row `BuiltIn` — that column is read-only and "true only for policies deployed with the SCM installation" (**unverified** for...
+
+## [scm.md](../modules/scm.md)
+
+**[Profiles](../modules/scm.md#profiles)**
+
+- `TemplateMappingRules` is internal discovery configuration, and `AutoImport` carries no description in the published schema — **unverified**, treat it as opaque.
+
+**[The profile round trip](../modules/scm.md#the-profile-round-trip)**
+
+- Which format the verb actually expects is **unverified** here; export from your own server and look before hand-writing one.
+- **Unverified:** the internal structure of the exported profile document is not documented in this repository — no real console export was available to parse, so this page cannot give it the field-by-field treatment [sam-templates.md](../modules/sam-templates.md) and [ncm-device-templates.md](../modules/ncm-device-templates.md) give their formats.
+
+**[Assignment and polling](../modules/scm.md#assignment-and-polling)**
+
+- The third argument's content is not described in the contract — **unverified**; observe what the console sends on your own server before composing one.
+
+**[Gotchas](../modules/scm.md#gotchas)**
+
+- Whether the navigation resolves on a live server is **unverified** here.
 
 ## [srm.md](../modules/srm.md)
 
@@ -588,6 +626,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The verbs](../polling/api-pollers.md#the-verbs)**
 
 - **What belongs in which is not recorded in the published schema** and is unverified here.
+
+**[Removing a poller](../polling/api-pollers.md#removing-a-poller)**
+
+- Whether the delete cascades to the poller's `RequestDetails`, headers, values and metrics rows is **not recorded in the schema and is unverified here**.
 
 **[Element by element, against the schema](../polling/api-pollers.md#element-by-element-against-the-schema)**
 
@@ -846,6 +888,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [modern-dashboard-authoring.md](../webui/modern-dashboard-authoring.md)
 
+**[Reusing another dashboard's widget from the console](../webui/modern-dashboard-authoring.md#reusing-another-dashboards-widget-from-the-console)**
+
+- Whether this console path assigns the copy a **fresh** `unique_key` or reuses the source widget's — the one detail that would make it exactly equivalent to the file-copy hazard described above — is **unverified here**.
+
 **[The `?filters=` grammar](../webui/modern-dashboard-authoring.md#the-filters-grammar)**
 
 - **Only `eq` and `ne` appear.** Whether the filter engine accepts comparison, `like` or `in` operators is **not documented and unverified here**.
@@ -855,6 +901,10 @@ Read this before relying on this repository for something load-bearing. If you h
 - **Filter values are not escaped.** A value containing `-` or `:` is unverified territory.
 
 ## [modern-dashboards.md](../webui/modern-dashboards.md)
+
+**[Modern Dashboard files](../webui/modern-dashboards.md#modern-dashboard-files)**
+
+- It is cited by timestamp wherever it is the source, and carries the same evidentiary weight as a THWACK thread elsewhere in this section: useful and attributable, but not the schema, so still marked **unverified here** where nothing in `data/` can confirm it.
 
 **[The envelope](../webui/modern-dashboards.md#the-envelope)**
 
@@ -870,6 +920,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - What `true` would mean is **undocumented and unverified here**; the plausible reading is a link to a widget owned by another dashboard rather than an embedded copy.
 
+**[A fourth type: `timeseries`](../webui/modern-dashboards.md#a-fourth-type-timeseries)**
+
+- None of the nine exports examined for this page contain one, so its `type` string, its data provider id, and how the PerfStack project reference and time range are represented under `providers.dataSource.properties` are **undocumented and unverified here**.
+
 **[The header block, common to all types](../webui/modern-dashboards.md#the-header-block-common-to-all-types)**
 
 - The reading that `collapsed` is inert unless `collapsible` is set fits the evidence but is still **unverified here**; what is now clear is that you should write the pair the way the console does, or omit both, rather than inventing `collapsed: false`.
@@ -877,6 +931,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The `content` node](../webui/modern-dashboards.md#the-content-node)**
 
 - What it enables is **undocumented and unverified here**.
+
+**[The refresher and interaction handler](../webui/modern-dashboards.md#the-refresher-and-interaction-handler)**
+
+- That is a behaviour claim about the console, not a schema fact the extracted contract can confirm, so treat it as **unverified here** beyond what the `refresher` fields themselves already establish.
 
 **[Formatter property values](../webui/modern-dashboards.md#formatter-property-values)**
 
@@ -891,12 +949,18 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Proportional (donut) configuration](../webui/modern-dashboards.md#proportional-donut-configuration)**
 
+- This is a console behaviour reported from that source rather than something checkable against the schema, and is **unverified here** beyond what the video shows.
 - An empty `"editor": {}` sits alongside it on all 18, purpose **unverified here**.
 - None of these lists is necessarily complete and all are **unverified here** beyond what the samples exercise.
 
 **[`unique_key` collisions, and the reuse that is fine](../webui/modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine)**
 
 - What the platform does with a duplicate key is **not documented and unverified here**.
+
+**[Exporting and importing](../webui/modern-dashboards.md#exporting-and-importing)**
+
+- What `Import` does when the `UniqueKey` already exists on the server — update in place or a second dashboard — is **unverified here**, so find out whether you are about to collide and decide deliberately rather than learning the answer from a production server.
+- Their signatures are in the contract — `python3 tools/schema_query.py verbs --entity Orion.Dashboards.Instances` — but their semantics are undocumented and **unverified here**.
 
 **[One name that does not resolve](../webui/modern-dashboards.md#one-name-that-does-not-resolve)**
 
@@ -905,6 +969,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Two artefacts worth knowing about](../webui/modern-dashboards.md#two-artefacts-worth-knowing-about)**
 
 - Whether the console tolerates them is **unverified here**, but they are worth removing before you copy such a query.
+
+**[Modern Dashboard widgets do not work on classic dashboards](../webui/modern-dashboards.md#modern-dashboard-widgets-do-not-work-on-classic-dashboards)**
+
+- This is a vendor statement about the product rather than something in `data/`, so it is **unverified here** in the schema sense, though there is no mechanism in the file format above that would let it work the other way.
 
 ## [ncm-change-template-language.md](../webui/ncm-change-template-language.md)
 

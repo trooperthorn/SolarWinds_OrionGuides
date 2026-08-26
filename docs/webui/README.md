@@ -38,7 +38,13 @@ reported, sourced and marked unverified. Read
 | [ncm-change-templates.md](ncm-change-templates.md) | What an NCM config change template is, its directives, the parameters that become form fields, and managing them through `Cirrus.ConfigSnippets` |
 | [ncm-change-template-language.md](ncm-change-template-language.md) | The template scripting language: variables and macros, operators, string functions, loops, CLI blocks and custom properties |
 | [modern-dashboards.md](modern-dashboards.md) | The Modern Dashboard export format, field by field: the envelope, the 12-column grid, the three widget types and the duplication that breaks files |
-| [modern-dashboard-authoring.md](modern-dashboard-authoring.md) | Producing a dashboard file by hand, from a script, or by prompting an AI system, with the invariants that decide whether it works |
+| [modern-dashboard-authoring.md](modern-dashboard-authoring.md) | Producing a dashboard file by hand, from a script, or by prompting an AI system, with the invariants that decide whether it works; also the console workflow itself — building, reusing and navigating to a widget |
+
+[custom-query-widget.md](custom-query-widget.md) and [modern-dashboards.md](modern-dashboards.md)
+cover two separate widget systems, not an old and a new version of the same one: a Modern
+Dashboard widget cannot be placed on a classic dashboard, in either direction — see
+[the note on modern-dashboards.md](modern-dashboards.md#modern-dashboard-widgets-do-not-work-on-classic-dashboards).
+If you are not sure which console you are looking at, that is the question to answer first.
 
 ## Where these come from
 
