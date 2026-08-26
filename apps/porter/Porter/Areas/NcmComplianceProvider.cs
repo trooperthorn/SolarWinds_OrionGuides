@@ -267,7 +267,7 @@ public sealed class NcmComplianceProvider : AreaProvider
             confirmed = row.GetProperty("Name").GetString();
         if (confirmed is null)
             return new ImportOutcome(false,
-                $"AddPolicyReport returned {newId} but the report was not found afterwards");
+                $"AddPolicyReport returned {newId} but no data returned when reading it back (No Data Returned)");
 
         // A report is inert until compliance caching runs; start it for just this one.
         var caching = "";

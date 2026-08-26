@@ -72,6 +72,6 @@ public sealed class DashboardsProvider : AreaProvider
             return new ImportOutcome(true,
                 string.Join(", ", found.Select(f => $"\"{f.Name}\" (id {f.Id})")));
         return new ImportOutcome(false,
-            "import call succeeded but the dashboard was not found afterwards");
+            "import call succeeded but no data returned when reading it back (No Data Returned)");
     }
 }

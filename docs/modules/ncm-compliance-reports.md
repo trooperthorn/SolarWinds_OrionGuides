@@ -60,9 +60,15 @@ fails; sniff the byte-order mark and fall back to UTF-8, never believe the prolo
 </Policy>
 ```
 
-- `NodeSelectionString` is three things concatenated: the literal prefix `Criteria:`,
-  an XML-escaped `<QUERY>` document (the console's node-picker state), and a
-  SQL-flavoured ` Where ( … )` suffix that is what actually filters nodes.
+- `NodeSelectionString` is three things concatenated: a literal prefix, an XML-escaped
+  node-picker state document, and a SQL-flavoured suffix that is what actually filters
+  nodes. **The prefix and picker format vary by console version**: the older shipped
+  samples carry `Criteria:` + a `<QUERY>` document + ` Where ( … )`, while exports from
+  a live 2026.2.2 server carry `WebCriteria:` + an `<ArrayOfWebSelectionCriteria>`
+  document (`Id`/`LogicalCondition`/`SelectedColumn`/`MatchType`/`SelectedValue`) +
+  `SQL:Where (Vendor = 'Cisco') `. Column names in the SQL fragment are bare
+  (`Vendor`, not `Nodes.Vendor`). When generating files for import, match the
+  server's own exports.
 - **Policies carry no GUID in the file** — `PolicyName` is the identity. Rules do
   carry a `RuleId` GUID.
 - `ConfigTypes` restricts which downloaded config type the rules scan (`Any`,
@@ -121,6 +127,22 @@ Round-trip gotchas:
 - Contract member names differ from SWQL columns (`Comments`/`Group` vs
   `Comment`/`Grouping`; rule `SimplePatternText` vs column `Pattern`) — map file
   fields to the verb contract, never to column names.
+- **Field observation (2026.2.2):** the JSON REST endpoint's handling of the
+  `SolarWinds.NCM.Contracts.Compliance.*` parameter types varies by server, and two
+  distinct rejections were observed: HTTP 400 "Value cannot be null. Parameter name:
+  input" (a JSON object handed to an XML reader) and HTTP 400 "Verb … cannot
+  unpackage parameter 0" (an XML string the DataContractSerializer refused). One
+  server also accepted the nested JSON call and silently created only the report
+  row. No single wire format is safe to assume: probe with one cheap
+  `AddPolicyRule` call — a JSON object, then the contract as a DataContract XML
+  string (alphabetical members, `http://schemas.datacontract.org/2004/07/…`
+  namespace), then plain no-namespace XML — and use whatever the server accepts;
+  the console-export XML shape as a nested `AddPolicyReport` argument is a further
+  candidate. Whichever route lands, verify with `GetPolicyReport(reportId,
+  exportFlag)` (`exportFlag` true) that the stored tree actually holds the policies
+  and rules before trusting the import — and when nothing is accepted, writing the
+  console-export file and importing through the web console (Compliance → Manage
+  Policy Reports → Import) always works.
 - The `Update*` verbs have no `importFlag`, so they touch only their own level;
   cascading replace means delete-then-add, and `DeletePolicyReports(ids,
   deleteChildren=true)` can rip shared policies out from under other reports —
@@ -142,6 +164,6 @@ explicitly acknowledges the flags.
 
 Reports in this format can also be generated from DISA's own XCCDF STIG downloads
 rather than a console export — one policy per benchmark, one rule per requirement,
-fix text as never-auto-executed remediation. That flow, and the `apps/stig2ncm` tool
+fix text as never-auto-executed remediation. That flow, and the DISA STIG Conversion Tool (`apps/disa-stig-conversion-tool`)
 that implements it (plus the SCM path for server STIG YAML), is documented in
 [../automation/disa-stig-import.md](../automation/disa-stig-import.md).

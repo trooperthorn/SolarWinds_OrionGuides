@@ -140,6 +140,6 @@ public sealed class AlertsProvider : AreaProvider
             return new ImportOutcome(true,
                 $"\"{row.GetProperty("Name").GetString()}\" (id {alertId})");
         return new ImportOutcome(false,
-            $"the server returned AlertId {alertId} but the row was not found afterwards");
+            $"the server returned AlertId {alertId} but no data returned when reading it back (No Data Returned)");
     }
 }

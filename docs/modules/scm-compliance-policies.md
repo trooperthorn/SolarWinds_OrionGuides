@@ -145,5 +145,5 @@ Round-trip gotchas:
 The same STIG exists in two shapes in this repository's world: DISA's own XCCDF zip
 (imported into NCM compliance for network devices) and SolarWinds' SCM policy YAML
 (evaluated agent-side on servers). The end-to-end import path for both — including the
-`apps/stig2ncm` tool that detects the format and picks the module — is
+DISA STIG Conversion Tool (`apps/disa-stig-conversion-tool`) that detects the format and picks the module — is
 [../automation/disa-stig-import.md](../automation/disa-stig-import.md).

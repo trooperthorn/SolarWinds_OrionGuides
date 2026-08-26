@@ -144,6 +144,6 @@ public sealed class SamTemplatesProvider : AreaProvider
             return new ImportOutcome(true,
                 $"\"{row.GetProperty("Name").GetString()}\" (id {newId})");
         return new ImportOutcome(false,
-            $"ImportTemplate returned id {newId} but the row was not found afterwards");
+            $"ImportTemplate returned id {newId} but no data returned when reading it back (No Data Returned)");
     }
 }

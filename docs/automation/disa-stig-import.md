@@ -11,7 +11,7 @@ platform can track them in two different modules depending on what the STIG targ
 | Servers (Windows, IIS, SQL Server…) | Server Configuration Monitor compliance | SolarWinds' SCM policy YAML, imported verbatim |
 
 This page is the whole flow for both: what is inside the files, which SWIS calls land
-them, and the `apps/stig2ncm` tool in this repository that does it end to end.
+them, and the DISA STIG Conversion Tool (`apps/disa-stig-conversion-tool`) in this repository that does it end to end.
 
 **Source.** Verified against a real DISA package (Cisco IOS Router, Y26M07 release: NDM
 V3R8 and RTR V3R4 benchmarks, 127 rules) and a real SCM policy export (Microsoft IIS 8.5
@@ -93,12 +93,20 @@ documents in full. The mapping that works:
   pattern lifted from the first config-looking line of the check text, to accelerate
   authoring. Both are honest; silently importing green is not.
 
-The calls, in order (all on `Cirrus.PolicyReports`, positional JSON bodies):
+The calls, in order (all on `Cirrus.PolicyReports`, positional JSON bodies). The tiers
+are created bottom-up and linked by ID lists — the one-call nested alternative,
+`AddPolicyReport(report, importFlag)` with `importFlag` true, is documented to persist the whole tree
+but has been observed in the field creating only the report row over JSON REST:
 
 1. `SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n` — collision check.
-2. `AddPolicyReport(report, importFlag)` with `importFlag` true — persists report,
-   policies and rules in one call, returns the server-assigned GUID.
-3. `StartCaching(selectedReportsIds)` with `[thatGuid]` — the report shows nothing
+2. `AddPolicyRule(rule)` once per check — each returns the new rule GUID.
+3. `AddPolicy(policy, importFlag)` once per benchmark, `importFlag` false with
+   `AssignedRulesList` carrying the rule GUIDs — returns the policy GUID.
+4. `AddPolicyReport(report, importFlag)` with `importFlag` false and
+   `AssignedPoliciesList` carrying the policy GUIDs — returns the report GUID.
+5. `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true — read the tree back and count policies and
+   rules before claiming success.
+6. `StartCaching(selectedReportsIds)` with `[thatGuid]` — the report shows nothing
    until cached, and an empty array would re-cache every report on the server.
 
 ## Path two: server STIGs into SCM
@@ -124,15 +132,15 @@ node. Treat a YAML from outside the organisation as executable content.
 
 ## The tool that does all of this
 
-[`apps/stig2ncm/`](../../apps/stig2ncm/README.md) implements both paths with format
+[`apps/disa-stig-conversion-tool/`](../../apps/disa-stig-conversion-tool/README.md) implements both paths with format
 auto-detection — zip, `*-xccdf.xml` or `.xsl` (it silently reads the benchmark next to
 the stylesheet) goes to NCM; `.yaml` goes to SCM — as a stdlib-only CLI and a desktop
 GUI buildable into a Windows executable:
 
 ```bash
-python3 apps/stig2ncm/stig2ncm.py download U_Cisco_IOS_Router_Y26M07_STIG
-python3 apps/stig2ncm/stig2ncm.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip
-python3 apps/stig2ncm/stig2ncm.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
+python3 apps/disa-stig-conversion-tool/disa_stig_tool.py download U_Cisco_IOS_Router_Y26M07_STIG
+python3 apps/disa-stig-conversion-tool/disa_stig_tool.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip
+python3 apps/disa-stig-conversion-tool/disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
     --host orion.example.com --user admin
 ```
 
