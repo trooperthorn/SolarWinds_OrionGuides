@@ -146,6 +146,8 @@ Five separate polling systems that share no entities and reuse each other's colu
 | [guides/cookbook.md](guides/cookbook.md) | Task to query, indexed by the question you are asking |
 | [guides/troubleshooting.md](guides/troubleshooting.md) | Diagnosing SWIS problems by symptom |
 | [guides/building-integrations.md](guides/building-integrations.md) | Writing software against SWIS rather than running ad hoc queries |
+| [guides/soc2-dashboard-10k-nodes.md](guides/soc2-dashboard-10k-nodes.md) | Validated SWQL and widget types for a SOC 2–style Modern Dashboard at 10k-node scale |
+| [guides/layer2-switching-dashboard.md](guides/layer2-switching-dashboard.md) | Validated SWQL and widget types for a Layer 2 switching dashboard: interfaces, VLANs, trunks, UDT ports and endpoints |
 
 ## Reference
 
