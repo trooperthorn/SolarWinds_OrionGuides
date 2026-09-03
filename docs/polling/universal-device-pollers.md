@@ -57,7 +57,6 @@ The definition entity, `Orion.NPM.CustomPollers`, is where the OID lives: `Custo
 time-unit columns. Note that its own `PollerType` property is a `System.Char`, not the
 `System.String` that `Orion.Pollers.PollerType` is, and means something entirely different.
 
-
 ## Worked queries
 
 ### Assignments and their last values
@@ -102,7 +101,6 @@ SELECT cp.CustomPollerID, cp.UniqueName, cp.Description, cp.OID, cp.MIB,
 FROM Orion.NPM.CustomPollers cp
 ORDER BY cp.UniqueName
 ```
-
 
 ## Gotchas
 

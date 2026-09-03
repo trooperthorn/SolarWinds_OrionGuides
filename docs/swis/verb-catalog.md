@@ -540,7 +540,6 @@ Everything the `Metadata` namespace can tell you is in
 which return nothing, which take an array and so let the caller choose the blast radius, and
 which declare no right at all.
 
-
 - [invoke-verbs.md](invoke-verbs.md) explains how to call any of these, from REST, PowerShell
   and Python, with six fully worked examples.
 - [metadata-introspection.md](metadata-introspection.md) covers live schema introspection.

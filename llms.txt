@@ -7,7 +7,8 @@
 
 Read AGENTS.md first. It states the one rule that matters here: never state a schema fact
 you have not looked up, because entity names, property names and verb parameter order are
-the things models get plausibly but subtly wrong.
+the things models get plausibly but subtly wrong. AGENTS.md also carries the full list of
+facts you can state without looking anything up.
 
 Everything below works offline. No server, no network, no credentials.
 
@@ -15,20 +16,11 @@ Everything below works offline. No server, no network, no credentials.
 
 - [AGENTS.md](AGENTS.md): how an AI system should use this repository, and the commands to look things up
 - [README.md](README.md): what the repository is and how it is built
-- [docs/README.md](docs/README.md): the documentation index
+- [CONTRIBUTING.md](CONTRIBUTING.md): the verification discipline this repository is held to
 
-## Documentation sections
-
-- [docs/platform/README.md](docs/platform/README.md): what the product is — architecture, modules, versions and naming
-- [docs/swis/README.md](docs/swis/README.md): the API — connecting, REST, CRUD, URIs, Invoke, introspection
-- [docs/swql/README.md](docs/swql/README.md): the query language — reference, functions, joins, date/time, gotchas
-- [docs/schema/README.md](docs/schema/README.md): the data model — entities, inheritance, relationships, key entities
-- [docs/modules/README.md](docs/modules/README.md): one page per module — NPM, SAM, NCM, NTA, IPAM, VMAN and the rest
-- [docs/automation/README.md](docs/automation/README.md): task guides — node lifecycle, maintenance, alerts, discovery, reporting
-- [docs/polling/README.md](docs/polling/README.md): the five polling systems, and why a new node monitors nothing
-- [docs/webui/README.md](docs/webui/README.md): the web console — variables, widgets, dashboards, change templates
-- [docs/guides/getting-started.md](docs/guides/getting-started.md): guides — getting started, cookbook, troubleshooting, building integrations
-- Export file formats, documented field by field from real files: SAM `.apmtemplate` ([docs/modules/sam-templates.md](docs/modules/sam-templates.md)), NCM device templates ([docs/modules/ncm-device-templates.md](docs/modules/ncm-device-templates.md)) and compliance policy reports ([docs/modules/ncm-compliance-reports.md](docs/modules/ncm-compliance-reports.md)), report XML ([docs/automation/report-definitions.md](docs/automation/report-definitions.md)), Modern Dashboards ([docs/webui/modern-dashboards.md](docs/webui/modern-dashboards.md)), API Poller templates ([docs/polling/api-pollers.md](docs/polling/api-pollers.md))
+If you are new to the platform's API, read [docs/swis/README.md](docs/swis/README.md) then
+[docs/swql/README.md](docs/swql/README.md), in that order. If you are here to look
+something up, jump to [docs/reference/](docs/reference/README.md).
 
 ## Look something up
 
@@ -37,6 +29,165 @@ Everything below works offline. No server, no network, no credentials.
 - `python3 tools/schema_query.py verb <Entity> <Verb>`: parameters in order, required right, call syntax
 - `python3 tools/schema_query.py path <From> <To>`: how to join A to B
 - `python3 tools/validate_swql.py -`: check a query against the schema before using it
+
+## The platform
+
+What the product is and how the pieces fit together.
+
+| Page | Covers |
+| --- | --- |
+| [docs/platform/README.md](docs/platform/README.md) | Orientation and how to navigate this section |
+| [docs/platform/architecture.md](docs/platform/architecture.md) | Primary server, polling engines, additional web servers, database, HA |
+| [docs/platform/modules.md](docs/platform/modules.md) | Which product owns which entity namespace, with entity counts |
+| [docs/platform/versions-and-naming.md](docs/platform/versions-and-naming.md) | Orion to SolarWinds Platform to Observability Self-Hosted, and why the API still says Orion |
+
+## The API
+
+The SolarWinds Information Service: how to reach it and what it offers.
+
+| Page | Covers |
+| --- | --- |
+| [docs/swis/README.md](docs/swis/README.md) | What SWIS is, why to use it over the database, and its four interfaces |
+| [docs/swis/connecting.md](docs/swis/connecting.md) | Ports, endpoints, authentication modes, TLS, first connection |
+| [docs/swis/rest-api.md](docs/swis/rest-api.md) | The REST contract: query, parameters, paging, response shapes |
+| [docs/swis/crud.md](docs/swis/crud.md) | Create, read, update and delete against entity URIs |
+| [docs/swis/bulk-operations.md](docs/swis/bulk-operations.md) | BulkUpdate and BulkDelete, and when not to use them |
+| [docs/swis/uris.md](docs/swis/uris.md) | The URI format, the system identifier, and entities that have none |
+| [docs/swis/invoke-verbs.md](docs/swis/invoke-verbs.md) | Calling verbs, and how to set parameters in every client |
+| [docs/swis/verb-catalog.md](docs/swis/verb-catalog.md) | The verbs worth knowing, grouped by task |
+| [docs/swis/invoke-at-scale.md](docs/swis/invoke-at-scale.md) | Running Invoke unattended: risk surface, runaways, and scaling |
+| [docs/swis/metadata-introspection.md](docs/swis/metadata-introspection.md) | Asking a live server about its own schema |
+
+## The query language
+
+| Page | Covers |
+| --- | --- |
+| [docs/swql/README.md](docs/swql/README.md) | What SWQL is and how it differs from T-SQL |
+| [docs/swql/language-reference.md](docs/swql/language-reference.md) | Every clause, operator, and data type |
+| [docs/swql/joins-and-navigation.md](docs/swql/joins-and-navigation.md) | Navigation properties, explicit joins, and querying base entities |
+| [docs/swql/functions.md](docs/swql/functions.md) | The complete function reference with worked examples |
+| [docs/swql/date-and-time.md](docs/swql/date-and-time.md) | The single most common source of wrong answers |
+| [docs/swql/gotchas.md](docs/swql/gotchas.md) | Things that silently produce wrong results |
+| [docs/swql/performance.md](docs/swql/performance.md) | Writing queries that do not hurt the database |
+
+## The data model
+
+| Page | Covers |
+| --- | --- |
+| [docs/schema/README.md](docs/schema/README.md) | How the schema is organized and how to look things up |
+| [docs/schema/entity-model.md](docs/schema/entity-model.md) | Inheritance, key properties, access control |
+| [docs/schema/relationships.md](docs/schema/relationships.md) | Relationship kinds and navigating between entities |
+| [docs/schema/key-entities.md](docs/schema/key-entities.md) | Deep reference for the entities you will actually use |
+| [docs/schema/netobject-types.md](docs/schema/netobject-types.md) | What a NetObject prefix is and where `N:42` is required |
+| [docs/schema/status-codes.md](docs/schema/status-codes.md) | What the status integers mean and how rollup ranking works |
+| [docs/schema/using-the-data.md](docs/schema/using-the-data.md) | The generated JSON under `data/`, and how to query it |
+
+## Modules
+
+Per-product deep dives. An entity only exists if its module is licensed and installed.
+
+| Page | Module |
+| --- | --- |
+| [docs/modules/README.md](docs/modules/README.md) | Index, with entity counts and how to detect what is installed |
+| [docs/modules/npm.md](docs/modules/npm.md) | Network Performance Monitor |
+| [docs/modules/sam.md](docs/modules/sam.md) | Server and Application Monitor |
+| [docs/modules/sam-templates.md](docs/modules/sam-templates.md) | The `.apmtemplate` export format, and moving a template between servers |
+| [docs/modules/ncm.md](docs/modules/ncm.md) | Network Configuration Manager |
+| [docs/modules/ncm-device-templates.md](docs/modules/ncm-device-templates.md) | The `.ConfigMgmtCommands` device template format: CLI commands, prompt detection, and the three execution modes |
+| [docs/modules/ncm-compliance-reports.md](docs/modules/ncm-compliance-reports.md) | The compliance policy report export: the three-tier PolicyReport XML, the `GetPolicyReport`/`AddPolicyReport` round trip, and the encoding trap |
+| [docs/modules/nta.md](docs/modules/nta.md) | NetFlow Traffic Analyzer |
+| [docs/modules/srm.md](docs/modules/srm.md) | Storage Resource Monitor |
+| [docs/modules/vman.md](docs/modules/vman.md) | Virtualization Manager |
+| [docs/modules/ipam.md](docs/modules/ipam.md) | IP Address Manager |
+| [docs/modules/udt.md](docs/modules/udt.md) | User Device Tracker |
+| [docs/modules/vnqm.md](docs/modules/vnqm.md) | VoIP and Network Quality Manager |
+| [docs/modules/wpm.md](docs/modules/wpm.md) | Web Performance Monitor |
+| [docs/modules/dpa.md](docs/modules/dpa.md) | Database Performance Analyzer |
+| [docs/modules/log-analyzer.md](docs/modules/log-analyzer.md) | Log Analyzer |
+| [docs/modules/qoe.md](docs/modules/qoe.md) | Quality of Experience |
+| [docs/modules/hardware-health.md](docs/modules/hardware-health.md) | Hardware sensors |
+| [docs/modules/scm.md](docs/modules/scm.md) | Server Configuration Monitor |
+| [docs/modules/cloud.md](docs/modules/cloud.md) | AWS, Azure and GCP monitoring |
+| [docs/modules/agents.md](docs/modules/agents.md) | The SolarWinds agent |
+
+## Automation
+
+Task guides that combine query, CRUD and Invoke.
+
+| Page | Task |
+| --- | --- |
+| [docs/automation/README.md](docs/automation/README.md) | How to approach automation against SWIS |
+| [docs/automation/node-management.md](docs/automation/node-management.md) | The node lifecycle, from add to delete |
+| [docs/automation/maintenance-mode.md](docs/automation/maintenance-mode.md) | Unmanaging and remanaging |
+| [docs/automation/custom-properties.md](docs/automation/custom-properties.md) | Creating, populating and querying custom properties |
+| [docs/automation/alerts.md](docs/automation/alerts.md) | Active alerts, acknowledgement, definitions, suppression |
+| [docs/automation/events-and-auditing.md](docs/automation/events-and-auditing.md) | What happened, and who changed it |
+| [docs/automation/discovery.md](docs/automation/discovery.md) | Network sonar discovery and list resources |
+| [docs/automation/dependencies.md](docs/automation/dependencies.md) | Suppressing downstream alerts during an outage |
+| [docs/automation/credentials.md](docs/automation/credentials.md) | Credential entities and their security posture |
+| [docs/automation/credential-integration.md](docs/automation/credential-integration.md) | Credential storage across modules, and the seams between them |
+| [docs/automation/accounts-and-permissions.md](docs/automation/accounts-and-permissions.md) | Accounts, roles, rights, and account limitations |
+| [docs/automation/reporting.md](docs/automation/reporting.md) | Building reports and scheduled exports |
+| [docs/automation/report-definitions.md](docs/automation/report-definitions.md) | The report export XML, field by field, and moving a report between servers |
+| [docs/automation/scheduling.md](docs/automation/scheduling.md) | Scheduled tasks and maintenance plans |
+| [docs/automation/high-availability.md](docs/automation/high-availability.md) | HA pools |
+
+## Polling
+
+Five separate polling systems that share no entities and reuse each other's column names.
+
+| Page | Covers |
+| --- | --- |
+| [docs/polling/README.md](docs/polling/README.md) | The map: which system is which, and how to tell them apart |
+| [docs/polling/standard-pollers.md](docs/polling/standard-pollers.md) | `Orion.Pollers`: why a new node monitors nothing until pollers are assigned |
+| [docs/polling/node-status-calculation.md](docs/polling/node-status-calculation.md) | How node status is calculated, why `Status` and `PolledStatus` differ, and where the reason is stored |
+| [docs/polling/universal-device-pollers.md](docs/polling/universal-device-pollers.md) | UnDPs: an SNMP OID you defined yourself |
+| [docs/polling/device-studio.md](docs/polling/device-studio.md) | The read-only `Orion.DeviceStudio.*` entities |
+| [docs/polling/technology-polling.md](docs/polling/technology-polling.md) | Technology polling and the declarative poller templates |
+| [docs/polling/api-pollers.md](docs/polling/api-pollers.md) | Collecting from an HTTP endpoint |
+
+## The web console
+
+| Page | Covers |
+| --- | --- |
+| [docs/webui/README.md](docs/webui/README.md) | What this section is, and why the schema cannot verify it |
+| [docs/webui/variables.md](docs/webui/variables.md) | Alert and report variables: the `${N=…;M=…}` form, and enumerating members per entity |
+| [docs/webui/variables-reference.md](docs/webui/variables-reference.md) | Every variable SolarWinds publishes, by context |
+| [docs/webui/variables-undocumented.md](docs/webui/variables-undocumented.md) | Addressable members that appear in no published table |
+| [docs/webui/perfstack.md](docs/webui/perfstack.md) | Driving the Performance Analysis dashboard from a generated URL |
+| [docs/webui/custom-query-widget.md](docs/webui/custom-query-widget.md) | `_LinkFor_` and `_IconFor_` column conventions, console URLs, a worked widget |
+| [docs/webui/ncm-change-templates.md](docs/webui/ncm-change-templates.md) | NCM config change templates: directives, parameters, and the `Cirrus.ConfigSnippets` API |
+| [docs/webui/ncm-change-template-language.md](docs/webui/ncm-change-template-language.md) | The change template scripting language, end to end |
+| [docs/webui/modern-dashboards.md](docs/webui/modern-dashboards.md) | The Modern Dashboard export format, read off five real files |
+| [docs/webui/modern-dashboard-authoring.md](docs/webui/modern-dashboard-authoring.md) | Writing a dashboard file, including what an AI prompt has to pin down |
+
+## Guides
+
+| Page | Covers |
+| --- | --- |
+| [docs/guides/getting-started.md](docs/guides/getting-started.md) | From nothing to a working query and a first safe change |
+| [docs/guides/cookbook.md](docs/guides/cookbook.md) | Task to query, indexed by the question you are asking |
+| [docs/guides/troubleshooting.md](docs/guides/troubleshooting.md) | Diagnosing SWIS problems by symptom |
+| [docs/guides/building-integrations.md](docs/guides/building-integrations.md) | Writing software against SWIS rather than running ad hoc queries |
+| [docs/guides/soc2-dashboard-10k-nodes.md](docs/guides/soc2-dashboard-10k-nodes.md) | Validated SWQL and widget types for a SOC 2–style Modern Dashboard at 10k-node scale |
+| [docs/guides/layer2-switching-dashboard.md](docs/guides/layer2-switching-dashboard.md) | Validated SWQL and widget types for a Layer 2 switching dashboard: interfaces, VLANs, trunks, UDT ports and endpoints |
+
+## Reference
+
+Lookup tables. Most are generated from the extracted data and must not be edited by hand.
+
+| Page | Contents |
+| --- | --- |
+| [docs/reference/README.md](docs/reference/README.md) | What is generated, what is written, and which to use when |
+| [docs/reference/entity-index.md](docs/reference/entity-index.md) | All 2067 entities with base type, operations and counts |
+| [docs/reference/verb-index.md](docs/reference/verb-index.md) | All 1021 verbs with positional signatures and required rights |
+| [docs/reference/netobject-types.md](docs/reference/netobject-types.md) | NetObject prefixes, key properties, parent entities |
+| [docs/reference/status-codes.md](docs/reference/status-codes.md) | Status ids, names, ranks and meanings |
+| [docs/reference/swql-function-index.md](docs/reference/swql-function-index.md) | Every SWQL function with signature and example |
+| [docs/reference/glossary.md](docs/reference/glossary.md) | The vocabulary, defined |
+| [docs/reference/unverified.md](docs/reference/unverified.md) | Every statement these guides decline to assert, collected |
+| [docs/reference/schema-changes-2026.1-to-2026.2.md](docs/reference/schema-changes-2026.1-to-2026.2.md) | What changed, and what breaks |
+| [docs/reference/schema-changes-2025.4-to-2026.2.md](docs/reference/schema-changes-2025.4-to-2026.2.md) | The same across two releases |
 
 ## Machine-readable data (platform version 2026.2)
 
@@ -50,17 +201,14 @@ Everything below works offline. No server, no network, no credentials.
 - [data/reference/netobject-types.json](data/reference/netobject-types.json): NetObject prefixes and key properties
 - [data/reference/reconciliation.json](data/reference/reconciliation.json): where sources disagree, and entity renames
 
-## Facts that do not need looking up
+## Working examples
 
-- REST base path `/SolarWinds/InformationService/v3/Json`, HTTPS only, port 17774 from
-  platform release 2023.1. Port 17778 was the REST port through 2022.4.1 and is deprecated.
-  Port 17777 is the SOAP endpoint.
-- The query interface is read-only. Changes go through CRUD or through Invoke verbs.
-- Invoke arguments are positional. Names never travel on the wire, so order is the contract.
-- Properties are inherited. `Uri` comes from `System.Entity`, `UnManaged` from
-  `System.ManagedEntity`, and both are queryable on descendants that do not declare them.
-- Both relationship lists on an entity are navigable from it. `Orion.Nodes.Interfaces` and
-  `Orion.NPM.Interfaces.Node` are both valid SWQL.
+Runnable code lives outside `docs/`:
+
+- [scripts/swql/](scripts/swql/): 207 sample queries, all validated against the schema
+- [scripts/powershell/](scripts/powershell/), [scripts/python/](scripts/python/) and
+  [scripts/curl/](scripts/curl/) cover the three clients
+- [tools/](tools/README.md) explores the schema offline and validates SWQL
 
 ## Where this repository is uncertain
 
@@ -76,17 +224,20 @@ say it is unverified here and give the `Metadata.*` query that settles it.
 
 It documents one platform version, and the schema varies with the release and with which
 modules are licensed. For a specific server, ask that server through the `Metadata.*`
-entities: see [scripts/swql/08-schema-introspection.swql](scripts/swql/08-schema-introspection.swql)
-and [docs/swis/metadata-introspection.md](docs/swis/metadata-introspection.md).
+entities: see [docs/swis/metadata-introspection.md](docs/swis/metadata-introspection.md)
+and [scripts/swql/08-schema-introspection.swql](scripts/swql/08-schema-introspection.swql).
 
-Upgrading between versions: [docs/reference/](docs/reference/) carries generated change
-reports that classify each difference by risk, and the class worth knowing about is a verb
-whose positional arguments shifted, because an existing call still has the right number of
-arguments and sends them into the wrong slots.
+Upgrading between versions: [docs/reference/](docs/reference/README.md) carries generated
+change reports that classify each difference by risk, and the class worth knowing about is
+a verb whose positional arguments shifted, because an existing call still has the right
+number of arguments and sends them into the wrong slots.
 
-## Optional
+## A note on trust
 
-- [scripts/swql/](scripts/swql/): 207 sample queries, all validated against the schema
-- [docs/reference/entity-index.md](docs/reference/entity-index.md): every entity, generated
-- [docs/reference/verb-index.md](docs/reference/verb-index.md): every verb with its signature, generated
-- [CONTRIBUTING.md](CONTRIBUTING.md): the verification discipline this repository is held to
+Every entity, property, verb and parameter named in these pages was checked against the
+extracted schema before it was written, and every SWQL example is re-validated on each
+build. Where a claim could not be verified, it says so rather than asserting quietly.
+
+The version documented here is **2026.2**. The schema changes between releases and also
+depends on which modules are licensed, so for a specific server the authority is that
+server: see [docs/swis/metadata-introspection.md](docs/swis/metadata-introspection.md).

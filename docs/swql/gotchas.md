@@ -932,28 +932,28 @@ ORDER BY n.NodeID
 
 Run down this list before trusting a number that came out of a SWQL query.
 
-1. **Who ran it?** Compare the row count against an unlimited account.
-   ([1](#1-the-empty-result-set-is-usually-a-permissions-answer))
-2. **Does it hard-code a status integer?** If so, does that integer mean the same thing on that
-   entity? ([2](#2-status-is-an-integer-and-the-integer-means-different-things-on-different-entities))
-3. **Does it filter on `Status` or `PolledStatus`, and does the matching alert use the same
-   one?** ([3](#3-status-versus-polledstatus-on-orionnodes))
-4. **Does it mix `GetUtcDate()` with an `AddX` function?**
-   ([4](#4-utc-dateadd-and-the-timestamp-that-quietly-shifts))
-5. **Does it use `= NULL` anywhere, or arithmetic on a nullable column?**
-   ([5](#5-null-isnull-and-the-rows-that-disappear-instead-of-going-null))
-6. **Does the join row count match the object count?**
-   ([6](#6-to-many-navigation-multiplies-rows-and-poisons-aggregates))
-7. **Does it average anything under `System.StatisticsEntity` without `Weight`?**
-   ([7](#7-averaging-statistics-rows-without-weight))
-8. **Is every entity name the one you meant, in the namespace you meant?**
-   ([8](#8-entities-that-look-like-the-same-thing-and-are-not))
-9. **Does it compare a `System.Char` or `System.String` flag against `TRUE`?**
-   ([9](#9-columns-that-look-boolean-and-are-not))
-10. **Does it depend on case-insensitive string matching?**
-    ([10](#10-string-comparison-collation-and-case))
-11. **Does it name an entity that still exists on the target version?**
-    ([13](#13-entity-names-change-between-versions))
+- **Who ran it?** Compare the row count against an unlimited account.
+  ([1](#1-the-empty-result-set-is-usually-a-permissions-answer))
+- **Does it hard-code a status integer?** If so, does that integer mean the same thing on that
+  entity? ([2](#2-status-is-an-integer-and-the-integer-means-different-things-on-different-entities))
+- **Does it filter on `Status` or `PolledStatus`, and does the matching alert use the same
+  one?** ([3](#3-status-versus-polledstatus-on-orionnodes))
+- **Does it mix `GetUtcDate()` with an `AddX` function?**
+  ([4](#4-utc-dateadd-and-the-timestamp-that-quietly-shifts))
+- **Does it use `= NULL` anywhere, or arithmetic on a nullable column?**
+  ([5](#5-null-isnull-and-the-rows-that-disappear-instead-of-going-null))
+- **Does the join row count match the object count?**
+  ([6](#6-to-many-navigation-multiplies-rows-and-poisons-aggregates))
+- **Does it average anything under `System.StatisticsEntity` without `Weight`?**
+  ([7](#7-averaging-statistics-rows-without-weight))
+- **Is every entity name the one you meant, in the namespace you meant?**
+  ([8](#8-entities-that-look-like-the-same-thing-and-are-not))
+- **Does it compare a `System.Char` or `System.String` flag against `TRUE`?**
+  ([9](#9-columns-that-look-boolean-and-are-not))
+- **Does it depend on case-insensitive string matching?**
+  ([10](#10-string-comparison-collation-and-case))
+- **Does it name an entity that still exists on the target version?**
+  ([13](#13-entity-names-change-between-versions))
 
 Then run it through the static checker, which catches the name errors without a server:
 

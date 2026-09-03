@@ -137,136 +137,37 @@ not by NetObject string, as in
 
 ## The table
 
-Sorted by module, then entity. **Module** is the workbook's own product label, not a
-namespace: NCM entities live in the `Cirrus` namespace, and Storage Resource Monitor,
-Virtualization Manager and User Device Tracker all sit inside `Orion` as `Orion.SRM.*`,
-`Orion.VIM.*` and `Orion.UDT.*`. See [../platform/modules.md](../platform/modules.md).
+The full table (115 entries, sorted by module then entity) lives in
+[../reference/netobject-types.md](../reference/netobject-types.md), generated straight from
+`data/reference/netobject-types.json` by `make docs-reference` so it cannot drift from the
+data the way a second hand-copied table would. A representative slice, enough to show the
+shape of every column:
+
+| Module | Entity | Display name | Prefix | Key properties | Parent entity |
+| --- | --- | --- | --- | --- | --- |
+| Core | `Orion.Nodes` | Node | `N` | `NodeID` | `Orion.Engines` |
+| Core | `Orion.Volumes` | Volume | `V` | `VolumeID` | - |
+| Core | `Orion.Events` | Core Events | - | `EventID` | - |
+| NPM | `Orion.NPM.Interfaces` | Interface | `I` | `InterfaceID` | - |
+| SAM | `Orion.APM.Application` | APM: Application | `AA` | `ApplicationID` | `Orion.Nodes` |
+| NCM | `Cirrus.Nodes` | NCM Nodes | - | `NodeID`, `CoreNodeID`, `EngineID` | - |
+| SRM | `Orion.SRM.LUNs` | Lun | `SML` | `LUNID` | `Orion.SRM.Pools` |
+| VIM | `Orion.VIM.VirtualMachines` | Virtual Machine | `VVM` | `VirtualMachineID`, `HostID`, `NodeID` | - |
+| UDT | `Orion.UDT.Port` | UDT Port | - | `NodeID`, `PortID`, `PortIndex` | `Orion.Nodes` |
+| IPAM | `IPAM.IPNodeReport` | IPAM Nodes | `IPAMN` | `IPNodeId` | - |
+
+**Module** is the workbook's own product label, not a namespace: NCM entities live in the
+`Cirrus` namespace, and Storage Resource Monitor, Virtualization Manager and User Device
+Tracker all sit inside `Orion` as `Orion.SRM.*`, `Orion.VIM.*` and `Orion.UDT.*`. See
+[../platform/modules.md](../platform/modules.md).
 
 A dash in the **Prefix** column means the workbook records no NetObject prefix for that
 entity. Sixteen of the 115 entries are in that state, `Orion.Events`, `Orion.Engines`,
 `Orion.AuditingEvents` and `Cirrus.Nodes` among them. Those objects are addressed by URI
 or by key, not by a NetObject string.
 
-Rows whose entity is marked **(superseded)** do not exist under that name in the 2026.2
-schema. The section after the table gives each one's replacement.
-
-| Module | Entity | Display name | Prefix | Key properties | Parent entity |
-| --- | --- | --- | --- | --- | --- |
-| Agent | `Orion.AgentManagement.Agent` | Core Agents | - | `AgentId`, `AgentGuid`, `NodeId`, `PollingEngineID` | `Orion.Nodes` |
-| Core | `Orion.AlertStatus` | Core Alerts | - | `AlertDefID`, `ActiveObject`, `AlertObjectID` | - |
-| Core | `Orion.AssetInventory.NodeWarrantyAlert` | Node Warranty | `NWA` | `NodeID` | `Orion.Nodes` |
-| Core | `Orion.AuditingEvents` | Auditing Events | - | `AuditEventID` | - |
-| Core | `Orion.ContainerMembers` | Group Member | `GM` | `ContainerID`, `MemberEntityType`, `MemberPrimaryID` | - |
-| Core | `Orion.Events` | Core Events | - | `EventID` | - |
-| Core | `Orion.EventTypes` | Core Event Types | - | `EventType` | `Orion.Events` |
-| Core | `Orion.Groups` | Group | `C` | `ContainerID` | - |
-| Core | `Orion.Nodes` | Node | `N` | `NodeID` | `Orion.Engines` |
-| Core | `Orion.NodeVlans` | VLAN | `NVLAN` | `NodeID`, `VlanId` | `Orion.Nodes` |
-| Core | `Orion.Volumes` | Volume | `V` | `VolumeID` | - |
-| DPA | `Orion.DPA.DatabaseInstance` | Database Instance | `DBI` | `DatabaseInstanceID` | - |
-| IPAM | `IPAM.DHCPScopeOverlapping` | IPAM DHCPScopes Overlapping | `IPAM-DSO` | `ScopeId` | - |
-| IPAM | `IPAM.GroupReport` | IPAM Networks | `IPAMG` | `GroupId` | - |
-| IPAM | `IPAM.IPConflict` | IPAM IPAddress Conflict | `IPAMN` | `IPNodeId` | - |
-| IPAM | `IPAM.IPNodeReport` | IPAM Nodes | `IPAMN` | `IPNodeId` | - |
-| NCM | `Cirrus.Nodes` | NCM Nodes | - | `NodeID`, `CoreNodeID`, `EngineID` | - |
-| NPM | `Orion.F5.Device` (superseded) | F5 Devices | `F5` | `ID` | - |
-| NPM | `Orion.F5.Nodes` (superseded) | F5 Nodes | `FN` | `ID` | - |
-| NPM | `Orion.F5.Pools` (superseded) | F5 Pools | `FP` | `ID` | - |
-| NPM | `Orion.F5.VirtualServers` (superseded) | F5 Virtual Servers | `FVS` | `ID` | - |
-| NPM | `Orion.NPM.CustomPollerAssignmentOnInterface` | Custom Interface Poller | `UNDPI` | `CustomPollerAssignmentID` | - |
-| NPM | `Orion.NPM.CustomPollerAssignmentOnNode` | Custom Node Poller | `UNDPN` | `CustomPollerAssignmentID` | - |
-| NPM | `Orion.NPM.CustomPollerStatusOnNodeTabular` | Custom Node Table Poller | `UNDPT` | `CompressedRowID`, `CustomPollerAssignmentID` | - |
-| NPM | `Orion.NPM.EW.Entity` | EnergyWise Entity | `EWE` | `ID` | - |
-| NPM | `Orion.NPM.FCPorts` | Fibre Channel Port | `FCP` | `Index`, `UnitID` | - |
-| NPM | `Orion.NPM.FCRevisions` | Fibre Channel Revision | `FCR` | `Index`, `UnitID` | - |
-| NPM | `Orion.NPM.FCSensors` | Fibre Channel Sensor | `FCS` | `Index`, `UnitID` | - |
-| NPM | `Orion.NPM.FCUnits` | Fibre Channel Unit | `FCU` | `ID` | - |
-| NPM | `Orion.NPM.Interfaces` | Interface | `I` | `InterfaceID` | - |
-| NPM | `Orion.NPM.MulticastRouting.GroupNodes` | Multicast Routing | `MCGN` | `MulticastGroupNodeID` | - |
-| NPM | `Orion.NPM.MulticastRouting.Groups` | Multicast Routing Group | `MCG` | `MulticastGroupID` | - |
-| NPM | `Orion.NPM.UCSBlades` (superseded) | UCS Blade | `UCSB` | `ID` | - |
-| NPM | `Orion.NPM.UCSChassis` (superseded) | UCS Chassis | `NCH` | `ID` | - |
-| NPM | `Orion.NPM.UCSFabrics` (superseded) | UCS Fabric | `UCSF` | `ID` | - |
-| NPM | `Orion.NPM.UCSFans` (superseded) | UCS Fan | `UCSFAN` | `ID` | - |
-| NPM | `Orion.NPM.UCSManagers` (superseded) | UCS Manager | `UCSM` | `NodeID` | `Orion.Nodes` |
-| NPM | `Orion.NPM.UCSPSUs` (superseded) | UCS Psu | `UCSPSU` | `ID` | - |
-| NPM | `Orion.NPM.VSANs` | VSAN | `NVS` | `ID` | - |
-| NPM | `Orion.Packages.Wireless.AccessPoints` | Wireless Access Point | `WLAP` | `ID` | - |
-| NPM | `Orion.Packages.Wireless.Controllers` | Wireless Controller | `WLC` | `NodeID` | `Orion.Nodes` |
-| NPM | `Orion.Routing.Neighbors` | Routing Neighbors | `NBR` | `NeighborID` | - |
-| NPM | `Orion.Routing.VRF` | VRF | `VRF` | `VrfIndex` | - |
-| NPM | `Orion.WirelessHeatMap.Map` | Wireless Heatmap | `WLHM` | `MapID` | - |
-| NPM / SAM | `Orion.HardwareHealth.HardwareCategoryStatus` | Hardware Type | `HWHT` | `ID` | - |
-| NPM / SAM | `Orion.HardwareHealth.HardwareInfo` | Hardware | `HWH` | `ID` | - |
-| NPM / SAM | `Orion.HardwareHealth.HardwareItem` | Hardware Sensor | `HWHS` | `ID` | - |
-| NTA | `Orion.Netflow.CBQoSPolicyMetric` | NTA: CBQoS Class Map | `CCM` | `MetricID` | - |
-| QoE | `Orion.DPI.ApplicationAssignments` | QoE Application (per node) | - | `ApplicationID`, `NodeID` | `Orion.APM.Application`, `Orion.Nodes` |
-| QoE | `Orion.DPI.Applications` | QoE Application | - | `ApplicationID` | `Orion.APM.Application` |
-| QoE | `Orion.DPI.Probes` | QoE Probes | - | `ProbeID`, `AgentID` | `Orion.AgentManagement.Agent (AgentID) Orion.DPI.ProbeAssignments (ProbeID)` |
-| QoE | `Orion.Engines` | Core Servers | - | `EngineID` | - |
-| SAM | `Orion.APM.Application` | APM: Application | `AA` | `ApplicationID` | `Orion.Nodes` |
-| SAM | `Orion.APM.Component` | APM: Component | `AM` | `ComponentID` | `Orion.APM.Application` |
-| SAM | `Orion.APM.Exchange.Application` | AppInsight for Exchange: Application | `ABXA` | `ApplicationID` | `Orion.APM.Application` |
-| SAM | `Orion.APM.Exchange.Database` | AppInsight for Exchange: Database | `ABXD` | `ID` | - |
-| SAM | `Orion.APM.Exchange.DatabaseCopy` | AppInsight for Exchange: Database Copy | `ABXDC` | `ItemID` | - |
-| SAM | `Orion.APM.Exchange.DatabaseFile` | AppInsight for Exchange: Database File | `ABXF` | `DatabaseFileID` | - |
-| SAM | `Orion.APM.Exchange.Mailbox` | AppInsight for Exchange: Mailboxes | `ABXMB` | `ID` | - |
-| SAM | `Orion.APM.Exchange.ReplicationStatus` | AppInsight for Exchange: Replication Status | `ABXR` | `ID` | - |
-| SAM | `Orion.APM.GenericApplication` | Application | `AA` | `ApplicationID` | `Orion.APM.Application` |
-| SAM | `Orion.APM.IIS.Application` | AppInsight for IIS: Application | `ABIA` | `ApplicationID` | `Orion.APM.Application` |
-| SAM | `Orion.APM.IIS.ApplicationPool` | AppInsight for IIS: Application Pool | `ABIP` | `ItemID` | - |
-| SAM | `Orion.APM.IIS.Request` | AppInsight for IIS: Request | `ABIR` | `ID` | - |
-| SAM | `Orion.APM.IIS.RequestDetails` | AppInsight for IIS: Request Details | `ABIRD` | `ID` | - |
-| SAM | `Orion.APM.IIS.Site` | AppInsight for IIS: Site | `ABIS` | `ItemID` | - |
-| SAM | `Orion.APM.IIS.SiteBinding` | AppInsight for IIS: Site Binding | `ABISB` | `ID` | - |
-| SAM | `Orion.APM.SqlDatabase` | AppInsight for SQL: Database | `ABSD` | `ItemID` | - |
-| SAM | `Orion.APM.SqlDatabaseFile` | AppInsight for SQL: Database File | `ABSF` | `DatabaseFileID` | - |
-| SAM | `Orion.APM.SqlJobInfo` | AppInsight for SQL: Job Info | `ABSJ` | `JobInfoID` | - |
-| SAM | `Orion.APM.SqlQuery` | AppInsight for SQL: Expensive Queries Info | `ABSQ` | `QueryID` | - |
-| SAM | `Orion.APM.SqlServerApplication` | AppInsight for SQL: Application | `ABSA` | `ApplicationID` | `Orion.APM.Application` |
-| SAM | `Orion.APM.Wstm.Task` | APM: Windows Scheduled Tasks | `ABTT` | `ID` | - |
-| SRM | `Orion.SRM.Engines` | Polling Engines | - | `EngineID` | - |
-| SRM | `Orion.SRM.FIleServerIdentification` (superseded) | SRM File Server ID | - | - | `Orion.SRM.Volumes` |
-| SRM | `Orion.SRM.FileServers` | SRM File Server | - | - | `Orion.SRM.Volumes` |
-| SRM | `Orion.SRM.FileShares` | FileShare | `SMS` | `FileShareID` | `Orion.SRM.Volumes` |
-| SRM | `Orion.SRM.LUNs` | Lun | `SML` | `LUNID` | `Orion.SRM.Pools` |
-| SRM | `Orion.SRM.PhysicalDisks` | SRM Physical Disks | - | - | `Orion.SRM.StorageArrays` |
-| SRM | `Orion.SRM.Pools` | Pool | `SMSP` | `PoolID` | `Orion.SRM.StorageArrays` |
-| SRM | `Orion.SRM.Providers` | Provider | `SMP` | `ProviderID` | - |
-| SRM | `Orion.SRM.StorageArrays` | StorageArray | `SMSA` | `StorageArrayID`, `ArrayID` | - |
-| SRM | `Orion.SRM.Volumes` | NAS Volume | `SMV` | `VolumeID` | `Orion.SRM.Pools` |
-| SRM | `Orion.SRM.VServers` | VServer | `SMVS` | `VServerID` | - |
-| UDT | `Orion.UDT.AccessPortEndpointCount` | AccessPort | `UP` | `PortID` | - |
-| UDT | `Orion.UDT.DNSNameCurrent` | UDT: Hostname | `UE-DNS` | `ID` | - |
-| UDT | `Orion.UDT.MovedMACAlert` | Moved MAC | `UE-MAC` | `ID` | - |
-| UDT | `Orion.UDT.NewMACAlert` | New MACAddress | `UE-MAC` | `ID` | - |
-| UDT | `Orion.UDT.NewMACVendorAlert` | New MAC Vendor | `UE-MAC` | `ID` | - |
-| UDT | `Orion.UDT.Port` | UDT Port | - | `NodeID`, `PortID`, `PortIndex` | `Orion.Nodes` |
-| UDT | `Orion.UDT.RogueDNSAlert` | Rogue DNSName | `UE-DNS` | `DNSNameID` | - |
-| UDT | `Orion.UDT.RogueEmptyDNSAlert` | Rogue EmptyDNSName | `UE-IP` | `IPAddressID` | - |
-| UDT | `Orion.UDT.RogueIPAlert` | Rogue IPAddress | `UE-IP` | `IPAddressID` | - |
-| UDT | `Orion.UDT.RogueMACAlert` | Rogue MACAddress | `UE-MAC` | `EndpointID` | - |
-| UDT | `Orion.UDT.WatchListPresent` | Watch List | `UW` | `WatchID` | - |
-| VIM | `Orion.VIM.Clusters` | Virtual Cluster | `VMC` | `ClusterID` | - |
-| VIM | `Orion.VIM.DataCenters` | Virtual DataCenter | `VMD` | `DataCenterID` | - |
-| VIM | `Orion.VIM.Datastores` | Virtual Datastore | `VMS` | `DataStoreID` | `Orion.VIM.LUNs` |
-| VIM | `Orion.VIM.Hosts` | Virtual Host | `VH` | `HostID`, `NodeID`, `CluserID`, `DatacenterID` | - |
-| VIM | `Orion.VIM.LUNs` (superseded) | Virtual LUN | - | `LunID`, `DatastoreID` | - |
-| VIM | `Orion.VIM.VCenters` | Virtual Center | `VVC` | `VCenterID` | - |
-| VIM | `Orion.VIM.VirtualMachines` | Virtual Machine | `VVM` | `VirtualMachineID`, `HostID`, `NodeID` | - |
-| VNQM | `Orion.IpSla.CCMGateways` | VoIP Gateway | `VG` | `GatewayID` | - |
-| VNQM | `Orion.IpSla.CCMMonitoring` | VoIP CallManager | `VCCM` | `NodeID` | `Orion.Nodes` |
-| VNQM | `Orion.IpSla.CCMPhones` | VoIP Phone | `VCCMP` | `ID` | - |
-| VNQM | `Orion.IpSla.CCMRegions` | VoIP Region | `VR` | `RegionID` | - |
-| VNQM | `Orion.IpSla.InfrastructureNodes` | VoIP Infrastructure | `P` | `InfrastructureNodeID` | - |
-| VNQM | `Orion.IpSla.Operations` | IP SLA QoS | `ISOP` | `OperationInstanceID` | - |
-| VNQM | `Orion.IpSla.VoipCallDetails` | VoIP Call Details | `VCDS` | `ID` | - |
-| VNQM | `Orion.IpSla.VoipGatewayEndpoints` | VoIP PRI Trunk | `VVGT` | `VoipGatewayEndpointID` | - |
-| VNQM | `Orion.IpSla.VoipGateways` | VoIP PRI Gateway | `VVG` | `VoipGatewayID` | - |
-| WPM | `Orion.SEUM.Agents` | Location | `L` | `AgentId` | - |
-| WPM | `Orion.SEUM.Transactions` | Transaction | `T` | `TransactionId` | - |
-| WPM | `Orion.SEUM.TransactionStepRequests` | Step Request | `TSR` | `TransactionStepRequestId` | - |
-| WPM | `Orion.SEUM.TransactionSteps` | Step | `TS` | `TransactionStepId` | - |
+Rows whose entity is marked **(superseded)** in the full table do not exist under that name
+in the 2026.2 schema. The section after this one gives each one's replacement.
 
 ### Entries that no longer resolve in 2026.2
 

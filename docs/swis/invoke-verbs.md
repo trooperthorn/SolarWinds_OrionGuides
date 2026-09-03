@@ -1099,7 +1099,6 @@ Before running any of this unattended, read
 [invoke-at-scale.md](invoke-at-scale.md): the risk surface derived from the contract, the
 failure modes that turn a working script into an incident, and how to scale one safely.
 
-
 - [verb-catalog.md](verb-catalog.md) groups the most useful verbs by task and shows how to
   query the full set of 1021.
 - [metadata-introspection.md](metadata-introspection.md) is the authoritative way to answer

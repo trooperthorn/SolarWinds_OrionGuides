@@ -781,7 +781,6 @@ overrunning.
 than you do, so "every node has pollers" from one account is not the same statement from
 another.
 
-
 ## Related pages
 
 - [README.md](README.md) for the other four polling systems and how to tell them apart.

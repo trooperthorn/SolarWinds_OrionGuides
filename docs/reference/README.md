@@ -188,9 +188,12 @@ It is held to the same standard as the rest of the documentation: every entity, 
 and verb it names was looked up first, and `make check` verifies those names on every
 build.
 
-## Two more generated pages
+## Two more generators
 
-These come from different generators, so they are worth naming separately.
+Two more of the pages in this directory are generated, by two more generators, from two
+more kinds of source. `schema-changes-*.md` is two files, since each documents a different
+version pair, which makes eight generated pages in total. They are worth naming
+separately because neither reads `data/` the way the five above do.
 
 ### unverified.md
 
