@@ -100,17 +100,27 @@ def requalify_links(sentence: str, source_path: str) -> str:
         text, target = m.group(1), m.group(2)
         if target.startswith(("http://", "https://", "mailto:", "#")):
             if target.startswith("#"):
-                rel = os.path.relpath(source_path, REFERENCE_DIR)
+                rel = link_target(source_path, REFERENCE_DIR)
                 return f"[{text}]({rel}{target})"
             return m.group(0)
         path_part, _, fragment = target.partition("#")
         if not path_part:
             return m.group(0)
         absolute = os.path.normpath(os.path.join(source_dir, path_part))
-        rel = os.path.relpath(absolute, REFERENCE_DIR)
+        rel = link_target(absolute, REFERENCE_DIR)
         return f"[{text}]({rel}{'#' + fragment if fragment else ''})"
 
     return MD_LINK_RE.sub(fix, sentence)
+
+
+def link_target(path: str, start: str) -> str:
+    """Relative path for a markdown link, always with forward slashes.
+
+    os.path.relpath uses the platform separator, so regenerating this page on Windows
+    rewrote every link with backslashes. Markdown does not accept those as path
+    separators, so the generated page depended on which OS ran the build.
+    """
+    return os.path.relpath(path, start).replace(os.sep, "/")
 
 
 def slug(heading: str) -> str:
@@ -216,7 +226,7 @@ def render(found: dict[str, list[tuple[str, str]]]) -> str:
     ]
 
     for path in sorted(found):
-        rel = os.path.relpath(os.path.join(ROOT, path), os.path.join(ROOT, "docs", "reference"))
+        rel = link_target(os.path.join(ROOT, path), os.path.join(ROOT, "docs", "reference"))
         title = os.path.basename(path)
         out.append(f"## [{title}]({rel})")
         out.append("")

@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**261 statements across 65 pages.**
+**265 statements across 66 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -289,6 +289,24 @@ Read this before relying on this repository for something load-bearing. If you h
 **[49. Which accounts see less than the whole estate?](../guides/cookbook.md#49-which-accounts-see-less-than-the-whole-estate)**
 
 - `IsNull(column, 0) <> 0` because whether an unused slot holds `0` or `NULL` is not recorded in the schema; written this way the query is correct either way.
+
+## [wireless-heatmaps.md](../guides/wireless-heatmaps.md)
+
+**[Writing it](../guides/wireless-heatmaps.md#writing-it)**
+
+- `fileType` for `InsertFile`, and the `ScaleUnit` byte enumeration, are installation data rather than schema and are **not recorded in the published schema**; both are unverified here.
+
+**[The one supported way to inject a sample](../guides/wireless-heatmaps.md#the-one-supported-way-to-inject-a-sample)**
+
+- Whether `clientIdVsMapPointIdMap` can be constructed by an external caller at all is **not recorded in the published schema** and is unverified here.
+
+**[Hardware the feature was not built for](../guides/wireless-heatmaps.md#hardware-the-feature-was-not-built-for)**
+
+- Exactly which objects discovery requires before it will classify a device as a supported controller is **not recorded in the published schema** and is unverified here; it would have to be established against real hardware or from the shipped discovery definitions.
+
+**[When a map is wrong](../guides/wireless-heatmaps.md#when-a-map-is-wrong)**
+
+- A non-zero `ErrorCode` is a failed run — what the byte values mean is not recorded in the published schema, so `Orion.WirelessHeatMap.ErrorCode` on your own server is the lookup.
 
 ## [agents.md](../modules/agents.md)
 

@@ -1,0 +1,290 @@
+-- Wireless heat maps
+--
+-- The Orion.WirelessHeatMap.* family, which sits on top of the wireless model rather than
+-- beside it. Eleven entities: the map, the points placed on it, the per-antenna signal
+-- identification, the RSSI measurements taken against those antennas, the computed client
+-- locations, and the polling status that tells you whether any of it is being collected.
+--
+-- Read docs/guides/wireless-heatmaps.md alongside these. The important structural facts
+-- are that only Orion.WirelessHeatMap.Map is directly creatable, that measurements are
+-- written by the poll verbs rather than by any Insert verb, and that ClientLocation X/Y is
+-- computed by the generation job rather than polled.
+--
+-- These entities are gated by manageMaps rather than manageNodes, so an account that can
+-- do everything else may see nothing here.
+
+
+-- =====================================================================================
+-- The maps themselves
+-- =====================================================================================
+
+-- Every heat map, with the state of its last generation. PercentProgress and ErrorCode
+-- together tell you whether the last run finished and whether it succeeded.
+SELECT
+    m.MapID,
+    m.DisplayName,
+    m.Scale,
+    m.ScaleUnit,
+    m.PercentProgress,
+    m.GenerateStarted,
+    m.LastGenerationStarted,
+    m.LastGenerationFinished,
+    m.ErrorCode,
+    m.ProcessingEngine,
+    m.MapStudioFileID,
+    m.Width,
+    m.Height,
+    m.DetailsUrl
+FROM Orion.WirelessHeatMap.Map m
+ORDER BY m.DisplayName
+
+
+-- Maps whose last generation failed or never finished. A non-zero ErrorCode is a failed
+-- run; a null LastGenerationFinished with GenerateStarted set is a run that did not
+-- return. What the ErrorCode byte values mean is not recorded in the published schema.
+SELECT
+    m.MapID,
+    m.DisplayName,
+    m.PercentProgress,
+    m.ErrorCode,
+    m.GenerateStarted,
+    m.LastGenerationStarted,
+    m.LastGenerationFinished,
+    m.ProcessingEngine
+FROM Orion.WirelessHeatMap.Map m
+WHERE m.ErrorCode <> 0
+   OR (m.GenerateStarted = TRUE AND ISNULL(m.LastGenerationFinished) )
+ORDER BY m.LastGenerationStarted DESC
+
+
+-- Maps that have not regenerated recently. Regeneration is periodic rather than
+-- continuous, so a stale map is normal up to a point and a symptom past it.
+SELECT
+    m.MapID,
+    m.DisplayName,
+    m.LastGenerationFinished,
+    HOURDIFF(m.LastGenerationFinished, GETUTCDATE()) AS HoursSinceGeneration
+FROM Orion.WirelessHeatMap.Map m
+WHERE m.LastGenerationFinished < ADDDAY(-2, GETUTCDATE())
+ORDER BY m.LastGenerationFinished
+
+
+-- =====================================================================================
+-- Access points on a map
+-- =====================================================================================
+
+-- The heat-map view of an access point, joined back to the node it belongs to and to the
+-- web URI the console links it with. This is the entity a MapPoint refers to when its
+-- EntityType is 'Orion.WirelessHeatMap.AccessPoints'.
+SELECT
+    ap.ID,
+    ap.NodeID,
+    ap.Index,
+    ap.ControllerID,
+    ap.Description,
+    ap.IPAddress,
+    ap.Clients,
+    ap.Status,
+    ap.StatusDescription,
+    ap.LastUpdate,
+    ap.Node.Caption AS NodeCaption,
+    ap.WebUri.WebUri AS WebUri
+FROM Orion.WirelessHeatMap.AccessPoints ap
+ORDER BY ap.Description
+
+
+-- Access points placed on a given map. MapPoint is polymorphic: EntityType names the
+-- entity and InstanceId is its key, so the join to the AP entity is on InstanceId.
+SELECT
+    p.PointID,
+    p.MapID,
+    p.X,
+    p.Y,
+    ap.ID AS AccessPointID,
+    ap.Description AS AccessPointName,
+    ap.IPAddress,
+    ap.Clients,
+    ap.StatusDescription
+FROM Orion.WirelessHeatMap.MapPoint p
+JOIN Orion.WirelessHeatMap.AccessPoints ap ON ap.ID = p.InstanceId
+WHERE p.EntityType = 'Orion.WirelessHeatMap.AccessPoints'
+ORDER BY p.MapID, ap.Description
+
+
+-- How many points each map carries, split by what kind of thing they are. The documented
+-- minimum for clients to render is four access points, or three plus a signal sample.
+SELECT
+    m.MapID,
+    m.DisplayName,
+    p.EntityType,
+    COUNT(p.PointID) AS Points
+FROM Orion.WirelessHeatMap.Map m
+JOIN Orion.WirelessHeatMap.MapPoint p ON p.MapID = m.MapID
+GROUP BY m.MapID, m.DisplayName, p.EntityType
+ORDER BY m.DisplayName, p.EntityType
+
+
+-- =====================================================================================
+-- The signal data underneath
+-- =====================================================================================
+
+-- Everything behind one map: each point, the per-antenna signal identification recorded
+-- against it, and the RSSI measurements taken. LEFT JOIN is deliberate. A point that has
+-- never been polled has no SignalIdentification children, and an inner join hides exactly
+-- the rows worth looking at.
+SELECT
+    p.PointID,
+    p.MapID,
+    p.EntityType,
+    p.InstanceId,
+    p.X,
+    p.Y,
+    s.SignalIdentificationID,
+    s.AntennaSlot,
+    s.AntennaMACAddress,
+    s.TransmittedSignalStrength,
+    s.NegativeTransmittedSignalStrength,
+    me.MeasurementID,
+    me.ReceivedSignalStrength,
+    me.NegativeReceivedSignalStrength
+FROM Orion.WirelessHeatMap.MapPoint p
+LEFT JOIN Orion.WirelessHeatMap.SignalIdentification s ON s.PointID = p.PointID
+LEFT JOIN Orion.WirelessHeatMap.Measurement me ON me.SignalIdentificationID = s.SignalIdentificationID
+WHERE p.MapID = 1
+ORDER BY p.PointID, s.AntennaSlot
+
+
+-- Map points that carry no signal data at all. On a map that generates but shows nothing,
+-- this is the fastest way to see whether the problem is collection rather than rendering.
+SELECT
+    m.DisplayName AS MapName,
+    p.PointID,
+    p.EntityType,
+    p.InstanceId,
+    p.X,
+    p.Y
+FROM Orion.WirelessHeatMap.MapPoint p
+JOIN Orion.WirelessHeatMap.Map m ON m.MapID = p.MapID
+WHERE NOT EXISTS (
+    SELECT s.SignalIdentificationID
+    FROM Orion.WirelessHeatMap.SignalIdentification s
+    WHERE s.PointID = p.PointID
+)
+ORDER BY m.DisplayName, p.PointID
+
+
+-- Signal spread per antenna: how many measurements exist and how strong they are. Antenna
+-- slots with a single measurement have not been surveyed properly.
+SELECT
+    s.AntennaMACAddress,
+    s.AntennaSlot,
+    s.TransmittedSignalStrength,
+    COUNT(me.MeasurementID) AS Measurements,
+    MIN(me.ReceivedSignalStrength) AS MinRssi,
+    MAX(me.ReceivedSignalStrength) AS MaxRssi,
+    AVG(me.ReceivedSignalStrength) AS AvgRssi
+FROM Orion.WirelessHeatMap.SignalIdentification s
+JOIN Orion.WirelessHeatMap.Measurement me ON me.SignalIdentificationID = s.SignalIdentificationID
+GROUP BY s.AntennaMACAddress, s.AntennaSlot, s.TransmittedSignalStrength
+ORDER BY Measurements
+
+
+-- =====================================================================================
+-- Computed client locations
+-- =====================================================================================
+
+-- Where the generation job thinks each client is. X and Y are computed by trilateration
+-- from AP-reported RSSI, not polled, and LastCalculationTime is when that ran.
+SELECT
+    cl.Id,
+    cl.MapId,
+    cl.ClientMACAddress,
+    cl.NodeID,
+    cl.X,
+    cl.Y,
+    cl.LastCalculationTime,
+    cl.Map.DisplayName AS MapName
+FROM Orion.WirelessHeatMap.ClientLocation cl
+WHERE cl.LastCalculationTime > ADDMINUTE(-60, GETUTCDATE())
+ORDER BY cl.Map.DisplayName, cl.ClientMACAddress
+
+
+-- Located clients per map, with how fresh the calculation is. A map with placed APs and
+-- zero located clients is the classic symptom of RSSI collection not working.
+SELECT
+    m.MapID,
+    m.DisplayName,
+    COUNT(cl.Id) AS LocatedClients,
+    MAX(cl.LastCalculationTime) AS MostRecentCalculation
+FROM Orion.WirelessHeatMap.Map m
+LEFT JOIN Orion.WirelessHeatMap.ClientLocation cl ON cl.MapId = m.MapID
+GROUP BY m.MapID, m.DisplayName
+ORDER BY LocatedClients
+
+
+-- =====================================================================================
+-- Collection health
+-- =====================================================================================
+
+-- Is RSSI polling running, and what did it last say? LastPollMessage is the first thing to
+-- read when a map generates but shows no clients.
+SELECT
+    ps.NodeID,
+    ps.IsAPRSSIPolling,
+    ps.LastPollStarted,
+    ps.LastPollFinished,
+    ps.CompleteStatus,
+    ps.LastPollMessage
+FROM Orion.WirelessHeatMap.PollingStatus ps
+ORDER BY ps.LastPollFinished DESC
+
+
+-- Nodes where the last RSSI poll did not complete, with the node caption for context.
+SELECT
+    n.Caption AS NodeCaption,
+    n.IPAddress,
+    ps.IsAPRSSIPolling,
+    ps.LastPollStarted,
+    ps.LastPollFinished,
+    ps.LastPollMessage
+FROM Orion.WirelessHeatMap.PollingStatus ps
+JOIN Orion.Nodes n ON n.NodeID = ps.NodeID
+WHERE ps.CompleteStatus = FALSE
+ORDER BY ps.LastPollStarted DESC
+
+
+-- =====================================================================================
+-- Introspection: what the verbs actually take
+-- =====================================================================================
+
+-- The heat-map verb surface as the live server declares it. Arguments are positional, so
+-- Position is the column that matters. XmlTemplate carries the serialized shape of a
+-- complex argument, which is the only way to learn what an array parameter such as
+-- clientIdVsMapPointIdMap expects.
+SELECT
+    va.EntityName,
+    va.VerbName,
+    va.Position,
+    va.Name,
+    va.Type,
+    va.IsOptional,
+    va.XmlTemplate,
+    va.Summary
+FROM Metadata.VerbArgument va
+WHERE va.EntityName LIKE 'Orion.WirelessHeatMap.%'
+ORDER BY va.EntityName, va.VerbName, va.Position
+
+
+-- Which heat-map entities the server will let you create directly, and which are
+-- verb-driven only. Expect only Orion.WirelessHeatMap.Map to allow CRUD create.
+SELECT
+    e.FullName,
+    e.BaseType,
+    e.CanCreate,
+    e.CanUpdate,
+    e.CanDelete,
+    e.IsObsolete,
+    e.ObsolescenceReason
+FROM Metadata.Entity e
+WHERE e.FullName LIKE 'Orion.WirelessHeatMap.%'
+ORDER BY e.FullName

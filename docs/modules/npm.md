@@ -304,6 +304,14 @@ ones in the NPM families whose management right is `manageMaps` rather than `man
 `Orion.WirelessHeatMap.Map` requires it for create, update, delete and invoke, and
 `Orion.WirelessHeatMap.MapPoint` requires it for invoke.
 
+Heat maps are the one wireless feature that is computed rather than polled, and the one
+where scripting runs into the schema: `Orion.WirelessHeatMap.SignalIdentification` and
+`Orion.WirelessHeatMap.Measurement` are both `canCreate: false` with no Insert verb, so no
+public call writes a signal measurement.
+[../guides/wireless-heatmaps.md](../guides/wireless-heatmaps.md) covers where the data comes
+from, the one supported way to inject a sample, and what the write restriction means for
+hardware the feature was not built for.
+
 ## Routing
 
 `Orion.Routing.` is eleven entities describing what the device knows about reaching other
