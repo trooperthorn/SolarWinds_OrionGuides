@@ -288,3 +288,43 @@ SELECT
 FROM Metadata.Entity e
 WHERE e.FullName LIKE 'Orion.WirelessHeatMap.%'
 ORDER BY e.FullName
+
+
+-- =====================================================================================
+-- What feeds the wireless model
+-- =====================================================================================
+
+-- API-polled orchestrators and the devices they contribute. The creation verbs on
+-- Orion.Orchestrators.Info are a closed vendor set; there is no generic add.
+SELECT
+    o.NodeID,
+    o.Caption,
+    o.Type,
+    o.OrganizationName,
+    o.EnableMetricsPolling,
+    o.ApiKeyExpired,
+    n.DeviceID,
+    n.ProductType,
+    n.ProductCategory,
+    n.IsApiOnly,
+    n.Caption AS DeviceCaption
+FROM Orion.Orchestrators.Info o
+LEFT JOIN Orion.Orchestrators.Nodes n ON n.OrchestratorNodeID = o.NodeID
+ORDER BY o.Caption, n.Caption
+
+
+-- Per-client signal already in the wireless model: one RSSI per client from the access
+-- point it is associated with. This is the only vendor-neutral client signal the platform
+-- records, and it is written by shipped pollers only.
+SELECT
+    c.MAC,
+    c.Name,
+    c.IPAddress,
+    c.SSID,
+    c.SignalStrength,
+    c.LastUpdate,
+    c.WirelessInterface.AccessPoint.Name AS AccessPoint,
+    c.WirelessInterface.AccessPoint.ControllerName AS Controller
+FROM Orion.Packages.Wireless.Clients c
+WHERE c.SignalStrength IS NOT NULL
+ORDER BY c.SignalStrength

@@ -206,7 +206,7 @@ Lookup tables. Most are generated from the extracted data and must not be edited
 
 Runnable code lives outside `docs/`:
 
-- [scripts/swql/](scripts/swql/): 222 sample queries, all validated against the schema
+- [scripts/swql/](scripts/swql/): 224 sample queries, all validated against the schema
 - [scripts/powershell/](scripts/powershell/), [scripts/python/](scripts/python/) and
   [scripts/curl/](scripts/curl/) cover the three clients
 - [tools/](tools/README.md) explores the schema offline and validates SWQL

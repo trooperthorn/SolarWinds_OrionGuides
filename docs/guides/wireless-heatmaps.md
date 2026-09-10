@@ -302,6 +302,96 @@ reciprocal but transmit powers are not, which is why the engine polls transmit p
 separately. Downlink readings do not drop into an uplink-shaped schema without a per-antenna
 offset that varies with the radio's current power level.
 
+## What the platform will and will not ingest
+
+The question behind most heat-map scripting is whether there is any way in — for signal
+data, or failing that for wireless clients — that does not go through a controller
+SolarWinds already polls. Checked against the schema and the vendor documentation, the answer
+is no on both counts, and the shape of the no is worth recording.
+
+### The collector is a discrete, gated poller
+
+The data path is a named poller, listed under Settings → Manage Pollers → Wireless
+Controller, disabled by default, and enabled on a controller when Network Atlas or
+Intelligent Maps places that controller's access points on a map. Assignment is a poller
+test against the device rather than a vendor list: community reports describe Manage Pollers
+refusing to apply it to a non-Cisco controller because the OIDs did not match, and SolarWinds
+staff have stated that support is "dependent on the dataset available from the WLC". Its log
+is `WLHM.BusinessLayer.log` under the platform log directory.
+
+### The engine reads two stores, and only one is Cisco-specific
+
+SolarWinds' knowledge base on clients missing from heat maps names the storage the
+generation job reads: a wireless-interfaces table holding every access point antenna MAC,
+populated by the ordinary wireless poller, which is multi-vendor; and a client-measurement
+table holding RSSI **per client, per access point interface**, populated only by the heat-map
+poller. The job needs readings from three or four interfaces per client before it will place
+one, and the documented failure when a controller does not report every antenna MAC is
+exactly the symptom people see: access points render, clients do not.
+
+That is the precise vendor gate — a per-client, per-antenna signal matrix across every access
+point that can hear the client. Everything else in the pipeline is generic.
+
+### Nothing wireless is creatable
+
+Every entity in `Orion.Packages.Wireless.`, `Orion.Wireless.`, `Orion.NPM.WL.`,
+`Orion.NPM.Wireless.`, `Orion.UDT.AllWirelessEndpoints` and `Orion.Orchestrators.` declares
+`canCreate: false`, and none carries a verb except `Orion.Orchestrators.Info`. Device Studio
+does not help either: its technologies are CPU and memory, multi-CPU and memory, and node
+details, none of which produce a wireless entity. So it is not only measurements that cannot
+be injected. A wireless client, access point, radio or controller row cannot be created by
+any public call; the wireless model is populated by shipped pollers or not at all.
+
+### The paths that exist
+
+Two families of vendor support populate the wireless model. SNMP-polled controllers — Cisco
+WLC, Aruba Mobility, HP MSM, Extreme WiNG, Ruckus ZoneDirector, FortiGate — and API-polled
+orchestrators added through `Orion.Orchestrators.Info`, whose creation verbs are a closed set
+(`AddMerakiNode`, `AddArubaCentralNode`, `AddJuniperMistNode`, `AddRuckusOneNode`,
+`AddRuckusSmartZoneNode`, `AddExtremeCloudIQNode`, `AddAristaWMNode`,
+`AddFortiEdgeCloudNode`) with no generic equivalent. `CreateOrchestratorPluginConfiguration`
+configures product types on an orchestrator that already exists; it is not a hook for a new
+vendor.
+
+The orchestrator path is worth knowing because it does record per-client signal: the Aruba
+Central integration writes client name, SSID, addresses, MAC and signal strength into
+`Orion.Packages.Wireless.Clients`. That single value — one RSSI per client, from the access
+point it is associated with — is the only vendor-neutral client-reporting shape the platform
+has, and it is reachable only through a shipped orchestrator. Heat maps remain Cisco-only in
+both families.
+
+```sql
+SELECT c.MAC, c.Name, c.IPAddress, c.SSID, c.SignalStrength, c.LastUpdate,
+       c.WirelessInterface.AccessPoint.Name AS AccessPoint,
+       c.WirelessInterface.AccessPoint.ControllerName AS Controller
+FROM Orion.Packages.Wireless.Clients c
+WHERE c.SignalStrength IS NOT NULL
+ORDER BY c.SignalStrength
+```
+
+### What that means for a vendor outside both lists
+
+Take Ubiquiti UniFi as the worked case, since it is the one most often asked about. Over
+SNMP, UniFi access points answer parts of the IEEE 802.11 MIB, so an access point may be
+discovered as an autonomous AP with an SSID and channel; but that MIB has no station table,
+and Ubiquiti's own MIB exposes per-radio BSSID, channel, transmit power and a *count* of
+stations, with no per-client object at all. Over the controller's APIs it depends which one:
+the versioned Integration API (Network 10.4.57) describes a client as an id, name, MAC, IP,
+connection time, type and uplink device, with no signal field of any kind; the older
+unversioned controller API does return RSSI, signal, noise, the associated access point and
+radio per client — but one reading, from that one access point, and only for clients
+currently connected. The neighbour-heard readings the engine needs are not exposed by
+either, nor by the access point's own station list read over SSH.
+
+So a service presenting UniFi as a Cisco controller over SNMP, which is otherwise the only
+route into the generation engine, cannot satisfy it without inventing the missing readings.
+It would reproduce the documented failure exactly. The SolarWinds-endorsed pattern for
+Ubiquiti, described by a SolarWinds product manager on THWACK, deliberately stays outside the
+wireless model: import sites and devices as ICMP-only nodes with custom properties, and poll
+the UniFi API from a SAM application template. Client reporting and coverage rendering for
+such hardware belong in that pattern — a custom table and a custom widget — not in
+`Orion.WirelessHeatMap.`.
+
 ## When a map is wrong
 
 Work down, not across. Each step names the query in
