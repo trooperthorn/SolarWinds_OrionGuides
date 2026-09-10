@@ -29,7 +29,7 @@ find the same map a person browsing `docs/` does.
 
 ## Working examples
 
-Runnable code lives outside `docs/`: [../scripts/swql/](../scripts/swql/) has 207 verified
+Runnable code lives outside `docs/`: [../scripts/swql/](../scripts/swql/) has 224 verified
 sample queries, [../scripts/powershell/](../scripts/powershell/),
 [../scripts/python/](../scripts/python/) and [../scripts/curl/](../scripts/curl/) cover the
 three clients, and [../tools/](../tools/README.md) explores the schema offline and
