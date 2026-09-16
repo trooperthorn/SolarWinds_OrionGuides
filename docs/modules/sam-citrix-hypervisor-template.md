@@ -26,8 +26,8 @@ output.
 
 ## What the template monitors
 
-Nine components, each independent, so a target that lacks one capability (no shared storage,
-no guests yet) does not take the rest of the application down with it:
+Thirteen components, each independent, so a target that lacks one capability (no shared
+storage, no guests yet) does not take the rest of the application down with it:
 
 | Component | Type | What it runs | Reports |
 | --- | --- | --- | --- |
@@ -57,6 +57,55 @@ ssh root@host "xe host-data-source-list | grep pif_"
 
 A host with bonded or VLAN interfaces may expose additional `pif_bond0_rx`-style sources; the
 script here only reads the management interface's pair.
+
+## Virtual machine and storage coverage, closer to what VIM gives other hypervisors
+
+Four more components push this template past single-number host metrics into the same territory
+Virtualization Manager covers with `Orion.VIM.VirtualMachines` and `Orion.VIM.Datastores` for
+VMware, Hyper-V, Nutanix and Proxmox VE — with the caveat that none of it is backed by a real
+object model the way VIM's is. There is no `Orion.VIM`-style entity for a Citrix VM or SR; every
+value below is a line of script output, and the "hierarchy" is whatever component names and
+node grouping you build around it.
+
+| Component | Type | What it runs | Reports |
+| --- | --- | --- | --- |
+| Pool: VM Resource Allocation Summary | `LinuxScript` | Sums `VCPUs-max` and `memory-actual` across running VMs, compares against the host's `cpu_info`/`memory-total` | `Allocated_vCPUs`, `Physical_CPU_Cores`, `vCPU_to_Core_Ratio`, `Allocated_Memory_MiB`, `Physical_Memory_MiB` |
+| VM: Top 5 CPU Consumers | `LinuxScript` | For each running VM, sums its `cpu<N>` data sources via `xe vm-data-source-query`, keeps the five highest | `VM_<name>_CPU_Percent`, one line per VM in the top five |
+| Pool: All Storage Repositories Utilization | `LinuxScript` | Loops every `content-type=user` SR (not just the pool's default), reading `physical-size`/`physical-utilisation` per SR | `SR_<name>_Used_Percent`, `SR_<name>_Free_GiB`, two lines per SR |
+| Pool: Orphaned Virtual Disks | `LinuxScript` | Diffs `xe vdi-list` against every VDI referenced by `xe vbd-list`, the direct analogue of `Orion.VIM.DiskFiles.Orphaned` | `Orphaned_VDI_Count`, `Orphaned_VDI_Total_GiB` |
+
+Three things about these four are worth understanding before you rely on them:
+
+**"VM: Top 5 CPU Consumers" and "Pool: All Storage Repositories Utilization" emit a variable
+number of differently-named lines.** A pool with three SRs reports six lines from the storage
+component; a pool with twelve reports twenty-four. That is a direct consequence of there being
+no fixed per-VM or per-SR component in a template that has to work on any pool — the script
+discovers the objects at poll time and names its own output after them. It means thresholds on
+these two components have to be configured per line in the console after import (see "What is
+verified here and what is not" below on `DynamicColumnSettings`), and it means a VM or SR
+renamed in Citrix Hypervisor changes the label SAM reports it under, which is worth knowing
+before building an alert on a specific `VM_<name>_CPU_Percent` line.
+
+**`cpu_info param-key=cpu_count` and the per-vCPU `cpu<N>` data source names are Citrix's
+documented conventions, not something this repository's SAM documentation records.** Confirm
+both before trusting the numbers:
+
+```bash
+ssh root@host "xe host-param-get uuid=\$(xe host-list --minimal | cut -d',' -f1) param-name=cpu_info"
+ssh root@host "xe vm-data-source-list uuid=<a-running-vm-uuid>"
+```
+
+`vm-data-source-list` on a Windows guest without the Citrix VM tools installed, or a guest that
+has never been queried before, can come back empty; the top-5 script treats that VM as
+contributing zero rather than failing the whole component, which is deliberate but means a
+missing VM from the report is not necessarily an idle one.
+
+**"Orphaned Virtual Disks" answers the same question `Orion.VIM.DiskFiles.Orphaned` answers for
+VMware, and the same caveat vman.md records for that column applies here too**: a VDI with no
+`VBD` is the mechanical definition of orphaned, but *why* it has no VBD is not something the
+script (or the schema, on VIM's side) can tell you — it could be a stale leftover from a
+half-finished VM deletion, or a disk deliberately detached and kept for later. Review the list
+before deleting anything from it.
 
 `cpu_avg`, `memory_total_kib` and `memory_free_kib` are RRD data source names that Citrix's own
 `xe host-data-source-list` documentation exposes for exactly this purpose: live performance
@@ -204,14 +253,20 @@ supports.
 
 ## Known limitations
 
-- **One default storage repository only.** The storage component reads `pool-list
-  params=default-SR`, so it reports on the pool's default SR and not on every SR attached to
-  the pool. A host with several SRs worth watching individually needs one component per SR
-  UUID, following the same `sr-param-get` pattern.
-- **No per-VM metrics.** The VM component only counts VMs by power state. Per-VM CPU, memory
-  or network figures would need `xe vm-data-source-query` against each VM's UUID, which this
-  template does not attempt because the number of VMs, and therefore the number of components
-  needed, varies per host.
+- **The original storage component still reads only the pool's default SR.** "Pool: Default
+  Storage Repository Utilization" (component 4) reads `pool-list params=default-SR`; "Pool: All
+  Storage Repositories Utilization" (component 12) covers every `content-type=user` SR and
+  supersedes it for capacity monitoring. The two overlap on the default SR, which is redundant
+  rather than wrong; disable component 4 after import if you only want the per-SR view.
+- **Per-VM coverage is CPU only, and only the top five.** "VM: Top 5 CPU Consumers" answers "is
+  something busy" for the biggest consumers, not "what is every VM doing." Per-VM memory,
+  network or disk I/O would need the same `vm-data-source-query` pattern against
+  `memory_internal_free`, `vif_<device>_rx`/`tx`, or `vbd_<device>_read`/`write`, and a pool
+  with more VMs than fit in a top-5 report loses the smaller ones entirely. A pool small enough
+  to name every VM in its own component (rather than discovering them at poll time) could get
+  one `LinuxScript` component per VM instead, at the cost of hand-editing the template whenever
+  a VM is added or removed — VIM's discovery-driven model does not have that tradeoff because it
+  polls in an object model, not a script.
 - **A pool master's view, not necessarily a slave's.** `xe host-list`, `xe pool-list` and
   `xe vm-list` all query the pool database, which every host in a pool can see, but assigning
   this template to a pool slave still reports pool-wide VM counts and the pool's default SR
