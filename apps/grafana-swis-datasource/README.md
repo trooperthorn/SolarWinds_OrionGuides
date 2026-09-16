@@ -93,6 +93,12 @@ signs a plugin for the root URLs you name. It needs a Grafana Cloud account for 
 signing key, but the signed plugin then loads on any OSS or Enterprise instance whose
 root URL matches. `npm run sign` in this directory runs it.
 
+### Home Assistant
+
+The app under [../ha_app_grafana/](../ha_app_grafana/README.md) ships this plugin inside a
+hardened Grafana for Home Assistant, built from a pinned commit of this repository, with
+no unsigned-plugin setting to manage.
+
 ## Configure the data source
 
 Connections, Data sources, Add data source, "SolarWinds SWIS".
