@@ -1,4 +1,0 @@
-# Security-sensitive runtime and delivery surfaces require owner review.
-/grafana/ @trooperthorn
-/.github/workflows/ @trooperthorn
-/SECURITY.md @trooperthorn

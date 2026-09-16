@@ -95,9 +95,9 @@ root URL matches. `npm run sign` in this directory runs it.
 
 ### Home Assistant
 
-The app under [../ha_app_grafana/](../ha_app_grafana/README.md) ships this plugin inside a
-hardened Grafana for Home Assistant, built from a pinned commit of this repository, with
-no unsigned-plugin setting to manage.
+[trooperthorn/ha_app_grafana](https://github.com/trooperthorn/ha_app_grafana) ships this
+plugin inside a hardened Grafana for Home Assistant, built from a pinned commit of this
+repository, with no unsigned-plugin setting to manage.
 
 ## Configure the data source
 

@@ -137,10 +137,6 @@ apps/
   grafana-swis-datasource/
                 a native Grafana data source plugin: SWQL in the panel editor, the time
                 range bound as parameters, and allowlisted verbs invokable from a dashboard
-  ha_app_grafana/
-                a hardened Grafana app for Home Assistant with that plugin built in:
-                Ingress-only, a role per Home Assistant user, a recorded local terminal,
-                and a custom AppArmor profile; a complete app repository, staged here
 reference/      the community SWQL examples workbook that `make data` reads
 tools/          extraction, query, validation, and generation scripts
 ```
