@@ -60,7 +60,10 @@ wireless shape under `Orion.Wireless.` (14).
 
 Four pages in this section document an export file format field by field rather than a
 module. [sam-templates.md](sam-templates.md) documents the `.apmtemplate` document that
-`ExportTemplate` and `ImportTemplate` move. [ncm-device-templates.md](ncm-device-templates.md)
+`ExportTemplate` and `ImportTemplate` move, and
+[sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) is a worked example
+built to that format for a platform SAM has no stock template for.
+[ncm-device-templates.md](ncm-device-templates.md)
 documents the `.ConfigMgmtCommands` document that tells NCM how to hold a Telnet or SSH
 session with a given kind of device.
 [ncm-compliance-reports.md](ncm-compliance-reports.md) documents the policy report export —

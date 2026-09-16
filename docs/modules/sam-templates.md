@@ -326,6 +326,8 @@ constructing the document from nothing.
 ## See also
 
 - [sam.md](sam.md) — the SAM entities, all thirty-nine verbs, and assigning a template to a node
+- [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) — a worked template
+  built to this format, monitoring a Citrix Hypervisor host with no AppInsight module
 - [../polling/api-pollers.md](../polling/api-pollers.md#the-apipollertemplate-file-format) —
   the other matched-verb template format, and much simpler
 - [../automation/report-definitions.md](../automation/report-definitions.md) — the third
