@@ -1,0 +1,72 @@
+name: pages
+
+# Serve the repository as static files so an AI system that can fetch a URL but cannot
+# run a command can read it: llms.txt, llms-full.txt, docs/TOC.md, every page and every
+# data file, at the same paths they have in the repository. Nothing is transformed; the
+# markdown is served as markdown, because a model reads it better than rendered HTML and
+# the relative links keep resolving.
+#
+# One-time setup: Settings > Pages > Source must be set to "GitHub Actions". Until it is,
+# the deploy step fails with a message saying so and nothing else is affected.
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The site must not serve a stale index, so the same check that guards the build
+      # guards the deploy.
+      - name: Check the AI-facing indexes are current
+        run: python3 tools/build_llms_index.py --check
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp -r docs data scripts llms.txt llms-full.txt AGENTS.md README.md CONTRIBUTING.md _site/
+          mkdir -p _site/tools && cp tools/README.md _site/tools/
+          touch _site/.nojekyll
+          {
+            echo '<!doctype html><meta charset="utf-8"><title>SolarWinds Orion Guides</title>'
+            echo '<h1>SolarWinds Orion Guides</h1>'
+            echo '<p>Community documentation, schema data and sample queries for SolarWinds Orion / Observability Self-Hosted, served as plain files. Assembled only from resources SolarWinds publishes on the public internet.</p>'
+            echo '<ul>'
+            echo '<li><a href="llms.txt">llms.txt</a>: the page-level index, start here</li>'
+            echo '<li><a href="docs/TOC.md">docs/TOC.md</a>: every heading on every page</li>'
+            echo '<li><a href="llms-full.txt">llms-full.txt</a>: the whole guide in one file</li>'
+            echo '<li><a href="AGENTS.md">AGENTS.md</a>: how an AI system should use this material</li>'
+            echo '<li><a href="README.md">README.md</a> and the <a href="https://github.com/trooperthorn/SolarWinds_OrionGuides">repository</a></li>'
+            echo '</ul>'
+          } > _site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

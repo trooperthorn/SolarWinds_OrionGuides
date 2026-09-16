@@ -2,6 +2,7 @@
 #
 #   make data           fetch the OrionSDK docs and rebuild everything under data/
 #   make docs-reference regenerate the enumerated tables in docs/reference/
+#   make docs-index     regenerate docs/TOC.md and llms-full.txt, and check llms.txt
 #   make schema-diff    report what changed between two published versions
 #   make validate       check every sample query and every ```sql block in the docs
 #   make check          validate plus a consistency check of the generated data
@@ -21,11 +22,12 @@ FROM ?= 2026.1
 TO ?= $(VERSION)
 DIFF_SCRATCH ?= .schema-versions
 
-.PHONY: all data docs-reference schema-diff test validate check clean sdk help
+.PHONY: all data docs-reference docs-index schema-diff test validate check clean sdk help
 
 help:
 	@echo "make data            rebuild data/ from the OrionSDK docs (VERSION=$(VERSION))"
 	@echo "make docs-reference  regenerate the generated tables in docs/reference/"
+	@echo "make docs-index      regenerate docs/TOC.md and llms-full.txt, and check llms.txt"
 	@echo "make test            run the toolchain unit tests"
 	@echo "make validate        check sample queries and docs code blocks against the schema"
 	@echo "make check           tests + queries + data + names + counts + verbs + links"
@@ -66,6 +68,12 @@ data: sdk
 docs-reference:
 	@$(PYTHON) tools/build_reference_docs.py --version $(VERSION)
 	@$(PYTHON) tools/build_unverified_index.py
+	@$(PYTHON) tools/build_llms_index.py
+
+# The AI-facing indexes: a heading-level table of contents and the whole guide in one
+# file, both derived from docs/. llms.txt is written by hand and checked for coverage.
+docs-index:
+	@$(PYTHON) tools/build_llms_index.py
 
 # Upgrade impact: what changed between two published versions, and which of those changes
 # can break code that already works.
@@ -96,6 +104,7 @@ check: test validate
 	@$(PYTHON) tools/check_dashboards.py
 	@$(PYTHON) tools/check_api_poller_templates.py
 	@$(PYTHON) tools/check_links.py --orphans --check-anchors
+	@$(PYTHON) tools/build_llms_index.py --check
 	@$(PYTHON) tools/check_gate.py
 
 clean:

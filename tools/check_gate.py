@@ -90,8 +90,8 @@ CASES = [
     (
         "test count",
         "tools/README.md",
-        "Regressions in the judgement above: 200 tests",
-        "Regressions in the judgement above: 199 tests",
+        "Regressions in the judgement above: 210 tests",
+        "Regressions in the judgement above: 209 tests",
         ["tools/check_data.py", "--version", VERSION],
     ),
     (

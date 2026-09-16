@@ -4,7 +4,9 @@ A recipe: every SWQL query for a customer/vendor-facing trust dashboard, with th
 Dashboard widget type called out for each. The layout follows the SOC 2 Trust Services
 Criteria that platform data can actually evidence — **Availability**, **Security /
 incident response**, **Capacity**, and **Change management** — so the page reads as an
-operational trust report rather than a NOC wall.
+operational trust report rather than a NOC wall. The companion page,
+[layer2-switching-dashboard.md](layer2-switching-dashboard.md), applies the same rules to
+a Layer 2 switching dashboard: interfaces, VLANs, trunks, UDT ports and endpoints.
 
 Every query below validates against the extracted 2026.2 schema
 (`python3 tools/validate_swql.py --docs docs/guides/soc2-dashboard-10k-nodes.md`). The

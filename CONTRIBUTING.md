@@ -24,48 +24,14 @@ If you cannot verify a claim, you can still include it. Mark it explicitly as un
 and say how a reader can confirm it on their own server. Silence about uncertainty is the
 thing to avoid, not uncertainty itself.
 
-## Before you open a pull request
+## What may be added
 
-```bash
-make check
-```
-
-That runs two things. `make validate` parses every `.swql` file in `scripts/` and every
-` ```sql ` block in `docs/`, resolves each dotted reference through the schema including
-inherited members, and fails on anything that does not exist. `tools/check_data.py` then
-verifies that extraction has not quietly degraded: count floors, required core entities,
-and three hand-verified verb signatures.
-
-To check one query while you are writing it:
-
-```bash
-echo "SELECT n.Caption, n.Engine.ServerName FROM Orion.Nodes n" | python3 tools/validate_swql.py -
-```
-
-## What goes where
-
-| Path | Contents | Edit by hand? |
-| --- | --- | --- |
-| `docs/platform/`, `docs/swis/`, `docs/swql/`, `docs/schema/`, `docs/automation/`, `docs/polling/`, `docs/webui/` | Written guides | Yes |
-| `docs/reference/` | Generated enumerations | **No**, run `make docs-reference` |
-| `data/` | Extracted schema and reference data | **No**, run `make data` |
-| `scripts/` | Sample queries and client scripts | Yes |
-| `tools/` | Extraction, query, validation, generation | Yes |
-| `reference/` | The source workbook the reference data is built from | Rarely |
-
-Generated files carry a banner saying so. An edit to one will be overwritten by the next
-build, so fix the generator instead. That is usually the better fix anyway: it corrects
-every row rather than one.
-
-One of them is generated from the prose rather than from `data/`:
-`docs/reference/unverified.md` collects every statement the guides mark as unverified. If
-your change adds, removes or rewords one of those, regenerate it in the same commit:
-
-```bash
-make docs-reference
-```
-
-CI regenerates and diffs, so a stale index fails the build the way a stale lockfile would.
+Only material SolarWinds publishes on the public internet, or that a contributor wrote
+themselves against the published API. Nothing from a SolarWinds support case, partner
+portal, internal document, or any non-public channel, and no method of reaching a
+SolarWinds system beyond the documented, customer-facing API. That boundary is what lets
+the repository be shared without qualification, and a pull request that crosses it will
+be declined regardless of how useful the content is.
 
 ## Adding sample queries
 
@@ -162,3 +128,54 @@ examples. If you paste output, replace real names and addresses with example one
 Also out of scope: destructive operations presented without their consequences. If a
 script can delete or unmanage at scale, it should say so plainly, support `-WhatIf` or a
 dry run where the language allows, and confirm before acting.
+
+## Before you open a pull request
+
+```bash
+make check
+```
+
+That runs two things. `make validate` parses every `.swql` file in `scripts/` and every
+` ```sql ` block in `docs/`, resolves each dotted reference through the schema including
+inherited members, and fails on anything that does not exist. `tools/check_data.py` then
+verifies that extraction has not quietly degraded: count floors, required core entities,
+and three hand-verified verb signatures.
+
+To check one query while you are writing it:
+
+```bash
+echo "SELECT n.Caption, n.Engine.ServerName FROM Orion.Nodes n" | python3 tools/validate_swql.py -
+```
+
+## What goes where
+
+| Path | Contents | Edit by hand? |
+| --- | --- | --- |
+| `docs/platform/`, `docs/swis/`, `docs/swql/`, `docs/schema/`, `docs/automation/`, `docs/polling/`, `docs/webui/` | Written guides | Yes |
+| `docs/reference/` | Generated enumerations | **No**, run `make docs-reference` |
+| `docs/TOC.md`, `llms-full.txt` | Generated from the pages under `docs/` | **No**, run `make docs-index` |
+| `llms.txt` | The page-level index AI systems read first | Yes, and add every new page to it |
+| `data/` | Extracted schema and reference data | **No**, run `make data` |
+| `scripts/` | Sample queries and client scripts | Yes |
+| `tools/` | Extraction, query, validation, generation | Yes |
+| `reference/` | The source workbook the reference data is built from | Rarely |
+
+Generated files carry a banner saying so. An edit to one will be overwritten by the next
+build, so fix the generator instead. That is usually the better fix anyway: it corrects
+every row rather than one.
+
+One of them is generated from the prose rather than from `data/`:
+`docs/reference/unverified.md` collects every statement the guides mark as unverified. If
+your change adds, removes or rewords one of those, regenerate it in the same commit:
+
+```bash
+make docs-reference
+```
+
+CI regenerates and diffs, so a stale index fails the build the way a stale lockfile would.
+
+The same applies to the AI-facing indexes. Adding, renaming or reheading a page under
+`docs/` changes `docs/TOC.md` and `llms-full.txt`, so regenerate them in the same commit
+with `make docs-index`, and list the new page in `llms.txt` with a one-line summary.
+`make check` fails on a page that is missing from `llms.txt`, because a page the index
+does not name is a page no AI system will find.

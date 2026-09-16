@@ -1,7 +1,8 @@
 # Tools
 
 No dependencies beyond the Python standard library, except `openpyxl` for reading the
-source workbook. Four tools build, two consume, seven guard.
+source workbook and `mcp` for serving the MCP server. Five tools build, three consume, and
+the rest guard.
 
 **Build**
 
@@ -11,6 +12,7 @@ source workbook. Four tools build, two consume, seven guard.
 | [build_reference_data.py](build_reference_data.py) | Merge the SWQL function reference with the examples workbook |
 | [build_reference_docs.py](build_reference_docs.py) | Generate the enumerated tables in `docs/reference/` |
 | [build_unverified_index.py](build_unverified_index.py) | Collect every statement the guides decline to assert into one page |
+| [build_llms_index.py](build_llms_index.py) | Generate `docs/TOC.md` and `llms-full.txt` from the pages, and check `llms.txt` lists every page |
 
 **Use**
 
@@ -18,6 +20,7 @@ source workbook. Four tools build, two consume, seven guard.
 | --- | --- |
 | [schema_query.py](schema_query.py) | Explore the schema offline: entities, properties, verbs, join paths |
 | [diff_schema.py](diff_schema.py) | Report what changed between two platform versions, and what breaks |
+| [mcp_server.py](mcp_server.py) | Serve the schema lookups, the SWQL validator and the pages to an AI client over MCP |
 
 **Guard**
 
@@ -38,7 +41,7 @@ ten of twenty-one.
 | [check_dashboards.py](check_dashboards.py) | A shipped Modern Dashboard file that breaks one of the format's invariants |
 | [check_api_poller_templates.py](check_api_poller_templates.py) | A shipped API Poller template that breaks the export format, or hides unknown values |
 | [check_gate.py](check_gate.py) | A check above that has stopped checking, by seeding errors it must catch |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 200 tests |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 210 tests |
 
 `check_gate.py` is the one that watches the others. A checker that quietly stops reading
 what it claims to read still exits zero, which makes it indistinguishable from a working
@@ -114,3 +117,50 @@ assertion there as part of the fix. A check that would have caught the bug is a 
 outcome than the fix alone.
 
 See [../CONTRIBUTING.md](../CONTRIBUTING.md).
+
+## The MCP server
+
+`schema_query.py` and `validate_swql.py` are what an AI system should run before it states
+a schema fact, and only a client with a shell can run them. Claude Desktop, ChatGPT,
+Copilot, Cursor and most other assistants speak the Model Context Protocol instead, so
+`mcp_server.py` wraps the same commands as MCP tools. It reads the checked-in data and
+pages, reaches no network and no SolarWinds server, and speaks to its client over stdio.
+
+```bash
+python3 tools/mcp_server.py --list-tools
+```
+
+```text
+find_entities        Search entities by keyword; with properties=True also search property names.
+show_entity          Everything about one entity: properties, relationships, verbs, access control.
+entity_properties    List an entity's properties, inherited ones included unless inherited=False.
+list_verbs           List Invoke verbs, filtered by entity and/or a keyword.
+show_verb            One verb's parameters in positional order, required right, return shape, and call syntax.
+entity_children      Entities that inherit from a base entity.
+navigation_path      Navigation-property paths from one entity to another, for writing a join.
+schema_stats         Counts and provenance of the extracted schema.
+validate_query       Validate a SWQL query against the schema. Returns errors and warnings, empty when clean.
+read_doc             Read one documentation page, sample script, or reference file by repository path.
+search_docs          Find documentation lines containing a keyword (case-insensitive), with page and line number.
+```
+
+Serving needs the `mcp` package (`python3 -m pip install "mcp>=2"`; the 1.x package also
+works). A client is pointed at the server with a command entry, which in Claude Desktop's
+`claude_desktop_config.json`, Cursor's `mcp.json` and Copilot's `mcp.json` all take this
+shape:
+
+```json
+{
+  "mcpServers": {
+    "orionguides": {
+      "command": "python3",
+      "args": ["/path/to/SolarWinds_OrionGuides/tools/mcp_server.py"]
+    }
+  }
+}
+```
+
+Every tool returns the same JSON that `schema_query.py --json` prints, because it calls
+the same functions. `read_doc` is limited to the documentation, the sample scripts, the
+reference data and the root guides; it will not read the tools, the schema JSON, or
+anything outside the repository.

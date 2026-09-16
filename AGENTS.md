@@ -7,6 +7,26 @@ extracted facts instead of recalling them.
 
 Read this file before answering from memory.
 
+Everything here was assembled from resources SolarWinds publishes on the public internet:
+the OrionSDK repository, its rendered schema pages and Swagger contract, the public SDK
+documentation, and a community SWQL examples workbook. There is no SolarWinds internal
+documentation in this repository and no method of access to any SolarWinds system beyond
+the documented, customer-facing API. Do not present anything here as insider material,
+and do not add any.
+
+## Finding your way around
+
+- `llms.txt` at the root is the page-level index: every page, one line each, in reading
+  order.
+- `docs/TOC.md` is the heading-level index: every `##` heading on every page with the first
+  sentence under it. Use it to jump to a section instead of reading a whole page.
+- `llms-full.txt` is every page in one file, for a client that can fetch one URL but not
+  run a command. All three are also served at
+  https://trooperthorn.github.io/SolarWinds_OrionGuides/ with the same paths.
+- `tools/mcp_server.py` exposes the lookup commands below, the SWQL validator, and the
+  pages as MCP tools for a client that speaks the protocol. `tools/README.md` shows the
+  client configuration.
+
 ## The one rule
 
 **Never state a schema fact you have not looked up here.**

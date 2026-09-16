@@ -39,6 +39,7 @@ So this repository:
 | Make a console widget link and show icons | [docs/webui/](docs/webui/README.md) |
 | Copy a working query | [scripts/swql/](scripts/swql/) |
 | Use this repository from an AI agent | [AGENTS.md](AGENTS.md) |
+| Jump to a heading rather than a page | [docs/TOC.md](docs/TOC.md) |
 
 ## The tooling
 
@@ -198,7 +199,7 @@ checks eleven things:
 
 | Check | Catches |
 | --- | --- |
-| `test_tools.py` | Regressions in the tools' own judgement, across 200 tests |
+| `test_tools.py` | Regressions in the tools' own judgement, across 210 tests |
 | `validate_swql.py` | A query naming an entity, property, column or navigation that does not exist |
 | `check_data.py` | Extraction that degraded quietly, and reference pages that fell behind |
 | `check_entity_references.py` | An invented entity, member, NetObject prefix, right or type member, or a wrong property type |
@@ -228,12 +229,37 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 - SWQL Studio, shipped in the
   [Orion SDK installer](https://github.com/solarwinds/OrionSDK/releases)
 
+## For AI systems
+
+The repository is laid out so that any AI assistant can find its way in, whether it can
+run commands or only fetch URLs:
+
+| If the assistant | It reads |
+| --- | --- |
+| Can run commands (Claude Code, Codex, Copilot's coding agent, Cursor, Gemini CLI) | [AGENTS.md](AGENTS.md), the cross-vendor contract; [CLAUDE.md](CLAUDE.md) and [.github/copilot-instructions.md](.github/copilot-instructions.md) point there |
+| Can only fetch a URL (ChatGPT, Claude.ai, Copilot chat) | [llms.txt](llms.txt), the page-level index; [docs/TOC.md](docs/TOC.md), every heading with a summary; [llms-full.txt](llms-full.txt), the whole guide in one file |
+| Speaks the Model Context Protocol (Claude Desktop, ChatGPT, Copilot, Cursor) | [tools/mcp_server.py](tools/mcp_server.py), which exposes the schema lookups and the SWQL validator as tools; see [tools/README.md](tools/README.md#the-mcp-server) |
+
+The same files are served as static pages at
+https://trooperthorn.github.io/SolarWinds_OrionGuides/ with the repository's own paths, so
+`llms.txt`, `docs/TOC.md`, any page and any data file can be fetched directly. `docs/TOC.md`
+and `llms-full.txt` are generated from the pages by `make docs-index`, and `make check`
+fails if a page is missing from `llms.txt`, so the indexes cannot drift from the content.
+
 ## Licence and provenance
 
 This repository is community documentation. It is not published by SolarWinds and carries
 no warranty. The extracted data derives from SolarWinds' published SDK documentation,
 which is distributed under the Apache License 2.0. SolarWinds, Orion, and the module names
 are trademarks of SolarWinds Worldwide, LLC.
+
+**Everything here was assembled from resources SolarWinds publishes on the public
+internet**: the OrionSDK repository and its rendered schema pages, the public SDK
+documentation, the Swagger contract shipped with the SDK, and a community SWQL examples
+workbook. The repository contains no SolarWinds internal documentation, no material from a
+support case, partner portal or other non-public channel, and no method of access to any
+SolarWinds system beyond the documented, customer-facing API. Contributions are held to
+the same boundary; see [CONTRIBUTING.md](CONTRIBUTING.md#what-may-be-added).
 
 Always verify a destructive operation against a test instance before running it against
 production.

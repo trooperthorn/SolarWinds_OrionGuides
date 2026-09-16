@@ -52,6 +52,12 @@ jobs:
             exit 1
           fi
 
+      # The AI-facing indexes are derived from docs/, so a page edit that changes a heading
+      # or a first sentence changes them. llms.txt is hand-written, and this is also what
+      # fails when a page is added to docs/ and not to it.
+      - name: Check AI-facing indexes are current
+        run: python3 tools/build_llms_index.py --check
+
       # The build must be reproducible: a rebuild from the same sources has to produce
       # byte-identical output, or "regenerate and commit" produces spurious diffs and
       # nobody can tell a real schema change from noise. Python randomizes string hashing
@@ -62,9 +68,10 @@ jobs:
         run: |
           python3 tools/build_reference_docs.py --version 2026.2
           python3 tools/build_unverified_index.py
-          if ! git diff --quiet -- docs/reference/; then
-            echo "::error::regenerating docs/reference/ produced a different result on a second run"
-            git diff --stat -- docs/reference/
+          python3 tools/build_llms_index.py
+          if ! git diff --quiet -- docs/reference/ docs/TOC.md llms-full.txt; then
+            echo "::error::regenerating the derived docs produced a different result on a second run"
+            git diff --stat -- docs/reference/ docs/TOC.md llms-full.txt
             exit 1
           fi
 
