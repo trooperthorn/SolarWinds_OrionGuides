@@ -13,13 +13,17 @@ import (
 // unencrypted: the Orion password and the CA bundle. Those come from secureJsonData,
 // which Grafana encrypts at rest and never returns to the browser.
 type Settings struct {
-	Host          string   `json:"host"`
-	Port          int      `json:"port"`
-	Username      string   `json:"username"`
-	TLSSkipVerify bool     `json:"tlsSkipVerify"`
-	MaxRows       int      `json:"maxRows"`
-	TimeoutSecs   int      `json:"timeoutSeconds"`
-	InvokeAllow   []string `json:"invokeAllow"`
+	Host          string `json:"host"`
+	Port          int    `json:"port"`
+	Username      string `json:"username"`
+	TLSSkipVerify bool   `json:"tlsSkipVerify"`
+	// TLSIgnoreHostname keeps chain verification against the pasted certificate but skips
+	// the name check. The stock SWIS certificate is issued to a fixed name with no subject
+	// alternative names, so with it pinned the chain verifies and the name never does.
+	TLSIgnoreHostname bool     `json:"tlsIgnoreHostname"`
+	MaxRows           int      `json:"maxRows"`
+	TimeoutSecs       int      `json:"timeoutSeconds"`
+	InvokeAllow       []string `json:"invokeAllow"`
 
 	Password string `json:"-"`
 	CACert   string `json:"-"`

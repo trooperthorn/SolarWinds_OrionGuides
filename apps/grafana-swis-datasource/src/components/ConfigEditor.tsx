@@ -88,7 +88,7 @@ export function ConfigEditor({ onOptionsChange, options }: Props) {
         <InlineField
           label="CA certificate (PEM)"
           labelWidth={LABEL_WIDTH}
-          tooltip="SWIS ships with a self-signed certificate. Paste it (or the CA that issued it) here so verification stays on. openssl s_client -connect orion:17774 -showcerts prints it."
+          tooltip="SWIS ships with a self-signed certificate. Paste it (or the CA that issued it) here so verification stays on. openssl s_client -connect orion:17774 -showcerts prints it. With the stock certificate, also turn on Ignore certificate name."
         >
           <SecretTextArea
             id="swis-cacert"
@@ -99,6 +99,17 @@ export function ConfigEditor({ onOptionsChange, options }: Props) {
             placeholder="-----BEGIN CERTIFICATE-----"
             onReset={() => resetSecure('caCert')}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setSecure({ caCert: e.target.value })}
+          />
+        </InlineField>
+        <InlineField
+          label="Ignore certificate name"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Keep verifying that the server presents the pasted certificate, but do not require its name to match the host. The certificate SWIS ships with is issued to a fixed name with no subject alternative names, so this is what pinning it needs. Any other certificate is still refused."
+        >
+          <InlineSwitch
+            id="swis-ignorehostname"
+            value={!!jsonData.tlsIgnoreHostname}
+            onChange={(e: React.FormEvent<HTMLInputElement>) => setJson({ tlsIgnoreHostname: e.currentTarget.checked })}
           />
         </InlineField>
         <InlineField

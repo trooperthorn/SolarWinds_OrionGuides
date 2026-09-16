@@ -103,10 +103,42 @@ Connections, Data sources, Add data source, "SolarWinds SWIS".
 | REST port | 17774 from platform release 2023.1 onward. 17778 was the REST port through 2022.4.1 and is deprecated. 17777 is SOAP and will not answer |
 | Username, Password | An Orion account. Give Grafana its own read-only account with the narrowest limitation that still shows what the dashboards need; account limitations apply to everything it reads |
 | CA certificate | SWIS ships with a self-signed certificate. Paste that certificate (or the CA that issued it) here and verification stays on. `openssl s_client -connect orion.example.com:17774 -showcerts </dev/null` prints it |
+| Ignore certificate name | Needed with the stock certificate, see below. The chain is still verified against the pasted certificate; only the name check is dropped |
 | Skip TLS verification | Lab only. It lets anything on the network path read the credentials Grafana sends |
 | Max rows per query | Rows beyond this are dropped and the panel shows a warning. Default 10000. It is a safety net, not a substitute for `TOP n` |
 | Timeout | Seconds per request. Default 60 |
 | Allowed verbs | One `Entity.Verb` per line. Empty means Invoke is off, which is the default |
+
+### The self-signed certificate
+
+Pasting the stock SWIS certificate into the CA field is not enough on its own, and the
+reason is worth knowing because it looks like the pin is being ignored. The certificate
+SWIS generates is issued to a fixed name and carries no subject alternative names, so a
+verifier that trusts it still fails on the second check every TLS client makes, which is
+that the name on the certificate matches the host it was asked to connect to. Go, which
+this backend is written in, refuses a certificate with no subject alternative names
+outright, whatever the common name says.
+
+So there are three settings, and they are not the same:
+
+| Setting | Chain checked | Name checked | Refuses a different certificate on the same host |
+| --- | --- | --- | --- |
+| CA certificate only | Yes | Yes | Yes. Fails against the stock certificate on the name |
+| CA certificate + Ignore certificate name | Yes | No | **Yes** |
+| Skip TLS verification | No | No | No |
+
+The middle row is certificate pinning, and it is what the stock certificate needs. It is
+not "verification off": the server has to present the exact certificate you pasted (or
+one issued by it), so an interception between Grafana and the Orion server, which is the
+host holding credentials for the rest of the estate, still fails loudly. Turn on the
+third row only in a lab. The same ordering, and the OpenSSL commands to export and
+fingerprint the certificate before trusting it, are in
+[connecting.md](../../docs/swis/connecting.md#tls-and-the-self-signed-certificate).
+
+If the health check fails on the name with the pin in place, the message says which
+switch to turn on. If it fails with "not the pinned one", the server is presenting a
+different certificate from the one you pasted: either it was replaced, or something is in
+the path.
 
 "Save & test" runs `SELECT TOP 1 e.EngineID, e.ServerName, e.EngineVersion FROM Orion.Engines e`
 and shows what it found. If it authenticates but sees no engine, the message says so and
@@ -129,6 +161,7 @@ datasources:
       port: 17774
       username: ${SWIS_USER}
       tlsSkipVerify: false
+      tlsIgnoreHostname: true
       maxRows: 10000
       timeoutSeconds: 60
       invokeAllow:
@@ -276,7 +309,10 @@ Verified here, on every build of this repository:
   certificate: macro expansion and refusal of malformed macros, UTC binding of the time
   range, column typing and order, timestamp parsing, row truncation, the long-to-wide
   pivot for time series, SWIS error messages reaching the panel, the health check's three
-  outcomes, TLS verification staying on by default, and the invoke gates.
+  outcomes, TLS verification staying on by default, certificate pinning against a
+  certificate shaped like the stock SWIS one (a fixed name, no subject alternative
+  names) with the name check off and a different certificate still refused, and the
+  invoke gates.
 - The frontend typechecks, lints and bundles with Grafana's own build configuration.
 
 Not verified here, because this repository's build environment has no Grafana:

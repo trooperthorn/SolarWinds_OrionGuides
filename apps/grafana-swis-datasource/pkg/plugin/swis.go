@@ -47,17 +47,48 @@ func (e *SwisError) Error() string {
 // SWIS ships with is to paste that certificate into the CA field, and this honours it.
 func NewSwisClient(s *Settings) (*SwisClient, error) {
 	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
-	if s.TLSSkipVerify {
+	switch {
+	case s.TLSSkipVerify:
 		tlsCfg.InsecureSkipVerify = true //nolint:gosec // an explicit, logged, per-data-source choice
-	} else if strings.TrimSpace(s.CACert) != "" {
-		pool, err := x509.SystemCertPool()
-		if err != nil || pool == nil {
-			pool = x509.NewCertPool()
-		}
+	case strings.TrimSpace(s.CACert) != "":
+		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM([]byte(s.CACert)) {
 			return nil, fmt.Errorf("the CA certificate field does not contain a PEM certificate")
 		}
-		tlsCfg.RootCAs = pool
+		// Verification is done by hand so the name check can be dropped on its own. The
+		// chain must still lead to the pasted certificate, so a different certificate on
+		// the same host, which is what an interception looks like, is still refused.
+		// Go's default verifier is bypassed (InsecureSkipVerify) only so that this one
+		// runs instead; it is not skipped.
+		host := s.Host
+		ignoreName := s.TLSIgnoreHostname
+		tlsCfg.InsecureSkipVerify = true //nolint:gosec // replaced by VerifyPeerCertificate below
+		tlsCfg.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+			if len(rawCerts) == 0 {
+				return fmt.Errorf("SWIS presented no certificate")
+			}
+			leaf, err := x509.ParseCertificate(rawCerts[0])
+			if err != nil {
+				return fmt.Errorf("could not parse the SWIS certificate: %w", err)
+			}
+			intermediates := x509.NewCertPool()
+			for _, raw := range rawCerts[1:] {
+				if c, err := x509.ParseCertificate(raw); err == nil {
+					intermediates.AddCert(c)
+				}
+			}
+			opts := x509.VerifyOptions{Roots: pool, Intermediates: intermediates}
+			if !ignoreName {
+				opts.DNSName = host
+			}
+			if _, err := leaf.Verify(opts); err != nil {
+				if ignoreName {
+					return fmt.Errorf("the SWIS certificate is not the pinned one: %w", err)
+				}
+				return fmt.Errorf("%w (if the chain is right and only the name differs, which is the case with the stock SWIS certificate, turn on 'Ignore certificate name')", err)
+			}
+			return nil
+		}
 	}
 	transport := &http.Transport{
 		TLSClientConfig:     tlsCfg,

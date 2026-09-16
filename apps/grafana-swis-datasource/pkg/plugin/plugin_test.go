@@ -2,8 +2,15 @@ package plugin
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
 	"encoding/pem"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -30,9 +37,17 @@ type stubSWIS struct {
 }
 
 func newStub(t *testing.T) *stubSWIS {
+	return newStubWithCert(t, nil)
+}
+
+// newStubWithCert starts the stub over TLS. With a nil certificate it uses httptest's,
+// which carries subject alternative names for localhost; a certificate passed in is used
+// as-is, which is how the stock SWIS certificate shape (a fixed common name, no SANs) is
+// reproduced.
+func newStubWithCert(t *testing.T, cert *tls.Certificate) *stubSWIS {
 	t.Helper()
 	s := &stubSWIS{results: "[]", status: http.StatusOK}
-	s.srv = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s.srv = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
 		if !ok || user != "grafana" || pass != "secret" {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -67,8 +82,35 @@ func newStub(t *testing.T) *stubSWIS {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
+	if cert != nil {
+		s.srv.TLS = &tls.Config{Certificates: []tls.Certificate{*cert}}
+	}
+	s.srv.StartTLS()
 	t.Cleanup(s.srv.Close)
 	return s
+}
+
+// selfSignedNoSAN makes a certificate the way SWIS ships one: self-signed, a fixed
+// common name, and no subject alternative names at all.
+func selfSignedNoSAN(t *testing.T, cn string) (*tls.Certificate, []byte) {
+	t.Helper()
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(time.Now().UnixNano()),
+		Subject:               pkix.Name{CommonName: cn},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key},
+		pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
 }
 
 func (s *stubSWIS) settings(t *testing.T, extra map[string]any) backend.DataSourceInstanceSettings {
@@ -362,5 +404,50 @@ func TestNoInvokeAllowlistMeansNoInvoke(t *testing.T) {
 	ds := newDS(t, stub, nil)
 	if out := callInvoke(t, ds, "Admin", "Orion.Nodes", "PollNow", `["N:1"]`); out.status != http.StatusForbidden {
 		t.Fatalf("with an empty allowlist even an Admin must be refused: %d %s", out.status, out.body)
+	}
+}
+
+func TestPinnedStockStyleCertificate(t *testing.T) {
+	cert, certPEM := selfSignedNoSAN(t, "SolarWinds-Orion")
+	stub := newStubWithCert(t, cert)
+	stub.results = `[{"EngineID":1,"ServerName":"x","EngineVersion":"y"}]`
+
+	// Pinned, name check on: the chain is fine but the name is not, and the message says
+	// which switch fixes it.
+	settings := stub.settings(t, nil)
+	settings.DecryptedSecureJSONData["caCert"] = string(certPEM)
+	inst, err := NewDatasource(context.Background(), settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, _ := inst.(*Datasource).CheckHealth(context.Background(), &backend.CheckHealthRequest{})
+	if res.Status != backend.HealthStatusError || !strings.Contains(res.Message, "Ignore certificate name") {
+		t.Fatalf("a pinned certificate with the wrong name should fail and point at the switch: %+v", res)
+	}
+
+	// Pinned, name check off: connects.
+	settings = stub.settings(t, map[string]any{"tlsIgnoreHostname": true})
+	settings.DecryptedSecureJSONData["caCert"] = string(certPEM)
+	inst, _ = NewDatasource(context.Background(), settings)
+	if res, _ := inst.(*Datasource).CheckHealth(context.Background(), &backend.CheckHealthRequest{}); res.Status != backend.HealthStatusOk {
+		t.Fatalf("pinning with the name check off should connect: %+v", res)
+	}
+
+	// A different certificate pinned, name check off: still refused. This is what keeps
+	// the mode from being "verification off".
+	_, otherPEM := selfSignedNoSAN(t, "SolarWinds-Orion")
+	settings = stub.settings(t, map[string]any{"tlsIgnoreHostname": true})
+	settings.DecryptedSecureJSONData["caCert"] = string(otherPEM)
+	inst, _ = NewDatasource(context.Background(), settings)
+	if res, _ := inst.(*Datasource).CheckHealth(context.Background(), &backend.CheckHealthRequest{}); res.Status != backend.HealthStatusError || !strings.Contains(res.Message, "not the pinned one") {
+		t.Fatalf("a certificate other than the pinned one must be refused even with the name check off: %+v", res)
+	}
+
+	// Nothing pinned, nothing skipped: refused, as before.
+	settings = stub.settings(t, map[string]any{"tlsIgnoreHostname": true})
+	delete(settings.DecryptedSecureJSONData, "caCert")
+	inst, _ = NewDatasource(context.Background(), settings)
+	if res, _ := inst.(*Datasource).CheckHealth(context.Background(), &backend.CheckHealthRequest{}); res.Status != backend.HealthStatusError {
+		t.Fatalf("with no pinned certificate the name switch alone must not connect: %+v", res)
 	}
 }

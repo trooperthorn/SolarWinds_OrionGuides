@@ -22,6 +22,8 @@ export interface SwisDataSourceOptions extends DataSourceJsonData {
   port?: number;
   username?: string;
   tlsSkipVerify?: boolean;
+  /** Verify the chain against the pasted certificate but not the name. Needed for the stock SWIS certificate. */
+  tlsIgnoreHostname?: boolean;
   maxRows?: number;
   timeoutSeconds?: number;
   /** Entity.Verb names the Invoke resource may call, for example "Orion.Nodes.PollNow". */
