@@ -134,7 +134,8 @@ set -e
 HOST_UUID=$(xe host-list --minimal | cut -d',' -f1)
 CPU_AVG=$(xe host-data-source-query data-source=cpu_avg host-uuid=$HOST_UUID 2&gt;/dev/null)
 CPU_PCT=$(awk -v v="$CPU_AVG" 'BEGIN { printf "%.2f", v * 100 }')
-echo "CPU_Utilization_Percent : $CPU_PCT"</Value>
+echo "Statistic1: $CPU_PCT"
+echo "Message1: CPU Utilization (%)"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -250,9 +251,12 @@ HOST_UUID=$(xe host-list --minimal | cut -d',' -f1)
 TOTAL_KIB=$(xe host-data-source-query data-source=memory_total_kib host-uuid=$HOST_UUID 2&gt;/dev/null)
 FREE_KIB=$(xe host-data-source-query data-source=memory_free_kib host-uuid=$HOST_UUID 2&gt;/dev/null)
 USED_PCT=$(awk -v t="$TOTAL_KIB" -v f="$FREE_KIB" 'BEGIN { if (t &gt; 0) printf "%.2f", (t - f) / t * 100; else print "0" }')
-echo "Memory_Used_Percent : $USED_PCT"
-echo "Memory_Free_KiB : $FREE_KIB"
-echo "Memory_Total_KiB : $TOTAL_KIB"</Value>
+echo "Statistic1: $USED_PCT"
+echo "Message1: Memory Used (%)"
+echo "Statistic2: $FREE_KIB"
+echo "Message2: Memory Free (KiB)"
+echo "Statistic3: $TOTAL_KIB"
+echo "Message3: Memory Total (KiB)"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -373,9 +377,12 @@ count_vms() {
     echo "$list" | tr ',' '\n' | grep -c .
   fi
 }
-echo "VMs_Running : $(count_vms running)"
-echo "VMs_Halted : $(count_vms halted)"
-echo "VMs_Suspended : $(count_vms suspended)"</Value>
+echo "Statistic1: $(count_vms running)"
+echo "Message1: VMs Running"
+echo "Statistic2: $(count_vms halted)"
+echo "Message2: VMs Halted"
+echo "Statistic3: $(count_vms suspended)"
+echo "Message3: VMs Suspended"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -492,9 +499,12 @@ SIZE=$(xe sr-param-get uuid=$SR_UUID param-name=physical-size)
 UTIL=$(xe sr-param-get uuid=$SR_UUID param-name=physical-utilisation)
 FREE=$((SIZE - UTIL))
 PCT=$(awk -v s="$SIZE" -v u="$UTIL" 'BEGIN { if (s &gt; 0) printf "%.2f", u / s * 100; else print "0" }')
-echo "SR_Used_Percent : $PCT"
-echo "SR_Free_Bytes : $FREE"
-echo "SR_Size_Bytes : $SIZE"</Value>
+echo "Statistic1: $PCT"
+echo "Message1: Default SR Used (%)"
+echo "Statistic2: $FREE"
+echo "Message2: Default SR Free (Bytes)"
+echo "Statistic3: $SIZE"
+echo "Message3: Default SR Size (Bytes)"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -614,7 +624,8 @@ if [ "$ENABLED" = "true" ] &amp;&amp; [ "$LIVE" = "true" ]; then
 else
   STATE=0
 fi
-echo "Host_Available : $STATE"</Value>
+echo "Statistic1: $STATE"
+echo "Message1: Host Enabled and Live (1=yes, 0=no)"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -819,14 +830,18 @@ set -e
 HOST_UUID=$(xe host-list --minimal | cut -d',' -f1)
 MGMT_DEVICE=$(xe pif-list host-uuid=$HOST_UUID management=true params=device --minimal | cut -d',' -f1)
 if [ -z "$MGMT_DEVICE" ]; then
-  echo "Management_NIC_RX_Bytes_Per_Sec : 0"
-  echo "Management_NIC_TX_Bytes_Per_Sec : 0"
+  echo "Statistic1: 0"
+  echo "Message1: Management NIC RX (Bytes/sec) - no management PIF found"
+  echo "Statistic2: 0"
+  echo "Message2: Management NIC TX (Bytes/sec) - no management PIF found"
   exit 0
 fi
 RX=$(xe host-data-source-query data-source=pif_${MGMT_DEVICE}_rx host-uuid=$HOST_UUID 2&gt;/dev/null || echo 0)
 TX=$(xe host-data-source-query data-source=pif_${MGMT_DEVICE}_tx host-uuid=$HOST_UUID 2&gt;/dev/null || echo 0)
-echo "Management_NIC_RX_Bytes_Per_Sec : $RX"
-echo "Management_NIC_TX_Bytes_Per_Sec : $TX"</Value>
+echo "Statistic1: $RX"
+echo "Message1: Management NIC RX (Bytes/sec)"
+echo "Statistic2: $TX"
+echo "Message2: Management NIC TX (Bytes/sec)"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -951,8 +966,10 @@ for uuid in $(xe snapshot-list is-a-snapshot=true params=uuid --minimal | tr ','
     MAX_AGE_DAYS=$AGE_DAYS
   fi
 done
-echo "Snapshot_Count : $COUNT"
-echo "Oldest_Snapshot_Age_Days : $MAX_AGE_DAYS"</Value>
+echo "Statistic1: $COUNT"
+echo "Message1: Snapshot Count"
+echo "Statistic2: $MAX_AGE_DAYS"
+echo "Message2: Oldest Snapshot Age (days)"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -1065,7 +1082,8 @@ echo "Oldest_Snapshot_Age_Days : $MAX_AGE_DAYS"</Value>
               <Value>#!/bin/bash
 set -e
 UPTIME_SECONDS=$(awk '{print int($1)}' /proc/uptime)
-echo "Host_Uptime_Seconds : $UPTIME_SECONDS"</Value>
+echo "Statistic1: $UPTIME_SECONDS"
+echo "Message1: Host Uptime (seconds)"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -1192,11 +1210,16 @@ done
 VCPU_RATIO=$(awk -v v="$TOTAL_VCPUS" -v c="$HOST_CORES" 'BEGIN { if (c &gt; 0) printf "%.2f", v / c; else print "0" }')
 TOTAL_MEM_MIB=$((TOTAL_MEM_BYTES / 1048576))
 HOST_MEM_MIB=$((HOST_MEM_BYTES / 1048576))
-echo "Allocated_vCPUs : $TOTAL_VCPUS"
-echo "Physical_CPU_Cores : $HOST_CORES"
-echo "vCPU_to_Core_Ratio : $VCPU_RATIO"
-echo "Allocated_Memory_MiB : $TOTAL_MEM_MIB"
-echo "Physical_Memory_MiB : $HOST_MEM_MIB"</Value>
+echo "Statistic1: $TOTAL_VCPUS"
+echo "Message1: Allocated vCPUs (running VMs)"
+echo "Statistic2: $HOST_CORES"
+echo "Message2: Physical CPU Cores"
+echo "Statistic3: $VCPU_RATIO"
+echo "Message3: vCPU to Core Ratio"
+echo "Statistic4: $TOTAL_MEM_MIB"
+echo "Message4: Allocated Memory (MiB, running VMs)"
+echo "Statistic5: $HOST_MEM_MIB"
+echo "Message5: Physical Memory (MiB)"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -1318,11 +1341,14 @@ for uuid in $(xe vm-list power-state=running is-control-domain=false params=uuid
     TOTAL=$(awk -v t="$TOTAL" -v v="$VAL" 'BEGIN { printf "%.4f", t + v }')
   done
   PCT=$(awk -v t="$TOTAL" 'BEGIN { printf "%.2f", t * 100 }')
-  SAFE_NAME=$(echo "$NAME" | tr -c 'A-Za-z0-9_' '_')
+  SAFE_NAME=$(echo "$NAME" | tr ' ' '_')
   echo "$PCT $SAFE_NAME" &gt;&gt; "$TMP"
 done
+INDEX=0
 sort -rn "$TMP" | head -5 | while read -r pct name; do
-  echo "VM_${name}_CPU_Percent : $pct"
+  INDEX=$((INDEX + 1))
+  echo "Statistic${INDEX}: $pct"
+  echo "Message${INDEX}: $name CPU (%)"
 done
 rm -f "$TMP"</Value>
               <ValueType>External</ValueType>
@@ -1436,17 +1462,25 @@ rm -f "$TMP"</Value>
               <SettingLevel>Template</SettingLevel>
               <Value>#!/bin/bash
 set -e
+TMP=$(mktemp)
 for uuid in $(xe sr-list content-type=user params=uuid --minimal | tr ',' '\n'); do
   [ -z "$uuid" ] &amp;&amp; continue
   NAME=$(xe sr-param-get uuid=$uuid param-name=name-label)
   SIZE=$(xe sr-param-get uuid=$uuid param-name=physical-size)
   UTIL=$(xe sr-param-get uuid=$uuid param-name=physical-utilisation)
-  SAFE_NAME=$(echo "$NAME" | tr -c 'A-Za-z0-9_' '_')
+  SAFE_NAME=$(echo "$NAME" | tr ' ' '_')
   PCT=$(awk -v s="$SIZE" -v u="$UTIL" 'BEGIN { if (s &gt; 0) printf "%.2f", u / s * 100; else print "0" }')
-  FREE_GIB=$(awk -v s="$SIZE" -v u="$UTIL" 'BEGIN { printf "%.2f", (s - u) / 1073741824 }')
-  echo "SR_${SAFE_NAME}_Used_Percent : $PCT"
-  echo "SR_${SAFE_NAME}_Free_GiB : $FREE_GIB"
-done</Value>
+  echo "$PCT $SAFE_NAME" &gt;&gt; "$TMP"
+done
+# At most five SRs fit in the ten Statistic/Message slots one script run gets, so the
+# fullest five are kept; a pool with more SRs than that needs a second component.
+INDEX=0
+sort -rn "$TMP" | head -5 | while read -r pct name; do
+  INDEX=$((INDEX + 1))
+  echo "Statistic${INDEX}: $pct"
+  echo "Message${INDEX}: $name Used (%)"
+done
+rm -f "$TMP"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>
@@ -1570,8 +1604,10 @@ for vdi in $(xe vdi-list params=uuid --minimal | tr ',' '\n'); do
   fi
 done
 TOTAL_GIB=$(awk -v b="$TOTAL_BYTES" 'BEGIN { printf "%.2f", b / 1073741824 }')
-echo "Orphaned_VDI_Count : $COUNT"
-echo "Orphaned_VDI_Total_GiB : $TOTAL_GIB"</Value>
+echo "Statistic1: $COUNT"
+echo "Message1: Orphaned VDI Count"
+echo "Statistic2: $TOTAL_GIB"
+echo "Message2: Orphaned VDI Total (GiB)"</Value>
               <ValueType>External</ValueType>
               <Key i:nil="true"/>
             </s:Value>

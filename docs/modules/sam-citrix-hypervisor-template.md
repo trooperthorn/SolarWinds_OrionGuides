@@ -29,17 +29,17 @@ output.
 Thirteen components, each independent, so a target that lacks one capability (no shared
 storage, no guests yet) does not take the rest of the application down with it:
 
-| Component | Type | What it runs | Reports |
+| Component | Type | What it runs | Reports (`StatisticN`: `MessageN`) |
 | --- | --- | --- | --- |
-| Host: CPU Utilization | `LinuxScript` | `xe host-data-source-query data-source=cpu_avg` | `CPU_Utilization_Percent` |
-| Host: Memory Utilization | `LinuxScript` | `xe host-data-source-query` for `memory_total_kib` and `memory_free_kib` | `Memory_Used_Percent`, `Memory_Free_KiB`, `Memory_Total_KiB` |
-| Pool: VM Power State Counts | `LinuxScript` | `xe vm-list power-state=<state> is-control-domain=false` | `VMs_Running`, `VMs_Halted`, `VMs_Suspended` |
-| Pool: Default Storage Repository Utilization | `LinuxScript` | `xe pool-list params=default-SR`, then `xe sr-param-get` for `physical-size`/`physical-utilisation` | `SR_Used_Percent`, `SR_Free_Bytes`, `SR_Size_Bytes` |
-| Host: Enabled and Live | `LinuxScript` | `xe host-param-get` for `enabled` and `live` | `Host_Available` (1 or 0) |
-| Host: XenAPI Management Port (443) | `TcpPort` | a TCP connect to port 443 | reachability of the management API itself |
-| Host: Management NIC Throughput | `LinuxScript` | `xe pif-list management=true`, then `xe host-data-source-query` for `pif_<device>_rx`/`pif_<device>_tx` | `Management_NIC_RX_Bytes_Per_Sec`, `Management_NIC_TX_Bytes_Per_Sec` |
-| Pool: VM Snapshot Age and Count | `LinuxScript` | `xe snapshot-list is-a-snapshot=true`, then `xe snapshot-param-get param-name=snapshot-time` per snapshot | `Snapshot_Count`, `Oldest_Snapshot_Age_Days` |
-| Host: Uptime | `LinuxScript` | reads `/proc/uptime` directly on the host, no `xe` call needed | `Host_Uptime_Seconds` |
+| Host: CPU Utilization | `LinuxScript` | `xe host-data-source-query data-source=cpu_avg` | 1: CPU Utilization (%) |
+| Host: Memory Utilization | `LinuxScript` | `xe host-data-source-query` for `memory_total_kib` and `memory_free_kib` | 1: Memory Used (%), 2: Memory Free (KiB), 3: Memory Total (KiB) |
+| Pool: VM Power State Counts | `LinuxScript` | `xe vm-list power-state=<state> is-control-domain=false` | 1: VMs Running, 2: VMs Halted, 3: VMs Suspended |
+| Pool: Default Storage Repository Utilization | `LinuxScript` | `xe pool-list params=default-SR`, then `xe sr-param-get` for `physical-size`/`physical-utilisation` | 1: Default SR Used (%), 2: Default SR Free (Bytes), 3: Default SR Size (Bytes) |
+| Host: Enabled and Live | `LinuxScript` | `xe host-param-get` for `enabled` and `live` | 1: Host Enabled and Live (1/0) |
+| Host: XenAPI Management Port (443) | `TcpPort` | a TCP connect to port 443 | reachability of the management API itself (not a script component) |
+| Host: Management NIC Throughput | `LinuxScript` | `xe pif-list management=true`, then `xe host-data-source-query` for `pif_<device>_rx`/`pif_<device>_tx` | 1: Management NIC RX (Bytes/sec), 2: Management NIC TX (Bytes/sec) |
+| Pool: VM Snapshot Age and Count | `LinuxScript` | `xe snapshot-list is-a-snapshot=true`, then `xe snapshot-param-get param-name=snapshot-time` per snapshot | 1: Snapshot Count, 2: Oldest Snapshot Age (days) |
+| Host: Uptime | `LinuxScript` | reads `/proc/uptime` directly on the host, no `xe` call needed | 1: Host Uptime (seconds) |
 
 The last one does not call `xe` at all: once SSH lands you on the dom0 shell, anything readable
 there is fair game, and `/proc/uptime` is the plain Linux mechanism rather than a XenAPI
@@ -67,24 +67,25 @@ object model the way VIM's is. There is no `Orion.VIM`-style entity for a Citrix
 value below is a line of script output, and the "hierarchy" is whatever component names and
 node grouping you build around it.
 
-| Component | Type | What it runs | Reports |
+| Component | Type | What it runs | Reports (`StatisticN`: `MessageN`) |
 | --- | --- | --- | --- |
-| Pool: VM Resource Allocation Summary | `LinuxScript` | Sums `VCPUs-max` and `memory-actual` across running VMs, compares against the host's `cpu_info`/`memory-total` | `Allocated_vCPUs`, `Physical_CPU_Cores`, `vCPU_to_Core_Ratio`, `Allocated_Memory_MiB`, `Physical_Memory_MiB` |
-| VM: Top 5 CPU Consumers | `LinuxScript` | For each running VM, sums its `cpu<N>` data sources via `xe vm-data-source-query`, keeps the five highest | `VM_<name>_CPU_Percent`, one line per VM in the top five |
-| Pool: All Storage Repositories Utilization | `LinuxScript` | Loops every `content-type=user` SR (not just the pool's default), reading `physical-size`/`physical-utilisation` per SR | `SR_<name>_Used_Percent`, `SR_<name>_Free_GiB`, two lines per SR |
-| Pool: Orphaned Virtual Disks | `LinuxScript` | Diffs `xe vdi-list` against every VDI referenced by `xe vbd-list`, the direct analogue of `Orion.VIM.DiskFiles.Orphaned` | `Orphaned_VDI_Count`, `Orphaned_VDI_Total_GiB` |
+| Pool: VM Resource Allocation Summary | `LinuxScript` | Sums `VCPUs-max` and `memory-actual` across running VMs, compares against the host's `cpu_info`/`memory-total` | 1: Allocated vCPUs, 2: Physical CPU Cores, 3: vCPU to Core Ratio, 4: Allocated Memory (MiB), 5: Physical Memory (MiB) |
+| VM: Top 5 CPU Consumers | `LinuxScript` | For each running VM, sums its `cpu<N>` data sources via `xe vm-data-source-query`, keeps the five highest | 1-5: one VM's CPU (%) each, `MessageN` names the VM |
+| Pool: All Storage Repositories Utilization | `LinuxScript` | Loops every `content-type=user` SR (not just the pool's default), reading `physical-size`/`physical-utilisation`, keeps the five fullest | 1-5: one SR's Used (%) each, `MessageN` names the SR |
+| Pool: Orphaned Virtual Disks | `LinuxScript` | Diffs `xe vdi-list` against every VDI referenced by `xe vbd-list`, the direct analogue of `Orion.VIM.DiskFiles.Orphaned` | 1: Orphaned VDI Count, 2: Orphaned VDI Total (GiB) |
 
 Three things about these four are worth understanding before you rely on them:
 
-**"VM: Top 5 CPU Consumers" and "Pool: All Storage Repositories Utilization" emit a variable
-number of differently-named lines.** A pool with three SRs reports six lines from the storage
-component; a pool with twelve reports twenty-four. That is a direct consequence of there being
-no fixed per-VM or per-SR component in a template that has to work on any pool — the script
-discovers the objects at poll time and names its own output after them. It means thresholds on
-these two components have to be configured per line in the console after import (see "What is
-verified here and what is not" below on `DynamicColumnSettings`), and it means a VM or SR
-renamed in Citrix Hypervisor changes the label SAM reports it under, which is worth knowing
-before building an alert on a specific `VM_<name>_CPU_Percent` line.
+**"VM: Top 5 CPU Consumers" and "Pool: All Storage Repositories Utilization" both discover their
+objects at poll time and can report fewer than five pairs**, never more: a pool with three SRs
+fills `Statistic1`-`Statistic3` and leaves `Statistic4`/`Statistic5` unset for that poll, and a
+pool with twelve SRs still reports only the five fullest. That is a direct consequence of the
+ten-`Statistic`/ten-`Message` ceiling described below applied to an object count that varies per
+pool — there is no way to fit "every SR" into a fixed-slot output, so both scripts rank and keep
+the top five. It also means the *meaning* of `Statistic3` on "All Storage Repositories
+Utilization" can change from one poll to the next if SR usage reshuffles which five are fullest,
+which is worth knowing before wiring an alert to a specific slot number rather than reading
+`Message3` alongside it to see which SR it currently refers to.
 
 **`cpu_info param-key=cpu_count` and the per-vCPU `cpu<N>` data source names are Citrix's
 documented conventions, not something this repository's SAM documentation records.** Confirm
@@ -114,11 +115,39 @@ counters read off the host's in-memory round-robin database, the same data XenCe
 returns a bare floating-point number (a fraction for `cpu_avg`, hence the `* 100` in the CPU
 script), which is why each script does its own arithmetic before printing a labelled line.
 
-Every script prints one or more lines shaped `Label : Value`. That is the same
-`Name : Value` layout SAM's own `DynamicEvidence` model expects out of a script monitor
-(see [sam.md](sam.md#status-statistics-and-evidence)) so that the console can chart each
-labelled value and let you threshold on it individually once the template is imported and the
-component's columns are recognised.
+## The script output contract: up to ten statistics and ten messages per run
+
+Every script here prints paired lines of the form:
+
+```
+Statistic1: 42.00
+Message1: CPU Utilization (%)
+```
+
+**A single script monitor run can report at most ten `StatisticN`/`MessageN` pairs, numbered
+1 through 10.** `StatisticN` carries the number the console charts and thresholds against;
+`MessageN` is the label an operator reads next to it. This is a fixed-slot contract, not the
+free-form arbitrary-column mechanism an earlier version of this page assumed: a script cannot
+invent an eleventh statistic, and it cannot name a slot anything other than the literal string
+`StatisticN`/`MessageN` in its own output — the human-readable label lives entirely in
+`MessageN`'s text, not in the key.
+
+**This convention is stated here on a practitioner's word, not verified against this
+repository's own schema data or a real `.apmtemplate` export that uses it.** `sam-templates.md`
+documents the `DynamicEvidence`/`DynamicEvidenceColumnSchema` entities as one real mechanism SAM
+uses to carry "the columns a script monitor returned," but does not describe the ten-slot
+`Statistic`/`Message` contract, because none of the three source exports that page was built
+from used it. Treat the exact literal keys (`Statistic1` versus `Stat1`, colon-plus-space
+versus some other separator, case sensitivity) as worth confirming with `StartTestComponents`
+against a real host before trusting a component's output blindly — the same test-before-scale
+advice this page already gives for the credential and the `xe` binary applies here too, and it
+is the cheapest way to see the raw parsed result rather than guessing at it.
+
+Every component in this template stays at or under ten pairs by design: five is the largest
+fixed count any single component uses (`Pool: VM Resource Allocation Summary`), and the two
+components with a variable object count (`VM: Top 5 CPU Consumers`,
+`Pool: All Storage Repositories Utilization`) cap themselves at five pairs with `head -5` for
+exactly this reason.
 
 ## Assign it like any other template
 
@@ -175,17 +204,24 @@ Following this repository's own rule of never asserting a fact that has not been
   nothing else"), but that page also notes the samples do not fully explain what "held outside
   the normal value flow" means for how the value round-trips. This file embeds the script text
   directly inside `<Value>` regardless, matching what SolarWinds' own exports show on the wire.
+- **The `Statistic1..10`/`Message1..10` script output contract itself** is asserted here on
+  outside practitioner knowledge, not derived from this repository's schema data or a real
+  export — see the section above for exactly what that means for how much to trust it as
+  written.
 - **`DynamicColumnSettings` is left empty (`<DynamicColumnSettings/>`)** on every component.
   `sam-templates.md` shows this element holding real content on the one `LinuxScript` component
-  it quotes in full, but does not document that content's structure, so there is nothing
-  verified to construct here. The practical effect: after import, open each component in
-  **Manage Templates** and set per-line thresholds there once, rather than expecting them
-  pre-populated. The application will still poll and report the labelled values without that
-  step; only client-side thresholding depends on it.
+  it quotes in full, but does not document that content's structure. The most likely purpose,
+  given the ten-slot contract above, is that it is where the console records a friendlier
+  display name and a threshold for each `StatisticN` slot once you set one — but that is an
+  inference about an undocumented element, not a confirmed mapping. The practical effect either
+  way: after import, open each component in **Manage Templates** and set each statistic's
+  display name and threshold there once, rather than expecting them pre-populated. The
+  application will still poll and report the numbers in `MessageN`'s text without that step;
+  only client-side thresholding and relabeling depend on it.
 - **`Thresholds` is left empty on every component** for the same reason: the threshold shape
   `sam-templates.md` documents applies to a single named metric on the component
-  (`CriticalLevel`, `WarnLevel`, and so on), and these are multi-value script components where
-  thresholding is configured per output line through the console instead.
+  (`CriticalLevel`, `WarnLevel`, and so on), and these are multi-statistic script components
+  where thresholding is configured per `StatisticN` slot through the console instead.
 
 None of the above blocks the template from polling. It changes only whether thresholds and
 column labels come pre-configured on import or need one pass through the console afterward,
@@ -275,6 +311,41 @@ supports.
 - **Credentials do not travel with the export**, exactly as `sam-templates.md` documents for
   every `.apmtemplate`: `__CredentialSetId` is `0` in this file, so every node this template is
   assigned to needs a credential chosen at assignment time.
+
+## Status and open questions for whoever picks this up next
+
+Nothing here has been tested against a live Citrix Hypervisor host or a live SAM server. Every
+`xe` command is real Citrix CLI syntax and every SWQL/schema fact elsewhere in this repository
+is checked by `make check`, but the two artifacts this page documents sit outside that gate:
+`tools/check_api_poller_templates.py` validates the API Poller file's XML *shape*, and nothing
+in this repository validates an `.apmtemplate`'s XML shape or either file's *runtime* behavior.
+Treat both as drafts a human (or the next agent, with `StartTestComponents` and a lab host)
+needs to run before they reach production. In priority order, the open items are:
+
+1. **Confirm the `Statistic1..10`/`Message1..10` script output contract.** This was corrected
+   into the template mid-session on a practitioner's statement that a SAM script run supports
+   at most ten statistics and ten messages; the earlier draft had every component print
+   arbitrary `Label : Value` lines instead, which is very likely wrong for a real `LinuxScript`
+   or PowerShell script component. The current text and literal key casing (`Statistic1:` with
+   a colon and single space, `MessageN` for the label) is not verified against a real SAM
+   export or console-parsed output. Import the template, run `StartTestComponents` against one
+   host, and read back what the console actually parsed before trusting any component's output.
+   If the real separator, key name, or slot count differs, every `ScriptBody` in
+   `citrix-hypervisor-monitoring.apmtemplate` needs the same fix applied uniformly.
+2. **Confirm `ExecutionMode: SSH`** on the `LinuxScript` components (see "What is verified here
+   and what is not" above) by exporting a known-working `LinuxScript` template from a real
+   server and diffing the value.
+3. **Confirm the API Poller's session-variable substitution syntax** (`{{SessionRef}}` in
+   `citrix-hypervisor-xenapi.apipoller.template`) the same way, per "The API Poller alternative"
+   section above. This one is lower priority than the two SAM items: the API Poller route is
+   already documented as the weaker option, and the SAM template is the one meant for actual use.
+4. **`DynamicColumnSettings`'s real structure** remains unknown; confirming it is optional
+   (see the bullet above) but would let a future revision ship components with display names
+   and thresholds pre-populated instead of needing one console pass per import.
+
+None of the four block the template from being imported and read as a starting point — they
+block trusting its numbers without first testing them, which this page says plainly everywhere
+it applies rather than only here.
 
 ## See also
 
