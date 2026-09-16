@@ -45,7 +45,7 @@ from a catalogue plugin, and it is the same on both editions.
 
 ### 1. Build
 
-Needs Go (see `go.mod` for the minimum) and Node 22. From this directory:
+Needs Go 1.26.5 or newer (`go.mod` states it) and Node 22. From this directory:
 
 ```bash
 go test ./pkg/...
