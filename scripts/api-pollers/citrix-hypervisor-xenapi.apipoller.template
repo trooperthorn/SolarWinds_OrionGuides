@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>6d4eb295-128e-45c9-81cd-6889ecd2ef8a</Guid>
+  <Name>Citrix Hypervisor XenAPI Data Sources (experimental)</Name>
+  <DisplayName>Citrix Hypervisor XenAPI Data Sources (experimental)</DisplayName>
+  <Description>EXPERIMENTAL. Logs into a Citrix Hypervisor host's XenAPI JSON-RPC endpoint and reads two live data sources. The session-token handoff between requests uses an inferred, unverified placeholder syntax; build and test this in the console against a lab host before trusting it. See docs/modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative-and-why-it-is-harder-here for what is and is not confirmed. Replace __CITRIX_HOST__, __USERNAME__, __PASSWORD__ and __HOST_UUID__ before use.</Description>
+  <Created>2026-09-16T00:00:00.0000000Z</Created>
+  <Updated>2026-09-16T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://__CITRIX_HOST__/jsonrpc</Url>
+      <Body>{"jsonrpc":"2.0","method":"session.login_with_password","params":["__USERNAME__","__PASSWORD__","1.0","xe"],"id":1}</Body>
+      <HttpVerb>Post</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Content-Type</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection />
+      <RequestVariables>
+        <RequestVariable>
+          <DisplayName>SessionRef</DisplayName>
+          <Path>$.result</Path>
+        </RequestVariable>
+      </RequestVariables>
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://__CITRIX_HOST__/jsonrpc</Url>
+      <Body>{"jsonrpc":"2.0","method":"host.query_data_source","params":["{{SessionRef}}","__HOST_UUID__","cpu_avg"],"id":2}</Body>
+      <HttpVerb>Post</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Content-Type</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Host CPU Utilization (fraction)</DisplayName>
+          <Path>$.result</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>0.8</WarningThresholdValue>
+          <CriticalThresholdValue>0.9</CriticalThresholdValue>
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues>0</StringToNumberTransformationOtherValues>
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>1</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://__CITRIX_HOST__/jsonrpc</Url>
+      <Body>{"jsonrpc":"2.0","method":"host.query_data_source","params":["{{SessionRef}}","__HOST_UUID__","memory_free_kib"],"id":3}</Body>
+      <HttpVerb>Post</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Content-Type</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Host Free Memory (KiB) - informational, see template Description</DisplayName>
+          <Path>$.result</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>999999999</WarningThresholdValue>
+          <CriticalThresholdValue>999999999</CriticalThresholdValue>
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues>0</StringToNumberTransformationOtherValues>
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>2</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>5</PollingInterval>
+</Template>

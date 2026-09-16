@@ -6,7 +6,7 @@
     <Id>0</Id>
     <UniqueId>2d7aaafd-7311-4bdc-ba12-004c6d503938</UniqueId>
     <Name>Citrix Hypervisor (XenServer) Host Monitoring</Name>
-    <Description>Polls a Citrix Hypervisor (XenServer / XCP-ng) host over SSH using the local xe CLI for host CPU, memory, VM power-state counts and default storage repository utilization, plus a TCP check of the XenAPI management port. Assign to the pool master or an individual host node. See docs/modules/sam-citrix-hypervisor-template.md for setup, required rights and known limitations.</Description>
+    <Description>Polls a Citrix Hypervisor (XenServer / XCP-ng) host over SSH using the local xe CLI for host CPU, memory, network throughput, VM power-state counts, snapshot age, host uptime and default storage repository utilization, plus a TCP check of the XenAPI management port. Assign to the pool master or an individual host node. See docs/modules/sam-citrix-hypervisor-template.md for setup, required rights and known limitations.</Description>
     <IsMockTemplate>false</IsMockTemplate>
     <Created>2026-09-16T00:00:00.0000000Z</Created>
     <LastModified>2026-09-16T00:00:00.0000000Z</LastModified>
@@ -741,6 +741,367 @@ echo "Host_Available : $STATE"</Value>
         <ApplicationItemType>None</ApplicationItemType>
         <ApplicationTemplateId>0</ApplicationTemplateId>
         <UniqueId>d2c29fe1-03dc-4c82-b4b1-70c030cb9d73</UniqueId>
+        <ComponentCategoryName/>
+        <IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+      </ComponentTemplate>
+      <ComponentTemplate>
+        <ComponentOrder>7</ComponentOrder>
+        <Id>0</Id>
+        <Name>Host: Management NIC Throughput</Name>
+        <Settings>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__CredentialSetId</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>0</Value>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__Frequency</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>300</Value>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__Timeout</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>30000</Value>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__Disabled</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>False</Value>
+              <ValueType>Boolean</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>ExecutionMode</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>SSH</Value>
+              <ValueType>Option</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>ScriptArguments</s:Key>
+            <s:Value>
+              <Required>false</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value/>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>ScriptBody</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>#!/bin/bash
+set -e
+HOST_UUID=$(xe host-list --minimal | cut -d',' -f1)
+MGMT_DEVICE=$(xe pif-list host-uuid=$HOST_UUID management=true params=device --minimal | cut -d',' -f1)
+if [ -z "$MGMT_DEVICE" ]; then
+  echo "Management_NIC_RX_Bytes_Per_Sec : 0"
+  echo "Management_NIC_TX_Bytes_Per_Sec : 0"
+  exit 0
+fi
+RX=$(xe host-data-source-query data-source=pif_${MGMT_DEVICE}_rx host-uuid=$HOST_UUID 2&gt;/dev/null || echo 0)
+TX=$(xe host-data-source-query data-source=pif_${MGMT_DEVICE}_tx host-uuid=$HOST_UUID 2&gt;/dev/null || echo 0)
+echo "Management_NIC_RX_Bytes_Per_Sec : $RX"
+echo "Management_NIC_TX_Bytes_Per_Sec : $TX"</Value>
+              <ValueType>External</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>_BB_CanBeDisabled</s:Key>
+            <s:Value>
+              <Required>false</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>True</Value>
+              <ValueType>Boolean</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>_BB_CanBeDisabledOnAppItemLevel</s:Key>
+            <s:Value>
+              <Required>false</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>True</Value>
+              <ValueType>Boolean</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+        </Settings>
+        <Type>LinuxScript</Type>
+        <Thresholds/>
+        <EvidenceType>None</EvidenceType>
+        <CategoryDisplayName>None</CategoryDisplayName>
+        <ComponentCategoryId/>
+        <DynamicColumnSettings/>
+        <VisibilityMode>Visible</VisibilityMode>
+        <ShortName/>
+        <ApplicationItemType>None</ApplicationItemType>
+        <ApplicationTemplateId>0</ApplicationTemplateId>
+        <UniqueId>0181c688-e6e2-4cdf-935d-be2aa9dcbda0</UniqueId>
+        <ComponentCategoryName/>
+        <IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+      </ComponentTemplate>
+      <ComponentTemplate>
+        <ComponentOrder>8</ComponentOrder>
+        <Id>0</Id>
+        <Name>Pool: VM Snapshot Age and Count</Name>
+        <Settings>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__CredentialSetId</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>0</Value>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__Frequency</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>1800</Value>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__Timeout</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>60000</Value>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__Disabled</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>False</Value>
+              <ValueType>Boolean</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>ExecutionMode</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>SSH</Value>
+              <ValueType>Option</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>ScriptArguments</s:Key>
+            <s:Value>
+              <Required>false</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value/>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>ScriptBody</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>#!/bin/bash
+set -e
+NOW=$(date -u +%s)
+COUNT=0
+MAX_AGE_DAYS=0
+for uuid in $(xe snapshot-list is-a-snapshot=true params=uuid --minimal | tr ',' '\n'); do
+  [ -z "$uuid" ] &amp;&amp; continue
+  COUNT=$((COUNT + 1))
+  CREATED=$(xe snapshot-param-get uuid=$uuid param-name=snapshot-time 2&gt;/dev/null)
+  CREATED_EPOCH=$(date -u -d "$(echo $CREATED | sed 's/T/ /')" +%s 2&gt;/dev/null || echo $NOW)
+  AGE_DAYS=$(( (NOW - CREATED_EPOCH) / 86400 ))
+  if [ $AGE_DAYS -gt $MAX_AGE_DAYS ]; then
+    MAX_AGE_DAYS=$AGE_DAYS
+  fi
+done
+echo "Snapshot_Count : $COUNT"
+echo "Oldest_Snapshot_Age_Days : $MAX_AGE_DAYS"</Value>
+              <ValueType>External</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>_BB_CanBeDisabled</s:Key>
+            <s:Value>
+              <Required>false</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>True</Value>
+              <ValueType>Boolean</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>_BB_CanBeDisabledOnAppItemLevel</s:Key>
+            <s:Value>
+              <Required>false</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>True</Value>
+              <ValueType>Boolean</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+        </Settings>
+        <Type>LinuxScript</Type>
+        <Thresholds/>
+        <EvidenceType>None</EvidenceType>
+        <CategoryDisplayName>None</CategoryDisplayName>
+        <ComponentCategoryId/>
+        <DynamicColumnSettings/>
+        <VisibilityMode>Visible</VisibilityMode>
+        <ShortName/>
+        <ApplicationItemType>None</ApplicationItemType>
+        <ApplicationTemplateId>0</ApplicationTemplateId>
+        <UniqueId>94937b9c-1a19-423e-b90c-9be17f5eace4</UniqueId>
+        <ComponentCategoryName/>
+        <IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+      </ComponentTemplate>
+      <ComponentTemplate>
+        <ComponentOrder>9</ComponentOrder>
+        <Id>0</Id>
+        <Name>Host: Uptime</Name>
+        <Settings>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__CredentialSetId</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>0</Value>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__Frequency</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>300</Value>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__Timeout</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>30000</Value>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>__Disabled</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>False</Value>
+              <ValueType>Boolean</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>ExecutionMode</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>SSH</Value>
+              <ValueType>Option</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>ScriptArguments</s:Key>
+            <s:Value>
+              <Required>false</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value/>
+              <ValueType>String</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>ScriptBody</s:Key>
+            <s:Value>
+              <Required>true</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>#!/bin/bash
+set -e
+UPTIME_SECONDS=$(awk '{print int($1)}' /proc/uptime)
+echo "Host_Uptime_Seconds : $UPTIME_SECONDS"</Value>
+              <ValueType>External</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>_BB_CanBeDisabled</s:Key>
+            <s:Value>
+              <Required>false</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>True</Value>
+              <ValueType>Boolean</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+          <s:KeyValueOfstringSettingValueyR_SGpLPx xmlns:s="http://schemas.datacontract.org/2004/07/System.Collections.Generic">
+            <s:Key>_BB_CanBeDisabledOnAppItemLevel</s:Key>
+            <s:Value>
+              <Required>false</Required>
+              <SettingLevel>Template</SettingLevel>
+              <Value>True</Value>
+              <ValueType>Boolean</ValueType>
+              <Key i:nil="true"/>
+            </s:Value>
+          </s:KeyValueOfstringSettingValueyR_SGpLPx>
+        </Settings>
+        <Type>LinuxScript</Type>
+        <Thresholds/>
+        <EvidenceType>None</EvidenceType>
+        <CategoryDisplayName>None</CategoryDisplayName>
+        <ComponentCategoryId/>
+        <DynamicColumnSettings/>
+        <VisibilityMode>Visible</VisibilityMode>
+        <ShortName/>
+        <ApplicationItemType>None</ApplicationItemType>
+        <ApplicationTemplateId>0</ApplicationTemplateId>
+        <UniqueId>803d9222-1039-432d-acea-a1b076c0f90e</UniqueId>
         <ComponentCategoryName/>
         <IsApplicationItemSpecific>false</IsApplicationItemSpecific>
       </ComponentTemplate>

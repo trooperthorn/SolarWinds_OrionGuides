@@ -26,8 +26,8 @@ output.
 
 ## What the template monitors
 
-Six components, each independent, so a target that lacks one capability (no shared storage, no
-guests yet) does not take the rest of the application down with it:
+Nine components, each independent, so a target that lacks one capability (no shared storage,
+no guests yet) does not take the rest of the application down with it:
 
 | Component | Type | What it runs | Reports |
 | --- | --- | --- | --- |
@@ -37,6 +37,26 @@ guests yet) does not take the rest of the application down with it:
 | Pool: Default Storage Repository Utilization | `LinuxScript` | `xe pool-list params=default-SR`, then `xe sr-param-get` for `physical-size`/`physical-utilisation` | `SR_Used_Percent`, `SR_Free_Bytes`, `SR_Size_Bytes` |
 | Host: Enabled and Live | `LinuxScript` | `xe host-param-get` for `enabled` and `live` | `Host_Available` (1 or 0) |
 | Host: XenAPI Management Port (443) | `TcpPort` | a TCP connect to port 443 | reachability of the management API itself |
+| Host: Management NIC Throughput | `LinuxScript` | `xe pif-list management=true`, then `xe host-data-source-query` for `pif_<device>_rx`/`pif_<device>_tx` | `Management_NIC_RX_Bytes_Per_Sec`, `Management_NIC_TX_Bytes_Per_Sec` |
+| Pool: VM Snapshot Age and Count | `LinuxScript` | `xe snapshot-list is-a-snapshot=true`, then `xe snapshot-param-get param-name=snapshot-time` per snapshot | `Snapshot_Count`, `Oldest_Snapshot_Age_Days` |
+| Host: Uptime | `LinuxScript` | reads `/proc/uptime` directly on the host, no `xe` call needed | `Host_Uptime_Seconds` |
+
+The last one does not call `xe` at all: once SSH lands you on the dom0 shell, anything readable
+there is fair game, and `/proc/uptime` is the plain Linux mechanism rather than a XenAPI
+concept. It is a reminder that a `LinuxScript` component is not limited to `xe`; it is limited
+to whatever the SSH credential can read on the box.
+
+**The `pif_<device>_rx`/`pif_<device>_tx` data source names are Citrix's own documented naming
+convention** (one pair per physical interface, named after the Linux device), not something
+this repository's SAM documentation records, so confirm the exact device name and the data
+source's existence on your host before relying on the numbers:
+
+```bash
+ssh root@host "xe host-data-source-list | grep pif_"
+```
+
+A host with bonded or VLAN interfaces may expose additional `pif_bond0_rx`-style sources; the
+script here only reads the management interface's pair.
 
 `cpu_avg`, `memory_total_kib` and `memory_free_kib` are RRD data source names that Citrix's own
 `xe host-data-source-list` documentation exposes for exactly this purpose: live performance
@@ -122,6 +142,66 @@ None of the above blocks the template from polling. It changes only whether thre
 column labels come pre-configured on import or need one pass through the console afterward,
 which is a cheap, one-time step per template rather than per node.
 
+## The API Poller alternative, and why it is harder here
+
+Citrix Hypervisor's XenAPI is reachable directly over HTTPS as a JSON-RPC service, which means
+[the API Poller](../polling/api-pollers.md) can in principle reach it without an SSH hop at
+all. Whether that is a better fit than the SAM template above depends on what XenAPI demands of
+a caller, and it demands more than a single GET.
+
+**Every XenAPI call needs a session reference, and getting one is itself a call.** The sequence
+is always: POST `session.login_with_password` to get an opaque session ref back, then pass that
+ref as the first argument to every real call, one call per data point
+(`host.query_data_source(session, host, data_source)` returns exactly one number). The API
+Poller model supports exactly this shape in principle:
+`Orion.APIPoller.RequestVariable` exists precisely "to use in a later request" (see
+[api-pollers.md](../polling/api-pollers.md#the-request)), and `RequestDetailsOrder` sequences
+a multi-request template. So a login request followed by one `host.query_data_source` request
+per metric is a legitimate use of the format, not a workaround.
+
+**What is not documented, anywhere in the extracted schema or this repository's own API Poller
+page, is the placeholder syntax a later request uses to reference an earlier `RequestVariable`
+inside its own `Body`.** `api-pollers.md` states plainly that `Path` syntax, `Type` and
+`ThresholdRule` values are themselves unverified against the schema; the variable-substitution
+mechanism sits one level further out; there is no worked multi-request example with a body
+substitution to derive it from.
+[scripts/api-pollers/citrix-hypervisor-xenapi.apipoller.template](../../scripts/api-pollers/citrix-hypervisor-xenapi.apipoller.template)
+uses `{{SessionRef}}` inside the JSON body of each follow-up request as the most likely
+candidate (double-brace mustache-style interpolation is the common convention this kind of
+feature reaches for), but **this specific syntax is inferred, not confirmed**, and is exactly
+the kind of plausible-but-wrong detail this repository's own rule warns against stating flatly.
+
+Do not import that file into a production server expecting it to work as shipped. Instead:
+
+1. Build one two-request poller by hand in the console — **Settings > All Settings > API
+   Poller** — with a login request and a single dependent request, and confirm it actually
+   substitutes the session ref before trusting the mechanism at all.
+2. Export it (`ExportTemplateFromApiPoller` or the console's export) and read back what
+   placeholder syntax the console itself wrote into the `Body` of the second request. That is
+   the authoritative answer, the same way this repository derives every other file format from
+   a real export rather than from a guess.
+3. Only then treat the shipped template here as a starting shape to edit, not as something to
+   import as-is.
+
+**Even once the substitution syntax is confirmed, this route buys you less than it costs.**
+Every additional metric is another full request block (its own URL, headers, and a fresh
+`RequestDetailsOrder`), because a single `host.query_data_source` call returns one number, not
+a record. The nine-component SAM template above gets the same data with fewer moving parts,
+each component testable independently with `StartTestComponents`, at the cost of an SSH hop
+instead of a direct HTTPS call. Reach for the API Poller route only if a policy in your
+environment prohibits SSH to hypervisor dom0 but allows HTTPS to the management API, since that
+is the one condition under which the extra fragility is worth it.
+
+The shipped file demonstrates the pattern (login, then two chained `host.query_data_source`
+calls for CPU and free memory) with placeholders (`__CITRIX_HOST__`, `__USERNAME__`,
+`__PASSWORD__`, `__HOST_UUID__`) to replace, and its free-memory metric's thresholds are
+deliberately set so high they cannot fire — because `ThresholdRule` is documented here as
+`GreaterThan` in every sample seen, with no confirmation that any "lower is worse" operator
+exists (see [api-pollers.md](../polling/api-pollers.md#the-threshold-boundary)), and asserting
+one would be exactly the kind of unverified claim this repository declines to state as fact.
+Treat that value as informational until you confirm what operators your server actually
+supports.
+
 ## Known limitations
 
 - **One default storage repository only.** The storage component reads `pool-list
@@ -146,5 +226,9 @@ which is a cheap, one-time step per template rather than per node.
 - [sam-templates.md](sam-templates.md) — the `.apmtemplate` file format this template follows
 - [sam.md](sam.md) — SAM entities, verbs, and assigning a template to a node
 - [../../scripts/sam-templates/](../../scripts/sam-templates/) — the template file itself
-- [../polling/api-pollers.md](../polling/api-pollers.md) — the API Poller format, the better fit
-  for a target with a genuine REST API
+- [../polling/api-pollers.md](../polling/api-pollers.md) — the API Poller format, and the
+  request-chaining model the experimental XenAPI template above depends on
+- [../../scripts/api-pollers/citrix-hypervisor-xenapi.apipoller.template](../../scripts/api-pollers/citrix-hypervisor-xenapi.apipoller.template) —
+  the experimental multi-request API Poller template
+- [vman.md](vman.md) — why Citrix Hypervisor gets none of this natively: it is not one of the
+  platforms `Orion.VIM.Discovery` supports

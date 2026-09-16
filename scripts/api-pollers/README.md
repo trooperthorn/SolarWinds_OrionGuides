@@ -5,6 +5,7 @@ Importable `.apipoller.template` files for the SolarWinds Platform API Poller.
 | File | Demonstrates |
 | --- | --- |
 | [example-service-status.apipoller.template](example-service-status.apipoller.template) | A numeric metric and a text status mapped to numbers, in one two-metric template |
+| [citrix-hypervisor-xenapi.apipoller.template](citrix-hypervisor-xenapi.apipoller.template) | **Experimental.** A three-request chain (login, then two dependent calls) against Citrix Hypervisor's XenAPI. The variable-substitution syntax between requests is inferred, not confirmed — read the caveats before importing |
 
 The format is documented in
 [../../docs/polling/api-pollers.md](../../docs/polling/api-pollers.md#the-apipollertemplate-file-format),
@@ -54,6 +55,19 @@ python3 tools/check_api_poller_templates.py scripts/api-pollers/example-service-
 
 It works on any template file, not only the ones here — point it at an export from your own
 server to check its structure and to be told about a fallback that hides unknown values.
+
+## Multi-request templates
+
+`citrix-hypervisor-xenapi.apipoller.template` is the one file here with more than one
+`RequestDetails`. It exists to demonstrate the login-then-call chain a session-based API
+demands, and it comes with an explicit warning attached: the syntax it uses to carry a
+`RequestVariable` from the login response into a later request's `Body` is inferred from the
+feature's stated purpose, not read off a real export, because no such export exists in this
+repository yet. See
+[../../docs/modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative-and-why-it-is-harder-here](../../docs/modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative-and-why-it-is-harder-here)
+for how to confirm the real syntax on your own server before relying on this shape, and for why
+the SAM template in [../sam-templates/](../sam-templates/) is the better-tested route to the
+same metrics.
 
 ## Sanitisation
 
