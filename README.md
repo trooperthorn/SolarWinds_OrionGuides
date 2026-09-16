@@ -134,6 +134,9 @@ scripts/
 apps/
   porter/       a Windows utility that moves configuration between installations over
                 SWIS; every route it uses was verified against the extracted contract
+  grafana-swis-datasource/
+                a native Grafana data source plugin: SWQL in the panel editor, the time
+                range bound as parameters, and allowlisted verbs invokable from a dashboard
 reference/      the community SWQL examples workbook that `make data` reads
 tools/          extraction, query, validation, and generation scripts
 ```
@@ -198,7 +201,7 @@ checks eleven things:
 
 | Check | Catches |
 | --- | --- |
-| `test_tools.py` | Regressions in the tools' own judgement, across 200 tests |
+| `test_tools.py` | Regressions in the tools' own judgement, across 205 tests |
 | `validate_swql.py` | A query naming an entity, property, column or navigation that does not exist |
 | `check_data.py` | Extraction that degraded quietly, and reference pages that fell behind |
 | `check_entity_references.py` | An invented entity, member, NetObject prefix, right or type member, or a wrong property type |

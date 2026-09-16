@@ -834,6 +834,9 @@ the same routes in prose.
   for rights, limitations and the account model
 - [../reference/glossary.md](../reference/glossary.md) for any term on this page you would
   rather look up than infer
+- [../../apps/grafana-swis-datasource/README.md](../../apps/grafana-swis-datasource/README.md)
+  for a worked, tested integration: a Grafana data source plugin that applies sections 1,
+  5 and 8 of this page to dashboards, with verbs behind an allowlist
 
 Official upstream sources:
 

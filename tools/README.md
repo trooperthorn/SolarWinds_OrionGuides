@@ -38,7 +38,7 @@ ten of twenty-one.
 | [check_dashboards.py](check_dashboards.py) | A shipped Modern Dashboard file that breaks one of the format's invariants |
 | [check_api_poller_templates.py](check_api_poller_templates.py) | A shipped API Poller template that breaks the export format, or hides unknown values |
 | [check_gate.py](check_gate.py) | A check above that has stopped checking, by seeding errors it must catch |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 200 tests |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 205 tests |
 
 `check_gate.py` is the one that watches the others. A checker that quietly stops reading
 what it claims to read still exits zero, which makes it indistinguishable from a working

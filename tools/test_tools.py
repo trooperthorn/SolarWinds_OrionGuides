@@ -333,6 +333,79 @@ class TestNoiseStripping(unittest.TestCase):
         self.assertEqual(len(warned), 1, [str(f) for f in warned])
 
 
+class TestGrafanaExtraction(unittest.TestCase):
+    """The Grafana plugin's queries carry macros and dashboard variables that SWIS never
+    sees. The validator has to rewrite them exactly as the plugin does, or it would either
+    refuse every such query or, worse, resolve `$__timeFilter` as a column name."""
+
+    def write(self, suffix, content):
+        import tempfile
+
+        with tempfile.NamedTemporaryFile("w", suffix=suffix, delete=False, encoding="utf-8") as fh:
+            fh.write(content if isinstance(content, str) else json.dumps(content))
+            return fh.name
+
+    def test_macros_become_bound_parameters(self):
+        out = validate_swql.rewrite_grafana_macros(
+            "SELECT c.DateTime FROM Orion.CPULoad c WHERE c.NodeID = ${node} AND $__timeFilter(c.DateTime) "
+            "AND c.DateTime > $__timeFrom() AND i IN (${ifaces:csv}) AND x = $plain"
+        )
+        self.assertEqual(
+            out,
+            "SELECT c.DateTime FROM Orion.CPULoad c WHERE c.NodeID = @node AND c.DateTime >= @__timeFrom "
+            "AND c.DateTime <= @__timeTo AND c.DateTime > @__timeFrom AND i IN (@ifaces) AND x = @plain",
+        )
+
+    def test_rewritten_query_validates_cleanly(self):
+        schema = validate_swql.SchemaIndex(VERSION)
+        q = validate_swql.rewrite_grafana_macros(
+            "SELECT c.DateTime, c.AvgLoad FROM Orion.CPULoad c WHERE c.NodeID = $node AND $__timeFilter(c.DateTime)"
+        )
+        self.assertEqual([f for f in validate_swql.validate(q, schema) if f.level == "ERROR"], [])
+
+    def test_grafana_dashboard_targets_and_variables_are_found(self):
+        doc = {
+            "title": "x",
+            "panels": [
+                {"type": "table", "targets": [{"refId": "A", "swql": "SELECT n.Caption FROM Orion.Nodes n"}]},
+                {"type": "row", "panels": [
+                    {"type": "timeseries", "targets": [
+                        {"refId": "A", "swql": "SELECT c.DateTime FROM Orion.CPULoad c WHERE $__timeFilter(c.DateTime)"},
+                        {"refId": "B", "expr": "up"},
+                    ]},
+                ]},
+            ],
+            "templating": {"list": [{"name": "node", "query": {"swql": "SELECT n.NodeID AS __value FROM Orion.Nodes n"}}]},
+        }
+        path = self.write(".json", doc)
+        try:
+            found = validate_swql.queries_from_grafana_dashboard(path)
+            via_dispatch = validate_swql.queries_from_path(path)
+        finally:
+            os.unlink(path)
+        self.assertEqual(len(found), 3)
+        self.assertEqual(found, via_dispatch)
+        self.assertTrue(any("@__timeFrom" in q for _, q in found))
+        self.assertTrue(any("templating[0]" in label for label, _ in found))
+
+    def test_modern_dashboard_is_not_read_as_grafana(self):
+        path = self.write(".json", {"panels": [], "dashboards": [], "widgets": []})
+        try:
+            self.assertEqual(validate_swql.queries_from_grafana_dashboard(path), [])
+        finally:
+            os.unlink(path)
+
+    def test_typescript_template_literals_are_found(self):
+        path = self.write(".ts", "export const X = [{ swql: `SELECT TOP 5\n  n.Caption\nFROM Orion.Nodes n\nWHERE $__timeFilter(n.LastSync)` }, "
+                                 "{ label: `not a query` }];")
+        try:
+            found = validate_swql.queries_from_path(path)
+        finally:
+            os.unlink(path)
+        self.assertEqual(len(found), 1)
+        self.assertIn("n.LastSync >= @__timeFrom", found[0][1])
+
+
 class TestDashboardExtraction(unittest.TestCase):
     """A Modern Dashboard file stores each query twice, and both copies have to be found.
 

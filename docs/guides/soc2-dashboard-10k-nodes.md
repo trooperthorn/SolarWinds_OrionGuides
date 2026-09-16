@@ -360,3 +360,4 @@ is in [the authoring guide](../webui/modern-dashboard-authoring.md#the-filters-g
 - [../webui/modern-dashboards.md](../webui/modern-dashboards.md) — the file format itself
 - [../swql/performance.md](../swql/performance.md) — why the bounded-and-aggregated shapes above matter
 - [../automation/alerts.md](../automation/alerts.md) — the severity mapping and alert query patterns reused here
+- [layer2-switching-dashboard.md](layer2-switching-dashboard.md) — the companion dashboard for the access and distribution layer
