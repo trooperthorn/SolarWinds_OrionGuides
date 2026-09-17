@@ -512,6 +512,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - `EvidenceType`, `CategoryDisplayName` and `ApplicationItemType` are `None` and `VisibilityMode` is `Visible` on **all 67 components** in the three samples; their other legal values are **not documented and unverified here**.
 
+**[Key sets by type](../modules/sam-templates.md#key-sets-by-type)**
+
+- Their purpose is **not documented and unverified here**; the names suggest an agent-version gate.
+
 **[Thresholds](../modules/sam-templates.md#thresholds)**
 
 - Its syntax is **not documented and unverified here**.
@@ -519,7 +523,6 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Dynamic script columns: `DynamicColumnSettings` and the `Statistic.<Name>` output contract](../modules/sam-templates.md#dynamic-script-columns-dynamiccolumnsettings-and-the-statisticname-output-contract)**
 
 - `Type` is `String` or `Numeric` in the sample; whether other values are legal is unverified.
-- A component reporting `k` values needs `k` matching `DynamicEvidenceColumnSchema` entries and `k` `echo` lines, one per name; the sample here never exercises more than one value per component, so how many a single run can carry, and whether the literal separator (`.` after `Statistic`, ` : ` before the value) tolerates any variation, remain **unverified beyond what a script emitting exactly one...
 
 **[Moving a template between servers](../modules/sam-templates.md#moving-a-template-between-servers)**
 
