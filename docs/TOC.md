@@ -705,7 +705,7 @@ Windows hands every outbound UDP socket a port from one dynamic range (49152–6
 
 - [Why a script and not a counter](modules/sam-udp-port-exhaustion-template.md#why-a-script-and-not-a-counter): The candidates, against the SAM component types:
 - [The components](modules/sam-udp-port-exhaustion-template.md#the-components): Components 1 and 2 run the same script; the argument in ScriptArguments picks which number it reports, the way SolarWinds' own clock-drift template passes its time server.
-- [The event log component, added in the console](modules/sam-udp-port-exhaustion-template.md#the-event-log-component-added-in-the-console): Add a Windows Event Log Monitor to the assigned application with these values.
+- [The event log components](modules/sam-udp-port-exhaustion-template.md#the-event-log-components): Components 7 and 8 are Windows Event Log Monitors with LogName = Custom, LogNameFilter = System, EntrySource = Tcpip, EntryIDType = IncludeIDs with the one id, EntryType = Warning (the level Windows assigns to both ev...
 - [Assigning it](modules/sam-udp-port-exhaustion-template.md#assigning-it): The PowerShell component needs a credential that can open a WinRM session on the target and has rights to read the socket table, which any local administrator has.
 - [Finding the culprit once it fires](modules/sam-udp-port-exhaustion-template.md#finding-the-culprit-once-it-fires): The Message: line names the processes.
 - [What is verified and what is not](modules/sam-udp-port-exhaustion-template.md#what-is-verified-and-what-is-not): Verified against a real export (SolarWinds' Server Clock Drift (PowerShell) template, exported from a 2026.4 server on 2026-09-17):

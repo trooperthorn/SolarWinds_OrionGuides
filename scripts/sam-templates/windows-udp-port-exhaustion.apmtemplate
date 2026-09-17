@@ -303,7 +303,7 @@ try {
 				<ShortName></ShortName>
 				<ApplicationItemType></ApplicationItemType>
 				<ApplicationTemplateId>264</ApplicationTemplateId>
-				<UniqueId>3e38a4fa-39c3-41cb-85e3-91eabe4aa6e2</UniqueId>
+				<UniqueId>1090a4a6-5ce2-4c0c-aa13-9ef55589018e</UniqueId>
 				<ComponentCategoryName i:nil="true" />
 				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
 			</ComponentTemplate>
@@ -565,7 +565,7 @@ try {
 				<ShortName></ShortName>
 				<ApplicationItemType></ApplicationItemType>
 				<ApplicationTemplateId>264</ApplicationTemplateId>
-				<UniqueId>b1c18afb-5ec7-4194-803d-dac63a0742a7</UniqueId>
+				<UniqueId>7d4cd85d-7a99-4706-bf68-67e1609cfc05</UniqueId>
 				<ComponentCategoryName i:nil="true" />
 				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
 			</ComponentTemplate>
@@ -788,7 +788,7 @@ Unit: datagrams/sec</Value>
 				<ShortName></ShortName>
 				<ApplicationItemType></ApplicationItemType>
 				<ApplicationTemplateId>264</ApplicationTemplateId>
-				<UniqueId>3ebedae7-63c6-4acb-aa70-2669f5cde234</UniqueId>
+				<UniqueId>155ec3e5-84ef-47c9-9f69-aeb156a6a368</UniqueId>
 				<ComponentCategoryName i:nil="true" />
 				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
 			</ComponentTemplate>
@@ -1011,7 +1011,7 @@ Unit: datagrams/sec</Value>
 				<ShortName></ShortName>
 				<ApplicationItemType></ApplicationItemType>
 				<ApplicationTemplateId>264</ApplicationTemplateId>
-				<UniqueId>b3a71e37-92f6-438c-9a28-50600408c257</UniqueId>
+				<UniqueId>0488e659-3969-4a5c-a3b8-8d64175b2081</UniqueId>
 				<ComponentCategoryName i:nil="true" />
 				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
 			</ComponentTemplate>
@@ -1234,7 +1234,7 @@ Unit: errors per poll</Value>
 				<ShortName></ShortName>
 				<ApplicationItemType></ApplicationItemType>
 				<ApplicationTemplateId>264</ApplicationTemplateId>
-				<UniqueId>ddf859c3-cf5b-47f4-87e8-16b23abbabca</UniqueId>
+				<UniqueId>70d3ae98-b82f-4222-abbd-b216b8bc9b7e</UniqueId>
 				<ComponentCategoryName i:nil="true" />
 				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
 			</ComponentTemplate>
@@ -1457,7 +1457,611 @@ Unit: connections</Value>
 				<ShortName></ShortName>
 				<ApplicationItemType></ApplicationItemType>
 				<ApplicationTemplateId>264</ApplicationTemplateId>
-				<UniqueId>654f7f8f-02f4-4c60-a0cf-7844ecd9324e</UniqueId>
+				<UniqueId>20761728-3db5-4c3a-8ce7-9c054c6af86b</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>7</ComponentOrder>
+				<Id>4707</Id>
+				<Name>System - Tcpip 4266 UDP port exhaustion</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__DataTransformCheckedRadioButton</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__DataTransformCheckedRadioButton</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__DataTransformCommonFormulaIndex</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>Integer</ValueType>
+							<Key>__DataTransformCommonFormulaIndex</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__DataTransformCommonFormulaOptions</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__DataTransformCommonFormulaOptions</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__DataTransformEnabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__DataTransformEnabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Goes Down for the poll in which Windows logs System / Tcpip / 4266 (Warning): "A request to allocate an ephemeral port number from the global UDP port space has failed due to all such ports being in use." This is the confirmation; the Percent Used component is the early warning. Statistic is the number of matching events in the last 1.5 polling intervals.</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CollectDetails</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>true</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CollectDetails</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryExcludeFilter</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>EntryExcludeFilter</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryExcludeOperation</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Disable</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryExcludeOperation</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryID</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>4266</Value>
+							<ValueType>String</ValueType>
+							<Key>EntryID</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryIDType</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>IncludeIDs</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryIDType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryIncludeFilter</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>EntryIncludeFilter</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryIncludeOperation</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Disable</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryIncludeOperation</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryMatch</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Custom</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryMatch</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntrySource</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Tcpip</Value>
+							<ValueType>String</ValueType>
+							<Key>EntrySource</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryType</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Warning</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>FetchingMethod</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Wmi</Value>
+							<ValueType>Option</ValueType>
+							<Key>FetchingMethod</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>LogName</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Custom</Value>
+							<ValueType>Option</ValueType>
+							<Key>LogName</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>LogNameFilter</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>System</Value>
+							<ValueType>String</ValueType>
+							<Key>LogNameFilter</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>NumberOfFrequencies</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>1.5</Value>
+							<ValueType>Double</ValueType>
+							<Key>NumberOfFrequencies</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusSetting</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Down</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusSetting</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>TransformExpression</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>TransformExpression</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Users</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>Users</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>WinRmAuthenticationMechanism</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Negotiate</Value>
+							<ValueType>Option</ValueType>
+							<Key>WinRmAuthenticationMechanism</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>EventLog</Type>
+				<Thresholds xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringThresholdyR_SGpLPx>
+						<s:Key>StatisticData</s:Key>
+						<s:Value>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>true</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name>StatisticData</Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</s:Value>
+					</s:KeyValueOfstringThresholdyR_SGpLPx>
+				</Thresholds>
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings />
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>264</ApplicationTemplateId>
+				<UniqueId>faf3225e-9864-426a-bbee-db520be6f835</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>8</ComponentOrder>
+				<Id>4708</Id>
+				<Name>System - Tcpip 4231 TCP port exhaustion</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__DataTransformCheckedRadioButton</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__DataTransformCheckedRadioButton</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__DataTransformCommonFormulaIndex</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>Integer</ValueType>
+							<Key>__DataTransformCommonFormulaIndex</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__DataTransformCommonFormulaOptions</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__DataTransformCommonFormulaOptions</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__DataTransformEnabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__DataTransformEnabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Goes Down for the poll in which Windows logs System / Tcpip / 4231 (Warning), the same failure for the TCP ephemeral pool. Statistic is the number of matching events in the last 1.5 polling intervals.</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CollectDetails</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>true</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CollectDetails</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryExcludeFilter</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>EntryExcludeFilter</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryExcludeOperation</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Disable</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryExcludeOperation</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryID</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>4231</Value>
+							<ValueType>String</ValueType>
+							<Key>EntryID</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryIDType</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>IncludeIDs</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryIDType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryIncludeFilter</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>EntryIncludeFilter</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryIncludeOperation</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Disable</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryIncludeOperation</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryMatch</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Custom</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryMatch</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntrySource</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Tcpip</Value>
+							<ValueType>String</ValueType>
+							<Key>EntrySource</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>EntryType</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Warning</Value>
+							<ValueType>Option</ValueType>
+							<Key>EntryType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>FetchingMethod</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Wmi</Value>
+							<ValueType>Option</ValueType>
+							<Key>FetchingMethod</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>LogName</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Custom</Value>
+							<ValueType>Option</ValueType>
+							<Key>LogName</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>LogNameFilter</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>System</Value>
+							<ValueType>String</ValueType>
+							<Key>LogNameFilter</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>NumberOfFrequencies</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>1.5</Value>
+							<ValueType>Double</ValueType>
+							<Key>NumberOfFrequencies</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusSetting</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Down</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusSetting</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>TransformExpression</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>TransformExpression</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Users</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>Users</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>WinRmAuthenticationMechanism</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Negotiate</Value>
+							<ValueType>Option</ValueType>
+							<Key>WinRmAuthenticationMechanism</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>EventLog</Type>
+				<Thresholds xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringThresholdyR_SGpLPx>
+						<s:Key>StatisticData</s:Key>
+						<s:Value>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>true</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name>StatisticData</Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</s:Value>
+					</s:KeyValueOfstringThresholdyR_SGpLPx>
+				</Thresholds>
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings />
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>264</ApplicationTemplateId>
+				<UniqueId>62ff1920-d8f7-492a-8648-9f84a4d4ba68</UniqueId>
 				<ComponentCategoryName i:nil="true" />
 				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
 			</ComponentTemplate>
@@ -1466,7 +2070,7 @@ Unit: connections</Value>
 		<Id>264</Id>
 		<Name>Windows UDP Ephemeral Port Exhaustion</Name>
 		<IsMockTemplate>false</IsMockTemplate>
-		<Description>Watches the UDP dynamic port range on a Windows host: percent of the range in use and the processes holding it (PowerShell over WinRM), plus the native UDPv4 and TCPv4 counters that show a burst as it happens. Pair with a Windows Event Log component for System / Tcpip / 4266, added in the console; see docs/modules/sam-udp-port-exhaustion-template.md.
+		<Description>Watches the UDP dynamic port range on a Windows host: percent of the range in use and the processes holding it (PowerShell over WinRM), plus the native UDPv4 and TCPv4 counters that show a burst as it happens. Two Windows Event Log components turn Down the poll after System / Tcpip / 4266 (UDP) or 4231 (TCP) lands; see docs/modules/sam-udp-port-exhaustion-template.md.
 
 Prerequisites: WinRM must be installed and properly configured on the target server.
 
@@ -1485,8 +2089,8 @@ Credentials: Administrator on the target server with domain/host part in usernam
 				<TemplateID>264</TemplateID>
 			</TagInfo>
 		</Tags>
-		<Created>2026-09-17T13:22:39.2371240Z</Created>
-		<LastModified>2026-09-17T13:22:39.2371240Z</LastModified>
+		<Created>2026-09-17T14:05:54.4639090Z</Created>
+		<LastModified>2026-09-17T14:05:54.4639090Z</LastModified>
 		<CustomApplicationType i:nil="true" />
 		<Version>6.2.774.0</Version>
 		<ViewID>0</ViewID>
@@ -1497,6 +2101,6 @@ Credentials: Administrator on the target server with domain/host part in usernam
 			<d:_Minor>4</d:_Minor>
 			<d:_Revision>0</d:_Revision>
 		</ModuleVersion>
-		<UniqueId>c99458b5-1d95-4396-a4cd-4845a148b11e</UniqueId>
+		<UniqueId>1bef1ef8-0ff1-46f1-ba01-b67b7efef121</UniqueId>
 	</ApplicationTemplate>
 </ArrayOfApplicationTemplate>
