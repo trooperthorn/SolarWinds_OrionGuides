@@ -46123,6 +46123,8 @@ have to be true.
 | [device-studio.md](device-studio.md) | The three `Orion.DeviceStudio.*` entities, read-only, and the id space they share with technology polling |
 | [technology-polling.md](technology-polling.md) | `Orion.Technology`, `Orion.TechnologyPolling` and its assignments, the four bulk enable and disable verbs, and the declarative poller templates |
 | [api-pollers.md](api-pollers.md) | The ten `Orion.APIPoller.*` entities, HTTP collection, and moving a poller between servers |
+| [api-poller-unifi-network.md](api-poller-unifi-network.md) | A worked, first-hand API Poller against the UniFi Network Integration API: the credential, a three-request variable chain, and its limits |
+| [api-poller-vendor-templates.md](api-poller-vendor-templates.md) | Reading a template SolarWinds ships: the three `ValueToMonitor` `Type` values, and why its thresholds are blank |
 
 ## Related pages
 
@@ -46136,6 +46138,680 @@ have to be true.
 - [../platform/architecture.md](../platform/architecture.md) for polling engines and where a
   poller actually runs
 - [../reference/netobject-types.md](../reference/netobject-types.md) for the NetObject prefixes
+
+
+==============================================================================
+FILE: docs/polling/api-poller-unifi-network.md
+==============================================================================
+
+# A worked API Poller: the UniFi Network Integration API
+
+[api-pollers.md](api-pollers.md) describes the API Poller subsystem from the schema. This page
+describes one poller that works, built and verified against **SolarWinds Platform 2026.4.0**
+and **UniFi Network 10.6.106** running on a UniFi OS console, on 2026-09-17. It is here because
+the parts of an API Poller the schema cannot describe are exactly the parts that decide whether
+a poller works: which authentication mode the builder needs, what a chained request can and
+cannot carry, and which JSONPath expression survives a device being added.
+
+Note the platform version. The rest of this repository documents the **2026.2** schema, and the
+entity and property names used below are checked against that. Nothing here depends on a
+2026.4-only entity, but the console layout described is 2026.4's.
+
+## Why the Integration API and not the legacy one
+
+UniFi has two HTTP interfaces and only one of them is usable from an API Poller.
+
+The legacy interface authenticates with `POST /api/auth/login`, returns a session cookie and a
+CSRF token, and expects both on every later call. **An API Poller cannot do this.** Each
+request in a poller is independent: `Orion.APIPoller.RequestVariable` carries a value lifted out
+of a response body into a later request's URL, header or body, and nothing in the model carries
+a `Set-Cookie` into a later request's cookie jar. Attempting the login flow produces a poller
+whose first request succeeds and whose second is unauthenticated.
+
+The **Network Integration API** authenticates with a static API key in a request header, which
+is stateless and therefore pollable. Everything below uses it.
+
+This is the same wall the Citrix Hypervisor sketch ran into from the other side. See
+[../modules/sam-citrix-hypervisor-template.md](../modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative):
+that template chains a login into later requests and its handoff has never been confirmed
+against a real export. A session-based API is the hard case, and preferring a key-based
+interface where the vendor offers one avoids the whole question.
+
+## The credential
+
+The key is created in the UniFi console under **Settings > Control Plane > Integrations**. The
+exact menu path moves between UniFi OS releases, so treat that as the 10.6 location rather than
+a stable one.
+
+Two properties of the key matter for monitoring design:
+
+- **It is per-admin**, and it inherits that admin's site access. A key made from a
+  limited-site admin account sees only those sites, and `/sites` will return fewer rows than a
+  console operator expects. Create it from an account whose visibility matches what the poller
+  should see, and prefer a dedicated read-only admin over a personal one.
+- **It does not appear again.** Copy it into the SolarWinds credential store when it is created.
+
+In SolarWinds, store it as a credential rather than typing it into a header value. A header
+value is a plain `System.String` on `Orion.APIPoller.RequestHeader` and shows up in any query
+against that entity, which
+[api-pollers.md](api-pollers.md#the-request) covers, along with why `CredentialsId` is the
+safer column. See [../automation/credentials.md](../automation/credentials.md).
+
+In the API Poller builder:
+
+| Setting | Value |
+| --- | --- |
+| Authorization type | **API Key** |
+| Key name | `X-API-KEY` |
+| Choose credential | the credential holding the key, selected explicitly |
+| Verify SSL certificate | off, unless the console's certificate is trusted by the SolarWinds server |
+
+**`401 Unauthorized` is almost always one of two mistakes.** UniFi answers a failed request
+with `{"code":401,"message":"Unauthorized"}` and nothing more specific, and in practice it
+means either that the credential exists but was never selected in the builder's "Choose
+credential" dropdown, or that Authorization was left at the builder's Basic default. UniFi
+rejects Basic outright. Both leave a poller that looks configured.
+
+SSL verification is per request rather than per poller, so a console with a self-signed
+certificate means turning it off on every request in the chain rather than once. That is also
+how a poller ends up not verifying a certificate it could have verified, and
+[api-pollers.md](api-pollers.md#the-request) has the query that finds those.
+
+## The base path depends on how Network is deployed
+
+On a **UniFi OS console** (UDM, UCG, UNVR, Cloud Key Gen2 and later) the Network application
+sits behind UniFi OS's reverse proxy, and every Integration API URL is prefixed
+`/proxy/network`:
+
+```text
+https://<console>/proxy/network/integration/v1
+```
+
+That is the form verified here. Ubiquiti's documentation indicates that a **self-hosted Network
+application** (the Docker image or the Debian package) serves the API without that prefix, at
+`https://<host>:8443/integration/v1`. **That second form is unverified here**: no self-hosted
+controller was available to test against. Confirm it with a single `GET` to `/integration/v1/info`
+before building a poller around it.
+
+## The endpoints
+
+Four were exercised, all `GET`:
+
+| Path | Returns |
+| --- | --- |
+| `/info` | `applicationVersion`, the Network application's version |
+| `/sites` | Paged. Each site's `id` (a UUID), `internalReference`, `name` |
+| `/sites/{siteId}/devices` | Paged. Adopted devices with their identity, model and state |
+| `/sites/{siteId}/devices/{deviceId}/statistics/latest` | Live counters for one device |
+
+Two more are documented by Ubiquiti and were **not exercised here**, so what they return is
+unverified in this repository: `/sites/{siteId}/clients`, and
+`/sites/{siteId}/devices/{deviceId}` for full single-device detail.
+
+### Everything is addressed by UUID
+
+The Integration API identifies sites and devices by UUID. The legacy short site name that
+appears throughout the old API and in console URLs, typically `default`, appears here only as
+`internalReference` on the site record, and is not accepted in a path.
+
+**So `/sites` is always the first call against a controller you have not polled before.** There
+is no way to construct or guess a site UUID, and the same is true of a device UUID. This is the
+constraint that makes the poller a chain rather than three independent requests.
+
+### The paged envelope, and the paging the poller will not do
+
+`/sites` and `/devices` wrap their results:
+
+```json
+{
+  "offset": 0,
+  "limit": 25,
+  "count": 6,
+  "totalCount": 6,
+  "data": [ { "id": "…", "internalReference": "default", "name": "Default" } ]
+}
+```
+
+`count` is the rows in this response and `totalCount` is the rows available. **The poller does
+not follow paging.** It issues the request it is given and reads the response it gets, so a
+site with more devices than the default `limit` of 25 silently returns the first 25 and a
+`count` of 25. Pass the page explicitly when that is possible:
+
+```text
+/sites/{siteId}/devices?limit=200
+```
+
+And monitor `totalCount` rather than `count` if what you want is "how many devices does this
+site have", because `count` stops being that answer at exactly the point it starts to matter.
+
+### Device list fields
+
+Each element of `data` from `/devices` carries `id`, `macAddress`, `ipAddress`, `name`,
+`model`, `state`, `supported`, `firmwareVersion`, `firmwareUpdatable`, `features` and
+`interfaces`. `state` was observed as `ONLINE` and `OFFLINE`; whether other values exist is
+unverified here.
+
+On the console tested, the gateway was `data[0]`. **Ubiquiti documents no ordering for this
+array**, so that is an observation and not a contract. It is also the single most fragile thing
+about the poller below, and the section on variable limits says what to do about it.
+
+### The gateway statistics
+
+`/statistics/latest` for a gateway returned `uptimeSec`, `lastHeartbeatAt`, `nextHeartbeatAt`,
+`loadAverage1Min`, `loadAverage5Min`, `loadAverage15Min`, `cpuUtilizationPct`,
+`memoryUtilizationPct`, an `uplink` object with `txRateBps` and `rxRateBps`, and an
+`interfaces` object. The set is device-class dependent, so read it from the device you intend to
+poll rather than assuming a switch or an access point answers with the same fields.
+
+## Chaining requests with variables
+
+The builder's value picker, reached from "Configure a value to monitor" on any field in a test
+response, offers two things to do with that field, and the distinction is the whole design:
+
+| Choice | What it becomes | Cost |
+| --- | --- | --- |
+| **New monitored value** | An `Orion.APIPoller.ValueToMonitor`: a time series with thresholds, history, and a status | Consumes a monitored-element licence |
+| **Use as a variable in subsequent request** | An `Orion.APIPoller.RequestVariable`: held in memory for this poll only, referenced as `${name}` | None |
+
+A variable is not stored, not graphed and not licensed. It exists so that a later request can be
+addressed by something only an earlier response knows, which for this API is every UUID in
+every URL.
+
+### The verified three-request template
+
+| Order | Request | Reads |
+| --- | --- | --- |
+| 0 | `GET <base>/sites` | variable `siteId` from `data[0].id` |
+| 1 | `GET <base>/sites/${siteId}/devices` | monitored value **UniFi Device Count** from `count`; variable `gatewayId` from `data[0].id` |
+| 2 | `GET <base>/sites/${siteId}/devices/${gatewayId}/statistics/latest` | monitored values below |
+
+The three metrics on the last request:
+
+| Metric | Path | Warning | Critical |
+| --- | --- | --- | --- |
+| Gateway CPU | `cpuUtilizationPct` | 80 | 90 |
+| Gateway memory | `memoryUtilizationPct` | 85 | 95 |
+| Gateway uptime | `uptimeSec` | 600 | |
+
+`uptimeSec` is the one that reads oddly and is worth keeping. Thresholded so that a **low**
+value alerts, it reports a reboot: an uptime under 600 seconds means the gateway restarted
+within the last ten minutes. Whether the comparison direction is available as a
+`ThresholdRule` other than `GreaterThan`, which is the only value seen in an export anywhere in
+this repository, is
+[unverified here](api-pollers.md#the-threshold-boundary). Check what the builder's dropdown
+offers on your own version before relying on a low-side threshold.
+
+Note that request 1 does both jobs: `count` is licensed and graphed, `data[0].id` is not. One
+response can feed both mechanisms at once.
+
+### Working in the builder
+
+- **Testing a later request re-runs the earlier ones.** The builder resolves `${siteId}` by
+  actually issuing request 0, so the whole chain can be tested before the poller is saved.
+  There is no need to save a half-built poller to find out whether the substitution works.
+- **Order is changed from the kebab menu** on each request's header: Duplicate, Move up, Move
+  down, Delete. Order is what
+  `Orion.APIPoller.RequestDetails.RequestDetailsOrder` records, and it is what decides which
+  variables a request can see.
+- **Duplicate copies the stored values too.** Duplicating request 2 to poll a second device
+  gives you a request with the first device's monitored values attached, and the URL still
+  pointing at the first device. Remove the copied values before repointing the URL, or you get
+  two metrics with the same label reading the same device.
+
+### Moving this poller to another controller
+
+Only two things change: the host in each of the three URLs, and the credential. Every site and
+device UUID is resolved at poll time by request 0 and request 1, so nothing controller-specific
+is embedded in the template. That is the practical payoff of chaining, and it is worth
+accepting the fragility below to get it.
+
+## What the variable mechanism cannot do
+
+These are the rules that decide whether a given monitoring idea is buildable as an API Poller
+at all, and each one is a thing that was tried.
+
+- **Substitution is literal text replacement.** There is no arithmetic, no concatenation and no
+  conditional. `${a}+${b}` in a URL is sent as the three characters between two substituted
+  values, not as a sum.
+- **A variable holds one scalar.** An array or an object cannot be stored in one. So polling
+  statistics for N devices means N explicit requests, each with its own variable read from its
+  own `data[N].id`, and each request costing its own metrics. There is no loop.
+- **A variable is visible only below the request that sets it.** Reorder the requests and a
+  substitution that used to resolve now does not.
+- **Array index paths are positional, not stable.** `data[0].id` is whichever device the
+  controller listed first on this poll. Adopt a device, remove one, or hit an ordering the
+  vendor never promised, and the same path now names a different device, with the metric
+  continuing to report under the old label. For anything alertable, prefer a request whose URL
+  embeds the device UUID literally, accepting that the template is then controller-specific.
+  Ubiquiti documents a `filter` query parameter on the collection endpoints that should let
+  `data[0]` be pinned to a known model or name; **that is unverified here**, and is the first
+  thing to test if you need both stability and portability.
+- **Text has to be mapped before it can be thresholded.** `state` returns `ONLINE`, so it is
+  not thresholdable as it stands. It becomes monitorable through the string-to-number
+  mapping, `ONLINE` to `1` and everything else to the fallback, which is
+  `Orion.APIPoller.StringToNumberTransformationRule` and the pipeline described in
+  [api-pollers.md](api-pollers.md#how-a-polled-value-becomes-a-status). Put the fallback above
+  critical, for the reason that page gives: a firmware release that starts answering
+  `CONNECTED` should alert rather than read as healthy.
+- **Nothing is computed in the poller.** "Percent of devices online", or the delta between two
+  counters, cannot be expressed here. Those are downstream work: a
+  [custom query widget](../webui/custom-query-widget.md) over the stored values, or a SAM
+  script component that reads them and publishes a derived statistic. The poller's job ends at
+  one number per `ValueToMonitor`.
+
+## Reading what the poller collected
+
+The poller's own rows, once it exists:
+
+```sql
+SELECT
+    p.Name,
+    p.Status,
+    p.StatusDescription,
+    p.LastPollTimestamp,
+    p.Node.Caption
+FROM Orion.APIPoller.ApiPoller p
+WHERE p.Node.Caption LIKE '%unifi%'
+```
+
+The chain of requests, in the order they run, which is the quickest way to confirm the
+substitution survived an import:
+
+```sql
+SELECT
+    r.RequestDetailsOrder,
+    r.HttpVerb,
+    r.Url,
+    r.CredentialsType,
+    r.VerifySslCertificate
+FROM Orion.APIPoller.RequestDetails r
+WHERE r.ApiPoller.Name LIKE '%UniFi%'
+ORDER BY r.RequestDetailsOrder
+```
+
+The variables, which are the rows that do not appear anywhere in the web console's metric
+lists:
+
+```sql
+SELECT
+    v.RequestDetailsId,
+    v.DisplayName,
+    v.Path
+FROM Orion.APIPoller.RequestVariable v
+WHERE v.RequestDetails.ApiPoller.Name LIKE '%UniFi%'
+ORDER BY v.RequestDetailsId
+```
+
+The metrics with their last reading:
+
+```sql
+SELECT
+    v.DisplayName,
+    v.Path,
+    v.Type,
+    v.Metric,
+    v.Status,
+    v.WarningThreshold,
+    v.CriticalThreshold
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.ApiPoller.Name LIKE '%UniFi%'
+ORDER BY v.DisplayName
+```
+
+### A note on where these values live
+
+There is no `Orion.APIPoller.Value` entity, and there is no `Orion.APIPoller.ValueHistory`
+entity either, although both are plausible names for the current and historical readings and
+both get proposed. The real entities are
+`Orion.APIPoller.ValueToMonitor` for the metric with its last reading in `Metric`, and
+`Orion.APIPoller.ValueToMonitor.Metrics` for the min, max and average per observation.
+[api-pollers.md](api-pollers.md#history) documents both, checked against the extracted schema.
+
+That is worth stating explicitly rather than quietly using the right names, because the wrong
+pair is the exact failure mode
+[AGENTS.md](../../AGENTS.md#the-one-rule) describes: a name that looks right, is not in the
+schema, and fails on a live server. Confirm either way in one command:
+
+```bash
+python3 tools/schema_query.py find api poller value --properties
+```
+
+History is a statistics table and grows with every poll, so window it:
+
+```sql
+SELECT
+    m.ValueToMonitorId,
+    m.ObservationTimestamp,
+    m.AvgMetric,
+    m.MaxMetric
+FROM Orion.APIPoller.ValueToMonitor.Metrics m
+WHERE m.ObservationTimestamp > AddHour(-24, GetDate())
+ORDER BY m.ObservationTimestamp DESC
+```
+
+## Exporting it
+
+Once the poller works, export it and keep the file, because the export is the only artefact
+that survives a rebuild:
+
+```powershell
+$swis = Connect-Swis -Hostname orion.example.com -Trusted
+
+$pollerId = Get-SwisData $swis @'
+SELECT p.ID FROM Orion.APIPoller.ApiPoller p WHERE p.Name = @name
+'@ @{ name = 'UniFi Network Integration' }
+
+$export = Invoke-SwisVerb $swis 'Orion.APIPoller.ApiPoller' 'ExportTemplateFromApiPoller' @($pollerId)
+$export.InnerText | Out-File -FilePath '.\unifi-network.apipoller.template' -Encoding utf8
+```
+
+The credential does not travel with it and neither do the SSL, proxy and timeout settings, so
+the file is a shape rather than a working poller. See
+[api-pollers.md](api-pollers.md#moving-a-poller-between-servers).
+
+No such export is checked into this repository yet. Doing so would settle the remaining
+question about the request-variable format: whether `${name}` is what the exported XML writes
+into a `Url`, or whether the builder's syntax is rendered differently in the file. Until an
+export is read, **the file-level representation of the substitution is unverified here**, which
+is the same gap the Citrix sketch is blocked on.
+
+## What is unverified here
+
+Collected, because this page asserts a lot from one installation:
+
+- The self-hosted Network application serving the API without the `/proxy/network` prefix.
+- `/sites/{siteId}/clients` and the single-device detail endpoint, neither exercised.
+- The `filter` query parameter, which is the documented fix for positional array paths.
+- Whether an API key survives a Network application upgrade. It worked across the 10.6.x builds
+  seen here, which is one data point and not a guarantee.
+- Whether `data[0]` is reliably the gateway. It was on the console tested, and Ubiquiti
+  documents no ordering.
+- What the exported template writes for a request variable.
+
+## Why build a multi-metric poller against a public API at all
+
+The same three-request shape works anywhere a vendor or a public service publishes JSON and an
+identifier has to be discovered before it can be used, and it is often the cheaper answer than
+an intermediary. A public Datadog dashboard tracking the ERCOT grid, for example, is assembled
+from ERCOT's own public pages: system conditions, settlement point prices, and a JSON weather
+API. The pages that answer JSON are directly pollable here, with a
+[`Header` or `ArrayCount` value](api-poller-vendor-templates.md#three-type-values-from-real-exports)
+where the number wanted is a count rather than a field, and the ones that answer HTML need a SAM
+script component instead. Reaching the source removes a dependency rather than adding one.
+
+## See also
+
+- [api-pollers.md](api-pollers.md) for the entity model, the six verbs, and the `.apipoller.template` format
+- [api-poller-vendor-templates.md](api-poller-vendor-templates.md) for the three `ValueToMonitor` `Type` values, read off SolarWinds' own shipped templates
+- [../modules/sam-citrix-hypervisor-template.md](../modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative) for the session-based API this one deliberately avoids
+- [../automation/credentials.md](../automation/credentials.md) for the credential store the API key belongs in
+- [../webui/custom-query-widget.md](../webui/custom-query-widget.md) for computing the derived figures the poller cannot
+- [../swql/performance.md](../swql/performance.md) for windowing the metrics history
+- [../swql/date-and-time.md](../swql/date-and-time.md) for why `AddHour(-24, GetDate())` and not `GetUtcDate()`
+
+
+==============================================================================
+FILE: docs/polling/api-poller-vendor-templates.md
+==============================================================================
+
+# Reading a vendor-shipped API Poller template
+
+[api-pollers.md](api-pollers.md#the-apipollertemplate-file-format) documents the
+`.apipoller.template` format from a single export. That export used one `Type` value and
+filled in both thresholds, which is what a poller built for one specific target looks like.
+A template SolarWinds ships is built for every target, and it is shaped differently in ways
+that matter when you read one or generate one.
+
+This page is read off three templates from SolarWinds' own published template library,
+unmodified: **Microsoft Azure Virtual Machine**, **ServiceNow**, and **Microsoft 365 Exchange
+Mailboxes**. The files are kept in
+[scripts/api-pollers/vendor-examples/](../../scripts/api-pollers/vendor-examples/) as
+reference material. They are not build-validated, for a reason this page explains.
+
+**Source:** official `.apipoller.template` exports from the SolarWinds template library. The
+XML below is transcribed from those files. The entity and property names the elements map onto
+are checked against the extracted 2026.2 schema like everything else here.
+
+## Three `Type` values, from real exports
+
+`Orion.APIPoller.ValueToMonitor.Type` is a `System.String` and the published schema records
+nothing about what it accepts, which is why
+[api-pollers.md](api-pollers.md#the-metric) marks it unverified. The three vendor templates
+between them use three distinct values, so those three are now observed rather than guessed.
+Whether any others exist is still unverified here.
+
+### `Path`: a JSONPath into the response body
+
+The common case, and the only one the earlier export showed. Azure's template pulls nine
+named metrics out of one Azure Monitor response, addressing each by its position in the
+returned array:
+
+```xml
+<ValueToMonitor>
+  <DisplayName>CPU Percentage</DisplayName>
+  <Path>$.['value'].[0].['timeseries'].[0].['data'].[0].['average']</Path>
+  <ThresholdRule>GreaterThan</ThresholdRule>
+  <WarningThresholdValue xsi:nil="true" />
+  <CriticalThresholdValue xsi:nil="true" />
+  <Type>Path</Type>
+  <StringToNumberTransformationRules />
+  <StringToNumberTransformationOtherValues xsi:nil="true" />
+</ValueToMonitor>
+```
+
+The positional addressing is worth pausing on. `[0]` is CPU only because `Percentage CPU` is
+first in the `metricnames` list in the request URL, and `[7]` is `CPU Credits Remaining`
+only because it is eighth. Reorder that query string and every one of the nine paths now reads
+a different metric, with no error anywhere. One request carrying an ordered array of metrics is
+efficient and it couples the paths to the URL, which is a coupling nothing in the file records.
+
+### `Header`: a JSONPath over the response headers
+
+The ServiceNow template is the interesting one, because six of its requests do not read the
+body at all. ServiceNow returns the row count of a filtered query in an `X-Total-Count`
+response header, and the template reads it there:
+
+```xml
+<ValueToMonitor>
+  <DisplayName>Active Incidents Count</DisplayName>
+  <Path>$..[?(@.Key=='X-Total-Count')].Value</Path>
+  <ThresholdRule>GreaterThan</ThresholdRule>
+  <WarningThresholdValue xsi:nil="true" />
+  <CriticalThresholdValue xsi:nil="true" />
+  <Type>Header</Type>
+  <StringToNumberTransformationRules />
+  <StringToNumberTransformationOtherValues>0</StringToNumberTransformationOtherValues>
+</ValueToMonitor>
+```
+
+Two things to take from that expression. `Type` selects **what `Path` is evaluated against**,
+not a different path language: the syntax is still JSONPath, and it is applied to the headers
+presented as a list of `Key`/`Value` objects. And the filter is a JSONPath filter expression,
+`[?(@.Key=='...')]`, which is well past the plain dotted paths the earlier export used. So the
+platform's JSONPath implementation supports filters and recursive descent (`$..`), which is
+useful to know before writing a path by hand.
+
+The header name is matched exactly, inside single quotes, and HTTP header names are
+case-insensitive on the wire. Whether this comparison is too is **not documented and
+unverified here**.
+
+This is also the pattern for the common REST idiom of a paged endpoint that reports its total
+out of band. ServiceNow's requests ask for `sysparm_limit=1` or `sysparm_limit=10` precisely
+because the body is not wanted: the count is in the header, so the smallest page that still
+produces headers is the cheapest way to get it.
+
+### `ArrayCount`: the length of an array, not a value in it
+
+The Microsoft 365 template counts mailboxes by counting the elements of the Graph report's
+`value` array:
+
+```xml
+<ValueToMonitor>
+  <DisplayName>All Mailboxes Count</DisplayName>
+  <Path>$.['value']</Path>
+  <Key>value</Key>
+  <ThresholdRule>GreaterThan</ThresholdRule>
+  <WarningThresholdValue xsi:nil="true" />
+  <CriticalThresholdValue xsi:nil="true" />
+  <Type>ArrayCount</Type>
+  <StringToNumberTransformationRules />
+  <StringToNumberTransformationOtherValues>0</StringToNumberTransformationOtherValues>
+</ValueToMonitor>
+```
+
+`Path` here points at the array rather than at a scalar inside it, and `Type` is what turns
+that into a number. Without this, counting rows means either an endpoint that reports its own
+count or a `Header` value like ServiceNow's.
+
+It also answers a limit stated in
+[api-poller-unifi-network.md](api-poller-unifi-network.md#what-the-variable-mechanism-cannot-do):
+a poller cannot iterate an array, but it can measure one.
+
+## `Key` is in the file and not in the schema
+
+The Microsoft 365 template writes a `<Key>` element on every `ValueToMonitor`, holding the last
+path segment: `value` for `$.['value']`, `storageUsedInBytes` for
+`$.['value'].[0].['storageUsedInBytes']`.
+
+`Orion.APIPoller.ValueToMonitor` declares no `Key` property. Nor do the Azure or ServiceNow
+templates write the element, and neither did the export
+[api-pollers.md](api-pollers.md#the-shape) was derived from. So it is an element the
+deserialiser accepts and the schema does not persist, which is consistent with .NET's
+`XmlSerializer` tolerating a member that was dropped from the class. What it was for, and
+whether writing it has any effect, is **not documented and unverified here**; the safe reading
+is that it is redundant with `Path` and should be omitted from anything you generate.
+
+## Vendor templates leave the thresholds blank on purpose
+
+Every `ValueToMonitor` in all three templates carries:
+
+```xml
+<WarningThresholdValue xsi:nil="true" />
+<CriticalThresholdValue xsi:nil="true" />
+```
+
+`xsi:nil="true"` on an empty element is how `XmlSerializer` writes a nullable value that is
+null, which is why the root declares `xmlns:xsi` at all. The element is present and the value
+is absent, and the two are not the same thing.
+
+**This is correct for a template and wrong for a poller.** A template is meant to be assigned
+to many targets whose baselines differ, and there is no number that is a sensible warning
+level for "Storage Used (Bytes)" across every tenant. So the vendor ships the paths, the
+requests and the labels, and the operator supplies the thresholds. The same reasoning is why
+[credentials and SSL settings are not in the file either](api-pollers.md#element-by-element-against-the-schema):
+a template holds the shape, not the installation.
+
+The consequence to plan for is that **an imported vendor template alerts on nothing until
+somebody fills those in.** It polls, it graphs, and it sits at Up regardless of what it reads.
+Find them with a query rather than by clicking through each poller:
+
+```sql
+SELECT
+    v.ApiPollerId,
+    v.DisplayName,
+    v.Path,
+    v.Type,
+    v.Metric,
+    v.WarningThreshold,
+    v.CriticalThreshold
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.WarningThreshold IS NULL OR v.CriticalThreshold IS NULL
+ORDER BY v.ApiPollerId, v.DisplayName
+```
+
+`PollingInterval` is nil in all three files too, even though each one's `Description` states
+an interval in prose: "Data is polled every 2 minutes by default" in Azure's, "Data polled
+once per day" in the Microsoft 365 one. So the interval a vendor template documents is not the
+interval the file carries, and what the platform uses when the element is nil is **not
+documented and unverified here**. Read
+`Orion.APIPoller.PollingConfiguration.PollingInterval` after assigning one rather than
+trusting the description.
+
+## Parameters in the URL are not request variables
+
+All three templates put `${NAME}` placeholders in their URLs:
+
+```text
+https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${USERGROUP_ID}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}/providers/microsoft.insights/metrics?...
+https://${INSTANCE}.service-now.com/api/now/pa/scorecards?sysparm_limit=1
+```
+
+`RequestVariables` is self-closing in every request in all three files. These placeholders are
+therefore **not** the request-variable mechanism, which lifts a value out of one response for a
+later request. They are values supplied when the template is assigned, which is what
+`AssignTemplate` and `CreateApiPollerFromTemplate` take their `configuration` and `parameters`
+arrays for.
+
+The two mechanisms share one syntax, which is the trap. `${siteId}` set by an earlier request
+and `${INSTANCE}` filled in at assign time look identical in a URL and are resolved by
+different things at different times.
+[api-poller-unifi-network.md](api-poller-unifi-network.md#chaining-requests-with-variables)
+covers the first from a poller built in the console; the vendor templates are the evidence for
+the second. Which of `configuration` and `parameters` a placeholder like `${INSTANCE}` is
+supplied through remains **not documented and unverified here**, as
+[api-pollers.md](api-pollers.md#the-verbs) already says.
+
+## Where these three disagree with the documented format
+
+Reading real vendor output corrects two things the single-export derivation got slightly wrong.
+
+**Empty elements are not always written.** The Microsoft 365 template omits `<Body />`
+entirely from all four of its requests, while Azure and ServiceNow write it. So "do not omit
+empty elements" in
+[api-pollers.md](api-pollers.md#writing-one-by-hand) is good advice for matching what the
+serialiser emits, and not a hard requirement of the deserialiser: a template SolarWinds
+publishes and supports is missing that element. Write it anyway, because a missing element is
+a difference you then have to reason about.
+
+**`Created` and `Updated` are not necessarily high-precision UTC.** The earlier export carried
+`2026-08-22T15:00:43.6650422Z`. All three vendor templates carry a date with a zero time and no
+zone at all:
+
+```xml
+<Created>2021-04-30T00:00:00</Created>
+<Updated>2021-04-30T00:00:00</Updated>
+```
+
+Which is what a human-authored release date looks like rather than a serialised timestamp. The
+format tolerates both, so neither the precision nor the trailing `Z` is load-bearing.
+
+## Why these files are not build-validated
+
+`tools/check_api_poller_templates.py` globs `scripts/api-pollers/*.apipoller.template`,
+non-recursively, so the copies in `vendor-examples/` are outside it by construction. Pointing
+it at them deliberately is the useful thing to do:
+
+```bash
+python3 tools/check_api_poller_templates.py scripts/api-pollers/vendor-examples/*.apipoller.template
+```
+
+It reports four problems, all the same problem and all real: one `missing <Body>` per request
+in the Microsoft 365 template, which is the omission documented above. The Azure and ServiceNow
+files pass unchanged.
+
+Two things the checker does **not** report on them, and both are by design. The nil thresholds
+pass, because it checks that the elements are present rather than that they hold values, which
+is the right rule for a file format where absent and blank are different. And the
+`StringToNumberTransformationOtherValues` of `0` in the ServiceNow and Microsoft 365 templates
+passes, because the fallback check only fires when there is at least one
+`StringToNumberTransformationRule` for it to be the fallback of. With no rules there is no text
+to fall back from, so the value is inert.
+
+The files stay under `vendor-examples/` rather than in the validated set for a plainer reason:
+they are SolarWinds' published work kept verbatim as evidence for this page, not samples this
+repository maintains. Editing one to satisfy a check would destroy the thing that makes it
+worth keeping. [scripts/api-pollers/example-service-status.apipoller.template](../../scripts/api-pollers/example-service-status.apipoller.template)
+is the maintained, validated, importable sample.
+
+## See also
+
+- [api-pollers.md](api-pollers.md) for the ten `Orion.APIPoller.*` entities, the six verbs, and the format these three are instances of
+- [api-poller-unifi-network.md](api-poller-unifi-network.md) for a poller built and verified first-hand, including the request-variable chain and its limits
+- [../../scripts/api-pollers/vendor-examples/](../../scripts/api-pollers/vendor-examples/) for the three files themselves
+- [../../scripts/api-pollers/](../../scripts/api-pollers/) for the validated, importable sample
+- [../automation/credentials.md](../automation/credentials.md) for the OAuth 2.0 credential rows all three of these templates require
+- [../modules/cloud.md](../modules/cloud.md) for the native Azure monitoring the Azure template sits alongside
+- [../swis/invoke-verbs.md](../swis/invoke-verbs.md) for passing the `configuration` and `parameters` arrays
 
 
 ==============================================================================
@@ -46624,6 +47300,13 @@ extracted schema like everything else here.
 </Template>
 ```
 
+That sample is a poller built for one target: one `Type` value, both thresholds filled in. A
+template SolarWinds ships is built for every target and looks different in several ways, and
+[api-poller-vendor-templates.md](api-poller-vendor-templates.md) reads those differences off
+three of their published exports: the two further `Type` values they use, `Header` and
+`ArrayCount`, the `xsi:nil` thresholds a reusable template carries by design, and two places
+where real vendor output contradicts the rules below.
+
 The root carries `xmlns:xsd` and `xmlns:xsi` declarations, which is the signature of .NET's
 `XmlSerializer` — the document is a serialised object graph rather than a hand-designed
 schema. Empty collections serialise as self-closing elements (`<RequestHeaders />`), not as
@@ -46832,6 +47515,11 @@ ORDER BY COUNT(v.ID)
 
 ## See also
 
+- [api-poller-unifi-network.md](api-poller-unifi-network.md) for a poller built and verified
+  first-hand against the UniFi Network Integration API: the credential, a three-request
+  variable chain, and what that chaining cannot express
+- [api-poller-vendor-templates.md](api-poller-vendor-templates.md) for the `Type` values,
+  blank thresholds and assign-time URL parameters seen in SolarWinds' own shipped templates
 - [README.md](README.md) for the other four polling systems and how to tell them apart
 - [standard-pollers.md](standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments
 - [../../scripts/api-pollers/](../../scripts/api-pollers/) for the shipped, build-validated `.apipoller.template` example
@@ -61288,7 +61976,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**268 statements across 66 pages.**
+**280 statements across 68 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -61915,6 +62603,58 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether SWIS classifies them as federated entities is not recorded in the extracted schema; that claim is unverified here.
 
+## [api-poller-unifi-network.md](../polling/api-poller-unifi-network.md)
+
+**[The base path depends on how Network is deployed](../polling/api-poller-unifi-network.md#the-base-path-depends-on-how-network-is-deployed)**
+
+- **That second form is unverified here**: no self-hosted controller was available to test against.
+
+**[The endpoints](../polling/api-poller-unifi-network.md#the-endpoints)**
+
+- Two more are documented by Ubiquiti and were **not exercised here**, so what they return is unverified in this repository: `/sites/{siteId}/clients`, and `/sites/{siteId}/devices/{deviceId}` for full single-device detail.
+
+**[Device list fields](../polling/api-poller-unifi-network.md#device-list-fields)**
+
+- `state` was observed as `ONLINE` and `OFFLINE`; whether other values exist is unverified here.
+
+**[The verified three-request template](../polling/api-poller-unifi-network.md#the-verified-three-request-template)**
+
+- Whether the comparison direction is available as a `ThresholdRule` other than `GreaterThan`, which is the only value seen in an export anywhere in this repository, is [unverified here](../polling/api-pollers.md#the-threshold-boundary).
+
+**[What the variable mechanism cannot do](../polling/api-poller-unifi-network.md#what-the-variable-mechanism-cannot-do)**
+
+- Ubiquiti documents a `filter` query parameter on the collection endpoints that should let `data[0]` be pinned to a known model or name; **that is unverified here**, and is the first thing to test if you need both stability and portability. - **Text has to be mapped before it can be thresholded.** `state` returns `ONLINE`, so it is not thresholdable as it stands.
+
+**[Exporting it](../polling/api-poller-unifi-network.md#exporting-it)**
+
+- Until an export is read, **the file-level representation of the substitution is unverified here**, which is the same gap the Citrix sketch is blocked on.
+
+**[What is unverified here](../polling/api-poller-unifi-network.md#what-is-unverified-here)**
+
+- ## What is unverified here
+
+## [api-poller-vendor-templates.md](../polling/api-poller-vendor-templates.md)
+
+**[Three `Type` values, from real exports](../polling/api-poller-vendor-templates.md#three-type-values-from-real-exports)**
+
+- Whether any others exist is still unverified here.
+
+**[`Header`: a JSONPath over the response headers](../polling/api-poller-vendor-templates.md#header-a-jsonpath-over-the-response-headers)**
+
+- Whether this comparison is too is **not documented and unverified here**.
+
+**[`Key` is in the file and not in the schema](../polling/api-poller-vendor-templates.md#key-is-in-the-file-and-not-in-the-schema)**
+
+- What it was for, and whether writing it has any effect, is **not documented and unverified here**; the safe reading is that it is redundant with `Path` and should be omitted from anything you generate.
+
+**[Vendor templates leave the thresholds blank on purpose](../polling/api-poller-vendor-templates.md#vendor-templates-leave-the-thresholds-blank-on-purpose)**
+
+- So the interval a vendor template documents is not the interval the file carries, and what the platform uses when the element is nil is **not documented and unverified here**.
+
+**[Parameters in the URL are not request variables](../polling/api-poller-vendor-templates.md#parameters-in-the-url-are-not-request-variables)**
+
+- Which of `configuration` and `parameters` a placeholder like `${INSTANCE}` is supplied through remains **not documented and unverified here**, as [api-pollers.md](../polling/api-pollers.md#the-verbs) already says.
+
 ## [api-pollers.md](../polling/api-pollers.md)
 
 **[The poller](../polling/api-pollers.md#the-poller)**
@@ -61955,7 +62695,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[See also](../polling/api-pollers.md#see-also)**
 
-- [README.md](../polling/README.md) for the other four polling systems and how to tell them apart - [standard-pollers.md](../polling/standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments - [../../scripts/api-pollers/](../../scripts/api-pollers) for the shipped, build-validated `.apipoller.template` example - [../modules/sam-citrix-hypervisor-template.md](../modules/sam-citrix-hypervisor-template.m...
+- [api-poller-unifi-network.md](../polling/api-poller-unifi-network.md) for a poller built and verified first-hand against the UniFi Network Integration API: the credential, a three-request variable chain, and what that chaining cannot express - [api-poller-vendor-templates.md](../polling/api-poller-vendor-templates.md) for the `Type` values, blank thresholds and assign-time URL parameters seen in SolarWinds' own ship...
 
 ## [device-studio.md](../polling/device-studio.md)
 

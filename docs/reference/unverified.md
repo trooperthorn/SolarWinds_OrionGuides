@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**268 statements across 66 pages.**
+**280 statements across 68 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -635,6 +635,58 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether SWIS classifies them as federated entities is not recorded in the extracted schema; that claim is unverified here.
 
+## [api-poller-unifi-network.md](../polling/api-poller-unifi-network.md)
+
+**[The base path depends on how Network is deployed](../polling/api-poller-unifi-network.md#the-base-path-depends-on-how-network-is-deployed)**
+
+- **That second form is unverified here**: no self-hosted controller was available to test against.
+
+**[The endpoints](../polling/api-poller-unifi-network.md#the-endpoints)**
+
+- Two more are documented by Ubiquiti and were **not exercised here**, so what they return is unverified in this repository: `/sites/{siteId}/clients`, and `/sites/{siteId}/devices/{deviceId}` for full single-device detail.
+
+**[Device list fields](../polling/api-poller-unifi-network.md#device-list-fields)**
+
+- `state` was observed as `ONLINE` and `OFFLINE`; whether other values exist is unverified here.
+
+**[The verified three-request template](../polling/api-poller-unifi-network.md#the-verified-three-request-template)**
+
+- Whether the comparison direction is available as a `ThresholdRule` other than `GreaterThan`, which is the only value seen in an export anywhere in this repository, is [unverified here](../polling/api-pollers.md#the-threshold-boundary).
+
+**[What the variable mechanism cannot do](../polling/api-poller-unifi-network.md#what-the-variable-mechanism-cannot-do)**
+
+- Ubiquiti documents a `filter` query parameter on the collection endpoints that should let `data[0]` be pinned to a known model or name; **that is unverified here**, and is the first thing to test if you need both stability and portability. - **Text has to be mapped before it can be thresholded.** `state` returns `ONLINE`, so it is not thresholdable as it stands.
+
+**[Exporting it](../polling/api-poller-unifi-network.md#exporting-it)**
+
+- Until an export is read, **the file-level representation of the substitution is unverified here**, which is the same gap the Citrix sketch is blocked on.
+
+**[What is unverified here](../polling/api-poller-unifi-network.md#what-is-unverified-here)**
+
+- ## What is unverified here
+
+## [api-poller-vendor-templates.md](../polling/api-poller-vendor-templates.md)
+
+**[Three `Type` values, from real exports](../polling/api-poller-vendor-templates.md#three-type-values-from-real-exports)**
+
+- Whether any others exist is still unverified here.
+
+**[`Header`: a JSONPath over the response headers](../polling/api-poller-vendor-templates.md#header-a-jsonpath-over-the-response-headers)**
+
+- Whether this comparison is too is **not documented and unverified here**.
+
+**[`Key` is in the file and not in the schema](../polling/api-poller-vendor-templates.md#key-is-in-the-file-and-not-in-the-schema)**
+
+- What it was for, and whether writing it has any effect, is **not documented and unverified here**; the safe reading is that it is redundant with `Path` and should be omitted from anything you generate.
+
+**[Vendor templates leave the thresholds blank on purpose](../polling/api-poller-vendor-templates.md#vendor-templates-leave-the-thresholds-blank-on-purpose)**
+
+- So the interval a vendor template documents is not the interval the file carries, and what the platform uses when the element is nil is **not documented and unverified here**.
+
+**[Parameters in the URL are not request variables](../polling/api-poller-vendor-templates.md#parameters-in-the-url-are-not-request-variables)**
+
+- Which of `configuration` and `parameters` a placeholder like `${INSTANCE}` is supplied through remains **not documented and unverified here**, as [api-pollers.md](../polling/api-pollers.md#the-verbs) already says.
+
 ## [api-pollers.md](../polling/api-pollers.md)
 
 **[The poller](../polling/api-pollers.md#the-poller)**
@@ -675,7 +727,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[See also](../polling/api-pollers.md#see-also)**
 
-- [README.md](../polling/README.md) for the other four polling systems and how to tell them apart - [standard-pollers.md](../polling/standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments - [../../scripts/api-pollers/](../../scripts/api-pollers) for the shipped, build-validated `.apipoller.template` example - [../modules/sam-citrix-hypervisor-template.md](../modules/sam-citrix-hypervisor-template.m...
+- [api-poller-unifi-network.md](../polling/api-poller-unifi-network.md) for a poller built and verified first-hand against the UniFi Network Integration API: the credential, a three-request variable chain, and what that chaining cannot express - [api-poller-vendor-templates.md](../polling/api-poller-vendor-templates.md) for the `Type` values, blank thresholds and assign-time URL parameters seen in SolarWinds' own ship...
 
 ## [device-studio.md](../polling/device-studio.md)
 

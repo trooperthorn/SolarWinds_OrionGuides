@@ -100,6 +100,8 @@ have to be true.
 | [device-studio.md](device-studio.md) | The three `Orion.DeviceStudio.*` entities, read-only, and the id space they share with technology polling |
 | [technology-polling.md](technology-polling.md) | `Orion.Technology`, `Orion.TechnologyPolling` and its assignments, the four bulk enable and disable verbs, and the declarative poller templates |
 | [api-pollers.md](api-pollers.md) | The ten `Orion.APIPoller.*` entities, HTTP collection, and moving a poller between servers |
+| [api-poller-unifi-network.md](api-poller-unifi-network.md) | A worked, first-hand API Poller against the UniFi Network Integration API: the credential, a three-request variable chain, and its limits |
+| [api-poller-vendor-templates.md](api-poller-vendor-templates.md) | Reading a template SolarWinds ships: the three `ValueToMonitor` `Type` values, and why its thresholds are blank |
 
 ## Related pages
 

@@ -164,6 +164,8 @@ Five separate polling systems that share no entities and reuse each other's colu
 | [docs/polling/device-studio.md](docs/polling/device-studio.md) | The read-only `Orion.DeviceStudio.*` entities |
 | [docs/polling/technology-polling.md](docs/polling/technology-polling.md) | Technology polling and the declarative poller templates |
 | [docs/polling/api-pollers.md](docs/polling/api-pollers.md) | Collecting from an HTTP endpoint |
+| [docs/polling/api-poller-unifi-network.md](docs/polling/api-poller-unifi-network.md) | A worked, verified API Poller against the UniFi Network Integration API: API-key auth, a three-request variable chain, and what chaining cannot express |
+| [docs/polling/api-poller-vendor-templates.md](docs/polling/api-poller-vendor-templates.md) | Reading a vendor-shipped `.apipoller.template`: the `Path`, `Header` and `ArrayCount` value types, blank thresholds, and assign-time URL parameters |
 
 ## The web console
 
