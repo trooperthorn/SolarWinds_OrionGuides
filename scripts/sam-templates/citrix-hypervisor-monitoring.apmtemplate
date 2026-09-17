@@ -1,0 +1,3209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfApplicationTemplate xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.solarwinds.com/2007/08/APM">
+	<ApplicationTemplate>
+		<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+			<s:KeyValueOfstringSettingValueyR_SGpLPx>
+				<s:Key>__DebugLoggingEnabled</s:Key>
+				<s:Value>
+					<Required>true</Required>
+					<SettingLevel>Template</SettingLevel>
+					<Value>False</Value>
+					<ValueType>Boolean</ValueType>
+					<Key i:nil="true" />
+				</s:Value>
+			</s:KeyValueOfstringSettingValueyR_SGpLPx>
+			<s:KeyValueOfstringSettingValueyR_SGpLPx>
+				<s:Key>__NumberOfLogFilesToKeep</s:Key>
+				<s:Value>
+					<Required>true</Required>
+					<SettingLevel>Template</SettingLevel>
+					<Value>30</Value>
+					<ValueType>Integer</ValueType>
+					<Key i:nil="true" />
+				</s:Value>
+			</s:KeyValueOfstringSettingValueyR_SGpLPx>
+			<s:KeyValueOfstringSettingValueyR_SGpLPx>
+				<s:Key>__Timeout</s:Key>
+				<s:Value>
+					<Required>true</Required>
+					<SettingLevel>Template</SettingLevel>
+					<Value>300</Value>
+					<ValueType>Integer</ValueType>
+					<Key i:nil="true" />
+				</s:Value>
+			</s:KeyValueOfstringSettingValueyR_SGpLPx>
+			<s:KeyValueOfstringSettingValueyR_SGpLPx>
+				<s:Key>__Use64Bit</s:Key>
+				<s:Value>
+					<Required>true</Required>
+					<SettingLevel>Template</SettingLevel>
+					<Value>True</Value>
+					<ValueType>Boolean</ValueType>
+					<Key i:nil="true" />
+				</s:Value>
+			</s:KeyValueOfstringSettingValueyR_SGpLPx>
+		</Settings>
+		<ComponentTemplates>
+			<ComponentTemplate>
+				<ComponentOrder>1</ComponentOrder>
+				<Id>9001</Id>
+				<Name>Host - CPU Utilization</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor provides the mean utilization of physical CPUs on the given Citrix Hypervisor host.
+Unit: Percent
+Inputs:
+a.	Xen Server Hostname
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT} &lt;XenServerHostname&gt;</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+Hostname=$1
+
+cpu_avg=`xe host-data-source-query hostname=$Hostname data-source=cpu_avg`
+
+if [ -z $cpu_avg ]
+then
+cpu_avg=0
+fi
+
+cpu_avg=$(echo $cpu_avg*100 | bc)
+cpu_avg=`printf "%0.2f\n" $cpu_avg`
+
+echo "Statistic.Host_CPU_Utilization : $cpu_avg";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9001</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>1</ID>
+					<Label>Host CPU Utilization (%)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Host_CPU_Utilization</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>0ed88ea6-c405-4b86-abef-8e88ca8c09ec</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>2</ComponentOrder>
+				<Id>9002</Id>
+				<Name>Host - Free Memory</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor provides the total amount of free memory on the given Citrix Hypervisor host.
+Unit: MB
+Inputs:
+a.	Xen Server Hostname
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT} &lt;XenServerHostname&gt;</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+Hostname=$1
+
+memory_free_kib=`xe host-data-source-query hostname=$Hostname data-source=memory_free_kib`
+
+if [ -z $memory_free_kib ]
+then
+memory_free_kib=0
+fi
+
+memory_free_mb=$(echo $memory_free_kib*0.001024 | bc)
+memory_free_mb=`printf "%0.3f\n" $memory_free_mb`
+
+echo "Statistic.Host_FreeMemoryMB : $memory_free_mb";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9002</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>2</ID>
+					<Label>Host Free Memory (MB)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Host_FreeMemoryMB</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>36220149-e722-456b-8e2f-b8099d043370</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>3</ComponentOrder>
+				<Id>9003</Id>
+				<Name>Host - Total Memory</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor provides the total physical memory installed on the given Citrix Hypervisor host.
+Unit: MB
+Inputs:
+a.	Xen Server Hostname
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT} &lt;XenServerHostname&gt;</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+Hostname=$1
+
+memory_total_kib=`xe host-data-source-query hostname=$Hostname data-source=memory_total_kib`
+
+if [ -z $memory_total_kib ]
+then
+memory_total_kib=0
+fi
+
+memory_total_mb=$(echo $memory_total_kib*0.001024 | bc)
+memory_total_mb=`printf "%0.3f\n" $memory_total_mb`
+
+echo "Statistic.Host_TotalMemoryMB : $memory_total_mb";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9003</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>3</ID>
+					<Label>Host Total Memory (MB)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Host_TotalMemoryMB</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>53ca9c9c-8794-40f9-b4d1-a757a23e9d84</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>4</ComponentOrder>
+				<Id>9004</Id>
+				<Name>Host - Physical Interface Receive</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor provides the receive throughput of the given physical network interface on the given Citrix Hypervisor host.
+Unit: Bytes/sec
+Inputs:
+a.	Xen Server Hostname
+b.	Interface Name (for example eth0)
+Condition: The named PIF must exist on the host</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT} &lt;XenServerHostname&gt; &lt;InterfaceName&gt;</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+Hostname=$1
+IfName=$2
+
+pif_rx=`xe host-data-source-query hostname=$Hostname data-source=pif_"$IfName"_rx`
+
+if [ -z $pif_rx ]
+then
+pif_rx=0
+fi
+
+pif_rx=`printf "%0.3f\n" $pif_rx`
+
+echo "Statistic.Host_InterfaceReceiveBytesPerSec : $pif_rx";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9004</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>4</ID>
+					<Label>Host Physical Interface Receive (Bytes/sec)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Host_InterfaceReceiveBytesPerSec</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>3690538a-af1c-4c7b-9dae-9f434293e6e4</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>5</ComponentOrder>
+				<Id>9005</Id>
+				<Name>Host - Physical Interface Send</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor provides the send throughput of the given physical network interface on the given Citrix Hypervisor host.
+Unit: Bytes/sec
+Inputs:
+a.	Xen Server Hostname
+b.	Interface Name (for example eth0)
+Condition: The named PIF must exist on the host</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT} &lt;XenServerHostname&gt; &lt;InterfaceName&gt;</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+Hostname=$1
+IfName=$2
+
+pif_tx=`xe host-data-source-query hostname=$Hostname data-source=pif_"$IfName"_tx`
+
+if [ -z $pif_tx ]
+then
+pif_tx=0
+fi
+
+pif_tx=`printf "%0.3f\n" $pif_tx`
+
+echo "Statistic.Host_InterfaceSendBytesPerSec : $pif_tx";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9005</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>5</ID>
+					<Label>Host Physical Interface Send (Bytes/sec)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Host_InterfaceSendBytesPerSec</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>a1ec9393-e20b-4062-96ba-3238b53276dc</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>6</ComponentOrder>
+				<Id>9006</Id>
+				<Name>Host - Enabled and Live</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor reports whether the given Citrix Hypervisor host is enabled and live in its pool.
+Unit: 1 = enabled and live, 0 = not
+Inputs:
+a.	Xen Server Hostname
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT} &lt;XenServerHostname&gt;</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+Hostname=$1
+
+enabled=`xe host-list hostname=$Hostname params=enabled --minimal`
+live=`xe host-list hostname=$Hostname params=live --minimal`
+
+if [ "$enabled" = "true" ] &amp;&amp; [ "$live" = "true" ]; then
+state=1
+else
+state=0
+fi
+
+echo "Statistic.Host_EnabledAndLive : $state";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9006</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>6</ID>
+					<Label>Host Enabled and Live (1/0)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Host_EnabledAndLive</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>1d6df592-04a0-42a2-8ee8-7680046feb6f</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>7</ComponentOrder>
+				<Id>9007</Id>
+				<Name>Host - Uptime</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor reports how long the Linux dom0 on this host has been running, read directly from the SSH target rather than through xe.
+Unit: Seconds
+Inputs: None
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT}</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+uptime_seconds=`awk '{print int($1)}' /proc/uptime`
+
+echo "Statistic.Host_UptimeSeconds : $uptime_seconds";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9007</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>7</ID>
+					<Label>Host Uptime (seconds)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Host_UptimeSeconds</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>7acd4c9f-8741-4df7-96bb-4be7fdd9ffb8</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>8</ComponentOrder>
+				<Id>9008</Id>
+				<Name>Pool - VMs Running</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor counts virtual machines in the power-on state on the pool this host belongs to, excluding control domains.
+Unit: Count
+Inputs: None
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT}</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+count=`xe vm-list power-state=running is-control-domain=false params=uuid --minimal | tr ',' '\n' | grep -c .`
+
+echo "Statistic.Pool_VMsRunning : $count";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9008</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>8</ID>
+					<Label>Pool VMs Running (count)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Pool_VMsRunning</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>9383ada0-0312-4029-932e-c050c6af53a1</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>9</ComponentOrder>
+				<Id>9009</Id>
+				<Name>Pool - VMs Halted</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor counts virtual machines in the halted state on the pool this host belongs to, excluding control domains.
+Unit: Count
+Inputs: None
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT}</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+count=`xe vm-list power-state=halted is-control-domain=false params=uuid --minimal | tr ',' '\n' | grep -c .`
+
+echo "Statistic.Pool_VMsHalted : $count";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9009</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>9</ID>
+					<Label>Pool VMs Halted (count)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Pool_VMsHalted</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>e9454d92-fd2d-4a57-a38e-e9d7afc26a51</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>10</ComponentOrder>
+				<Id>9010</Id>
+				<Name>Pool - VMs Suspended</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor counts virtual machines in the suspended state on the pool this host belongs to, excluding control domains.
+Unit: Count
+Inputs: None
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT}</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+count=`xe vm-list power-state=suspended is-control-domain=false params=uuid --minimal | tr ',' '\n' | grep -c .`
+
+echo "Statistic.Pool_VMsSuspended : $count";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9010</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>10</ID>
+					<Label>Pool VMs Suspended (count)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Pool_VMsSuspended</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>8f8ec5b8-60a6-41a1-8b82-ee75a590068c</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>11</ComponentOrder>
+				<Id>9011</Id>
+				<Name>Pool - Default Storage Repository Used Percent</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor reports how full the pool's default storage repository is.
+Unit: Percent
+Inputs: None
+Condition: The pool must have a default storage repository configured</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT}</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+sr_uuid=`xe pool-list params=default-SR --minimal`
+size=`xe sr-param-get uuid=$sr_uuid param-name=physical-size`
+util=`xe sr-param-get uuid=$sr_uuid param-name=physical-utilisation`
+
+pct=`awk -v s="$size" -v u="$util" 'BEGIN { if (s &gt; 0) printf "%.2f", u * 100 / s; else print "0" }'`
+
+echo "Statistic.Pool_DefaultSRUsedPercent : $pct";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9011</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>11</ID>
+					<Label>Pool Default SR Used (%)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Pool_DefaultSRUsedPercent</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>5ee03072-cdab-4f9e-873a-4e74c046ddfc</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>12</ComponentOrder>
+				<Id>9012</Id>
+				<Name>Pool - Default Storage Repository Free</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor reports the free space remaining on the pool's default storage repository.
+Unit: GB
+Inputs: None
+Condition: The pool must have a default storage repository configured</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT}</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+sr_uuid=`xe pool-list params=default-SR --minimal`
+size=`xe sr-param-get uuid=$sr_uuid param-name=physical-size`
+util=`xe sr-param-get uuid=$sr_uuid param-name=physical-utilisation`
+
+free_gb=`awk -v s="$size" -v u="$util" 'BEGIN { printf "%.3f", (s - u) / 1073741824 }'`
+
+echo "Statistic.Pool_DefaultSRFreeGB : $free_gb";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9012</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>12</ID>
+					<Label>Pool Default SR Free (GB)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Pool_DefaultSRFreeGB</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>130dba7d-07cd-4455-896a-1c7d4a44d267</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>13</ComponentOrder>
+				<Id>9013</Id>
+				<Name>Pool - Snapshot Count</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>600</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor counts every VM snapshot that exists anywhere in the pool.
+Unit: Count
+Inputs: None
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT}</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+count=`xe snapshot-list is-a-snapshot=true params=uuid --minimal | tr ',' '\n' | grep -c .`
+
+echo "Statistic.Pool_SnapshotCount : $count";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9013</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>13</ID>
+					<Label>Pool Snapshot Count</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Pool_SnapshotCount</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>56f64e03-88a1-40bc-b3bc-8307d525a1d7</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>14</ComponentOrder>
+				<Id>9014</Id>
+				<Name>Pool - Oldest Snapshot Age</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>600</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor reports the age in days of the oldest VM snapshot anywhere in the pool.
+Unit: Days
+Inputs: None
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT}</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+now=`date -u +%s`
+max_age=0
+for uuid in `xe snapshot-list is-a-snapshot=true params=uuid --minimal | tr ',' '\n'`; do
+[ -z "$uuid" ] &amp;&amp; continue
+created=`xe snapshot-param-get uuid=$uuid param-name=snapshot-time`
+created_epoch=`date -u -d "$(echo $created | sed 's/T/ /')" +%s 2&gt;/dev/null || echo $now`
+age_days=$(( (now - created_epoch) / 86400 ))
+if [ $age_days -gt $max_age ]; then
+max_age=$age_days
+fi
+done
+
+echo "Statistic.Pool_OldestSnapshotAgeDays : $max_age";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9014</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>14</ID>
+					<Label>Pool Oldest Snapshot Age (days)</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Pool_OldestSnapshotAgeDays</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>6ef43d6a-67ae-4e63-b6f2-05cd561294d9</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>15</ComponentOrder>
+				<Id>9015</Id>
+				<Name>Pool - Orphaned Virtual Disk Count</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>900</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>This monitor counts virtual disks (VDIs) in the pool that are not attached to any VBD, the same condition Orion.VIM.DiskFiles.Orphaned flags for VMware.
+Unit: Count
+Inputs: None
+Condition: None</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>AuthenticationType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>UsernamePassword</Value>
+							<ValueType>Option</ValueType>
+							<Key>AuthenticationType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CommandLineToPass</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/bin/sh ${SCRIPT}</Value>
+							<ValueType>String</ValueType>
+							<Key>CommandLineToPass</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>22</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>#!/bin/sh
+set -e
+
+attached=`xe vbd-list params=vdi-uuid --minimal | tr ',' '\n'`
+count=0
+for vdi in `xe vdi-list params=uuid --minimal | tr ',' '\n'`; do
+[ -z "$vdi" ] &amp;&amp; continue
+if ! echo "$attached" | grep -q "^$vdi\$"; then
+count=$((count + 1))
+fi
+done
+
+echo "Statistic.Pool_OrphanedVDICount : $count";
+exit 0</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptDirectory</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>/tmp</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptDirectory</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>LinuxScript</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+				<DynamicEvidenceColumnSchema>
+					<Cells />
+					<ComponentID>-1</ComponentID>
+					<ComponentTemplateID>9015</ComponentTemplateID>
+					<DataTransform>
+						<CommonFormulaOptions>0</CommonFormulaOptions>
+						<TransformExpression></TransformExpression>
+					</DataTransform>
+					<DataTransformOverridden>false</DataTransformOverridden>
+					<Disabled>false</Disabled>
+					<ID>15</ID>
+					<Label>Pool Orphaned VDI Count</Label>
+					<LabelOverridden>false</LabelOverridden>
+					<Name>Pool_OrphanedVDICount</Name>
+					<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+					<ThresholdOverridden>false</ThresholdOverridden>
+					<Type>Numeric</Type>
+				</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>3691e957-fe5f-4cbb-9165-f63382aedfdc</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>16</ComponentOrder>
+				<Id>9016</Id>
+				<Name>Host - XenAPI Management Port (443)</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Frequency</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>String</ValueType>
+							<Key>__Frequency</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>5</Value>
+							<ValueType>String</ValueType>
+							<Key>__Timeout</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Confirms the XenAPI management port (HTTPS, 443) is accepting TCP connections on the assigned node.</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>Port</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>443</Value>
+							<ValueType>Integer</ValueType>
+							<Key>Port</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>TcpPort</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings />
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>9000</ApplicationTemplateId>
+				<UniqueId>1522360d-bb4f-4d0f-90f2-eb75c6b03a31</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+		</ComponentTemplates>
+		<DeletedComponentTemplates />
+		<Id>9000</Id>
+		<Name>Citrix Hypervisor - Pool and Storage Inventory (Community Add-on)</Name>
+		<IsMockTemplate>false</IsMockTemplate>
+		<Description>This template complements SolarWinds' own "Citrix Hypervisor" Content Exchange template (63 host- and VM-level performance counters) rather than duplicating it. It adds pool-wide inventory facts that template does not cover: VM power-state counts, default storage repository capacity, snapshot age and count, and orphaned virtual disk detection, plus a handful of single-value host metrics (CPU, memory, one named physical interface, uptime, enabled/live status) built the same way that template's own components are.
+
+Structure follows the proven format: one metric per component, each script prints exactly one "Statistic.&lt;Name&gt; : &lt;value&gt;" line matching its component's single DynamicEvidenceColumnSchema entry, and every LinuxScript component carries the same AuthenticationType, Port, ScriptDirectory and StatusRollupType settings that template uses.
+
+Credentials: SSH access to a Linux host in the pool (dom0), with permission to run xe. Components documented "Inputs: None" self-discover the pool they are SSH'd into and need no configuration at assignment time; components documented with named inputs prompt for those values (for example XenServerHostname, InterfaceName) when the component is added to a node, exactly as SolarWinds' own Citrix Hypervisor template's host- and VM-level components do.
+
+See docs/modules/sam-citrix-hypervisor-template.md in the SolarWinds_OrionGuides repository for what in this template is verified against a real Citrix Hypervisor host and what is not.</Description>
+		<Tags>
+		<TagInfo>
+			<Name>Citrix</Name>
+			<TemplateID>9000</TemplateID>
+		</TagInfo>
+		<TagInfo>
+			<Name>Hypervisor</Name>
+			<TemplateID>9000</TemplateID>
+		</TagInfo>
+		<TagInfo>
+			<Name>Community</Name>
+			<TemplateID>9000</TemplateID>
+		</TagInfo>
+		</Tags>
+		<Created>2026-09-17T00:00:00.0000000Z</Created>
+		<LastModified>2026-09-17T00:00:00.0000000Z</LastModified>
+		<CustomApplicationType i:nil="true" />
+		<Version>1.0</Version>
+		<ViewID>0</ViewID>
+		<ViewXml i:nil="true" />
+		<ModuleVersion xmlns:d="http://schemas.datacontract.org/2004/07/System">
+			<d:_Build>0</d:_Build>
+			<d:_Major>2026</d:_Major>
+			<d:_Minor>2</d:_Minor>
+			<d:_Revision>0</d:_Revision>
+		</ModuleVersion>
+		<UniqueId>6ae07bdb-aabf-4b31-a26a-f74ac1172c6e</UniqueId>
+	</ApplicationTemplate>
+</ArrayOfApplicationTemplate>

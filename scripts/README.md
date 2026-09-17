@@ -11,6 +11,7 @@ Self-Hosted, in the four forms people actually use.
 | [curl/](curl/) | The raw wire protocol, with nothing in between |
 | [dashboards/](dashboards/) | Importable Modern Dashboard JSON |
 | [api-pollers/](api-pollers/) | Importable API Poller templates |
+| [sam-templates/](sam-templates/) | Importable SAM `.apmtemplate` application templates |
 
 Every SWQL statement in `swql/` is checked against the extracted schema on each build, so
 the entity, property and navigation names in them are known to exist. See

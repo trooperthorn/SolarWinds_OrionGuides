@@ -60,6 +60,46 @@ Sixteen child elements, all present in all three samples:
 primary key and means nothing on another server. `UniqueId` is the GUID that travels — and it
 is what `StartTestComponents` takes, not the integer.
 
+### A fourth sample disagrees with the table above, and is worth recording rather than resolving
+
+A community-sourced export (a SolarWinds Content Exchange "Citrix Hypervisor" template, tagged
+`New in 2020.2` in its own `Tags`, with `ModuleVersion._Major` reading `2026`) surfaced during
+work on [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) and contradicts
+several things this page states as universal from the first three samples:
+
+- **Element order is different, and `Settings` and `ComponentTemplates` come first.** This
+  sample's `ApplicationTemplate` root reads `Settings`, `ComponentTemplates`,
+  `DeletedComponentTemplates`, `Id`, `Name`, `IsMockTemplate`, `Description`, `Tags`, `Created`,
+  `LastModified`, `CustomApplicationType`, `Version`, `ViewID`, `ViewXml`, `ModuleVersion`,
+  `UniqueId` — the metadata fields trail the payload instead of leading it, which is the
+  reverse of the order in the table above.
+- **The `Settings` map uses a different XML namespace.** This sample declares
+  `xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays"` on every `Settings`
+  element (both the template's and each component's), not
+  `http://schemas.datacontract.org/2004/07/System.Collections.Generic` as the three samples
+  behind this page use. The element name `KeyValueOfstringSettingValueyR_SGpLPx` is identical
+  either way.
+- **The inner `Key` element is not always `i:nil="true"`.** At the template level this sample
+  matches the three-sample pattern (`<Key i:nil="true" />`), but at the component level every
+  setting's inner `Key` repeats the setting's own name instead (`<Key>__Disabled</Key>`).
+- **`ModuleVersion` and `Tags` are not whitespace-only here.** `ModuleVersion` carries a real
+  `_Build`/`_Major`/`_Minor`/`_Revision` structure, and `Tags` carries a list of `TagInfo`
+  elements, each with a `Name` and the template's own `Id` repeated as `TemplateID`.
+
+**This is not resolved into a single corrected table because there is nothing to resolve it
+with.** Four real exports now disagree on element order and on one XML namespace, and the two
+groups differ by more than one field, which reads like two distinct serialisation paths (an
+older XmlSerializer-style export and a newer DataContractSerializer-style one, or simply a
+platform-version difference) rather than one group being wrong. Both are reported here as
+**working** by the people who supplied them. If you are hand-building a template, the
+practically important consequence is: **match the order and namespace of an export from your
+own server**, exported with `ExportTemplate` against the version you will import into, rather
+than trusting either shape in this page blindly. If you discover which platform version
+produces which shape, that is exactly the kind of fact worth adding here.
+
+See [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md#what-a-fourth-real-export-corrected)
+for the full comparison, including the script output contract correction it drove.
+
 ## Settings are a typed key/value map
 
 Both the template and each component carry a `Settings` map, serialised as .NET dictionary
@@ -154,9 +194,23 @@ use**, not the complete set.
 
 Each type reads a different subset of `Settings`. `WindowsService` uses `ServiceName` and
 `NotRunningStatusMode`; `PerformanceCounter` uses `Category`, `Counter`, `Instance` and
-`PreferredPollingMethod`; the script types use `ScriptBody`, `ScriptArguments` and
-`ExecutionMode`; `Http`/`Https` use `Url`, `SearchString`, `FailIfFound`, `FollowRedirect` and
-a proxy group.
+`PreferredPollingMethod`; `Http`/`Https` use `Url`, `SearchString`, `FailIfFound`, `FollowRedirect`
+and a proxy group.
+
+**Correction to an earlier version of this page:** it stated the script types use `ScriptBody`,
+`ScriptArguments` and `ExecutionMode`, inferred from element names the three samples never
+actually populated on a `LinuxScript` component. The fourth sample discussed above (63
+`LinuxScript` components, all real and reportedly working) uses neither `ScriptArguments` nor
+`ExecutionMode` at all, and instead carries `ScriptBody`, `ScriptDirectory` (a working directory,
+`/tmp` in every instance), `CommandLineToPass` (the interpreter invocation, with the `${SCRIPT}`
+macro and any operator-supplied arguments — see
+[sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md#the-commandlinetopass-argument-prompt-mechanism)
+for what that argument mechanism does), `AuthenticationType` (`UsernamePassword` in every
+instance), `Port` (`22`), `CountAsDifference` (`false`), and `StatusRollupType` (`Worst`). Since
+this is now two disagreeing real samples rather than one inferred guess, treat both key sets as
+things a `LinuxScript` component *might* need depending on platform version, confirm which one
+your server's console writes by building one and exporting it, and do not assume `ExecutionMode`
+exists at all without checking.
 
 ### Thresholds
 
@@ -196,6 +250,80 @@ Three things worth extracting:
   threshold is expressible. Its syntax is **not documented and unverified here**.
 
 `ThresholdOperator` is `Greater` throughout; the other operators are not exercised.
+
+### Dynamic script columns: `DynamicColumnSettings` and the `Statistic.<Name>` output contract
+
+None of the three original samples populate `DynamicColumnSettings` on a script component, so
+this page previously left its structure undocumented. The fourth sample described above (the
+Citrix Hypervisor community template) does populate it, on every one of its 63 `LinuxScript`
+components, and the structure and the script output contract that feeds it are now verified
+from that real, working export:
+
+```xml
+<DynamicColumnSettings>
+  <DynamicEvidenceColumnSchema>
+    <Cells />
+    <ComponentID>-1</ComponentID>
+    <ComponentTemplateID>885</ComponentTemplateID>
+    <DataTransform>
+      <CommonFormulaOptions>0</CommonFormulaOptions>
+      <TransformExpression></TransformExpression>
+    </DataTransform>
+    <DataTransformOverridden>false</DataTransformOverridden>
+    <Disabled>false</Disabled>
+    <ID>221</ID>
+    <Label>Host Average CPU Utilization</Label>
+    <LabelOverridden>false</LabelOverridden>
+    <Name>Host_AverageCPU_Utilization</Name>
+    <ParentID>-1</ParentID>
+    <Threshold>
+      <AreHigherValuesBetter>false</AreHigherValuesBetter>
+      <BaselineApplyError></BaselineApplyError>
+      <ComputeBaseline>true</ComputeBaseline>
+      <CriticalFormula></CriticalFormula>
+      <CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+      <CriticalPolls>1</CriticalPolls>
+      <CriticalPollsInterval>1</CriticalPollsInterval>
+      <IsForParentComponent>false</IsForParentComponent>
+      <IsForTemplate>false</IsForTemplate>
+      <MaxValue>100</MaxValue>
+      <Name></Name>
+      <WarnLevel>1.7976931348623157E+308</WarnLevel>
+      <WarningFormula></WarningFormula>
+      <WarningPolls>1</WarningPolls>
+      <WarningPollsInterval>1</WarningPollsInterval>
+      <ThresholdOperator>Greater</ThresholdOperator>
+    </Threshold>
+    <ThresholdOverridden>false</ThresholdOverridden>
+    <Type>Numeric</Type>
+  </DynamicEvidenceColumnSchema>
+</DynamicColumnSettings>
+```
+
+One `DynamicEvidenceColumnSchema` element per reported value. **`ComponentTemplateID` repeats
+the owning component's own `Id`** — not `-1` like `ComponentID`, which is a separate,
+always-`-1` placeholder in every one of the 63 samples. `ID` is a small integer unique across
+the whole file, sequential-ish but not reset per component. `1.7976931348623157E+308` is
+`double.MaxValue`, used here as the sentinel for "no threshold set" on both `CriticalLevel` and
+`WarnLevel` — a component ships with this default and an operator sets a real number afterward.
+`Type` is `String` or `Numeric` in the sample; whether other values are legal is unverified.
+
+**The script's own output is what ties a line of text to one of these columns**, and this is
+the second thing the same sample settles: every script prints
+
+```
+echo "Statistic.<Name> : <value>";
+```
+
+where `<Name>` is exactly the `Name` of one `DynamicEvidenceColumnSchema` entry — not a fixed
+numbered slot, and not an arbitrary free-form label. A component reporting `k` values needs `k`
+matching `DynamicEvidenceColumnSchema` entries and `k` `echo` lines, one per name; the sample
+here never exercises more than one value per component, so how many a single run can carry, and
+whether the literal separator (`.` after `Statistic`, ` : ` before the value) tolerates any
+variation, remain **unverified beyond what a script emitting exactly one line, matching exactly
+one column, has proven**. `sam.md`'s own note that `DynamicEvidence`/`DynamicEvidenceColumnSchema`
+carry "the columns a script monitor returned" is confirmed by this sample rather than
+superseded by it.
 
 ## Credentials do not travel, and neither do secrets
 
@@ -326,6 +454,8 @@ constructing the document from nothing.
 ## See also
 
 - [sam.md](sam.md) — the SAM entities, all thirty-nine verbs, and assigning a template to a node
+- [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) — a worked template
+  built to this format, monitoring a Citrix Hypervisor host with no AppInsight module
 - [../polling/api-pollers.md](../polling/api-pollers.md#the-apipollertemplate-file-format) —
   the other matched-verb template format, and much simpler
 - [../automation/report-definitions.md](../automation/report-definitions.md) — the third
