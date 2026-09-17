@@ -255,9 +255,9 @@ shows up as a broken application in the console.
 - **The scripts' failure paths** were exercised only for missing arguments and a missing `xe`
   binary, on a host that has no `xe`; what a real `xe` error looks like in the message has not
   been seen.
-- **Import of this file** has not been tried against a SolarWinds server, and no Citrix
-  Hypervisor host was available to run the scripts. The shape is proven; the `xe` output
-  parsing is not.
+- **Import of this file** succeeded on a 2026.4 server on 2026-09-17, which is what proves
+  the `TcpPort` correction and the five multi-statistic components as a shape. No Citrix
+  Hypervisor host was available to run the scripts, so the `xe` output parsing is not.
 - **The template-level `Id` (`9000`) and `ApplicationTemplateId`/`ComponentTemplateID` values**
   are made-up integers chosen not to collide with the reference template's own `Id` of `30`,
   following the same "local integer, meaningless across servers" rule
