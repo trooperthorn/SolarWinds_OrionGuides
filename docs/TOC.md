@@ -1204,6 +1204,24 @@ Most of this repository is about SWIS: the API, the schema, and automating again
 - [Where these come from](webui/README.md#where-these-come-from): Community material, chiefly THWACK, which is where the conventions on these pages were worked out and written down by the people who found them.
 - [See also](webui/README.md#see-also): prefixes that appear in console URLs - ../automation/accounts-and-permissions.md for why two users can see different rows in the same widget
 
+### [Call Queries: VNQM call detail widgets](webui/custom-query-call-queries.md)
+
+custom-query-widget.md explains the _LinkFor_ convention with a single worked widget.
+
+- [The three query boxes](webui/custom-query-call-queries.md#the-three-query-boxes): The widget's edit form offers, in order:
+- [The entity and its links](webui/custom-query-call-queries.md#the-entity-and-its-links): Every widget reads Orion.IpSla.VoipCallDetails, one row per call, described in ../modules/vnqm.md.
+- [Two adjustments before deploying](webui/custom-query-call-queries.md#two-adjustments-before-deploying): The queries treat 911 and 9911 as emergency calls, checked against both FinalCalledPartyNumber and OriginalCalledPartyNumber because a translation pattern can rewrite the dialed digits before the CDR is written.
+- [Widget settings](webui/custom-query-call-queries.md#widget-settings): The same for all six.
+- [1. Calls placed to 911](webui/custom-query-call-queries.md#1-calls-placed-to-911): The 25 most recent, newest first.
+- [2. Top 25 longest calls](webui/custom-query-call-queries.md#2-top-25-longest-calls): Ranked by Duration, with both legs' MOS so a long call that was also a bad one stands out.
+- [3. Top 25 originating phone numbers](webui/custom-query-call-queries.md#3-top-25-originating-phone-numbers): Grouped by CallingPartyNumber, ranked by call count.
+- [4. Calls from non-7-digit originating numbers](webui/custom-query-call-queries.md#4-calls-from-non-7-digit-originating-numbers): The 25 most recent calls whose calling party is not exactly seven characters: internal extensions, ten- and eleven-digit E.164 numbers, blank and anonymous callers.
+- [5. Top 25 non-7-digit calling numbers](webui/custom-query-call-queries.md#5-top-25-non-7-digit-calling-numbers): Widget 4 rolled up by calling number.
+- [6. Top 25 phones placing 911 calls](webui/custom-query-call-queries.md#6-top-25-phones-placing-911-calls): Widget 1 rolled up by calling number, with the phone's IP address alongside because that is what the person tracing a misdialled emergency call reaches for next.
+- [When it does not work](webui/custom-query-call-queries.md#when-it-does-not-work)
+- [What is not verified here](webui/custom-query-call-queries.md#what-is-not-verified-here): its auto-hide and search queries and substitutes ${SEARCH_STRING} is reported from practice and unverified here; SolarWinds documents the fields but not the behaviour.
+- [See also](webui/custom-query-call-queries.md#see-also): depend on - ../modules/vnqm.md — Orion.IpSla.VoipCallDetails, its navigation properties, and the retention split with VoipCallDetailsHist - ../swql/date-and-time.md — why the window uses GetDate() - ../swql/performanc...
+
 ### [The Custom Query widget](webui/custom-query-widget.md)
 
 The Custom Query widget renders a SWQL query as a table on any view.
@@ -1212,8 +1230,9 @@ The Custom Query widget renders a SWQL query as a table on any view.
 - [Where the link value comes from](webui/custom-query-widget.md#where-the-link-value-comes-from): DetailsUrl is a System.String declared on 254 entities, and on most of them it is exactly the value this convention wants.
 - [Where the icon value comes from](webui/custom-query-widget.md#where-the-icon-value-comes-from): _IconFor_ wants an image path.
 - [A worked widget](webui/custom-query-widget.md#a-worked-widget): This is the community's canonical example, and it is worth reading as a whole because it applies six directives to five visible columns.
+- [The other two query boxes](webui/custom-query-widget.md#the-other-two-query-boxes): The edit form has three query boxes, and only the first is what "the widget's query" usually means.
 - [Practical notes](webui/custom-query-widget.md#practical-notes): The queries on this page are validated against the extracted schema like every other query in this repository.
-- [See also](webui/custom-query-widget.md#see-also): prefixes the console URLs use - ../swql/functions.md for ToString() and string concatenation - ../swql/performance.md for what a widget query costs on every page load - ../modules/sam.md for the SAM entities in the wo...
+- [See also](webui/custom-query-widget.md#see-also): using all three query boxes - ../reference/netobject-types.md for the NetObject prefixes the console URLs use - ../swql/functions.md for ToString() and string concatenation - ../swql/performance.md for what a widget q...
 
 ### [Writing a Modern Dashboard file](webui/modern-dashboard-authoring.md)
 

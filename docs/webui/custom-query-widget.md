@@ -223,6 +223,25 @@ Source: [SWQL link to node](https://thwack.solarwinds.com/products/network-perfo
 on THWACK, and the component-status widget thread it grew out of. Credit to the THWACK
 community, including Petr Vilem and lukas.belza.
 
+## The other two query boxes
+
+The edit form has three query boxes, and only the first is what "the widget's query" usually
+means. Ticking *Auto-hide the resource if there is no data to display* reveals an **Auto-hide
+SWQL Query** box: the widget runs that query first and hides itself when it returns no rows.
+Ticking *Enable search* reveals a **Search SWQL Query** box: when the viewer types in the
+search box the widget runs that query *instead of* the main one, substituting the typed text
+for the `${SEARCH_STRING}` macro as plain text, so the macro belongs inside the quotes of a
+`LIKE '%${SEARCH_STRING}%'`.
+
+Both boxes take a full query, and both interact with this page's convention: a search query
+that drops a `[_LinkFor_X]` column loses the link while a search is active, and an auto-hide
+query copied from the main query doubles the widget's cost on every page load. The working
+patterns — a `SELECT TOP 1` probe for auto-hide, a search query that repeats the main select
+list and adds one `AND (...)` block — are on
+[custom-query-call-queries.md](custom-query-call-queries.md), with six complete widgets that
+use them. As with everything else on this page, the widget's behaviour is reported from
+practice and **unverified here**.
+
 ## Practical notes
 
 **Every entity and column above exists in 2026.2.** The queries on this page are validated
@@ -257,6 +276,8 @@ same page can see different row counts. See
 ## See also
 
 - [README.md](README.md) for the rest of this section
+- [custom-query-call-queries.md](custom-query-call-queries.md) for six complete VNQM widgets
+  using all three query boxes
 - [../reference/netobject-types.md](../reference/netobject-types.md) for the NetObject
   prefixes the console URLs use
 - [../swql/functions.md](../swql/functions.md) for `ToString()` and string concatenation
