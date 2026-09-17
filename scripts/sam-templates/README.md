@@ -4,7 +4,7 @@ Importable `.apmtemplate` files for Server and Application Monitor.
 
 | File | Demonstrates |
 | --- | --- |
-| [citrix-hypervisor-monitoring.apmtemplate](citrix-hypervisor-monitoring.apmtemplate) | Sixteen single-metric `LinuxScript`/`TcpPort` components covering Citrix Hypervisor pool inventory (VM counts, storage, snapshots, orphaned disks) plus a few host metrics, built to match the structure of a real SolarWinds Content Exchange Citrix Hypervisor template — complements that 63-component reference template rather than duplicating it |
+| [citrix-hypervisor-monitoring.apmtemplate](citrix-hypervisor-monitoring.apmtemplate) | Five multi-statistic `LinuxScript` components and one `TcpPort` covering Citrix Hypervisor pool inventory (VM counts, storage, snapshots, orphaned disks) plus host CPU, memory, one interface, uptime and enabled/live state, shaped against SolarWinds' own MongoDB template as a 2026.4 server exports it — complements the 63-component Content Exchange Citrix template rather than duplicating it, at five SSH sessions a poll instead of fifteen |
 | [windows-udp-port-exhaustion.apmtemplate](windows-udp-port-exhaustion.apmtemplate) | Two `PowerShell` components run on the target over WinRM (percent of the UDP dynamic port range in use and the count, with the processes holding it), four native `UDPv4`/`TCPv4` `PerformanceCounter` components, and two `EventLog` components that go Down on System / Tcpip / 4266 or 4231. Catches the condition before the event fires, and confirms it when it does. The script is also here standalone as [windows-udp-port-exhaustion.ps1](windows-udp-port-exhaustion.ps1) |
 
 The format is documented in
