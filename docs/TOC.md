@@ -1672,6 +1672,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [language-reference.md](reference/unverified.md#language-referencemd): How this page marks its evidence
 - [performance.md](reference/unverified.md#performancemd): 9.
 - [README.md](reference/unverified.md#readmemd): A caveat that applies to the whole section
+- [custom-query-call-queries.md](reference/unverified.md#custom-query-call-queriesmd): Call Queries: VNQM call detail widgets
 - [custom-query-widget.md](reference/unverified.md#custom-query-widgetmd): Where the link value comes from
 - [modern-dashboard-authoring.md](reference/unverified.md#modern-dashboard-authoringmd): Reusing another dashboard's widget from the console
 - [modern-dashboards.md](reference/unverified.md#modern-dashboardsmd): Modern Dashboard files
