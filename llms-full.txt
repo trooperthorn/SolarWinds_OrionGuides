@@ -27112,12 +27112,10 @@ is that its claims are checkable:
   for the full structure. **One component reports one named value this way in every sample
   seen**; whether a single script run can emit several `Statistic.<Name>` lines for several
   columns on one component is structurally plausible (the schema is a list) but not exercised
-  by this reference, so this repository's own components stay one metric per component to match
-  what is actually proven.
-  **Answered since:** the MongoDB 5.0+ (Linux) v2 template re-exported from a 2026.4 server on
-  2026-09-17 emits up to eight named pairs from one `LinuxScript` component, each name with a
-  `String` and a `Numeric` column. One metric per component is a choice, not a limit; see
-  [sam-templates.md](sam-templates.md#dynamic-script-columns-dynamiccolumnsettings-and-the-statisticname-output-contract).
+  by this reference, so this repository's own components stayed one metric per component
+  until the MongoDB 5.0+ (Linux) v2 template, re-exported from a 2026.4 server on 2026-09-17,
+  proved several named pairs from one component. The file was regrouped to five scripts on
+  that evidence; see [the rework](#the-2026-09-17-rework-five-scripts-instead-of-fifteen).
 - **`LinuxScript` does not use an `ExecutionMode` setting**, and does not use `ScriptArguments`
   either. It uses `AuthenticationType` (`UsernamePassword`), `Port` (`22`), `ScriptDirectory`
   (`/tmp`), `CommandLineToPass` (see below), `CountAsDifference` (`false`), and
@@ -27138,35 +27136,51 @@ is that its claims are checkable:
 Rather than try to reproduce the reference template's 63 components, this repository ships a
 **smaller, complementary** template:
 [citrix-hypervisor-monitoring.apmtemplate](../../scripts/sam-templates/citrix-hypervisor-monitoring.apmtemplate),
-16 components covering pool-wide inventory facts the reference template does not: VM
+six components covering pool-wide inventory facts the reference template does not: VM
 power-state counts, default storage repository capacity, snapshot age and count, and orphaned
-virtual disk detection, plus a handful of single-value host metrics (CPU, memory, one named
-physical interface, uptime, enabled/live status) built the same way the reference template's own
-components are. Import both if you want the full picture: the reference template for detailed
-per-host and per-VM performance counters, this one for pool-level inventory.
+virtual disk detection, plus the host metrics worth having beside them (CPU, memory, one named
+physical interface, uptime, enabled/live status). Import both if you want the full picture:
+the reference template for detailed per-host and per-VM performance counters, this one for
+pool-level inventory.
 
 | Component | Type | Inputs prompted at assignment | Reports (`Statistic.<Name>`) |
 | --- | --- | --- | --- |
-| Host - CPU Utilization | `LinuxScript` | XenServerHostname | `Host_CPU_Utilization` — CPU (%) |
-| Host - Free Memory | `LinuxScript` | XenServerHostname | `Host_FreeMemoryMB` — free memory (MB) |
-| Host - Total Memory | `LinuxScript` | XenServerHostname | `Host_TotalMemoryMB` — installed memory (MB) |
-| Host - Physical Interface Receive | `LinuxScript` | XenServerHostname, InterfaceName | `Host_InterfaceReceiveBytesPerSec` |
-| Host - Physical Interface Send | `LinuxScript` | XenServerHostname, InterfaceName | `Host_InterfaceSendBytesPerSec` |
-| Host - Enabled and Live | `LinuxScript` | XenServerHostname | `Host_EnabledAndLive` — 1 or 0 |
-| Host - Uptime | `LinuxScript` | none | `Host_UptimeSeconds` — dom0's own `/proc/uptime`, not an `xe` value |
-| Pool - VMs Running | `LinuxScript` | none | `Pool_VMsRunning` |
-| Pool - VMs Halted | `LinuxScript` | none | `Pool_VMsHalted` |
-| Pool - VMs Suspended | `LinuxScript` | none | `Pool_VMsSuspended` |
-| Pool - Default Storage Repository Used Percent | `LinuxScript` | none | `Pool_DefaultSRUsedPercent` |
-| Pool - Default Storage Repository Free | `LinuxScript` | none | `Pool_DefaultSRFreeGB` |
-| Pool - Snapshot Count | `LinuxScript` | none | `Pool_SnapshotCount` |
-| Pool - Oldest Snapshot Age | `LinuxScript` | none | `Pool_OldestSnapshotAgeDays` |
-| Pool - Orphaned Virtual Disk Count | `LinuxScript` | none | `Pool_OrphanedVDICount` — the `xe`/XenAPI analogue of `Orion.VIM.DiskFiles.Orphaned` |
-| Host - XenAPI Management Port (443) | `TcpPort` | none (uses the assigned node's own address) | reachability of the management API itself |
+| Host - Resources | `LinuxScript` | XenServerHostname | `Host_CPU_Utilization` (%), `Host_FreeMemoryMB`, `Host_TotalMemoryMB`, `Host_EnabledAndLive` (1/0), `Host_UptimeSeconds` (dom0's own `/proc/uptime`) |
+| Host - Physical Interface Throughput | `LinuxScript` | XenServerHostname, InterfaceName | `Host_InterfaceReceiveBytesPerSec`, `Host_InterfaceSendBytesPerSec` |
+| Pool - Virtual Machines | `LinuxScript` | none | `Pool_VMsRunning`, `Pool_VMsHalted`, `Pool_VMsSuspended` |
+| Pool - Default Storage Repository | `LinuxScript` | none | `Pool_DefaultSRUsedPercent`, `Pool_DefaultSRFreeGB` |
+| Pool - Snapshots and Orphaned Disks | `LinuxScript` | none | `Pool_SnapshotCount`, `Pool_OldestSnapshotAgeDays`, `Pool_OrphanedVDICount` (the `xe` analogue of `Orion.VIM.DiskFiles.Orphaned`) |
+| Host - XenAPI Management Port (443) | `TcpPort` | none (uses the assigned node's own address) | reachability of the management API itself, `Response` time |
 
-Every `LinuxScript` component here is **one metric, one component**, matching what all 63
-reference components do — not the multi-statistic-per-component design an earlier revision of
-this template used, which the reference export gives no evidence for.
+### The 2026-09-17 rework: five scripts instead of fifteen
+
+The previous revision of this file had sixteen components, one metric each, because the
+Citrix reference export never shows more than one `Statistic.<Name>` per component and that
+was the only proven shape. SolarWinds' own MongoDB 5.0+ (Linux) v2 template, re-exported from
+a 2026.4 server the same day (see
+[sam-templates.md](sam-templates.md#dynamic-script-columns-dynamiccolumnsettings-and-the-statisticname-output-contract)),
+emits up to eight named pairs from one `LinuxScript` component, so the fifteen scripts are now
+five, grouped by what they need from the operator and by the `xe` calls they share. Three
+things changed with that:
+
+- **A poll costs five SSH sessions instead of fifteen.** Each `LinuxScript` component is one
+  SSH login, one script upload and one run; the reference template's 63 components are 63
+  logins every polling interval, which is why it is heavy. Grouping is the mitigation.
+- **Every value has a `Message.<Name>` beside it**, so the component's detail view names the
+  host, the interface, the storage repository, rather than showing a bare number. This is the
+  MongoDB shape exactly: for each name a `String` column (the message) and then a `Numeric`
+  column (the value), both carrying that name.
+- **Failures say why.** The old scripts ran under `set -e` and died silently, leaving a Down
+  component with no message. Each script now checks its arguments, checks that `xe` exists,
+  captures the error text of every `xe` call, and on any failure prints one unnamed
+  `Message:` line and exits `1`, the same pattern the MongoDB scripts use. The argument and
+  missing-`xe` paths were exercised on a host without `xe`; the `xe` failure paths were not.
+
+The `TcpPort` component was also wrong in the previous revision: it carried a setting named
+`Port` where the type uses `PortNumber`, and no `Thresholds` block where the type carries one
+keyed `Response`. Both are corrected from the MongoDB export's own `TcpPort` component. That
+component would have failed on import or polled with no port; nothing else in the old file was
+structurally wrong.
 
 ## The `CommandLineToPass` argument-prompt mechanism
 
@@ -27263,30 +27277,36 @@ shows up as a broken application in the console.
 ## What is verified here and what is not
 
 - **The `.apmtemplate` XML shape used in this file** — root element order, the `Settings`
-  namespace, the per-component setting keys (`AuthenticationType`, `CommandLineToPass`,
-  `CountAsDifference`, `Port`, `ScriptBody`, `ScriptDirectory`, `StatusRollupType`), and the full
+  namespace, the `LinuxScript` setting keys (`AuthenticationType`, `CommandLineToPass`,
+  `CountAsDifference`, `Port`, `ScriptBody`, `ScriptDirectory`, `StatusRollupType`), the
+  `TcpPort` keys (`PortNumber` and the `Response` threshold), and the full
   `DynamicColumnSettings`/`DynamicEvidenceColumnSchema`/`Threshold` structure — is copied
-  element-for-element from the real Citrix Hypervisor reference export, not inferred.
-- **The `Statistic.<Name> : <value>` output line and its one-metric-per-component design** are
-  likewise copied from the reference template's own proven pattern.
-- **The host-level `xe` commands and data source names this file's host-level components use**
-  are copied from the reference template's own scripts.
-- **The zero-placeholder `CommandLineToPass` this file's pool-level components use**
-  (`/bin/sh ${SCRIPT}` with no arguments) is this repository's own construction — the reference
-  template never has a component that needs no operator input, so this shape has not been seen
-  in a real export.
+  element-for-element from real exports: the Citrix Hypervisor reference and, since
+  2026-09-17, SolarWinds' MongoDB 5.0+ (Linux) v2 template as a 2026.4 server writes it. A
+  structural diff of every component in this file against the matching MongoDB component,
+  ignoring only ids, names, labels and values, is empty.
+- **Several `Statistic.<Name>` / `Message.<Name>` pairs from one component**, with a `String`
+  and a `Numeric` column per name, is the MongoDB template's own shape, not an extension.
+- **The host-level `xe` commands and data source names** are copied from the reference
+  template's own scripts.
+- **The zero-placeholder `CommandLineToPass`** (`/bin/sh ${SCRIPT}` with no arguments) is now
+  also proven: the MongoDB template passes fixed arguments (`perl ${SCRIPT} /usr/bin/mongosh
+  test`) rather than prompts, so a `CommandLineToPass` with no `<Placeholder>` is a shape a
+  real template uses.
 - **The pool-level `xe` commands** (`vm-list`, `pool-list`, `sr-param-get`, `snapshot-list`,
   `snapshot-param-get`, `vdi-list`, `vbd-list`) are this repository's own, checked against
   Citrix's published `xe` reference, not against a SolarWinds sample.
-- **Whether a single script run can emit more than one `Statistic.<Name>` line for more than one
-  `DynamicEvidenceColumnSchema` column on the same component** is structurally plausible but
-  unexercised by the reference template, which never does it. This repository's components stay
-  one metric per component specifically to avoid relying on that unverified extension.
-- **The template-level `Id` (`9000`) and `ApplicationTemplateId`/`ComponentTemplateID` values
-  used to cross-reference components to their columns** are made-up integers chosen not to
-  collide with the reference template's own `Id` of `30`, following the same "local integer,
-  meaningless across servers" rule [sam-templates.md](sam-templates.md#the-template) documents;
-  they matter only for internal consistency within this file, not for import correctness.
+- **The scripts' failure paths** were exercised only for missing arguments and a missing `xe`
+  binary, on a host that has no `xe`; what a real `xe` error looks like in the message has not
+  been seen.
+- **Import of this file** has not been tried against a SolarWinds server, and no Citrix
+  Hypervisor host was available to run the scripts. The shape is proven; the `xe` output
+  parsing is not.
+- **The template-level `Id` (`9000`) and `ApplicationTemplateId`/`ComponentTemplateID` values**
+  are made-up integers chosen not to collide with the reference template's own `Id` of `30`,
+  following the same "local integer, meaningless across servers" rule
+  [sam-templates.md](sam-templates.md#the-template) documents; they matter only for internal
+  consistency within this file, not for import correctness.
 
 None of the above blocks the template from being imported and read as a starting point. It
 distinguishes what was copied from a proven, working file from what this repository built by
