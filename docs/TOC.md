@@ -704,11 +704,11 @@ A SAM application template exports from Settings > All Settings > SAM Settings >
 Windows hands every outbound UDP socket a port from one dynamic range (49152–65535 by default, 16,384 ports).
 
 - [Why a script and not a counter](modules/sam-udp-port-exhaustion-template.md#why-a-script-and-not-a-counter): The candidates, against the SAM component types:
-- [The components](modules/sam-udp-port-exhaustion-template.md#the-components): Component 1's script is also shipped standalone as scripts/sam-templates/windows-udp-port-exhaustion.ps1 so it can be run by hand on a suspect host.
+- [The components](modules/sam-udp-port-exhaustion-template.md#the-components): Components 1 and 2 run the same script; the argument in ScriptArguments picks which number it reports, the way SolarWinds' own clock-drift template passes its time server.
 - [The event log component, added in the console](modules/sam-udp-port-exhaustion-template.md#the-event-log-component-added-in-the-console): Add a Windows Event Log Monitor to the assigned application with these values.
 - [Assigning it](modules/sam-udp-port-exhaustion-template.md#assigning-it): The PowerShell component needs a credential that can open a WinRM session on the target and has rights to read the socket table, which any local administrator has.
-- [Finding the culprit once it fires](modules/sam-udp-port-exhaustion-template.md#finding-the-culprit-once-it-fires): The Message.PercentUsed line names the processes.
-- [What is verified and what is not](modules/sam-udp-port-exhaustion-template.md#what-is-verified-and-what-is-not)
+- [Finding the culprit once it fires](modules/sam-udp-port-exhaustion-template.md#finding-the-culprit-once-it-fires): The Message: line names the processes.
+- [What is verified and what is not](modules/sam-udp-port-exhaustion-template.md#what-is-verified-and-what-is-not): Verified against a real export (SolarWinds' Server Clock Drift (PowerShell) template, exported from a 2026.4 server on 2026-09-17):
 - [See also](modules/sam-udp-port-exhaustion-template.md#see-also): in this repository, and the real export both are shaped against - sam.md — assigning a template and testing components
 
 ### [SAM: Server and Application Monitor](modules/sam.md)
@@ -1595,7 +1595,6 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [nta.md](reference/unverified.md#ntamd): Lookup entities
 - [qoe.md](reference/unverified.md#qoemd): Applications are the centre of the model
 - [sam-templates.md](reference/unverified.md#sam-templatesmd): The root is an array
-- [sam-udp-port-exhaustion-template.md](reference/unverified.md#sam-udp-port-exhaustion-templatemd): What is verified and what is not
 - [sam.md](reference/unverified.md#sammd): Gotchas
 - [scm-compliance-policies.md](reference/unverified.md#scm-compliance-policiesmd): The SWIS round trip (2026.2, verified)
 - [scm.md](reference/unverified.md#scmmd): Profiles

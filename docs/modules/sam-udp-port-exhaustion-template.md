@@ -18,9 +18,12 @@ in the console rather than in the file, for the reason given under
 [What is verified and what is not](#what-is-verified-and-what-is-not).
 
 Read [sam-templates.md](sam-templates.md) first for the `.apmtemplate` shape. This file is
-built to the fourth-sample shape documented there (payload first, `Serialization/Arrays`
-namespace, inner `Key` repeating the setting name), which is the shape of the only real
-export this repository holds.
+built against a real 2026.4 export of SolarWinds' own *Server Clock Drift (PowerShell)*
+template, which carries exactly the two component types used here (two `PowerShell`, 25
+`PerformanceCounter`). Every setting key, its `Required` flag, its `ValueType` and its order,
+the threshold and dynamic-column blocks, and the template trailer are copied from that export;
+[sam-templates.md](sam-templates.md#a-fifth-sample-the-powershell-and-performancecounter-key-sets)
+records what it settled.
 
 ## Why a script and not a counter
 
@@ -44,22 +47,39 @@ WinRM session with the component's credential and runs the script there.
 
 | # | Component | Type | Reports | Threshold shipped |
 | --- | --- | --- | --- | --- |
-| 1 | UDP Ephemeral Ports - Percent Used | `PowerShell` (remote) | `PercentUsed`, `EphemeralInUse` | warn 70 %, critical 90 % (and the matching counts, 11 469 / 14 746 of 16 384) |
-| 2 | UDPv4 - Datagrams/sec | `PerformanceCounter` | rate | none; baseline |
-| 3 | UDPv4 - Datagrams No Port/sec | `PerformanceCounter` | rate | none; baseline |
-| 4 | UDPv4 - Datagrams Received Errors | `PerformanceCounter`, `CountAsDifference` | errors per poll | none; baseline |
-| 5 | TCPv4 - Connections Established | `PerformanceCounter` | count | none; baseline |
+| 1 | UDP Ephemeral Ports - Percent Used | `PowerShell` (Remote Host), argument `percent` | percent of the range in use | warn 70, critical 90 |
+| 2 | UDP Ephemeral Ports - In Use | `PowerShell` (Remote Host), argument `count` | ports in use | warn 11 469, critical 14 746 (70 / 90 % of 16 384) |
+| 3 | UDPv4 - Datagrams/sec | `PerformanceCounter` | rate | unset; baseline |
+| 4 | UDPv4 - Datagrams No Port/sec | `PerformanceCounter` | rate | unset; baseline |
+| 5 | UDPv4 - Datagrams Received Errors | `PerformanceCounter`, `CountAsDifference` | errors per poll | unset; baseline |
+| 6 | TCPv4 - Connections Established | `PerformanceCounter` | count | unset; baseline |
 
-Component 1's script is also shipped standalone as
+Components 1 and 2 run the same script; the argument in `ScriptArguments` picks which number
+it reports, the way SolarWinds' own clock-drift template passes its time server. One value per
+component is the only output shape a real export shows, so that is the shape used. The
+counters' thresholds are "unset" the way the platform writes it, `double.MaxValue` in both
+levels with `ComputeBaseline` on, so after the platform's baseline window (seven days of data)
+the baseline-derived levels apply until you set your own.
+
+The script is also shipped standalone as
 [scripts/sam-templates/windows-udp-port-exhaustion.ps1](../../scripts/sam-templates/windows-udp-port-exhaustion.ps1)
-so it can be run by hand on a suspect host. It prints, for example:
+so it can be run by hand on a suspect host. With `percent` (the default) it prints:
 
 ```
-Statistic.PercentUsed : 0.23
-Message.PercentUsed : 38 of 16384 ephemeral UDP ports (49152-65535) in use. Top: chrome(2628)=17, svchost(7668)=6, svchost(4480)=3, svchost(4220)=2, dasHost(5868)=2
-Statistic.EphemeralInUse : 38
-Message.EphemeralInUse : total UDP endpoints 58; dynamic range size 16384
+Message: 0.14% of the UDP dynamic range (49152-65535, 16384 ports) in use. Top: svchost(7668)=6, chrome(2628)=4, svchost(4480)=3, svchost(4220)=2, dasHost(5868)=2
+Statistic: 0.14
 ```
+
+and with `count`:
+
+```
+Message: 23 of 16384 ephemeral UDP ports (49152-65535) in use; 43 UDP endpoints total. Top: svchost(7668)=6, chrome(2628)=4, svchost(4480)=3, svchost(4220)=2, dasHost(5868)=2
+Statistic: 23
+```
+
+`Message:` and `Statistic:` with no name suffix is the pair SolarWinds' own PowerShell
+templates emit, matched by the two dynamic columns both named `Statistic` (one `String`, one
+`Numeric`) that a real export carries on every `PowerShell` component.
 
 The script reads the range from `netsh int ipv4 show dynamicport udp` rather than assuming
 the default, counts only endpoints whose local port falls inside that range (listening
@@ -105,7 +125,7 @@ Test with `StartTestComponents` before assigning broadly, as
 
 ## Finding the culprit once it fires
 
-The `Message.PercentUsed` line names the processes. When the top entry is `svchost`, the PID
+The `Message:` line names the processes. When the top entry is `svchost`, the PID
 in parentheses resolves to a service group with:
 
 ```powershell
@@ -119,41 +139,44 @@ component 1 to `60` until the process is identified, then restore it.
 
 ## What is verified and what is not
 
+**Verified against a real export (SolarWinds' *Server Clock Drift (PowerShell)* template,
+exported from a 2026.4 server on 2026-09-17):**
+
+- The `PowerShell` component: all thirteen setting keys, their order, `Required` flags and
+  `ValueType`s; the empty `<Thresholds />`; the two `DynamicEvidenceColumnSchema` entries
+  (`String` then `Numeric`, both named `Statistic`, the `String` one with an empty
+  `<DataTransform />`); the trailer with an empty `ApplicationItemType` and a nil
+  `ComponentCategoryName`.
+- The `PerformanceCounter` component: all eighteen setting keys the same way, including the
+  four `__DataTransform*` keys, `_BB_CanBeDisabled`, `FeatureNameRegex`, `SkipFallback`,
+  `PreferredPollingMethod` = `Default` and `WinRmAuthenticationMechanism` = `Negotiate`; the
+  `Thresholds` block keyed `StatisticData`; an empty `<DynamicColumnSettings />`.
+- The template trailer: `Tags` as `TagInfo` entries, nil `CustomApplicationType` and `ViewXml`,
+  `Version` `6.2.774.0`, the structured `ModuleVersion`; and that **no component carries
+  `__Frequency` or `__Timeout`**. An earlier version of this file wrote both on every
+  component, which is the most likely reason its import failed.
+- A structural diff of every component in this file against the matching real component,
+  ignoring only ids, names, labels and values, is empty.
+
 **Verified on a real host (Windows 11 Pro 26200, 2026-09-17):**
 
-- The script's output, exit codes and range detection.
-- That the `UDPv4` and `TCPv4` counter names in components 2–5 exist by those exact names,
-  from `Get-Counter -ListSet`.
-- The file is well-formed XML and mirrors the element order, namespaces, setting element name
-  and `DynamicEvidenceColumnSchema` structure of the real Citrix Hypervisor export in this
-  repository.
+- The script's output in both modes, its exit codes and its range detection.
+- That the `UDPv4` and `TCPv4` counter names in components 3 to 6 exist by those exact
+  names, from `Get-Counter -ListSet`.
 
-**Taken from real exports described in [sam-templates.md](sam-templates.md) but not
-re-exercised here:**
+**Inferred, one value:**
 
-- The `PowerShell` component's setting keys (`ExecutionMode`, `WinRmAuthenticationMechanism`,
-  `WrmPort`, `ScriptArguments`, `ScriptBody`) come from the three original samples that page
-  was built on, which held fifteen `PowerShell` components between them. The option value
-  `RemoteHost` for `ExecutionMode` is this template's inference from the console label
-  "Remote Host"; if import rejects it, build one `PowerShell` component in the console, export,
-  and copy the value the platform writes.
-- The `PerformanceCounter` component's keys `Category`, `Counter` and `Instance` likewise. The
-  same page lists `PreferredPollingMethod` as a fourth key; it is omitted here so the platform
-  default applies, on the reasoning that a missing optional key is safer than a wrong option
-  string. If import complains, add it with the value your own export shows.
-- The `Statistic.<Name> : <value>` line and one `DynamicEvidenceColumnSchema` per name are
-  proven by the Citrix export. **Two statistics from one script run is not** — every proven
-  component emits one. SolarWinds' page for the monitor states the limit is ten pairs, so two
-  should be fine, but if `EphemeralInUse` never populates, split component 1 into two
-  components running the same script.
+- `ExecutionMode` = `RemoteHost`. The real export's two components both use `LocalHost`; the
+  console's other choice is labelled "Remote Host", and the platform writes its options as
+  the label without the space. If the imported component shows Local Host in the console,
+  switch it there and export to learn the string.
 
-**Not verified at all:**
+**Not yet verified:**
 
-- Import of this exact file through `ImportTemplate` or the console, because no SolarWinds
-  server was reachable when it was written. The first import is the test.
-- The Windows Event Log component's setting keys in the file format. No export in this
-  repository contains one, which is why it is documented as a console step above instead of
-  being guessed into the XML, where a wrong key would fail the whole import.
+- Import of this exact file. The earlier version failed to import; this one has not been
+  tried. Report the result either way so this section can say so.
+- The Windows Event Log component's setting keys in the file format. The reference export
+  has none, which is why it remains a console step above.
 
 ## See also
 

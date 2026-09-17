@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**269 statements across 67 pages.**
+**268 statements across 66 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -524,12 +524,6 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Moving a template between servers](../modules/sam-templates.md#moving-a-template-between-servers)**
 
 - Whether `ImportTemplate` rejects, replaces or duplicates a template whose `UniqueId` already exists is **not documented and unverified here**.
-
-## [sam-udp-port-exhaustion-template.md](../modules/sam-udp-port-exhaustion-template.md)
-
-**[What is verified and what is not](../modules/sam-udp-port-exhaustion-template.md#what-is-verified-and-what-is-not)**
-
-- **Not verified at all:**
 
 ## [sam.md](../modules/sam.md)
 
