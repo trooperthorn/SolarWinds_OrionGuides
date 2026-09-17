@@ -456,6 +456,8 @@ constructing the document from nothing.
 - [sam.md](sam.md) — the SAM entities, all thirty-nine verbs, and assigning a template to a node
 - [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) — a worked template
   built to this format, monitoring a Citrix Hypervisor host with no AppInsight module
+- [sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md) — a second worked
+  template, `PowerShell` over WinRM plus native counters, for Windows UDP port exhaustion
 - [../polling/api-pollers.md](../polling/api-pollers.md#the-apipollertemplate-file-format) —
   the other matched-verb template format, and much simpler
 - [../automation/report-definitions.md](../automation/report-definitions.md) — the third

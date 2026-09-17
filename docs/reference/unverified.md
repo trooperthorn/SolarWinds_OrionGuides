@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**265 statements across 66 pages.**
+**269 statements across 67 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -516,9 +516,20 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Its syntax is **not documented and unverified here**.
 
+**[Dynamic script columns: `DynamicColumnSettings` and the `Statistic.<Name>` output contract](../modules/sam-templates.md#dynamic-script-columns-dynamiccolumnsettings-and-the-statisticname-output-contract)**
+
+- `Type` is `String` or `Numeric` in the sample; whether other values are legal is unverified.
+- A component reporting `k` values needs `k` matching `DynamicEvidenceColumnSchema` entries and `k` `echo` lines, one per name; the sample here never exercises more than one value per component, so how many a single run can carry, and whether the literal separator (`.` after `Statistic`, ` : ` before the value) tolerates any variation, remain **unverified beyond what a script emitting exactly one...
+
 **[Moving a template between servers](../modules/sam-templates.md#moving-a-template-between-servers)**
 
 - Whether `ImportTemplate` rejects, replaces or duplicates a template whose `UniqueId` already exists is **not documented and unverified here**.
+
+## [sam-udp-port-exhaustion-template.md](../modules/sam-udp-port-exhaustion-template.md)
+
+**[What is verified and what is not](../modules/sam-udp-port-exhaustion-template.md#what-is-verified-and-what-is-not)**
+
+- **Not verified at all:**
 
 ## [sam.md](../modules/sam.md)
 
@@ -664,6 +675,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The threshold boundary](../polling/api-pollers.md#the-threshold-boundary)**
 
 - Whether the comparison is strict — whether a mapped value exactly equal to `WarningThresholdValue` reads as Warning or as Up — is **not documented and unverified here**, and it matters when the mapped values are small ordinals, because one step in either direction is the difference between two status levels.
+
+**[See also](../polling/api-pollers.md#see-also)**
+
+- [README.md](../polling/README.md) for the other four polling systems and how to tell them apart - [standard-pollers.md](../polling/standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments - [../../scripts/api-pollers/](../../scripts/api-pollers) for the shipped, build-validated `.apipoller.template` example - [../modules/sam-citrix-hypervisor-template.md](../modules/sam-citrix-hypervisor-template.m...
 
 ## [device-studio.md](../polling/device-studio.md)
 
