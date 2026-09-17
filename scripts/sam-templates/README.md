@@ -4,7 +4,7 @@ Importable `.apmtemplate` files for Server and Application Monitor.
 
 | File | Demonstrates |
 | --- | --- |
-| [citrix-hypervisor-monitoring.apmtemplate](citrix-hypervisor-monitoring.apmtemplate) | Thirteen `LinuxScript`/`TcpPort` components polling a Citrix Hypervisor host over SSH with the `xe` CLI, including per-VM and per-storage-repository coverage, with no AppInsight module required |
+| [citrix-hypervisor-monitoring.apmtemplate](citrix-hypervisor-monitoring.apmtemplate) | Sixteen single-metric `LinuxScript`/`TcpPort` components covering Citrix Hypervisor pool inventory (VM counts, storage, snapshots, orphaned disks) plus a few host metrics, built to match the structure of a real SolarWinds Content Exchange Citrix Hypervisor template — complements that 63-component reference template rather than duplicating it |
 
 The format is documented in
 [../../docs/modules/sam-templates.md](../../docs/modules/sam-templates.md), and the module it

@@ -691,7 +691,7 @@ ORDER BY COUNT(v.ID)
 - [README.md](README.md) for the other four polling systems and how to tell them apart
 - [standard-pollers.md](standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments
 - [../../scripts/api-pollers/](../../scripts/api-pollers/) for the shipped, build-validated `.apipoller.template` example
-- [../modules/sam-citrix-hypervisor-template.md](../modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative-and-why-it-is-harder-here)
+- [../modules/sam-citrix-hypervisor-template.md](../modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative)
   for a worked, multi-request chain against a session-based API, and what is unverified about
   the variable handoff between requests
 - [../automation/credentials.md](../automation/credentials.md) for the credential store `CredentialsId` points at

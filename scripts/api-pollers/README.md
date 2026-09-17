@@ -64,7 +64,7 @@ demands, and it comes with an explicit warning attached: the syntax it uses to c
 `RequestVariable` from the login response into a later request's `Body` is inferred from the
 feature's stated purpose, not read off a real export, because no such export exists in this
 repository yet. See
-[../../docs/modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative-and-why-it-is-harder-here](../../docs/modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative-and-why-it-is-harder-here)
+[../../docs/modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative](../../docs/modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative)
 for how to confirm the real syntax on your own server before relying on this shape, and for why
 the SAM template in [../sam-templates/](../sam-templates/) is the better-tested route to the
 same metrics.
