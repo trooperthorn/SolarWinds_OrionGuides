@@ -380,7 +380,7 @@ ORDER BY v.DateTimeOrigination DESC
 
 ## 5. Top 25 non-7-digit calling numbers
 
-Widget 4 rolled up by calling number. The `IsNull(..., '(blank)')` in both the select list
+Widget 4 rolled up by calling number. The `IsNull(v.CallingPartyNumber, '(blank)')` in both the select list
 and the `GROUP BY` keeps the blank callers as one visible group rather than dropping them.
 
 Main query:
