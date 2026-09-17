@@ -19,6 +19,36 @@ XML shape in general, and now records this Citrix template as a fourth real samp
 disagrees with the first three on element order and on the `Settings` namespace. [sam.md](sam.md)
 covers the SAM entities and verbs a template becomes once imported and assigned.
 
+## Supported versions
+
+**The reference template documents one version: Citrix Hypervisor 8.0.** Its own `Description`
+states "Prerequisites: Hypervisor 8.0" in as many words, and its `Tags` list includes `8.0`
+alongside `Citrix` and `Hypervisor`. (A fourth tag, `New in 2020.2`, names the SolarWinds SAM
+release the template shipped in, not a Citrix version — do not read it as a second supported
+version.) Nothing else in that file names any other version, and nothing in it claims broader
+compatibility.
+
+That is a documented prerequisite, not a tested compatibility matrix, and the two are worth
+telling apart:
+
+- **No other version is confirmed working, and none is confirmed broken.** The `xe` commands and
+  RRD data source names both templates use (`cpu_avg`, `memory_free_kib`, `memory_total_kib`,
+  `pif_<interface>_rx`/`_tx`, `vm-list`, `pool-list`, `sr-param-get`, `snapshot-list`, `vdi-list`,
+  `vbd-list`) have been stable across Citrix Hypervisor and XenServer releases for years, which
+  makes it likely that both templates work on adjacent versions (XenServer 7.x, Citrix Hypervisor
+  8.1/8.2) and on XCP-ng, which tracks the same `xe` CLI. That is an inference from Citrix's own
+  CLI stability, not a claim either template or SolarWinds makes.
+- **This repository's own complementary template inherits the same exposure without adding to
+  it.** Its host-level components copy their data source names directly from the reference
+  template (see "`xe` commands and data source names" above), so they carry the same 8.0
+  prerequisite by construction. Its pool-level components use commands checked against Citrix's
+  general `xe` CLI reference rather than pinned to any one release, which is a wider net than a
+  documented guarantee.
+- **The one way to know for a version other than 8.0** is the same answer this page gives
+  everywhere else: run `StartTestComponents` against a real host on the version you actually
+  run. A data source or `xe` subcommand that exists in 8.0 is not guaranteed to exist, or to be
+  named the same way, on a version Citrix has not tested this against.
+
 ## What a fourth real export corrected
 
 An earlier version of both this template and this page assumed several things about SAM script
