@@ -164,19 +164,19 @@ exported from a 2026.4 server on 2026-09-17):**
 - That the `UDPv4` and `TCPv4` counter names in components 3 to 6 exist by those exact
   names, from `Get-Counter -ListSet`.
 
-**Inferred, one value:**
+**Verified by import (2026.4 server, 2026-09-17):**
 
-- `ExecutionMode` = `RemoteHost`. The real export's two components both use `LocalHost`; the
-  console's other choice is labelled "Remote Host", and the platform writes its options as
-  the label without the space. If the imported component shows Local Host in the console,
-  switch it there and export to learn the string.
+- The file imports as-is through the console, and all six components poll Up on assignment.
+  That confirms `ExecutionMode` = `RemoteHost` as the string the platform accepts for the
+  console's "Remote Host", and that two `PowerShell` components running one script with
+  different `ScriptArguments` is a working shape.
 
 **Not yet verified:**
 
-- Import of this exact file. The earlier version failed to import; this one has not been
-  tried. Report the result either way so this section can say so.
 - The Windows Event Log component's setting keys in the file format. The reference export
   has none, which is why it remains a console step above.
+- What each component reports once the range actually fills. The 70 / 90 thresholds and
+  the exit codes have only been exercised against a host sitting under 1 %.
 
 ## See also
 

@@ -158,6 +158,10 @@ Three things this sample corrects or adds:
   `<DynamicColumnSettings />`. `ApplicationItemType` is empty rather than `None`, and
   `ComponentCategoryName` is `i:nil`.
 
+A template built to these two key sets, [sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md),
+imported on the same 2026.4 server and polled Up on 2026-09-17, which also confirmed
+`RemoteHost` as the `ExecutionMode` string for the console's "Remote Host".
+
 ## Settings are a typed key/value map
 
 Both the template and each component carry a `Settings` map, serialised as .NET dictionary
