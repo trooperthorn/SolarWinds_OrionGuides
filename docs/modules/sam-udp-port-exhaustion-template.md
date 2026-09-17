@@ -56,7 +56,11 @@ WinRM session with the component's credential and runs the script there.
 
 Components 1 and 2 run the same script; the argument in `ScriptArguments` picks which number
 it reports, the way SolarWinds' own clock-drift template passes its time server. One value per
-component is the only output shape a real export shows, so that is the shape used. The
+component was chosen because it was the only proven shape when the file was built; the MongoDB
+re-export has since proven several named pairs from one component (see
+[sam-templates.md](sam-templates.md#dynamic-script-columns-dynamiccolumnsettings-and-the-statisticname-output-contract)),
+so the two could be merged into one component emitting `Statistic.PercentUsed` and
+`Statistic.EphemeralInUse`. They are left as two because that shape has imported and polled. The
 counters' thresholds are "unset" the way the platform writes it, `double.MaxValue` in both
 levels with `ComputeBaseline` on, so after the platform's baseline window (seven days of data)
 the baseline-derived levels apply until you set your own.
