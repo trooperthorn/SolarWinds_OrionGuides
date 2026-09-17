@@ -24,6 +24,15 @@ If you cannot verify a claim, you can still include it. Mark it explicitly as un
 and say how a reader can confirm it on their own server. Silence about uncertainty is the
 thing to avoid, not uncertainty itself.
 
+## What may be added
+
+Only material SolarWinds publishes on the public internet, or that a contributor wrote
+themselves against the published API. Nothing from a SolarWinds support case, partner
+portal, internal document, or any non-public channel, and no method of reaching a
+SolarWinds system beyond the documented, customer-facing API. That boundary is what lets
+the repository be shared without qualification, and a pull request that crosses it will
+be declined regardless of how useful the content is.
+
 ## Before you open a pull request
 
 ```bash
@@ -48,6 +57,8 @@ echo "SELECT n.Caption, n.Engine.ServerName FROM Orion.Nodes n" | python3 tools/
 | --- | --- | --- |
 | `docs/platform/`, `docs/swis/`, `docs/swql/`, `docs/schema/`, `docs/automation/`, `docs/polling/`, `docs/webui/` | Written guides | Yes |
 | `docs/reference/` | Generated enumerations | **No**, run `make docs-reference` |
+| `docs/TOC.md`, `llms-full.txt` | Generated from the pages under `docs/` | **No**, run `make docs-index` |
+| `llms.txt` | The page-level index AI systems read first | Yes, and add every new page to it |
 | `data/` | Extracted schema and reference data | **No**, run `make data` |
 | `scripts/` | Sample queries and client scripts | Yes |
 | `tools/` | Extraction, query, validation, generation | Yes |
@@ -66,6 +77,12 @@ make docs-reference
 ```
 
 CI regenerates and diffs, so a stale index fails the build the way a stale lockfile would.
+
+The same applies to the AI-facing indexes. Adding, renaming or reheading a page under
+`docs/` changes `docs/TOC.md` and `llms-full.txt`, so regenerate them in the same commit
+with `make docs-index`, and list the new page in `llms.txt` with a one-line summary.
+`make check` fails on a page that is missing from `llms.txt`, because a page the index
+does not name is a page no AI system will find.
 
 ## Adding sample queries
 

@@ -17,6 +17,21 @@ Everything below works offline. No server, no network, no credentials.
 - [AGENTS.md](AGENTS.md): how an AI system should use this repository, and the commands to look things up
 - [README.md](README.md): what the repository is and how it is built
 - [CONTRIBUTING.md](CONTRIBUTING.md): the verification discipline this repository is held to
+- [docs/README.md](docs/README.md): the documentation tree, section by section
+- [docs/TOC.md](docs/TOC.md): every heading on every page, with a one-sentence summary; the map for jumping to a section rather than a file
+- [llms-full.txt](llms-full.txt): every documentation page in one file, for systems that can fetch a URL but cannot run a command
+
+If you can fetch URLs but not run commands, this repository is also served as static files
+at https://trooperthorn.github.io/SolarWinds_OrionGuides/ with the same paths, so
+`llms.txt`, `llms-full.txt`, `docs/TOC.md`, and every page and data file below can be
+fetched directly. If you can run an MCP client, `tools/mcp_server.py` exposes the lookup
+commands below as tools; see [tools/README.md](tools/README.md#the-mcp-server).
+
+Everything here was assembled from resources SolarWinds publishes on the public internet:
+the OrionSDK repository and its rendered schema pages, the public SDK documentation, the
+Swagger contract shipped with the SDK, and a community SWQL examples workbook. It contains
+no SolarWinds internal documentation, no non-public material, and no method of access to
+any SolarWinds system beyond the documented, customer-facing API.
 
 If you are new to the platform's API, read [docs/swis/README.md](docs/swis/README.md) then
 [docs/swql/README.md](docs/swql/README.md), in that order. If you are here to look
@@ -107,6 +122,7 @@ Per-product deep dives. An entity only exists if its module is licensed and inst
 | [docs/modules/qoe.md](docs/modules/qoe.md) | Quality of Experience |
 | [docs/modules/hardware-health.md](docs/modules/hardware-health.md) | Hardware sensors |
 | [docs/modules/scm.md](docs/modules/scm.md) | Server Configuration Monitor |
+| [docs/modules/scm-compliance-policies.md](docs/modules/scm-compliance-policies.md) | SCM compliance policies: the policy format, rules, and how to move one between servers |
 | [docs/modules/cloud.md](docs/modules/cloud.md) | AWS, Azure and GCP monitoring |
 | [docs/modules/agents.md](docs/modules/agents.md) | The SolarWinds agent |
 
@@ -131,6 +147,7 @@ Task guides that combine query, CRUD and Invoke.
 | [docs/automation/report-definitions.md](docs/automation/report-definitions.md) | The report export XML, field by field, and moving a report between servers |
 | [docs/automation/scheduling.md](docs/automation/scheduling.md) | Scheduled tasks and maintenance plans |
 | [docs/automation/high-availability.md](docs/automation/high-availability.md) | HA pools |
+| [docs/automation/disa-stig-import.md](docs/automation/disa-stig-import.md) | Importing DISA STIG checks as SCM compliance policies |
 
 ## Polling
 

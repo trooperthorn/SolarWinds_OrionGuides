@@ -1890,5 +1890,92 @@ class TestOutputPairing(unittest.TestCase):
         self.assertFalse(ok)
 
 
+class TestLlmsIndex(unittest.TestCase):
+    """docs/TOC.md and llms-full.txt are what an AI system that cannot run a command reads.
+
+    The table of contents is built from headings and first sentences, and the one way it
+    can silently break the link checker is a backtick left behind by nested markdown.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import build_llms_index
+
+        cls.mod = build_llms_index
+
+    def test_nested_inline_markdown_is_fully_stripped(self):
+        # A link whose text is a code span, and bold around code: one pass leaves the
+        # inner backticks, and an unpaired backtick makes check_links.py swallow links.
+        self.assertEqual(self.mod.plain("[`orionsdk`](https://example.invalid), on PyPI"),
+                         "orionsdk, on PyPI")
+        self.assertEqual(self.mod.plain("**how much later `b` is than `a`**"),
+                         "how much later b is than a")
+
+    def test_first_sentence_skips_tables_lists_and_fences(self):
+        lines = [
+            "| a | b |", "|---|---|", "", "- a list item", "",
+            "```sql", "SELECT 1", "```", "",
+            "The sentence that counts. And one that does not.",
+        ]
+        self.assertEqual(self.mod.first_sentence(lines), "The sentence that counts.")
+
+    def test_entity_names_do_not_end_a_sentence(self):
+        self.assertEqual(self.mod.first_sentence(["Orion.Nodes holds nodes. More."]),
+                         "Orion.Nodes holds nodes.")
+
+    @requires_data
+    def test_generated_toc_has_no_unpaired_backticks(self):
+        toc = self.mod.build_toc(self.mod.docs_pages())
+        self.assertEqual(toc.count("`") % 2, 0)
+
+    @requires_data
+    def test_every_docs_page_is_covered_and_listed(self):
+        pages = self.mod.docs_pages()
+        self.assertEqual(len(pages), len(set(pages)))
+        self.assertIn("docs/README.md", pages)
+        self.assertNotIn("docs/TOC.md", pages)
+        self.assertEqual(self.mod.check_llms_txt(pages), [])
+
+
+class TestMcpServer(unittest.TestCase):
+    """The MCP server wraps the CLI, so it must give the CLI's answers and nothing more."""
+
+    @classmethod
+    def setUpClass(cls):
+        import mcp_server
+
+        cls.mod = mcp_server
+
+    def test_read_doc_stays_inside_the_documentation(self):
+        for path in ("../etc/passwd", "tools/schema_query.py", "data/schema/2026.2/index.json",
+                     "/etc/hostname", "docs/../tools/mcp_server.py"):
+            self.assertIn("error", self.mod.read_doc(path), path)
+        self.assertIn("content", self.mod.read_doc("AGENTS.md"))
+
+    @requires_data
+    def test_unknown_entity_is_an_error_not_an_exit(self):
+        result = self.mod.show_entity("Orion.Node")
+        self.assertIn("error", result)
+        self.assertIn("Orion.NodeCategories", result["error"])
+
+    @requires_data
+    def test_verb_lookup_matches_the_cli(self):
+        result = self.mod.show_verb("Orion.Nodes", "Unmanage")
+        self.assertEqual([p["name"] for p in result["parameters"]],
+                         ["netObjectId", "unmanageTime", "remanageTime", "isRelative",
+                          "allowOverlapping"])
+
+    @requires_data
+    def test_validate_query_reports_findings(self):
+        self.assertTrue(self.mod.validate_query("SELECT TOP 1 n.Caption FROM Orion.Nodes n")["ok"])
+        bad = self.mod.validate_query("SELECT n.Node.Foo FROM Orion.Nodes n")
+        self.assertFalse(bad["ok"])
+        self.assertEqual(bad["findings"][0]["level"], "ERROR")
+
+    def test_every_tool_has_a_docstring_for_the_client(self):
+        for fn in self.mod.TOOLS:
+            self.assertTrue((fn.__doc__ or "").strip(), fn.__name__)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

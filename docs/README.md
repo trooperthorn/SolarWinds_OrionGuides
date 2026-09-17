@@ -10,7 +10,9 @@ jump to [reference/](reference/README.md).
 The full section-by-section index (every page, organized by topic) lives in
 [llms.txt](../llms.txt) at the repository root. It is kept there rather than duplicated
 here so there is one index to update, not two, and so AI systems reading this repository
-find the same map a person browsing `docs/` does.
+find the same map a person browsing `docs/` does. [TOC.md](TOC.md) goes one level deeper:
+every heading on every page with a one-sentence summary, generated from the pages
+themselves, for jumping to a section rather than a file.
 
 ## Sections
 
