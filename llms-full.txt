@@ -16880,7 +16880,12 @@ wireless shape under `Orion.Wireless.` (14).
 
 Four pages in this section document an export file format field by field rather than a
 module. [sam-templates.md](sam-templates.md) documents the `.apmtemplate` document that
-`ExportTemplate` and `ImportTemplate` move. [ncm-device-templates.md](ncm-device-templates.md)
+`ExportTemplate` and `ImportTemplate` move, and
+[sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) is a worked example
+built to that format for a platform SAM has no stock template for, and
+[sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md) is a second,
+for a Windows signal no stock counter exposes.
+[ncm-device-templates.md](ncm-device-templates.md)
 documents the `.ConfigMgmtCommands` document that tells NCM how to hold a Telnet or SSH
 session with a given kind of device.
 [ncm-compliance-reports.md](ncm-compliance-reports.md) documents the policy report export —
@@ -27034,6 +27039,325 @@ is the tool for the job.
 
 
 ==============================================================================
+FILE: docs/modules/sam-citrix-hypervisor-template.md
+==============================================================================
+
+# A SAM template for Citrix Hypervisor (XenServer)
+
+SolarWinds does not ship an AppInsight application for Citrix Hypervisor (formerly XenServer,
+and the commercial counterpart of XCP-ng), but a real, community-sourced template for it exists
+on SolarWinds' Content Exchange: a 63-component `.apmtemplate` covering host and VM performance
+counters, built entirely from `LinuxScript` components running the `xe` CLI over SSH. A copy of
+that template was supplied during this repository's own work on the subject and is the ground
+truth this page and [scripts/sam-templates/citrix-hypervisor-monitoring.apmtemplate](../../scripts/sam-templates/citrix-hypervisor-monitoring.apmtemplate)
+are now built against.
+
+This page documents that reference template's structure, the smaller complementary template
+this repository ships (pool-wide inventory facts the reference template does not cover), and
+says plainly which parts of the shipped file are verified against the reference and which parts
+are still this repository's own construction and need confirming on a real host before you rely
+on them.
+
+Read [sam-templates.md](sam-templates.md) first if you have not: it documents the `.apmtemplate`
+XML shape in general, and now records this Citrix template as a fourth real sample that
+disagrees with the first three on element order and on the `Settings` namespace. [sam.md](sam.md)
+covers the SAM entities and verbs a template becomes once imported and assigned.
+
+## Supported versions
+
+**The reference template documents one version: Citrix Hypervisor 8.0.** Its own `Description`
+states "Prerequisites: Hypervisor 8.0" in as many words, and its `Tags` list includes `8.0`
+alongside `Citrix` and `Hypervisor`. (A fourth tag, `New in 2020.2`, names the SolarWinds SAM
+release the template shipped in, not a Citrix version — do not read it as a second supported
+version.) Nothing else in that file names any other version, and nothing in it claims broader
+compatibility.
+
+That is a documented prerequisite, not a tested compatibility matrix, and the two are worth
+telling apart:
+
+- **No other version is confirmed working, and none is confirmed broken.** The `xe` commands and
+  RRD data source names both templates use (`cpu_avg`, `memory_free_kib`, `memory_total_kib`,
+  `pif_<interface>_rx`/`_tx`, `vm-list`, `pool-list`, `sr-param-get`, `snapshot-list`, `vdi-list`,
+  `vbd-list`) have been stable across Citrix Hypervisor and XenServer releases for years, which
+  makes it likely that both templates work on adjacent versions (XenServer 7.x, Citrix Hypervisor
+  8.1/8.2) and on XCP-ng, which tracks the same `xe` CLI. That is an inference from Citrix's own
+  CLI stability, not a claim either template or SolarWinds makes.
+- **This repository's own complementary template inherits the same exposure without adding to
+  it.** Its host-level components copy their data source names directly from the reference
+  template (see "`xe` commands and data source names" above), so they carry the same 8.0
+  prerequisite by construction. Its pool-level components use commands checked against Citrix's
+  general `xe` CLI reference rather than pinned to any one release, which is a wider net than a
+  documented guarantee.
+- **The one way to know for a version other than 8.0** is the same answer this page gives
+  everywhere else: run `StartTestComponents` against a real host on the version you actually
+  run. A data source or `xe` subcommand that exists in 8.0 is not guaranteed to exist, or to be
+  named the same way, on a version Citrix has not tested this against.
+
+## What a fourth real export corrected
+
+An earlier version of both this template and this page assumed several things about SAM script
+components that turned out to be wrong once a real, working Citrix Hypervisor export was
+available to check them against. Recording the corrections here, because getting something
+wrong quietly and then fixing it silently would defeat the purpose of a repository whose value
+is that its claims are checkable:
+
+- **The script output contract is `Statistic.<Name> : <value>`, one line per named column, not
+  a numbered `Statistic1`/`Message1`..`Statistic10`/`Message10` slot scheme.** An earlier
+  revision of this template used the numbered-slot form on a practitioner's description of SAM
+  script monitors in general; the real Citrix export never uses that form anywhere across its
+  63 components. What it uses instead, on every component, is exactly one `echo` line whose
+  text is `Statistic.` followed by the `Name` of a `DynamicEvidenceColumnSchema` entry declared
+  in that component's own `DynamicColumnSettings`, then ` : `, then the value. See
+  [sam-templates.md](sam-templates.md#dynamic-script-columns-dynamiccolumnsettings-and-the-statisticname-output-contract)
+  for the full structure. **One component reports one named value this way in every sample
+  seen**; whether a single script run can emit several `Statistic.<Name>` lines for several
+  columns on one component is structurally plausible (the schema is a list) but not exercised
+  by this reference, so this repository's own components stay one metric per component to match
+  what is actually proven.
+- **`LinuxScript` does not use an `ExecutionMode` setting**, and does not use `ScriptArguments`
+  either. It uses `AuthenticationType` (`UsernamePassword`), `Port` (`22`), `ScriptDirectory`
+  (`/tmp`), `CommandLineToPass` (see below), `CountAsDifference` (`false`), and
+  `StatusRollupType` (`Worst`), none of which an earlier version of this template's components
+  carried.
+- **A `LinuxScript` component's arguments are supplied by a `CommandLineToPass` value with
+  angle-bracket placeholders**, not by the platform substituting `${USER}`/`${PASSWORD}`/`${IP}`
+  macros into the script body. See "The `CommandLineToPass` argument-prompt mechanism" below.
+- **The `.apmtemplate` root's element order and the `Settings` map's XML namespace differ from
+  what the first three samples behind `sam-templates.md` established**, and this template's own
+  file now follows the Citrix export's order and namespace rather than the earlier three-sample
+  convention, on the reasoning that matching a real, working file beats matching an inferred
+  table. See [sam-templates.md](sam-templates.md#a-fourth-sample-disagrees-with-the-table-above-and-is-worth-recording-rather-than-resolving)
+  for the specifics.
+
+## Two templates, not one
+
+Rather than try to reproduce the reference template's 63 components, this repository ships a
+**smaller, complementary** template:
+[citrix-hypervisor-monitoring.apmtemplate](../../scripts/sam-templates/citrix-hypervisor-monitoring.apmtemplate),
+16 components covering pool-wide inventory facts the reference template does not: VM
+power-state counts, default storage repository capacity, snapshot age and count, and orphaned
+virtual disk detection, plus a handful of single-value host metrics (CPU, memory, one named
+physical interface, uptime, enabled/live status) built the same way the reference template's own
+components are. Import both if you want the full picture: the reference template for detailed
+per-host and per-VM performance counters, this one for pool-level inventory.
+
+| Component | Type | Inputs prompted at assignment | Reports (`Statistic.<Name>`) |
+| --- | --- | --- | --- |
+| Host - CPU Utilization | `LinuxScript` | XenServerHostname | `Host_CPU_Utilization` — CPU (%) |
+| Host - Free Memory | `LinuxScript` | XenServerHostname | `Host_FreeMemoryMB` — free memory (MB) |
+| Host - Total Memory | `LinuxScript` | XenServerHostname | `Host_TotalMemoryMB` — installed memory (MB) |
+| Host - Physical Interface Receive | `LinuxScript` | XenServerHostname, InterfaceName | `Host_InterfaceReceiveBytesPerSec` |
+| Host - Physical Interface Send | `LinuxScript` | XenServerHostname, InterfaceName | `Host_InterfaceSendBytesPerSec` |
+| Host - Enabled and Live | `LinuxScript` | XenServerHostname | `Host_EnabledAndLive` — 1 or 0 |
+| Host - Uptime | `LinuxScript` | none | `Host_UptimeSeconds` — dom0's own `/proc/uptime`, not an `xe` value |
+| Pool - VMs Running | `LinuxScript` | none | `Pool_VMsRunning` |
+| Pool - VMs Halted | `LinuxScript` | none | `Pool_VMsHalted` |
+| Pool - VMs Suspended | `LinuxScript` | none | `Pool_VMsSuspended` |
+| Pool - Default Storage Repository Used Percent | `LinuxScript` | none | `Pool_DefaultSRUsedPercent` |
+| Pool - Default Storage Repository Free | `LinuxScript` | none | `Pool_DefaultSRFreeGB` |
+| Pool - Snapshot Count | `LinuxScript` | none | `Pool_SnapshotCount` |
+| Pool - Oldest Snapshot Age | `LinuxScript` | none | `Pool_OldestSnapshotAgeDays` |
+| Pool - Orphaned Virtual Disk Count | `LinuxScript` | none | `Pool_OrphanedVDICount` — the `xe`/XenAPI analogue of `Orion.VIM.DiskFiles.Orphaned` |
+| Host - XenAPI Management Port (443) | `TcpPort` | none (uses the assigned node's own address) | reachability of the management API itself |
+
+Every `LinuxScript` component here is **one metric, one component**, matching what all 63
+reference components do — not the multi-statistic-per-component design an earlier revision of
+this template used, which the reference export gives no evidence for.
+
+## The `CommandLineToPass` argument-prompt mechanism
+
+This is the mechanism that makes a single-component, single-metric template usable across
+different hosts and VMs without hand-editing the `.apmtemplate` file per target, and it was
+missed entirely in this template's first draft.
+
+A `LinuxScript` component's `CommandLineToPass` setting holds the shell invocation, built from
+the `${SCRIPT}` macro (substituted with the uploaded script's path on the target, the same macro
+[sam-templates.md](sam-templates.md#credentials-do-not-travel-and-neither-do-secrets) already
+documents) followed by zero or more `<PlaceholderName>` tokens:
+
+```
+/bin/sh ${SCRIPT} <XenServerHostname> <InterfaceName>
+```
+
+**Each `<PlaceholderName>` becomes a field SAM prompts for when the component is added to a
+node**, and the value entered there is passed to the script as a positional argument in order —
+`<XenServerHostname>` becomes `$1`, `<InterfaceName>` becomes `$2`, and so on. This is how the
+reference template's "Host - Average CPU" component, reused against any host in a pool, gets
+told *which* host to query: the operator types the Citrix hostname once, at assignment time, and
+the same template definition serves every host. It is also how "VM - CPU Utilization" in the
+reference template is told which VM and which named vCPU data source to read.
+
+Practical consequences for this repository's own components:
+
+- **Components with `Inputs: None`** (everything under "Pool -" above, plus "Host - Uptime")
+  self-discover their target by running `xe host-list`, `xe vm-list`, `xe pool-list` and so on
+  with no arguments, which works because those commands query whichever pool member the SSH
+  credential lands the session on. They carry a bare `CommandLineToPass` of
+  `/bin/sh ${SCRIPT}` with no placeholders. **The reference template never demonstrates a
+  zero-placeholder `CommandLineToPass`** — all 63 of its components take at least one argument
+  — so this specific shape is this repository's own extrapolation, not something read off the
+  reference file. It is ordinary enough shell invocation syntax that it should work, but it has
+  not been seen in a real export the way every other structural claim on this page has.
+- **Components with named inputs** (`Host - CPU Utilization` and the rest of the host-level
+  ones) prompt for the same `XenServerHostname` the reference template's host-level components
+  do, and `Host - Physical Interface Receive`/`Send` additionally prompt for `InterfaceName`,
+  mirroring the reference template's own "Host - Physical Interface Receive" component exactly
+  (down to reading `pif_"$IfName"_rx` from the second argument).
+
+## `xe` commands and data source names
+
+Every `xe` invocation and RRD data source name in this template's host-level components
+(`cpu_avg`, `memory_free_kib`, `memory_total_kib`, `pif_<interface>_rx`/`_tx`, and the
+`xe host-data-source-query hostname=$Hostname data-source=...` calling convention itself) is
+copied from the reference template's own scripts rather than reconstructed from Citrix's
+documentation independently — this is the "export a known-good one and rewrite values in place"
+approach [sam-templates.md](sam-templates.md#writing-one-by-hand) recommends, applied to a
+template file instead of a single query. `xe host-list hostname=$Hostname params=enabled
+--minimal` in "Host - Enabled and Live" is the one host-level command this repository's own
+component uses that the reference template does not demonstrate in that exact form (the
+reference template has no equivalent component); confirm it against `xe host-list --help`
+on your own host before relying on it.
+
+The pool-level components' commands (`xe vm-list power-state=...`, `xe pool-list
+params=default-SR`, `xe sr-param-get`, `xe snapshot-list`/`snapshot-param-get`, `xe vdi-list`/
+`vbd-list`) are this repository's own, verified against Citrix's published `xe` CLI reference
+rather than against a SolarWinds sample, because the reference template has no pool-inventory
+components to copy from.
+
+## Assign it like any other template
+
+Nothing about assignment is Citrix-specific; it is exactly the flow in
+[sam.md](sam.md#assigning-a-template-from-powershell). The credential must be SSH-capable for an
+account on a Citrix Hypervisor host with permission to run `xe`; `root` always can, and a
+non-root user needs the appropriate group membership or `xe` calls fail with a permission error
+rather than a missing-command error.
+
+```powershell
+$xml = Get-Content -Raw '.\citrix-hypervisor-monitoring.apmtemplate'
+$templateId = (Invoke-SwisVerb $swis 'Orion.APM.ApplicationTemplate' 'ImportTemplate' @($xml)).InnerText
+
+$nodeId = Get-SwisData $swis `
+    "SELECT NodeID FROM Orion.Nodes WHERE IPAddress = @ip" @{ ip = '192.0.2.20' }
+
+$applicationId = (Invoke-SwisVerb $swis 'Orion.APM.Application' 'CreateApplication' @(
+    $nodeId, $templateId, $credentialSetId, 'false'
+)).InnerText
+```
+
+When you add each component to the application (or edit it afterward), fill in the
+`XenServerHostname`/`InterfaceName` prompts the console shows for the components that declare
+them — an empty prompt means `$1`/`$2` is empty in the script, and every script here treats a
+missing value as `0` rather than failing loudly, so a blank prompt reads as "the metric is zero"
+rather than "not configured."
+
+**Test before you assign at scale.** `StartTestComponents` (documented in
+[sam-templates.md](sam-templates.md#test-before-you-assign)) runs every component against a real
+node without creating an application, which is the way to find a missing `xe` binary, a
+non-root credential, an unset prompt, or a host with no default storage repository before it
+shows up as a broken application in the console.
+
+## What is verified here and what is not
+
+- **The `.apmtemplate` XML shape used in this file** — root element order, the `Settings`
+  namespace, the per-component setting keys (`AuthenticationType`, `CommandLineToPass`,
+  `CountAsDifference`, `Port`, `ScriptBody`, `ScriptDirectory`, `StatusRollupType`), and the full
+  `DynamicColumnSettings`/`DynamicEvidenceColumnSchema`/`Threshold` structure — is copied
+  element-for-element from the real Citrix Hypervisor reference export, not inferred.
+- **The `Statistic.<Name> : <value>` output line and its one-metric-per-component design** are
+  likewise copied from the reference template's own proven pattern.
+- **The host-level `xe` commands and data source names this file's host-level components use**
+  are copied from the reference template's own scripts.
+- **The zero-placeholder `CommandLineToPass` this file's pool-level components use**
+  (`/bin/sh ${SCRIPT}` with no arguments) is this repository's own construction — the reference
+  template never has a component that needs no operator input, so this shape has not been seen
+  in a real export.
+- **The pool-level `xe` commands** (`vm-list`, `pool-list`, `sr-param-get`, `snapshot-list`,
+  `snapshot-param-get`, `vdi-list`, `vbd-list`) are this repository's own, checked against
+  Citrix's published `xe` reference, not against a SolarWinds sample.
+- **Whether a single script run can emit more than one `Statistic.<Name>` line for more than one
+  `DynamicEvidenceColumnSchema` column on the same component** is structurally plausible but
+  unexercised by the reference template, which never does it. This repository's components stay
+  one metric per component specifically to avoid relying on that unverified extension.
+- **The template-level `Id` (`9000`) and `ApplicationTemplateId`/`ComponentTemplateID` values
+  used to cross-reference components to their columns** are made-up integers chosen not to
+  collide with the reference template's own `Id` of `30`, following the same "local integer,
+  meaningless across servers" rule [sam-templates.md](sam-templates.md#the-template) documents;
+  they matter only for internal consistency within this file, not for import correctness.
+
+None of the above blocks the template from being imported and read as a starting point. It
+distinguishes what was copied from a proven, working file from what this repository built by
+extension and has not yet seen confirmed.
+
+## Known limitations
+
+- **Per-VM metrics are not covered at all.** The reference template's own VM-level components
+  (CPU, memory, disk, network, per-vCPU run states) already cover this territory in detail, one
+  component per metric with a `VirtualMachineUuid` (and sometimes a second identifier such as
+  `CPU Name`) prompt at assignment time. This repository's template does not duplicate them;
+  import the reference template alongside this one if you need per-VM detail.
+- **Pool-level components assume a pool master's view.** `xe vm-list`, `xe pool-list` and
+  `xe snapshot-list` all query the pool database, which every member can see, but the numbers
+  are pool-wide regardless of which member you assign the component to. There is no equivalent
+  concern for the host-level components, since those are explicitly told which host to query via
+  `XenServerHostname`.
+- **One storage repository only.** "Pool - Default Storage Repository Used Percent"/"Free" read
+  `xe pool-list params=default-SR`, so a pool with several SRs worth watching individually needs
+  one more pair of components per additional SR, following the same `sr-param-get` pattern with
+  a hard-coded SR UUID (or, more robustly, an SR name prompted for through `CommandLineToPass`
+  the way the host-level components take a hostname).
+- **Credentials do not travel with the export**, exactly as `sam-templates.md` documents for
+  every `.apmtemplate`: `__CredentialSetId` is `0` in this file, so every node this template is
+  assigned to needs a credential chosen at assignment time.
+
+## The API Poller alternative
+
+[scripts/api-pollers/citrix-hypervisor-xenapi.apipoller.template](../../scripts/api-pollers/citrix-hypervisor-xenapi.apipoller.template)
+remains in this repository as an experimental sketch of reaching XenAPI's JSON-RPC endpoint
+directly over HTTPS instead of through SSH and `xe`. Nothing about the discovery of a real,
+working SAM template changes its status: it is still unverified, for the reasons
+[api-pollers.md](../polling/api-pollers.md) and its own file comments already state — chiefly
+that the session-token handoff syntax between chained requests has never been seen in a real
+export. With a proven SAM template now available for the SSH/`xe` route, there is even less
+reason to reach for the API Poller route unless a specific policy forbids SSH to dom0 while
+allowing HTTPS to the management API.
+
+## Status and open questions for whoever picks this up next
+
+1. **Import both templates against a real host and run `StartTestComponents` on every
+   component.** Nothing in either template has touched a live Citrix Hypervisor host or a live
+   SAM server. The structural claims above are now grounded in a real export rather than
+   inferred, which is a materially stronger position than this page was in before, but "the XML
+   shape matches a working file" and "the numbers this file's own new scripts produce are
+   correct" are still two different kinds of confidence.
+2. **Confirm whether a zero-placeholder `CommandLineToPass` (`/bin/sh ${SCRIPT}` with no
+   arguments) imports and runs correctly.** This is the one structural shape in this file with
+   no precedent in the reference export; if it fails, the fix is to give every pool-level
+   component a `PoolMasterHostname`-style placeholder even though the script does not strictly
+   need it, purely to match a proven shape.
+3. **Confirm the pool-level `xe` commands** (`vm-list`, `pool-list`, `sr-param-get`,
+   `snapshot-list`, `vbd-list`, `vdi-list`) against a real pool, since they are this repository's
+   own construction rather than copied from a working sample.
+4. **Consider whether a single component can legitimately emit several `Statistic.<Name>`
+   lines.** If confirmed, later revisions of this template could consolidate related metrics
+   (for example the three storage numbers, or the three VM power-state counts) back into fewer,
+   richer components, the way this template's very first draft attempted before that approach
+   was found to have no support in a real export.
+
+## See also
+
+- [sam-templates.md](sam-templates.md) — the `.apmtemplate` file format, including the fourth
+  sample's corrections to element order, the `Settings` namespace, and `DynamicColumnSettings`
+- [sam.md](sam.md) — SAM entities, verbs, and assigning a template to a node
+- [../../scripts/sam-templates/](../../scripts/sam-templates/) — the template file itself
+- [../polling/api-pollers.md](../polling/api-pollers.md) — the API Poller format, for the
+  still-experimental XenAPI alternative
+- [../../scripts/api-pollers/citrix-hypervisor-xenapi.apipoller.template](../../scripts/api-pollers/citrix-hypervisor-xenapi.apipoller.template) —
+  the experimental multi-request API Poller template
+- [vman.md](vman.md) — why Citrix Hypervisor gets none of this natively: it is not one of the
+  platforms `Orion.VIM.Discovery` supports
+
+
+==============================================================================
 FILE: docs/modules/sam-templates.md
 ==============================================================================
 
@@ -27098,6 +27422,108 @@ Sixteen child elements, all present in all three samples:
 **`Id` versus `UniqueId` is the distinction to hold onto.** `Id` is the source server's integer
 primary key and means nothing on another server. `UniqueId` is the GUID that travels — and it
 is what `StartTestComponents` takes, not the integer.
+
+### A fourth sample disagrees with the table above, and is worth recording rather than resolving
+
+A community-sourced export (a SolarWinds Content Exchange "Citrix Hypervisor" template, tagged
+`New in 2020.2` in its own `Tags`, with `ModuleVersion._Major` reading `2026`) surfaced during
+work on [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) and contradicts
+several things this page states as universal from the first three samples:
+
+- **Element order is different, and `Settings` and `ComponentTemplates` come first.** This
+  sample's `ApplicationTemplate` root reads `Settings`, `ComponentTemplates`,
+  `DeletedComponentTemplates`, `Id`, `Name`, `IsMockTemplate`, `Description`, `Tags`, `Created`,
+  `LastModified`, `CustomApplicationType`, `Version`, `ViewID`, `ViewXml`, `ModuleVersion`,
+  `UniqueId` — the metadata fields trail the payload instead of leading it, which is the
+  reverse of the order in the table above.
+- **The `Settings` map uses a different XML namespace.** This sample declares
+  `xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays"` on every `Settings`
+  element (both the template's and each component's), not
+  `http://schemas.datacontract.org/2004/07/System.Collections.Generic` as the three samples
+  behind this page use. The element name `KeyValueOfstringSettingValueyR_SGpLPx` is identical
+  either way.
+- **The inner `Key` element is not always `i:nil="true"`.** At the template level this sample
+  matches the three-sample pattern (`<Key i:nil="true" />`), but at the component level every
+  setting's inner `Key` repeats the setting's own name instead (`<Key>__Disabled</Key>`).
+- **`ModuleVersion` and `Tags` are not whitespace-only here.** `ModuleVersion` carries a real
+  `_Build`/`_Major`/`_Minor`/`_Revision` structure, and `Tags` carries a list of `TagInfo`
+  elements, each with a `Name` and the template's own `Id` repeated as `TemplateID`.
+
+**This is not resolved into a single corrected table because there is nothing to resolve it
+with.** Four real exports now disagree on element order and on one XML namespace, and the two
+groups differ by more than one field, which reads like two distinct serialisation paths (an
+older XmlSerializer-style export and a newer DataContractSerializer-style one, or simply a
+platform-version difference) rather than one group being wrong. Both are reported here as
+**working** by the people who supplied them. If you are hand-building a template, the
+practically important consequence is: **match the order and namespace of an export from your
+own server**, exported with `ExportTemplate` against the version you will import into, rather
+than trusting either shape in this page blindly. If you discover which platform version
+produces which shape, that is exactly the kind of fact worth adding here.
+
+See [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md#what-a-fourth-real-export-corrected)
+for the full comparison, including the script output contract correction it drove.
+
+### A fifth sample: the `PowerShell` and `PerformanceCounter` key sets
+
+A 2026.4 export of SolarWinds' own *Server Clock Drift (PowerShell)* template (two `PowerShell`
+and 25 `PerformanceCounter` components) was supplied on 2026-09-17 while building
+[sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md). It has the fourth
+sample's shape (payload first, `Serialization/Arrays` namespace, inner `Key` repeating the
+name, `TagInfo` tags, structured `ModuleVersion`), so that shape is now two-for-two on current
+servers. It also settles the two component types this page had only listed:
+
+| `PowerShell` key | Required | ValueType | In the sample |
+| --- | --- | --- | --- |
+| `__Disabled` | false | Boolean | `False` |
+| `__CredentialSetId` | false | String | `0` |
+| `__UserDescription`, `__UserNotes` | false | String | |
+| `CountAsDifference` | false | Boolean | `false` |
+| `ExecutionMode` | false | Option | `LocalHost` |
+| `ImpersonateForLocalMode` | false | Boolean | `false` |
+| `ScriptArguments` | false | String | `time.nist.gov` |
+| `ScriptBody` | true | External | the script |
+| `StatusRollupType` | true | Option | `Worst` |
+| `WrmPort` | true | Integer | `5985` |
+| `WrmUrlPrefix` | true | String | `wsman` |
+| `WrmUseSSL` | false | Boolean | `false` |
+
+| `PerformanceCounter` key | Required | ValueType | In the sample |
+| --- | --- | --- | --- |
+| `__Disabled` | false | Boolean | `False` |
+| `__CredentialSetId` | true | String | `0` |
+| `__DataTransformCheckedRadioButton` | false | Boolean | `0` |
+| `__DataTransformCommonFormulaIndex` | false | Integer | `0` |
+| `__DataTransformCommonFormulaOptions` | false | String | `0` |
+| `__DataTransformEnabled` | false | Boolean | `false` |
+| `__UserDescription`, `__UserNotes` | false | String | |
+| `_BB_CanBeDisabled` | false | Boolean | `true` |
+| `Category`, `Counter` | true | String | |
+| `CountAsDifference` | false | Boolean | `false` |
+| `FeatureNameRegex` | false | String | empty |
+| `Instance` | false | String | empty |
+| `PreferredPollingMethod` | true | Option | `Default` |
+| `SkipFallback` | false | Boolean | `true` |
+| `TransformExpression` | false | String | empty |
+| `WinRmAuthenticationMechanism` | false | Option | `Negotiate` |
+
+Three things this sample corrects or adds:
+
+- **Neither type carries `__Frequency` or `__Timeout` on the component.** The Citrix sample's
+  `LinuxScript` components do. Writing them onto a `PowerShell` or `PerformanceCounter`
+  component is a plausible way to make an import fail.
+- **`PowerShell` does not carry `WinRmAuthenticationMechanism`; `PerformanceCounter` does.**
+  The earlier table on this page listed the key without saying which type owns it.
+- **A `PowerShell` component reports one unnamed pair**, `Message:` and `Statistic:`, matched
+  by two `DynamicEvidenceColumnSchema` entries both named `Statistic`, a `String` column with
+  an empty `<DataTransform />` and a `Numeric` column with the nested one, and its
+  `<Thresholds />` is empty, the numeric column's own `Threshold` carrying the levels.
+  `PerformanceCounter` is the reverse: a `Thresholds` block keyed `StatisticData` and an empty
+  `<DynamicColumnSettings />`. `ApplicationItemType` is empty rather than `None`, and
+  `ComponentCategoryName` is `i:nil`.
+
+A template built to these two key sets, [sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md),
+imported on the same 2026.4 server and polled Up on 2026-09-17, which also confirmed
+`RemoteHost` as the `ExecutionMode` string for the console's "Remote Host".
 
 ## Settings are a typed key/value map
 
@@ -27193,9 +27619,23 @@ use**, not the complete set.
 
 Each type reads a different subset of `Settings`. `WindowsService` uses `ServiceName` and
 `NotRunningStatusMode`; `PerformanceCounter` uses `Category`, `Counter`, `Instance` and
-`PreferredPollingMethod`; the script types use `ScriptBody`, `ScriptArguments` and
-`ExecutionMode`; `Http`/`Https` use `Url`, `SearchString`, `FailIfFound`, `FollowRedirect` and
-a proxy group.
+`PreferredPollingMethod`; `Http`/`Https` use `Url`, `SearchString`, `FailIfFound`, `FollowRedirect`
+and a proxy group.
+
+**Correction to an earlier version of this page:** it stated the script types use `ScriptBody`,
+`ScriptArguments` and `ExecutionMode`, inferred from element names the three samples never
+actually populated on a `LinuxScript` component. The fourth sample discussed above (63
+`LinuxScript` components, all real and reportedly working) uses neither `ScriptArguments` nor
+`ExecutionMode` at all, and instead carries `ScriptBody`, `ScriptDirectory` (a working directory,
+`/tmp` in every instance), `CommandLineToPass` (the interpreter invocation, with the `${SCRIPT}`
+macro and any operator-supplied arguments — see
+[sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md#the-commandlinetopass-argument-prompt-mechanism)
+for what that argument mechanism does), `AuthenticationType` (`UsernamePassword` in every
+instance), `Port` (`22`), `CountAsDifference` (`false`), and `StatusRollupType` (`Worst`). Since
+this is now two disagreeing real samples rather than one inferred guess, treat both key sets as
+things a `LinuxScript` component *might* need depending on platform version, confirm which one
+your server's console writes by building one and exporting it, and do not assume `ExecutionMode`
+exists at all without checking.
 
 ### Thresholds
 
@@ -27235,6 +27675,80 @@ Three things worth extracting:
   threshold is expressible. Its syntax is **not documented and unverified here**.
 
 `ThresholdOperator` is `Greater` throughout; the other operators are not exercised.
+
+### Dynamic script columns: `DynamicColumnSettings` and the `Statistic.<Name>` output contract
+
+None of the three original samples populate `DynamicColumnSettings` on a script component, so
+this page previously left its structure undocumented. The fourth sample described above (the
+Citrix Hypervisor community template) does populate it, on every one of its 63 `LinuxScript`
+components, and the structure and the script output contract that feeds it are now verified
+from that real, working export:
+
+```xml
+<DynamicColumnSettings>
+  <DynamicEvidenceColumnSchema>
+    <Cells />
+    <ComponentID>-1</ComponentID>
+    <ComponentTemplateID>885</ComponentTemplateID>
+    <DataTransform>
+      <CommonFormulaOptions>0</CommonFormulaOptions>
+      <TransformExpression></TransformExpression>
+    </DataTransform>
+    <DataTransformOverridden>false</DataTransformOverridden>
+    <Disabled>false</Disabled>
+    <ID>221</ID>
+    <Label>Host Average CPU Utilization</Label>
+    <LabelOverridden>false</LabelOverridden>
+    <Name>Host_AverageCPU_Utilization</Name>
+    <ParentID>-1</ParentID>
+    <Threshold>
+      <AreHigherValuesBetter>false</AreHigherValuesBetter>
+      <BaselineApplyError></BaselineApplyError>
+      <ComputeBaseline>true</ComputeBaseline>
+      <CriticalFormula></CriticalFormula>
+      <CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+      <CriticalPolls>1</CriticalPolls>
+      <CriticalPollsInterval>1</CriticalPollsInterval>
+      <IsForParentComponent>false</IsForParentComponent>
+      <IsForTemplate>false</IsForTemplate>
+      <MaxValue>100</MaxValue>
+      <Name></Name>
+      <WarnLevel>1.7976931348623157E+308</WarnLevel>
+      <WarningFormula></WarningFormula>
+      <WarningPolls>1</WarningPolls>
+      <WarningPollsInterval>1</WarningPollsInterval>
+      <ThresholdOperator>Greater</ThresholdOperator>
+    </Threshold>
+    <ThresholdOverridden>false</ThresholdOverridden>
+    <Type>Numeric</Type>
+  </DynamicEvidenceColumnSchema>
+</DynamicColumnSettings>
+```
+
+One `DynamicEvidenceColumnSchema` element per reported value. **`ComponentTemplateID` repeats
+the owning component's own `Id`** — not `-1` like `ComponentID`, which is a separate,
+always-`-1` placeholder in every one of the 63 samples. `ID` is a small integer unique across
+the whole file, sequential-ish but not reset per component. `1.7976931348623157E+308` is
+`double.MaxValue`, used here as the sentinel for "no threshold set" on both `CriticalLevel` and
+`WarnLevel` — a component ships with this default and an operator sets a real number afterward.
+`Type` is `String` or `Numeric` in the sample; whether other values are legal is unverified.
+
+**The script's own output is what ties a line of text to one of these columns**, and this is
+the second thing the same sample settles: every script prints
+
+```
+echo "Statistic.<Name> : <value>";
+```
+
+where `<Name>` is exactly the `Name` of one `DynamicEvidenceColumnSchema` entry — not a fixed
+numbered slot, and not an arbitrary free-form label. A component reporting `k` values needs `k`
+matching `DynamicEvidenceColumnSchema` entries and `k` `echo` lines, one per name; the sample
+here never exercises more than one value per component, so how many a single run can carry, and
+whether the literal separator (`.` after `Statistic`, ` : ` before the value) tolerates any
+variation, remain **unverified beyond what a script emitting exactly one line, matching exactly
+one column, has proven**. `sam.md`'s own note that `DynamicEvidence`/`DynamicEvidenceColumnSchema`
+carry "the columns a script monitor returned" is confirmed by this sample rather than
+superseded by it.
 
 ## Credentials do not travel, and neither do secrets
 
@@ -27365,6 +27879,10 @@ constructing the document from nothing.
 ## See also
 
 - [sam.md](sam.md) — the SAM entities, all thirty-nine verbs, and assigning a template to a node
+- [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) — a worked template
+  built to this format, monitoring a Citrix Hypervisor host with no AppInsight module
+- [sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md) — a second worked
+  template, `PowerShell` over WinRM plus native counters, for Windows UDP port exhaustion
 - [../polling/api-pollers.md](../polling/api-pollers.md#the-apipollertemplate-file-format) —
   the other matched-verb template format, and much simpler
 - [../automation/report-definitions.md](../automation/report-definitions.md) — the third
@@ -27372,6 +27890,198 @@ constructing the document from nothing.
 - [../automation/credentials.md](../automation/credentials.md) — the credential sets a template
   is assigned with
 - [apps/porter](../../apps/porter/README.md) — a shipped Windows utility whose SAM provider implements the `ExportTemplate`/`ImportTemplate` round trip documented here, with the script-body review warning
+
+
+==============================================================================
+FILE: docs/modules/sam-udp-port-exhaustion-template.md
+==============================================================================
+
+# A SAM template for Windows UDP ephemeral port exhaustion
+
+Windows hands every outbound UDP socket a port from one dynamic range (`49152`–`65535` by
+default, 16,384 ports). When a process opens sockets faster than it closes them the range
+fills, the kernel logs **System / Tcpip / event 4266** ("A request to allocate an ephemeral
+port number from the global UDP port space has failed due to all such ports being in use"),
+and from that moment every UDP client on the host fails: DNS resolution first, then anything
+built on it. Nothing in the stock Windows counters reports how full the range is, and the
+event only fires once it is already full, which is why this template exists.
+
+The template in
+[scripts/sam-templates/windows-udp-port-exhaustion.apmtemplate](../../scripts/sam-templates/windows-udp-port-exhaustion.apmtemplate)
+gets the number SAM cannot get natively — percent of the dynamic range in use and which
+processes hold it — with a `PowerShell` component run on the target over WinRM, and surrounds
+it with the native `PerformanceCounter` components that show a burst as it happens. The one
+component SAM does ship for this signal, a Windows Event Log monitor for event 4266, is added
+in the console rather than in the file, for the reason given under
+[What is verified and what is not](#what-is-verified-and-what-is-not).
+
+Read [sam-templates.md](sam-templates.md) first for the `.apmtemplate` shape. This file is
+built against a real 2026.4 export of SolarWinds' own *Server Clock Drift (PowerShell)*
+template, which carries exactly the two component types used here (two `PowerShell`, 25
+`PerformanceCounter`). Every setting key, its `Required` flag, its `ValueType` and its order,
+the threshold and dynamic-column blocks, and the template trailer are copied from that export;
+[sam-templates.md](sam-templates.md#a-fifth-sample-the-powershell-and-performancecounter-key-sets)
+records what it settled.
+
+## Why a script and not a counter
+
+The candidates, against the SAM component types:
+
+| Signal | SAM type that could carry it | Verdict |
+| --- | --- | --- |
+| Ports in use as a fraction of the range | none native — no Windows performance counter or WMI class exposes the count of open UDP endpoints | `PowerShell` component reading `Get-NetUDPEndpoint` |
+| Event 4266 has fired | Windows Event Log monitor | native; add in the console |
+| UDP datagram rate, no-port datagrams, receive errors | `PerformanceCounter` under category `UDPv4` | native; in the file |
+| TCP connections established | `PerformanceCounter` under `TCPv4` | native; in the file, because the TCP pool has the same failure (event 4231) |
+
+`Get-NetUDPEndpoint` is the NetTCPIP module's view of the kernel socket table, the same rows
+`netstat -ano -p udp` prints, delivered as objects with an `OwningProcess` column. It is a
+local CIM call on the target (class `MSFT_NetUDPEndpoint`), not a performance counter and not a
+remote WMI query from the poller. SAM reaches it by running the script on the target, which
+is what `ExecutionMode` = `RemoteHost` means for a `PowerShell` component: the poller opens a
+WinRM session with the component's credential and runs the script there.
+
+## The components
+
+| # | Component | Type | Reports | Threshold shipped |
+| --- | --- | --- | --- | --- |
+| 1 | UDP Ephemeral Ports - Percent Used | `PowerShell` (Remote Host), argument `percent` | percent of the range in use | warn 70, critical 90 |
+| 2 | UDP Ephemeral Ports - In Use | `PowerShell` (Remote Host), argument `count` | ports in use | warn 11 469, critical 14 746 (70 / 90 % of 16 384) |
+| 3 | UDPv4 - Datagrams/sec | `PerformanceCounter` | rate | unset; baseline |
+| 4 | UDPv4 - Datagrams No Port/sec | `PerformanceCounter` | rate | unset; baseline |
+| 5 | UDPv4 - Datagrams Received Errors | `PerformanceCounter`, `CountAsDifference` | errors per poll | unset; baseline |
+| 6 | TCPv4 - Connections Established | `PerformanceCounter` | count | unset; baseline |
+
+Components 1 and 2 run the same script; the argument in `ScriptArguments` picks which number
+it reports, the way SolarWinds' own clock-drift template passes its time server. One value per
+component is the only output shape a real export shows, so that is the shape used. The
+counters' thresholds are "unset" the way the platform writes it, `double.MaxValue` in both
+levels with `ComputeBaseline` on, so after the platform's baseline window (seven days of data)
+the baseline-derived levels apply until you set your own.
+
+The script is also shipped standalone as
+[scripts/sam-templates/windows-udp-port-exhaustion.ps1](../../scripts/sam-templates/windows-udp-port-exhaustion.ps1)
+so it can be run by hand on a suspect host. With `percent` (the default) it prints:
+
+```
+Message: 0.14% of the UDP dynamic range (49152-65535, 16384 ports) in use. Top: svchost(7668)=6, chrome(2628)=4, svchost(4480)=3, svchost(4220)=2, dasHost(5868)=2
+Statistic: 0.14
+```
+
+and with `count`:
+
+```
+Message: 23 of 16384 ephemeral UDP ports (49152-65535) in use; 43 UDP endpoints total. Top: svchost(7668)=6, chrome(2628)=4, svchost(4480)=3, svchost(4220)=2, dasHost(5868)=2
+Statistic: 23
+```
+
+`Message:` and `Statistic:` with no name suffix is the pair SolarWinds' own PowerShell
+templates emit, matched by the two dynamic columns both named `Statistic` (one `String`, one
+`Numeric`) that a real export carries on every `PowerShell` component.
+
+The script reads the range from `netsh int ipv4 show dynamicport udp` rather than assuming
+the default, counts only endpoints whose local port falls inside that range (listening
+services on fixed ports below it are not exhaustion), and names the five processes holding the
+most. It exits `0` below 70 %, `2` at 70 %, `3` at 90 %, and `1` if it could not read the
+table, so the component's own status tracks the number even before a threshold is edited.
+
+The 70 / 90 levels are a starting point. A host that legitimately runs a DNS server, a SIP
+proxy or a scanner will sit higher; set the warning a comfortable margin above what that host
+shows at its busiest.
+
+## The event log component, added in the console
+
+Add a **Windows Event Log Monitor** to the assigned application with these values. The console
+labels are quoted from SolarWinds' page for the monitor:
+
+| Field | Value |
+| --- | --- |
+| Log to Monitor | `System` |
+| Log Source | `Tcpip` |
+| Event ID | match specific IDs: `4266` (add `4231` to catch the TCP pool as well) |
+| Event Type | Any Event |
+| Match Definition | Custom, the fields above |
+| Number of past polling intervals to search for events | `1` |
+| If a match is found in a polling period, component is | Down |
+| Fetching Method | WMI (WinRM/DCOM), or Agent if the node has one |
+
+Its statistic is the count of matching events in the window, so it reads `0` in normal
+operation and turns Down the poll after a 4266 lands. Because event 4266 fires only when the
+range is already at 100 %, this component is the confirmation; component 1 is the early
+warning.
+
+## Assigning it
+
+The `PowerShell` component needs a credential that can open a WinRM session on the target and
+has rights to read the socket table, which any local administrator has. WinRM must be listening
+(`winrm quickconfig` on the target if it is not), and TCP `5985` must be open from the poller.
+The `PerformanceCounter` components use whatever fetching method the node already polls with
+and inherit the node credential.
+
+Test with `StartTestComponents` before assigning broadly, as
+[sam-templates.md](sam-templates.md#test-before-you-assign) describes.
+
+## Finding the culprit once it fires
+
+The `Message:` line names the processes. When the top entry is `svchost`, the PID
+in parentheses resolves to a service group with:
+
+```powershell
+tasklist /svc /fi "PID eq <pid>"
+```
+
+The range fills in a burst, not a drift, so a poll every five minutes can miss the peak
+entirely; the six 4266 events that prompted this template each landed between polls that
+showed under 1 %. For a host that has already exhibited the fault, drop `__Frequency` on
+component 1 to `60` until the process is identified, then restore it.
+
+## What is verified and what is not
+
+**Verified against a real export (SolarWinds' *Server Clock Drift (PowerShell)* template,
+exported from a 2026.4 server on 2026-09-17):**
+
+- The `PowerShell` component: all thirteen setting keys, their order, `Required` flags and
+  `ValueType`s; the empty `<Thresholds />`; the two `DynamicEvidenceColumnSchema` entries
+  (`String` then `Numeric`, both named `Statistic`, the `String` one with an empty
+  `<DataTransform />`); the trailer with an empty `ApplicationItemType` and a nil
+  `ComponentCategoryName`.
+- The `PerformanceCounter` component: all eighteen setting keys the same way, including the
+  four `__DataTransform*` keys, `_BB_CanBeDisabled`, `FeatureNameRegex`, `SkipFallback`,
+  `PreferredPollingMethod` = `Default` and `WinRmAuthenticationMechanism` = `Negotiate`; the
+  `Thresholds` block keyed `StatisticData`; an empty `<DynamicColumnSettings />`.
+- The template trailer: `Tags` as `TagInfo` entries, nil `CustomApplicationType` and `ViewXml`,
+  `Version` `6.2.774.0`, the structured `ModuleVersion`; and that **no component carries
+  `__Frequency` or `__Timeout`**. An earlier version of this file wrote both on every
+  component, which is the most likely reason its import failed.
+- A structural diff of every component in this file against the matching real component,
+  ignoring only ids, names, labels and values, is empty.
+
+**Verified on a real host (Windows 11 Pro 26200, 2026-09-17):**
+
+- The script's output in both modes, its exit codes and its range detection.
+- That the `UDPv4` and `TCPv4` counter names in components 3 to 6 exist by those exact
+  names, from `Get-Counter -ListSet`.
+
+**Verified by import (2026.4 server, 2026-09-17):**
+
+- The file imports as-is through the console, and all six components poll Up on assignment.
+  That confirms `ExecutionMode` = `RemoteHost` as the string the platform accepts for the
+  console's "Remote Host", and that two `PowerShell` components running one script with
+  different `ScriptArguments` is a working shape.
+
+**Not yet verified:**
+
+- The Windows Event Log component's setting keys in the file format. The reference export
+  has none, which is why it remains a console step above.
+- What each component reports once the range actually fills. The 70 / 90 thresholds and
+  the exit codes have only been exercised against a host sitting under 1 %.
+
+## See also
+
+- [sam-templates.md](sam-templates.md) — the file format this is built to
+- [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) — the other template
+  in this repository, and the real export both are shaped against
+- [sam.md](sam.md) — assigning a template and testing components
 
 
 ==============================================================================
@@ -28288,6 +28998,10 @@ applications out.
 
 ## See also
 
+- [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) — a hand-built
+  template covering Citrix Hypervisor, a platform with no stock SAM template or AppInsight
+- [sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md) — a hand-built
+  template for Windows UDP ephemeral port exhaustion, the condition behind Tcpip event 4266
 - [hardware-health.md](hardware-health.md) for the sensor data that appears on the same
   nodes SAM monitors, and which SAM is one of the two modules that enables.
 - [README.md](README.md) for the index of every module page.
@@ -45911,6 +46625,9 @@ ORDER BY COUNT(v.ID)
 - [README.md](README.md) for the other four polling systems and how to tell them apart
 - [standard-pollers.md](standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments
 - [../../scripts/api-pollers/](../../scripts/api-pollers/) for the shipped, build-validated `.apipoller.template` example
+- [../modules/sam-citrix-hypervisor-template.md](../modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative)
+  for a worked, multi-request chain against a session-based API, and what is unverified about
+  the variable handoff between requests
 - [../automation/credentials.md](../automation/credentials.md) for the credential store `CredentialsId` points at
 - [../swis/invoke-verbs.md](../swis/invoke-verbs.md) for the Invoke contract and array arguments
 - [../swql/gotchas.md](../swql/gotchas.md) for the `StatusInfo` navigation
@@ -60361,7 +61078,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**265 statements across 66 pages.**
+**268 statements across 66 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -60869,6 +61586,11 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Its syntax is **not documented and unverified here**.
 
+**[Dynamic script columns: `DynamicColumnSettings` and the `Statistic.<Name>` output contract](../modules/sam-templates.md#dynamic-script-columns-dynamiccolumnsettings-and-the-statisticname-output-contract)**
+
+- `Type` is `String` or `Numeric` in the sample; whether other values are legal is unverified.
+- A component reporting `k` values needs `k` matching `DynamicEvidenceColumnSchema` entries and `k` `echo` lines, one per name; the sample here never exercises more than one value per component, so how many a single run can carry, and whether the literal separator (`.` after `Statistic`, ` : ` before the value) tolerates any variation, remain **unverified beyond what a script emitting exactly one...
+
 **[Moving a template between servers](../modules/sam-templates.md#moving-a-template-between-servers)**
 
 - Whether `ImportTemplate` rejects, replaces or duplicates a template whose `UniqueId` already exists is **not documented and unverified here**.
@@ -61017,6 +61739,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The threshold boundary](../polling/api-pollers.md#the-threshold-boundary)**
 
 - Whether the comparison is strict — whether a mapped value exactly equal to `WarningThresholdValue` reads as Warning or as Up — is **not documented and unverified here**, and it matters when the mapped values are small ordinals, because one step in either direction is the difference between two status levels.
+
+**[See also](../polling/api-pollers.md#see-also)**
+
+- [README.md](../polling/README.md) for the other four polling systems and how to tell them apart - [standard-pollers.md](../polling/standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments - [../../scripts/api-pollers/](../../scripts/api-pollers) for the shipped, build-validated `.apipoller.template` example - [../modules/sam-citrix-hypervisor-template.md](../modules/sam-citrix-hypervisor-template.m...
 
 ## [device-studio.md](../polling/device-studio.md)
 

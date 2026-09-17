@@ -910,6 +910,8 @@ applications out.
 
 - [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) — a hand-built
   template covering Citrix Hypervisor, a platform with no stock SAM template or AppInsight
+- [sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md) — a hand-built
+  template for Windows UDP ephemeral port exhaustion, the condition behind Tcpip event 4266
 - [hardware-health.md](hardware-health.md) for the sensor data that appears on the same
   nodes SAM monitors, and which SAM is one of the two modules that enables.
 - [README.md](README.md) for the index of every module page.

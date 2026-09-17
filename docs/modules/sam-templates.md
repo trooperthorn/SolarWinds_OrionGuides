@@ -100,6 +100,68 @@ produces which shape, that is exactly the kind of fact worth adding here.
 See [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md#what-a-fourth-real-export-corrected)
 for the full comparison, including the script output contract correction it drove.
 
+### A fifth sample: the `PowerShell` and `PerformanceCounter` key sets
+
+A 2026.4 export of SolarWinds' own *Server Clock Drift (PowerShell)* template (two `PowerShell`
+and 25 `PerformanceCounter` components) was supplied on 2026-09-17 while building
+[sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md). It has the fourth
+sample's shape (payload first, `Serialization/Arrays` namespace, inner `Key` repeating the
+name, `TagInfo` tags, structured `ModuleVersion`), so that shape is now two-for-two on current
+servers. It also settles the two component types this page had only listed:
+
+| `PowerShell` key | Required | ValueType | In the sample |
+| --- | --- | --- | --- |
+| `__Disabled` | false | Boolean | `False` |
+| `__CredentialSetId` | false | String | `0` |
+| `__UserDescription`, `__UserNotes` | false | String | |
+| `CountAsDifference` | false | Boolean | `false` |
+| `ExecutionMode` | false | Option | `LocalHost` |
+| `ImpersonateForLocalMode` | false | Boolean | `false` |
+| `ScriptArguments` | false | String | `time.nist.gov` |
+| `ScriptBody` | true | External | the script |
+| `StatusRollupType` | true | Option | `Worst` |
+| `WrmPort` | true | Integer | `5985` |
+| `WrmUrlPrefix` | true | String | `wsman` |
+| `WrmUseSSL` | false | Boolean | `false` |
+
+| `PerformanceCounter` key | Required | ValueType | In the sample |
+| --- | --- | --- | --- |
+| `__Disabled` | false | Boolean | `False` |
+| `__CredentialSetId` | true | String | `0` |
+| `__DataTransformCheckedRadioButton` | false | Boolean | `0` |
+| `__DataTransformCommonFormulaIndex` | false | Integer | `0` |
+| `__DataTransformCommonFormulaOptions` | false | String | `0` |
+| `__DataTransformEnabled` | false | Boolean | `false` |
+| `__UserDescription`, `__UserNotes` | false | String | |
+| `_BB_CanBeDisabled` | false | Boolean | `true` |
+| `Category`, `Counter` | true | String | |
+| `CountAsDifference` | false | Boolean | `false` |
+| `FeatureNameRegex` | false | String | empty |
+| `Instance` | false | String | empty |
+| `PreferredPollingMethod` | true | Option | `Default` |
+| `SkipFallback` | false | Boolean | `true` |
+| `TransformExpression` | false | String | empty |
+| `WinRmAuthenticationMechanism` | false | Option | `Negotiate` |
+
+Three things this sample corrects or adds:
+
+- **Neither type carries `__Frequency` or `__Timeout` on the component.** The Citrix sample's
+  `LinuxScript` components do. Writing them onto a `PowerShell` or `PerformanceCounter`
+  component is a plausible way to make an import fail.
+- **`PowerShell` does not carry `WinRmAuthenticationMechanism`; `PerformanceCounter` does.**
+  The earlier table on this page listed the key without saying which type owns it.
+- **A `PowerShell` component reports one unnamed pair**, `Message:` and `Statistic:`, matched
+  by two `DynamicEvidenceColumnSchema` entries both named `Statistic`, a `String` column with
+  an empty `<DataTransform />` and a `Numeric` column with the nested one, and its
+  `<Thresholds />` is empty, the numeric column's own `Threshold` carrying the levels.
+  `PerformanceCounter` is the reverse: a `Thresholds` block keyed `StatisticData` and an empty
+  `<DynamicColumnSettings />`. `ApplicationItemType` is empty rather than `None`, and
+  `ComponentCategoryName` is `i:nil`.
+
+A template built to these two key sets, [sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md),
+imported on the same 2026.4 server and polled Up on 2026-09-17, which also confirmed
+`RemoteHost` as the `ExecutionMode` string for the console's "Remote Host".
+
 ## Settings are a typed key/value map
 
 Both the template and each component carry a `Settings` map, serialised as .NET dictionary
@@ -456,6 +518,8 @@ constructing the document from nothing.
 - [sam.md](sam.md) — the SAM entities, all thirty-nine verbs, and assigning a template to a node
 - [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) — a worked template
   built to this format, monitoring a Citrix Hypervisor host with no AppInsight module
+- [sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md) — a second worked
+  template, `PowerShell` over WinRM plus native counters, for Windows UDP port exhaustion
 - [../polling/api-pollers.md](../polling/api-pollers.md#the-apipollertemplate-file-format) —
   the other matched-verb template format, and much simpler
 - [../automation/report-definitions.md](../automation/report-definitions.md) — the third

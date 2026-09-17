@@ -107,6 +107,8 @@ Per-product deep dives. An entity only exists if its module is licensed and inst
 | [docs/modules/npm.md](docs/modules/npm.md) | Network Performance Monitor |
 | [docs/modules/sam.md](docs/modules/sam.md) | Server and Application Monitor |
 | [docs/modules/sam-templates.md](docs/modules/sam-templates.md) | The `.apmtemplate` export format, and moving a template between servers |
+| [docs/modules/sam-citrix-hypervisor-template.md](docs/modules/sam-citrix-hypervisor-template.md) | A worked `.apmtemplate` for Citrix Hypervisor, shaped against a real export |
+| [docs/modules/sam-udp-port-exhaustion-template.md](docs/modules/sam-udp-port-exhaustion-template.md) | A worked `.apmtemplate` for Windows UDP ephemeral port exhaustion, PowerShell over WinRM plus native counters |
 | [docs/modules/ncm.md](docs/modules/ncm.md) | Network Configuration Manager |
 | [docs/modules/ncm-device-templates.md](docs/modules/ncm-device-templates.md) | The `.ConfigMgmtCommands` device template format: CLI commands, prompt detection, and the three execution modes |
 | [docs/modules/ncm-compliance-reports.md](docs/modules/ncm-compliance-reports.md) | The compliance policy report export: the three-tier PolicyReport XML, the `GetPolicyReport`/`AddPolicyReport` round trip, and the encoding trap |

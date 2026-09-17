@@ -670,6 +670,22 @@ Quality of Experience is the platform's packet-inspection capability.
 - [What is not verified here](modules/qoe.md#what-is-not-verified-here): The schema for this module is thin on descriptions, and rather than fill the gaps with plausible narrative, these are the specific things this page could not confirm and how to settle each one on your own server.
 - [Related pages](modules/qoe.md#related-pages): for asking a live server what it actually has.
 
+### [A SAM template for Citrix Hypervisor (XenServer)](modules/sam-citrix-hypervisor-template.md)
+
+SolarWinds does not ship an AppInsight application for Citrix Hypervisor (formerly XenServer, and the commercial counterpart of XCP-ng), but a real, community-sourced template for it exists on SolarWinds' Content Exch...
+
+- [Supported versions](modules/sam-citrix-hypervisor-template.md#supported-versions): Its own Description states "Prerequisites: Hypervisor 8.0" in as many words, and its Tags list includes 8.0 alongside Citrix and Hypervisor.
+- [What a fourth real export corrected](modules/sam-citrix-hypervisor-template.md#what-a-fourth-real-export-corrected): An earlier version of both this template and this page assumed several things about SAM script components that turned out to be wrong once a real, working Citrix Hypervisor export was available to check them against.
+- [Two templates, not one](modules/sam-citrix-hypervisor-template.md#two-templates-not-one): Rather than try to reproduce the reference template's 63 components, this repository ships a smaller, complementary template: citrix-hypervisor-monitoring.apmtemplate, 16 components covering pool-wide inventory facts...
+- [The CommandLineToPass argument-prompt mechanism](modules/sam-citrix-hypervisor-template.md#the-commandlinetopass-argument-prompt-mechanism): This is the mechanism that makes a single-component, single-metric template usable across different hosts and VMs without hand-editing the .apmtemplate file per target, and it was missed entirely in this template's fi...
+- [xe commands and data source names](modules/sam-citrix-hypervisor-template.md#xe-commands-and-data-source-names): Every xe invocation and RRD data source name in this template's host-level components (cpu_avg, memory_free_kib, memory_total_kib, pif_<interface>_rx/_tx, and the xe host-data-source-query hostname=$Hostname data-sour...
+- [Assign it like any other template](modules/sam-citrix-hypervisor-template.md#assign-it-like-any-other-template): Nothing about assignment is Citrix-specific; it is exactly the flow in sam.md.
+- [What is verified here and what is not](modules/sam-citrix-hypervisor-template.md#what-is-verified-here-and-what-is-not): namespace, the per-component setting keys (AuthenticationType, CommandLineToPass, CountAsDifference, Port, ScriptBody, ScriptDirectory, StatusRollupType), and the full DynamicColumnSettings/DynamicEvidenceColumnSchema...
+- [Known limitations](modules/sam-citrix-hypervisor-template.md#known-limitations): (CPU, memory, disk, network, per-vCPU run states) already cover this territory in detail, one component per metric with a VirtualMachineUuid (and sometimes a second identifier such as CPU Name) prompt at assignment time.
+- [The API Poller alternative](modules/sam-citrix-hypervisor-template.md#the-api-poller-alternative): scripts/api-pollers/citrix-hypervisor-xenapi.apipoller.template remains in this repository as an experimental sketch of reaching XenAPI's JSON-RPC endpoint directly over HTTPS instead of through SSH and xe.
+- [Status and open questions for whoever picks this up next](modules/sam-citrix-hypervisor-template.md#status-and-open-questions-for-whoever-picks-this-up-next): component.
+- [See also](modules/sam-citrix-hypervisor-template.md#see-also): sample's corrections to element order, the Settings namespace, and DynamicColumnSettings - sam.md — SAM entities, verbs, and assigning a template to a node - ../../scripts/sam-templates/ — the template file itself - ....
+
 ### [The .apmtemplate file format](modules/sam-templates.md)
 
 A SAM application template exports from Settings > All Settings > SAM Settings > Manage Templates > Export as an XML document with the extension .apmtemplate.
@@ -681,7 +697,19 @@ A SAM application template exports from Settings > All Settings > SAM Settings >
 - [Credentials do not travel, and neither do secrets](modules/sam-templates.md#credentials-do-not-travel-and-neither-do-secrets): The export does not reference a credential set, let alone contain one.
 - [Moving a template between servers](modules/sam-templates.md#moving-a-template-between-servers): A matched pair of verbs, unlike reports, where export is a query and import is a verb.
 - [Writing one by hand](modules/sam-templates.md#writing-one-by-hand): Build it in the console and export.
-- [See also](modules/sam-templates.md#see-also): the other matched-verb template format, and much simpler - ../automation/report-definitions.md — the third exportable XML artefact, where export is a query rather than a verb - ../automation/credentials.md — the crede...
+- [See also](modules/sam-templates.md#see-also): built to this format, monitoring a Citrix Hypervisor host with no AppInsight module - sam-udp-port-exhaustion-template.md — a second worked template, PowerShell over WinRM plus native counters, for Windows UDP port ex...
+
+### [A SAM template for Windows UDP ephemeral port exhaustion](modules/sam-udp-port-exhaustion-template.md)
+
+Windows hands every outbound UDP socket a port from one dynamic range (49152–65535 by default, 16,384 ports).
+
+- [Why a script and not a counter](modules/sam-udp-port-exhaustion-template.md#why-a-script-and-not-a-counter): The candidates, against the SAM component types:
+- [The components](modules/sam-udp-port-exhaustion-template.md#the-components): Components 1 and 2 run the same script; the argument in ScriptArguments picks which number it reports, the way SolarWinds' own clock-drift template passes its time server.
+- [The event log component, added in the console](modules/sam-udp-port-exhaustion-template.md#the-event-log-component-added-in-the-console): Add a Windows Event Log Monitor to the assigned application with these values.
+- [Assigning it](modules/sam-udp-port-exhaustion-template.md#assigning-it): The PowerShell component needs a credential that can open a WinRM session on the target and has rights to read the socket table, which any local administrator has.
+- [Finding the culprit once it fires](modules/sam-udp-port-exhaustion-template.md#finding-the-culprit-once-it-fires): The Message: line names the processes.
+- [What is verified and what is not](modules/sam-udp-port-exhaustion-template.md#what-is-verified-and-what-is-not): Verified against a real export (SolarWinds' Server Clock Drift (PowerShell) template, exported from a 2026.4 server on 2026-09-17):
+- [See also](modules/sam-udp-port-exhaustion-template.md#see-also): in this repository, and the real export both are shaped against - sam.md — assigning a template and testing components
 
 ### [SAM: Server and Application Monitor](modules/sam.md)
 
@@ -697,7 +725,7 @@ Server and Application Monitor is the module that monitors what runs on a node r
 - [Worked queries](modules/sam.md#worked-queries): Each of these has been validated against the 2026.2 schema with tools/validate_swql.py.
 - [Assigning a template from PowerShell](modules/sam.md#assigning-a-template-from-powershell): Adapted from SolarWinds' Samples/PowerShell/SAM.Application.ps1.
 - [Gotchas](modules/sam.md#gotchas): Orion.APM.Application.Unmanage misspells its first parameter as netObjetId, missing the c.
-- [See also](modules/sam.md#see-also): nodes SAM monitors, and which SAM is one of the two modules that enables.
+- [See also](modules/sam.md#see-also): template covering Citrix Hypervisor, a platform with no stock SAM template or AppInsight - sam-udp-port-exhaustion-template.md — a hand-built template for Windows UDP ephemeral port exhaustion, the condition behind Tc...
 
 ### [SCM compliance policies: the YAML format and its round trip](modules/scm-compliance-policies.md)
 
@@ -1068,7 +1096,7 @@ An API poller collects metrics by calling an HTTP endpoint and reading values ou
 - [The template library](polling/api-pollers.md#the-template-library): IsCustom separates what SolarWinds shipped from what someone here built, which is the first thing to know before deleting anything.
 - [The .apipoller.template file format](polling/api-pollers.md#the-apipollertemplate-file-format): The console exports a template as a single-line XML document with the extension .apipoller.template.
 - [Practical notes](polling/api-pollers.md#practical-notes): Building a poller by writing Orion.APIPoller.ApiPoller, then its RequestDetails, then the headers, then the values to monitor is four levels of rows that have to be consistent, and it needs admin.
-- [See also](polling/api-pollers.md#see-also)
+- [See also](polling/api-pollers.md#see-also): for a worked, multi-request chain against a session-based API, and what is unverified about the variable handoff between requests - ../automation/credentials.md for the credential store CredentialsId points at - ../sw...
 
 ### [Device Studio pollers](polling/device-studio.md)
 

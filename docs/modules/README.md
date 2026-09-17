@@ -62,7 +62,9 @@ Four pages in this section document an export file format field by field rather 
 module. [sam-templates.md](sam-templates.md) documents the `.apmtemplate` document that
 `ExportTemplate` and `ImportTemplate` move, and
 [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md) is a worked example
-built to that format for a platform SAM has no stock template for.
+built to that format for a platform SAM has no stock template for, and
+[sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md) is a second,
+for a Windows signal no stock counter exposes.
 [ncm-device-templates.md](ncm-device-templates.md)
 documents the `.ConfigMgmtCommands` document that tells NCM how to hold a Telnet or SSH
 session with a given kind of device.
