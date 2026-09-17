@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>8a2f7c14-6e91-4b3d-9c0a-f1d5b7e3a642</Guid>
+  <Name>Zscaler ZIA Performance and Availability</Name>
+  <DisplayName>Zscaler ZIA Performance and Availability</DisplayName>
+  <Description>Experimental. A two-request chain against the Zscaler ZIA API, following the same stateless sign-in pattern as scripts/api-pollers/zscaler-zpa-zero-trust-health.apipoller.template: request 0 exchanges an OAuth client credential for a bearer token and lifts it into a RequestVariable, since a ZIA session-cookie login (the legacy /api/v1/authenticatedSession flow) cannot be carried across requests here - see docs/polling/api-poller-unifi-network.md for why. Request 1 reads config-sync status as a text value mapped to a number with the fallback above critical, the way docs/polling/api-pollers.md documents. Request 2 counts GRE tunnels that are not reporting up, using the same ArrayCount-plus-JSONPath-filter idiom as the ZPA template. Replace ${ZIA_CLOUD}, ${CLIENT_ID} and ${CLIENT_SECRET} before assigning, regenerate the Guid, and confirm every field name below against your own tenant's response before relying on it. Unverified here: whether the OneAPI sign-in path and body shape assumed for request 0 are correct for ZIA specifically (only ZPA's /signin has any external documentation this repository has cross-checked); the /zia/api/v1/status response's status field name and its ACTIVE/PENDING/DOWNLOAD_PENDING/FAILED vocabulary, which is inferred from the legacy ZIA activation states and not read off a real export; the /zia/api/v1/greTunnels path, its list envelope and its per-tunnel status field and UP value; and, as with the ZPA template, whether the platform's JSONPath implementation accepts a filter expression against the response body at all, since api-poller-vendor-templates.md only confirms one against response headers.</Description>
+  <Created>2026-09-17T00:00:00.0000000Z</Created>
+  <Updated>2026-09-17T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://${ZIA_CLOUD}.zsapi.net/zia/api/v1/oauth/token</Url>
+      <Body>client_id=${CLIENT_ID}&amp;client_secret=${CLIENT_SECRET}&amp;grant_type=client_credentials</Body>
+      <HttpVerb>Post</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Content-Type</Name>
+          <Value>application/x-www-form-urlencoded</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection />
+      <RequestVariables>
+        <RequestVariable>
+          <DisplayName>access_token</DisplayName>
+          <Path>$.['access_token']</Path>
+        </RequestVariable>
+      </RequestVariables>
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://${ZIA_CLOUD}.zsapi.net/zia/api/v1/status</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Authorization</Name>
+          <Value>Bearer ${access_token}</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>ZIA Config Sync Status</DisplayName>
+          <Path>$.['status']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>1</WarningThresholdValue>
+          <CriticalThresholdValue>2</CriticalThresholdValue>
+          <Type>Path</Type>
+          <StringToNumberTransformationRules>
+            <StringToNumberTransformationRule>
+              <Text>ACTIVE</Text>
+              <Number>0</Number>
+            </StringToNumberTransformationRule>
+            <StringToNumberTransformationRule>
+              <Text>PENDING</Text>
+              <Number>1</Number>
+            </StringToNumberTransformationRule>
+            <StringToNumberTransformationRule>
+              <Text>DOWNLOAD_PENDING</Text>
+              <Number>1</Number>
+            </StringToNumberTransformationRule>
+            <StringToNumberTransformationRule>
+              <Text>FAILED</Text>
+              <Number>3</Number>
+            </StringToNumberTransformationRule>
+          </StringToNumberTransformationRules>
+          <StringToNumberTransformationOtherValues>5</StringToNumberTransformationOtherValues>
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>1</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://${ZIA_CLOUD}.zsapi.net/zia/api/v1/greTunnels</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Authorization</Name>
+          <Value>Bearer ${access_token}</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>ZIA GRE Tunnels - Total</DisplayName>
+          <Path>$.['list']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>ArrayCount</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>ZIA GRE Tunnels - Not Up</DisplayName>
+          <Path>$.['list'].[?(@.status!='UP')]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>0</WarningThresholdValue>
+          <CriticalThresholdValue>1</CriticalThresholdValue>
+          <Type>ArrayCount</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>2</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>5</PollingInterval>
+</Template>

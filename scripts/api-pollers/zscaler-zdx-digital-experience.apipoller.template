@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>c19e4a3d-2b7f-4f18-8e56-3a9d0c6f2b71</Guid>
+  <Name>Zscaler ZDX Digital Experience</Name>
+  <DisplayName>Zscaler ZDX Digital Experience</DisplayName>
+  <Description>Experimental, and the least confirmed of the three Zscaler templates in this directory. It reuses the sign-in-then-chain shape of scripts/api-pollers/zscaler-zpa-zero-trust-health.apipoller.template, but ZDX's own API authentication is not settled here: it may take a simple OAuth client credential like ZPA and ZIA, or it may require a per-request HMAC signature built from a key ID, a key secret and a timestamp, which nothing in the API Poller model can compute - docs/polling/api-poller-unifi-network.md#what-the-variable-mechanism-cannot-do states plainly that substitution is literal text replacement with no arithmetic. If your tenant's ZDX API requires request signing, this template cannot be built as an API Poller at all, in the same way the UniFi legacy cookie API could not; confirm the auth model with a single request in the builder's test view before investing more in this shape. Request 1 discovers the first monitored application the same way the UniFi template discovers a site (RequestVariable from data[0].id), which docs/polling/api-poller-unifi-network.md#what-the-variable-mechanism-cannot-do flags as positional and fragile: Zscaler documents no ordering for this array, so which application data[0] names can change. Request 2's ZDX Score is left with nil thresholds rather than a Warning/Critical pair, because alerting on a low score needs a comparison that fires when the metric falls, and every ThresholdRule observed anywhere in this repository is GreaterThan - see docs/polling/api-poller-unifi-network.md#the-verified-three-request-template, which runs into the identical open question over gateway uptime and does not resolve it either. Treat the score as informational until that is settled on a real server. Unverified here, all of it: the ZDX API base URL (assumed api.zdxcloud.net, which varies by tenant cloud), the sign-in endpoint and body shape, the /v1/apps list envelope and field names, and the /v1/apps/{id}/score path and its score field.</Description>
+  <Created>2026-09-17T00:00:00.0000000Z</Created>
+  <Updated>2026-09-17T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://${ZDX_CLOUD}/v1/oauth/token</Url>
+      <Body>client_id=${CLIENT_ID}&amp;client_secret=${CLIENT_SECRET}&amp;grant_type=client_credentials</Body>
+      <HttpVerb>Post</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Content-Type</Name>
+          <Value>application/x-www-form-urlencoded</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection />
+      <RequestVariables>
+        <RequestVariable>
+          <DisplayName>access_token</DisplayName>
+          <Path>$.['access_token']</Path>
+        </RequestVariable>
+      </RequestVariables>
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://${ZDX_CLOUD}/v1/apps</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Authorization</Name>
+          <Value>Bearer ${access_token}</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>ZDX Monitored Applications - Total</DisplayName>
+          <Path>$.['apps']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>ArrayCount</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables>
+        <RequestVariable>
+          <DisplayName>appId</DisplayName>
+          <Path>$.['apps'].[0].['id']</Path>
+        </RequestVariable>
+      </RequestVariables>
+      <RequestDetailsOrder>1</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://${ZDX_CLOUD}/v1/apps/${appId}/score</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Authorization</Name>
+          <Value>Bearer ${access_token}</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>ZDX Score - First Monitored Application</DisplayName>
+          <Path>$.['score']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>2</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>15</PollingInterval>
+</Template>
