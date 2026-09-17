@@ -11,6 +11,12 @@ The format is documented in
 [../../docs/polling/api-pollers.md](../../docs/polling/api-pollers.md#the-apipollertemplate-file-format),
 along with the six Invoke verbs that import, export and assign these.
 
+[vendor-examples/](vendor-examples/) holds three unmodified templates from SolarWinds' own
+published library, kept as evidence for
+[../../docs/polling/api-poller-vendor-templates.md](../../docs/polling/api-poller-vendor-templates.md).
+They sit in a subdirectory because the checker's glob is not recursive, so they are outside the
+build gate on purpose: one of them differs from the documented format, which is the point.
+
 ## The sample
 
 Two `ValueToMonitor` entries against one request, chosen to show both ways a value reaches a

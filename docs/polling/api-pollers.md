@@ -480,6 +480,13 @@ extracted schema like everything else here.
 </Template>
 ```
 
+That sample is a poller built for one target: one `Type` value, both thresholds filled in. A
+template SolarWinds ships is built for every target and looks different in several ways, and
+[api-poller-vendor-templates.md](api-poller-vendor-templates.md) reads those differences off
+three of their published exports: the two further `Type` values they use, `Header` and
+`ArrayCount`, the `xsi:nil` thresholds a reusable template carries by design, and two places
+where real vendor output contradicts the rules below.
+
 The root carries `xmlns:xsd` and `xmlns:xsi` declarations, which is the signature of .NET's
 `XmlSerializer` — the document is a serialised object graph rather than a hand-designed
 schema. Empty collections serialise as self-closing elements (`<RequestHeaders />`), not as
@@ -688,6 +695,11 @@ ORDER BY COUNT(v.ID)
 
 ## See also
 
+- [api-poller-unifi-network.md](api-poller-unifi-network.md) for a poller built and verified
+  first-hand against the UniFi Network Integration API: the credential, a three-request
+  variable chain, and what that chaining cannot express
+- [api-poller-vendor-templates.md](api-poller-vendor-templates.md) for the `Type` values,
+  blank thresholds and assign-time URL parameters seen in SolarWinds' own shipped templates
 - [README.md](README.md) for the other four polling systems and how to tell them apart
 - [standard-pollers.md](standard-pollers.md) for `Orion.Pollers`, the built-in poller assignments
 - [../../scripts/api-pollers/](../../scripts/api-pollers/) for the shipped, build-validated `.apipoller.template` example

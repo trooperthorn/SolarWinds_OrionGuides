@@ -1084,6 +1084,34 @@ Creating an object does not monitor it.
 - [The pages](polling/README.md#the-pages)
 - [Related pages](polling/README.md#related-pages): pick the interface, look the names up, write the SELECT first - ../automation/node-management.md for creating the node a poller attaches to - ../automation/discovery.md for network sonar and list resources - ../automa...
 
+### [A worked API Poller: the UniFi Network Integration API](polling/api-poller-unifi-network.md)
+
+api-pollers.md describes the API Poller subsystem from the schema.
+
+- [Why the Integration API and not the legacy one](polling/api-poller-unifi-network.md#why-the-integration-api-and-not-the-legacy-one): UniFi has two HTTP interfaces and only one of them is usable from an API Poller.
+- [The credential](polling/api-poller-unifi-network.md#the-credential): The key is created in the UniFi console under Settings > Control Plane > Integrations.
+- [The base path depends on how Network is deployed](polling/api-poller-unifi-network.md#the-base-path-depends-on-how-network-is-deployed): On a UniFi OS console (UDM, UCG, UNVR, Cloud Key Gen2 and later) the Network application sits behind UniFi OS's reverse proxy, and every Integration API URL is prefixed /proxy/network:
+- [The endpoints](polling/api-poller-unifi-network.md#the-endpoints): Four were exercised, all GET:
+- [Chaining requests with variables](polling/api-poller-unifi-network.md#chaining-requests-with-variables): The builder's value picker, reached from "Configure a value to monitor" on any field in a test response, offers two things to do with that field, and the distinction is the whole design:
+- [What the variable mechanism cannot do](polling/api-poller-unifi-network.md#what-the-variable-mechanism-cannot-do): These are the rules that decide whether a given monitoring idea is buildable as an API Poller at all, and each one is a thing that was tried.
+- [Reading what the poller collected](polling/api-poller-unifi-network.md#reading-what-the-poller-collected): The poller's own rows, once it exists:
+- [Exporting it](polling/api-poller-unifi-network.md#exporting-it): Once the poller works, export it and keep the file, because the export is the only artefact that survives a rebuild:
+- [What is unverified here](polling/api-poller-unifi-network.md#what-is-unverified-here): Collected, because this page asserts a lot from one installation:
+- [Why build a multi-metric poller against a public API at all](polling/api-poller-unifi-network.md#why-build-a-multi-metric-poller-against-a-public-api-at-all): The same three-request shape works anywhere a vendor or a public service publishes JSON and an identifier has to be discovered before it can be used, and it is often the cheaper answer than an intermediary.
+- [See also](polling/api-poller-unifi-network.md#see-also)
+
+### [Reading a vendor-shipped API Poller template](polling/api-poller-vendor-templates.md)
+
+api-pollers.md documents the .apipoller.template format from a single export.
+
+- [Three Type values, from real exports](polling/api-poller-vendor-templates.md#three-type-values-from-real-exports): Orion.APIPoller.ValueToMonitor.Type is a System.String and the published schema records nothing about what it accepts, which is why api-pollers.md marks it unverified.
+- [Key is in the file and not in the schema](polling/api-poller-vendor-templates.md#key-is-in-the-file-and-not-in-the-schema): The Microsoft 365 template writes a <Key> element on every ValueToMonitor, holding the last path segment: value for $.['value'], storageUsedInBytes for $.['value'].[0].['storageUsedInBytes'].
+- [Vendor templates leave the thresholds blank on purpose](polling/api-poller-vendor-templates.md#vendor-templates-leave-the-thresholds-blank-on-purpose): Every ValueToMonitor in all three templates carries:
+- [Parameters in the URL are not request variables](polling/api-poller-vendor-templates.md#parameters-in-the-url-are-not-request-variables): All three templates put ${NAME} placeholders in their URLs:
+- [Where these three disagree with the documented format](polling/api-poller-vendor-templates.md#where-these-three-disagree-with-the-documented-format): Reading real vendor output corrects two things the single-export derivation got slightly wrong.
+- [Why these files are not build-validated](polling/api-poller-vendor-templates.md#why-these-files-are-not-build-validated): tools/check_api_poller_templates.py globs scripts/api-pollers/*.apipoller.template, non-recursively, so the copies in vendor-examples/ are outside it by construction.
+- [See also](polling/api-poller-vendor-templates.md#see-also)
+
 ### [API pollers](polling/api-pollers.md)
 
 An API poller collects metrics by calling an HTTP endpoint and reading values out of the response, rather than by asking a device over SNMP or WMI.
@@ -1096,7 +1124,7 @@ An API poller collects metrics by calling an HTTP endpoint and reading values ou
 - [The template library](polling/api-pollers.md#the-template-library): IsCustom separates what SolarWinds shipped from what someone here built, which is the first thing to know before deleting anything.
 - [The .apipoller.template file format](polling/api-pollers.md#the-apipollertemplate-file-format): The console exports a template as a single-line XML document with the extension .apipoller.template.
 - [Practical notes](polling/api-pollers.md#practical-notes): Building a poller by writing Orion.APIPoller.ApiPoller, then its RequestDetails, then the headers, then the values to monitor is four levels of rows that have to be consistent, and it needs admin.
-- [See also](polling/api-pollers.md#see-also): for a worked, multi-request chain against a session-based API, and what is unverified about the variable handoff between requests - ../automation/credentials.md for the credential store CredentialsId points at - ../sw...
+- [See also](polling/api-pollers.md#see-also): first-hand against the UniFi Network Integration API: the credential, a three-request variable chain, and what that chaining cannot express - api-poller-vendor-templates.md for the Type values, blank thresholds and as...
 
 ### [Device Studio pollers](polling/device-studio.md)
 
@@ -1603,6 +1631,8 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [vnqm.md](reference/unverified.md#vnqmmd): IP SLA operations
 - [wpm.md](reference/unverified.md#wpmmd): What is not verified here
 - [modules.md](reference/unverified.md#modulesmd): DPA: Database Performance Analyzer
+- [api-poller-unifi-network.md](reference/unverified.md#api-poller-unifi-networkmd): The base path depends on how Network is deployed
+- [api-poller-vendor-templates.md](reference/unverified.md#api-poller-vendor-templatesmd): Three Type values, from real exports
 - [api-pollers.md](reference/unverified.md#api-pollersmd): The poller
 - [device-studio.md](reference/unverified.md#device-studiomd): The poller definitions
 - [node-status-calculation.md](reference/unverified.md#node-status-calculationmd): 2.
