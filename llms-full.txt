@@ -27525,6 +27525,50 @@ A template built to these two key sets, [sam-udp-port-exhaustion-template.md](sa
 imported on the same 2026.4 server and polled Up on 2026-09-17, which also confirmed
 `RemoteHost` as the `ExecutionMode` string for the console's "Remote Host".
 
+### A sixth sample: the `EventLog` key set and its four status modes
+
+A console-built template with four Windows Event Log Monitor components, exported from the
+same 2026.4 server the same day, gives the `EventLog` type. Its template-level `Settings`
+carried only `__Timeout` and `__Use64Bit`, so the four template keys the first three samples
+share are not all mandatory on export.
+
+| `EventLog` key | Required | ValueType | Values seen |
+| --- | --- | --- | --- |
+| `__Disabled` | false | Boolean | `False` |
+| `__CredentialSetId` | true | String | `0` |
+| `__DataTransformCheckedRadioButton` | false | Boolean | `0` |
+| `__DataTransformCommonFormulaIndex` | false | Integer | `0` |
+| `__DataTransformCommonFormulaOptions` | false | String | `0` |
+| `__DataTransformEnabled` | false | Boolean | `false` |
+| `__UserDescription`, `__UserNotes` | false | String | |
+| `CollectDetails` | true | Boolean | `true` |
+| `EntryExcludeFilter` | false | String | empty |
+| `EntryExcludeOperation` | false | Option | `Match`, `Keywords`, `Disable` |
+| `EntryID` | false | String | `0` (none), `16384`, `1023` |
+| `EntryIDType` | false | Option | `IncludeIDs` |
+| `EntryIncludeFilter` | false | String | quoted phrases, comma-separated |
+| `EntryIncludeOperation` | false | Option | `Match`, `Keywords`, `Disable` |
+| `EntryMatch` | true | Option | `Custom` |
+| `EntrySource` | false | String | the provider name |
+| `EntryType` | false | Option | `Information`, `Error` |
+| `FetchingMethod` | true | Option | `Wmi` |
+| `LogName` | true | Option | `Custom` |
+| `LogNameFilter` | false | String | `Application`, `Realtek` |
+| `NumberOfFrequencies` | true | **Double** | `1.5` |
+| `StatusSetting` | false | Option | `Down`, `Up`, `EventsBased`, `EventCountBased` |
+| `TransformExpression` | false | String | empty |
+| `Users` | false | String | empty |
+| `WinRmAuthenticationMechanism` | false | Option | `Negotiate` |
+
+`Double` is a sixth `ValueType`, absent from the earlier table on this page. The component's
+`Thresholds` block is keyed `StatisticData` like a `PerformanceCounter`, and
+`DynamicColumnSettings` is empty. `LogName` = `Custom` with the log's own name in
+`LogNameFilter` is how the console wrote even the stock `Application` log; whether a
+non-`Custom` `LogName` value exists in the file is not shown by this sample. `StatusSetting`
+is the console's "If a match is found in a polling period, component is": `Down` and `Up`
+are the two fixed answers, `EventsBased` follows the matched events' own levels, and
+`EventCountBased` thresholds the count.
+
 ## Settings are a typed key/value map
 
 Both the template and each component carry a `Settings` map, serialised as .NET dictionary
@@ -27910,18 +27954,16 @@ The template in
 [scripts/sam-templates/windows-udp-port-exhaustion.apmtemplate](../../scripts/sam-templates/windows-udp-port-exhaustion.apmtemplate)
 gets the number SAM cannot get natively — percent of the dynamic range in use and which
 processes hold it — with a `PowerShell` component run on the target over WinRM, and surrounds
-it with the native `PerformanceCounter` components that show a burst as it happens. The one
-component SAM does ship for this signal, a Windows Event Log monitor for event 4266, is added
-in the console rather than in the file, for the reason given under
-[What is verified and what is not](#what-is-verified-and-what-is-not).
+it with the native `PerformanceCounter` components that show a burst as it happens, and two
+`EventLog` components that go Down the poll after Windows logs event 4266 (UDP) or 4231 (TCP).
 
 Read [sam-templates.md](sam-templates.md) first for the `.apmtemplate` shape. This file is
 built against a real 2026.4 export of SolarWinds' own *Server Clock Drift (PowerShell)*
-template, which carries exactly the two component types used here (two `PowerShell`, 25
-`PerformanceCounter`). Every setting key, its `Required` flag, its `ValueType` and its order,
-the threshold and dynamic-column blocks, and the template trailer are copied from that export;
-[sam-templates.md](sam-templates.md#a-fifth-sample-the-powershell-and-performancecounter-key-sets)
-records what it settled.
+template (two `PowerShell`, 25 `PerformanceCounter`) and a console-built export holding four
+`EventLog` components, one per status mode. Every setting key, its `Required` flag, its
+`ValueType` and its order, the threshold and dynamic-column blocks, and the template trailer
+are copied from those exports; [sam-templates.md](sam-templates.md#a-fifth-sample-the-powershell-and-performancecounter-key-sets)
+records what they settled.
 
 ## Why a script and not a counter
 
@@ -27930,7 +27972,7 @@ The candidates, against the SAM component types:
 | Signal | SAM type that could carry it | Verdict |
 | --- | --- | --- |
 | Ports in use as a fraction of the range | none native — no Windows performance counter or WMI class exposes the count of open UDP endpoints | `PowerShell` component reading `Get-NetUDPEndpoint` |
-| Event 4266 has fired | Windows Event Log monitor | native; add in the console |
+| Event 4266 or 4231 has fired | `EventLog` component | native; in the file |
 | UDP datagram rate, no-port datagrams, receive errors | `PerformanceCounter` under category `UDPv4` | native; in the file |
 | TCP connections established | `PerformanceCounter` under `TCPv4` | native; in the file, because the TCP pool has the same failure (event 4231) |
 
@@ -27951,6 +27993,8 @@ WinRM session with the component's credential and runs the script there.
 | 4 | UDPv4 - Datagrams No Port/sec | `PerformanceCounter` | rate | unset; baseline |
 | 5 | UDPv4 - Datagrams Received Errors | `PerformanceCounter`, `CountAsDifference` | errors per poll | unset; baseline |
 | 6 | TCPv4 - Connections Established | `PerformanceCounter` | count | unset; baseline |
+| 7 | System - Tcpip 4266 UDP port exhaustion | `EventLog`, `StatusSetting` Down | matching events in the last 1.5 polls | Down on any match |
+| 8 | System - Tcpip 4231 TCP port exhaustion | `EventLog`, `StatusSetting` Down | matching events in the last 1.5 polls | Down on any match |
 
 Components 1 and 2 run the same script; the argument in `ScriptArguments` picks which number
 it reports, the way SolarWinds' own clock-drift template passes its time server. One value per
@@ -27989,34 +28033,33 @@ The 70 / 90 levels are a starting point. A host that legitimately runs a DNS ser
 proxy or a scanner will sit higher; set the warning a comfortable margin above what that host
 shows at its busiest.
 
-## The event log component, added in the console
+## The event log components
 
-Add a **Windows Event Log Monitor** to the assigned application with these values. The console
-labels are quoted from SolarWinds' page for the monitor:
+Components 7 and 8 are Windows Event Log Monitors with `LogName` = `Custom`, `LogNameFilter` =
+`System`, `EntrySource` = `Tcpip`, `EntryIDType` = `IncludeIDs` with the one id, `EntryType` =
+`Warning` (the level Windows assigns to both events, read from the provider's manifest on a
+Windows 11 host), `EntryMatch` = `Custom`, `FetchingMethod` = `Wmi`, `NumberOfFrequencies` =
+`1.5`, and `StatusSetting` = `Down`. That last one is the console's "If a match is found in a
+polling period, component is: Down". The statistic is the count of matching events in the
+window, so it reads `0` in normal operation and the component turns Down the poll after a
+4266 lands, then returns to Up once the event ages out of the 1.5-interval window.
 
-| Field | Value |
-| --- | --- |
-| Log to Monitor | `System` |
-| Log Source | `Tcpip` |
-| Event ID | match specific IDs: `4266` (add `4231` to catch the TCP pool as well) |
-| Event Type | Any Event |
-| Match Definition | Custom, the fields above |
-| Number of past polling intervals to search for events | `1` |
-| If a match is found in a polling period, component is | Down |
-| Fetching Method | WMI (WinRM/DCOM), or Agent if the node has one |
+The other three `StatusSetting` values the platform writes, all seen in a real export, are
+`Up` (a match keeps the component Up, and the count is thresholded instead), `EventsBased`
+(status follows the matched events' own levels) and `EventCountBased` (status follows the
+count against the thresholds). `Down` is the right one here because a single 4266 is already
+the failure.
 
-Its statistic is the count of matching events in the window, so it reads `0` in normal
-operation and turns Down the poll after a 4266 lands. Because event 4266 fires only when the
-range is already at 100 %, this component is the confirmation; component 1 is the early
-warning.
+Because event 4266 fires only when the range is already at 100 %, these two components are
+the confirmation; component 1 is the early warning.
 
 ## Assigning it
 
 The `PowerShell` component needs a credential that can open a WinRM session on the target and
 has rights to read the socket table, which any local administrator has. WinRM must be listening
 (`winrm quickconfig` on the target if it is not), and TCP `5985` must be open from the poller.
-The `PerformanceCounter` components use whatever fetching method the node already polls with
-and inherit the node credential.
+The `PerformanceCounter` and `EventLog` components use whatever fetching method the node
+already polls with and inherit the node credential.
 
 Test with `StartTestComponents` before assigning broadly, as
 [sam-templates.md](sam-templates.md#test-before-you-assign) describes.
@@ -28064,17 +28107,37 @@ exported from a 2026.4 server on 2026-09-17):**
 
 **Verified by import (2026.4 server, 2026-09-17):**
 
-- The file imports as-is through the console, and all six components poll Up on assignment.
-  That confirms `ExecutionMode` = `RemoteHost` as the string the platform accepts for the
-  console's "Remote Host", and that two `PowerShell` components running one script with
-  different `ScriptArguments` is a working shape.
+- The six-component version of this file imports as-is through the console, and all six
+  components poll Up on assignment. That confirms `ExecutionMode` = `RemoteHost` as the string
+  the platform accepts for the console's "Remote Host", and that two `PowerShell` components
+  running one script with different `ScriptArguments` is a working shape.
+
+**Verified against a second real export (a console-built template with four `EventLog`
+components, same server, same day):**
+
+- The `EventLog` component: all 26 setting keys, their order, `Required` flags and
+  `ValueType`s, including `NumberOfFrequencies` as the file's only `Double`; the `Thresholds`
+  block keyed `StatisticData`; an empty `<DynamicColumnSettings />`. The four `StatusSetting`
+  values (`Down`, `Up`, `EventsBased`, `EventCountBased`), two `EntryType` values
+  (`Information`, `Error`), three include/exclude operations (`Match`, `Keywords`, `Disable`),
+  and `LogName` = `Custom` with the log's name in `LogNameFilter`.
+- A structural diff of components 7 and 8 against a real `EventLog` component, ignoring only
+  ids, names and values, is empty.
+
+**Inferred, one value:**
+
+- `EntryType` = `Warning`. The real export shows `Information` and `Error`; Windows assigns
+  both events the Warning level, and `Warning` follows the same naming. If the imported
+  component shows a different event type in the console, set it there and export to learn
+  the string.
 
 **Not yet verified:**
 
-- The Windows Event Log component's setting keys in the file format. The reference export
-  has none, which is why it remains a console step above.
-- What each component reports once the range actually fills. The 70 / 90 thresholds and
-  the exit codes have only been exercised against a host sitting under 1 %.
+- Import of the eight-component file. The six-component version imported; components 7 and 8
+  are new. Report the result either way.
+- What each component reports once the range actually fills. The 70 / 90 thresholds, the
+  exit codes and the event-log Down transition have only been exercised against a host
+  sitting under 1 %.
 
 ## See also
 

@@ -162,6 +162,50 @@ A template built to these two key sets, [sam-udp-port-exhaustion-template.md](sa
 imported on the same 2026.4 server and polled Up on 2026-09-17, which also confirmed
 `RemoteHost` as the `ExecutionMode` string for the console's "Remote Host".
 
+### A sixth sample: the `EventLog` key set and its four status modes
+
+A console-built template with four Windows Event Log Monitor components, exported from the
+same 2026.4 server the same day, gives the `EventLog` type. Its template-level `Settings`
+carried only `__Timeout` and `__Use64Bit`, so the four template keys the first three samples
+share are not all mandatory on export.
+
+| `EventLog` key | Required | ValueType | Values seen |
+| --- | --- | --- | --- |
+| `__Disabled` | false | Boolean | `False` |
+| `__CredentialSetId` | true | String | `0` |
+| `__DataTransformCheckedRadioButton` | false | Boolean | `0` |
+| `__DataTransformCommonFormulaIndex` | false | Integer | `0` |
+| `__DataTransformCommonFormulaOptions` | false | String | `0` |
+| `__DataTransformEnabled` | false | Boolean | `false` |
+| `__UserDescription`, `__UserNotes` | false | String | |
+| `CollectDetails` | true | Boolean | `true` |
+| `EntryExcludeFilter` | false | String | empty |
+| `EntryExcludeOperation` | false | Option | `Match`, `Keywords`, `Disable` |
+| `EntryID` | false | String | `0` (none), `16384`, `1023` |
+| `EntryIDType` | false | Option | `IncludeIDs` |
+| `EntryIncludeFilter` | false | String | quoted phrases, comma-separated |
+| `EntryIncludeOperation` | false | Option | `Match`, `Keywords`, `Disable` |
+| `EntryMatch` | true | Option | `Custom` |
+| `EntrySource` | false | String | the provider name |
+| `EntryType` | false | Option | `Information`, `Error` |
+| `FetchingMethod` | true | Option | `Wmi` |
+| `LogName` | true | Option | `Custom` |
+| `LogNameFilter` | false | String | `Application`, `Realtek` |
+| `NumberOfFrequencies` | true | **Double** | `1.5` |
+| `StatusSetting` | false | Option | `Down`, `Up`, `EventsBased`, `EventCountBased` |
+| `TransformExpression` | false | String | empty |
+| `Users` | false | String | empty |
+| `WinRmAuthenticationMechanism` | false | Option | `Negotiate` |
+
+`Double` is a sixth `ValueType`, absent from the earlier table on this page. The component's
+`Thresholds` block is keyed `StatisticData` like a `PerformanceCounter`, and
+`DynamicColumnSettings` is empty. `LogName` = `Custom` with the log's own name in
+`LogNameFilter` is how the console wrote even the stock `Application` log; whether a
+non-`Custom` `LogName` value exists in the file is not shown by this sample. `StatusSetting`
+is the console's "If a match is found in a polling period, component is": `Down` and `Up`
+are the two fixed answers, `EventsBased` follows the matched events' own levels, and
+`EventCountBased` thresholds the count.
+
 ## Settings are a typed key/value map
 
 Both the template and each component carry a `Settings` map, serialised as .NET dictionary
