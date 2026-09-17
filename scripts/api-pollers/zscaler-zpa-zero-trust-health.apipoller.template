@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>5411d316-11c3-4d36-9ba1-2ec044ab85fb</Guid>
+  <Name>Zscaler ZPA Zero Trust Health</Name>
+  <DisplayName>Zscaler ZPA Zero Trust Health</DisplayName>
+  <Description>Experimental. A two-request chain against the Zscaler ZPA API: request 0 signs in with an OAuth client credential and lifts the bearer token into a RequestVariable, following the stateless-auth pattern documented in docs/polling/api-poller-unifi-network.md (a session-cookie login cannot be chained here). Request 1 reads the App Connector and Private Service Edge inventory and counts how many are not reporting online, using an ArrayCount value with a JSONPath filter the way docs/polling/api-poller-vendor-templates.md documents for ServiceNow's Header values. Replace ${ZPA_CLOUD}, ${CUSTOMER_ID}, ${CLIENT_ID} and ${CLIENT_SECRET} before assigning, regenerate the Guid, and confirm the response field names below against your own tenant before relying on this - see the caveats at the end of this description. Unverified here: the exact ZPA sign-in response shape (assumed access_token, expires_in), the connector and service-edge list endpoints and their pagination envelope, the controlChannelStatus enum and its online value (assumed ZSA_ONLINE), and whether the platform's JSONPath implementation accepts a filter expression against the response body the way api-poller-vendor-templates.md shows it accepting one against response headers. Confirm each in the API Poller builder's test-response view before trusting the numbers.</Description>
+  <Created>2026-09-17T00:00:00.0000000Z</Created>
+  <Updated>2026-09-17T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://${ZPA_CLOUD}.private.zscaler.com/signin</Url>
+      <Body>client_id=${CLIENT_ID}&amp;client_secret=${CLIENT_SECRET}</Body>
+      <HttpVerb>Post</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Content-Type</Name>
+          <Value>application/x-www-form-urlencoded</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection />
+      <RequestVariables>
+        <RequestVariable>
+          <DisplayName>access_token</DisplayName>
+          <Path>$.['access_token']</Path>
+        </RequestVariable>
+      </RequestVariables>
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://${ZPA_CLOUD}.private.zscaler.com/mgmtconfig/v1/admin/customers/${CUSTOMER_ID}/connector</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Authorization</Name>
+          <Value>Bearer ${access_token}</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Zero Trust App Connectors - Total</DisplayName>
+          <Path>$.['list']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>ArrayCount</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Zero Trust App Connectors - Not Online</DisplayName>
+          <Path>$.['list'].[?(@.controlChannelStatus!='ZSA_ONLINE')]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>0</WarningThresholdValue>
+          <CriticalThresholdValue>1</CriticalThresholdValue>
+          <Type>ArrayCount</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>1</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://${ZPA_CLOUD}.private.zscaler.com/mgmtconfig/v1/admin/customers/${CUSTOMER_ID}/privateServiceEdgeGroup</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Authorization</Name>
+          <Value>Bearer ${access_token}</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Zero Trust Private Service Edges - Total</DisplayName>
+          <Path>$.['list']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>ArrayCount</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Zero Trust Private Service Edges - Not Online</DisplayName>
+          <Path>$.['list'].[?(@.controlChannelStatus!='ZSA_ONLINE')]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>0</WarningThresholdValue>
+          <CriticalThresholdValue>1</CriticalThresholdValue>
+          <Type>ArrayCount</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>2</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>5</PollingInterval>
+</Template>

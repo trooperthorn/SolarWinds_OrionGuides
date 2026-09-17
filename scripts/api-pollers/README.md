@@ -6,6 +6,7 @@ Importable `.apipoller.template` files for the SolarWinds Platform API Poller.
 | --- | --- |
 | [example-service-status.apipoller.template](example-service-status.apipoller.template) | A numeric metric and a text status mapped to numbers, in one two-metric template |
 | [citrix-hypervisor-xenapi.apipoller.template](citrix-hypervisor-xenapi.apipoller.template) | **Experimental.** A three-request chain (login, then two dependent calls) against Citrix Hypervisor's XenAPI. The variable-substitution syntax between requests is inferred, not confirmed — read the caveats before importing |
+| [zscaler-zpa-zero-trust-health.apipoller.template](zscaler-zpa-zero-trust-health.apipoller.template) | **Experimental.** A three-request chain against the Zscaler ZPA API: an OAuth sign-in whose bearer token is lifted into a `RequestVariable` (the stateless-auth pattern [api-poller-unifi-network.md](../../docs/polling/api-poller-unifi-network.md) verifies, in place of a session cookie), then two `ArrayCount` requests that count App Connectors and Private Service Edges not reporting online, using a JSONPath filter against the response body. The endpoint paths and field names are unverified against a real ZPA tenant — read the template's `Description` before importing |
 
 The format is documented in
 [../../docs/polling/api-pollers.md](../../docs/polling/api-pollers.md#the-apipollertemplate-file-format),
