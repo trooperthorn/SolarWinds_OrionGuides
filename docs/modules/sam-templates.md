@@ -100,6 +100,20 @@ produces which shape, that is exactly the kind of fact worth adding here.
 See [sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md#what-a-fourth-real-export-corrected)
 for the full comparison, including the script output contract correction it drove.
 
+**Resolved on 2026-09-17.** The same three templates the first table was built from (MongoDB
+5.0+ (Linux) v2, the Azure template, and Orion Observability 2026.1 - Main Polling Engine)
+were re-exported from a 2026.4 server, and all three now come out in the fourth sample's
+shape: `Settings` and `ComponentTemplates` first, the `Serialization/Arrays` namespace, inner
+`Key` repeating the setting name, `Tags` as `TagInfo` entries, `ModuleVersion` structured.
+The metadata-first shape with the `datacontract.org` namespace was the older platform's
+serialisation, not a second path that current servers still use. Six 2026.4 exports now
+agree, so **build to the fourth-sample shape**; the earlier order in the table above is what
+an older server writes and what a current one still imports, but not what it produces.
+
+One more thing those re-exports show: `Description` holds its text wrapped as
+`_t(…)`, the platform's localisation marker, when the template is SolarWinds-shipped. A
+hand-built template's `Description` is plain text.
+
 ### A fifth sample: the `PowerShell` and `PerformanceCounter` key sets
 
 A 2026.4 export of SolarWinds' own *Server Clock Drift (PowerShell)* template (two `PowerShell`
@@ -238,12 +252,15 @@ keys:
 | `Option` | An enumerated choice | `WinRmAuthenticationMechanism`, `StatusRollupType`, `ExecutionMode` |
 | `Integer` | Real integers | `Port`, `PortNumber`, `WrmPort` |
 | `External` | A large payload held outside the normal value flow | `ScriptBody` — and nothing else |
+| `Double` | A fractional number | `NumberOfFrequencies` on an `EventLog` component — and nothing else |
 
-`SettingLevel` is `Template` on **all 1,015 settings across all three files**. That the value
-can be anything else is an inference from the name and is **unverified here**.
+`SettingLevel` is `Template` on every setting in every sample so far (2,056 across the six
+2026.4 exports). That the value can be anything else is an inference from the name and is
+**unverified here**.
 
-The four template-level keys are the same in all three samples: `__DebugLoggingEnabled`,
-`__NumberOfLogFilesToKeep`, `__Timeout` and `__Use64Bit`.
+The template-level keys are `__DebugLoggingEnabled`, `__NumberOfLogFilesToKeep`, `__Timeout`
+and `__Use64Bit` in five samples; a console-built template exported with only `__Timeout` and
+`__Use64Bit`, so the first two are not mandatory.
 
 **Keys beginning `__` are platform settings; keys beginning `_BB_` are builder metadata**
 (`_BB_CanBeDisabled`, `_BB_CanBeDisabledOnAppItemLevel`); everything else is specific to the
@@ -283,40 +300,118 @@ other legal values are **not documented and unverified here**.
 
 ### The component types seen
 
-| `Type` | Count | Monitors |
-| --- | --- | --- |
-| `PerformanceCounter` | 19 | A Windows performance counter |
-| `WindowsService` | 17 | A service's running state |
-| `PowerShell` | 15 | A PowerShell script's output |
-| `LinuxScript` | 8 | A script executed over SSH |
-| `Process` | 2 | A Windows process |
-| `DirectorySize` | 2 | A directory's size on disk |
-| `Http` / `Https` | 2 | An HTTP request and its response |
-| `TcpPort` | 1 | A TCP port's reachability |
-| `ProcessOverSNMP` | 1 | A process, polled by SNMP |
+Across the six 2026.4 exports this page is now built on (the three SolarWinds-shipped
+templates re-exported, the Citrix community template, the Clock Drift template, and a
+console-built `EventLog` test):
 
-SAM ships far more monitor types than this; the list is **what three templates happened to
-use**, not the complete set.
+| `Type` | Count | Carries `__Frequency` / `__Timeout` | Thresholds keyed | `DynamicColumnSettings` |
+| --- | --- | --- | --- | --- |
+| `LinuxScript` | 71 | yes | none (empty) | one `String` + one `Numeric` column per reported name |
+| `PerformanceCounter` | 44 | no | `StatisticData` | empty |
+| `PowerShell` | 19 | no | none (empty) | one `Numeric` column, plus a `String` one where a `Message` is emitted |
+| `WindowsService` | 17 | yes | `CPU`, `PMem`, `VMem`, `IOReadOperationsPerSec`, `IOWriteOperationsPerSec`, `IOTotalOperationsPerSec` | empty |
+| `EventLog` | 4 | no | `StatisticData` | empty |
+| `Process` | 2 | yes | the six process keys above | empty |
+| `DirectorySize` | 2 | no | `StatisticData` | empty |
+| `Http` / `Https` | 1 each | yes | `Response` | empty |
+| `TcpPort` | 1 | yes | `Response` | empty |
+| `ProcessOverSNMP` | 1 | yes | the six process keys above | empty |
 
-Each type reads a different subset of `Settings`. `WindowsService` uses `ServiceName` and
-`NotRunningStatusMode`; `PerformanceCounter` uses `Category`, `Counter`, `Instance` and
-`PreferredPollingMethod`; `Http`/`Https` use `Url`, `SearchString`, `FailIfFound`, `FollowRedirect`
-and a proxy group.
+SAM ships far more monitor types than this; the list is what six templates happened to use.
 
-**Correction to an earlier version of this page:** it stated the script types use `ScriptBody`,
-`ScriptArguments` and `ExecutionMode`, inferred from element names the three samples never
-actually populated on a `LinuxScript` component. The fourth sample discussed above (63
-`LinuxScript` components, all real and reportedly working) uses neither `ScriptArguments` nor
-`ExecutionMode` at all, and instead carries `ScriptBody`, `ScriptDirectory` (a working directory,
-`/tmp` in every instance), `CommandLineToPass` (the interpreter invocation, with the `${SCRIPT}`
-macro and any operator-supplied arguments — see
-[sam-citrix-hypervisor-template.md](sam-citrix-hypervisor-template.md#the-commandlinetopass-argument-prompt-mechanism)
-for what that argument mechanism does), `AuthenticationType` (`UsernamePassword` in every
-instance), `Port` (`22`), `CountAsDifference` (`false`), and `StatusRollupType` (`Worst`). Since
-this is now two disagreeing real samples rather than one inferred guess, treat both key sets as
-things a `LinuxScript` component *might* need depending on platform version, confirm which one
-your server's console writes by building one and exporting it, and do not assume `ExecutionMode`
-exists at all without checking.
+**The `__Frequency` / `__Timeout` column is the one to check before writing a component.**
+Types whose settings include the `__DataTransform*` family (`PerformanceCounter`,
+`DirectorySize`, `EventLog`) and `PowerShell` do not carry them; every other type seen does.
+Writing them where the type does not carry them is a plausible import failure, and it is what
+broke the first version of the template on
+[sam-udp-port-exhaustion-template.md](sam-udp-port-exhaustion-template.md).
+
+### Key sets by type
+
+Every key in order, with its `Required` flag and `ValueType`, as the 2026.4 exports write
+them. Values are the ones seen; where only one value was ever seen it is the only one proven.
+
+**`LinuxScript`** (MongoDB and Citrix, 71 components):
+`__Disabled` (false, Boolean) · `__CredentialSetId` (true, String) · `__Frequency` (true,
+String, `300`) · `__Timeout` (true, String, `300`) · `__UserDescription` · `__UserNotes` ·
+`AuthenticationType` (true, Option, `UsernamePassword`) · `CommandLineToPass` (true, String,
+e.g. `perl ${SCRIPT} /usr/bin/mongosh test`) · `CountAsDifference` (false, Boolean) · `Port`
+(true, Integer, `22`) · `ScriptBody` (true, External) · `ScriptDirectory` (false, String, empty
+or `/tmp`) · `StatusRollupType` (true, Option, `Worst`).
+
+**`PowerShell`** (Azure, Orion, Clock Drift, 19 components):
+`__Disabled` · `__CredentialSetId` (**false**, String) · `__UserDescription` · `__UserNotes` ·
+`CountAsDifference` (false, Boolean) · `ExecutionMode` (false, Option, `LocalHost`;
+`RemoteHost` confirmed by import) · `ImpersonateForLocalMode` (false, Boolean) ·
+`ScriptArguments` (false, String, comma-separated, e.g. `subID,TenantID,APPID,SecretKey=secretKey`) ·
+`ScriptBody` (true, External) · `StatusRollupType` (true, Option, `Worst`) · `WrmPort` (true,
+Integer, `5985`) · `WrmUrlPrefix` (true, String, `wsman`) · `WrmUseSSL` (false, Boolean).
+
+**`PerformanceCounter`** (Orion and Clock Drift, 44 components):
+`__Disabled` · `__CredentialSetId` (true, String) · `__DataTransformCheckedRadioButton` (false,
+Boolean, `0`) · `__DataTransformCommonFormulaIndex` (false, Integer, `0`) ·
+`__DataTransformCommonFormulaOptions` (false, String, `0`) · `__DataTransformEnabled` (false,
+Boolean) · `__UserDescription` · `__UserNotes` · `_BB_CanBeDisabled` (false, Boolean, `true`) ·
+`Category` (true, String) · `CountAsDifference` (false, Boolean) · `Counter` (true, String) ·
+`FeatureNameRegex` (false, String, empty) · `Instance` (false, String) ·
+`PreferredPollingMethod` (true, Option, `Default`) · `SkipFallback` (false, Boolean, `true`) ·
+`TransformExpression` (false, String) · `WinRmAuthenticationMechanism` (false, Option,
+`Negotiate`).
+
+**`WindowsService`** (Orion, 17 components):
+`__Disabled` · `__CredentialSetId` (true) · `__Frequency` · `__Timeout` · `__UserDescription` ·
+`__UserNotes` · `_BB_CanBeDisabled` (false, Boolean, `true`) · `_BB_CanBeDisabledOnAppItemLevel`
+(false, Boolean, `true`) · `FetchingMethod` (true, Option, `WMI`) · `MaxRequestingVersion` (false,
+String, empty) · `MinRequestingVersion` (false, String, empty) · `NotRunningStatusMode` (false,
+Option, `Down` or `NotRunning`) · `ServiceName` (true, String, the service's display name, e.g.
+`SolarWinds Collector Service`) · `WinRmAuthenticationMechanism` (false, Option, `Negotiate`).
+
+**`Process`** (Orion, 2 components):
+`__Disabled` · `__CredentialSetId` (true) · `__Frequency` · `__Timeout` · `__UserDescription` ·
+`__UserNotes` · `_BB_CanBeDisabled` (false, Boolean, `False`) · `CommandLineFilter` (false, String)
+· `FetchingMethod` (true, Option, `WMI`) · `MaxRequestingVersion` · `MinRequestingVersion` ·
+`NotRunningStatusMode` (false, Option, `Down`) · `ProcessName` (true, String, e.g.
+`SWJobEngineWorker2.exe`) · `WinRmAuthenticationMechanism` (false, Option, `Negotiate`).
+
+**`ProcessOverSNMP`** (MongoDB, 1 component):
+`__Disabled` · `__CredentialSetId` (true) · `__Frequency` · `__Timeout` · `__UserDescription` ·
+`__UserNotes` · `CommandLineFilter` (false, String) · `NotRunningStatusMode` (false, Option,
+`Down`) · `ProcessName` (true, String, `mongod`).
+
+**`TcpPort`** (MongoDB, 1 component):
+`__Disabled` · `__CredentialSetId` (true) · `__Frequency` · `__Timeout` · `__UserDescription` ·
+`__UserNotes` · `PortNumber` (true, Integer, `27017`).
+
+**`Http`** (Orion, 1 component):
+`__Disabled` · `__CredentialSetId` (true) · `__Frequency` · `__ShowCredentialsAlways` (false,
+Boolean, `true`) · `__Timeout` · `__UserDescription` · `__UserNotes` · `_BB_CanBeDisabled` ·
+`_BB_CanBeDisabledOnAppItemLevel` · `AcceptCompression` (true, Boolean) · `AuthMode` (true,
+Option, `Normal`) · `ContentType` (false, String, `application/json`) · `FailIfFound` (true,
+Boolean) · `FollowRedirect` (true, Boolean) · `HeadRequest` (true, Boolean) · `HostHeader`
+(false, String) · `HostRequest` (true, String, `GET`) · `PortNumber` (true, Integer, `80`) ·
+`ProxyAddress` (false, String) · `RequestBody` (false, String) · `SearchString` (false, String) ·
+`Url` (true, String, `http://${IP}:${PORT}/`) · `UseProxy` (true, Boolean) · `UserAgent` (false,
+String).
+
+**`Https`** (Orion, 1 component): the `Http` set plus `CertificateSubject` (false, String),
+`IgnoreCA`, `IgnoreCN` and `IgnoreCRL` (all true, Boolean), `PortNumber` `443`, `Url`
+`https://${IP}:${PORT}/`.
+
+**`DirectorySize`** (Orion, 2 components):
+`__Disabled` · `__CredentialSetId` (true) · the four `__DataTransform*` keys · `__UserDescription`
+· `__UserNotes` · `FileExtensionsFilter` (true, String, `*`) · `FileNamesFilter` (true, String,
+`*`) · `FullDirPath` (true, String, a UNC path such as `\\${IP}\c$\ProgramData\SolarWinds\Orion\…`) ·
+`IncludeSubDirs` (true, Boolean) · `TransformExpression` (false, String, e.g.
+`(${Statistic} /1024)  / 1024`) · `WinRmAuthenticationMechanism` (false, Option, `Negotiate`).
+One of the two has `__DataTransformEnabled` `true` and `__DataTransformCheckedRadioButton` `1`
+with that expression, which is what "Convert Value" in the console writes.
+
+**`EventLog`**: see [the sixth sample](#a-sixth-sample-the-eventlog-key-set-and-its-four-status-modes)
+below for the full table.
+
+`WindowsService` and `Process` carry `MinRequestingVersion` / `MaxRequestingVersion`, empty in
+every instance. Their purpose is **not documented and unverified here**; the names suggest an
+agent-version gate.
 
 ### Thresholds
 
@@ -422,14 +517,35 @@ echo "Statistic.<Name> : <value>";
 ```
 
 where `<Name>` is exactly the `Name` of one `DynamicEvidenceColumnSchema` entry — not a fixed
-numbered slot, and not an arbitrary free-form label. A component reporting `k` values needs `k`
-matching `DynamicEvidenceColumnSchema` entries and `k` `echo` lines, one per name; the sample
-here never exercises more than one value per component, so how many a single run can carry, and
-whether the literal separator (`.` after `Statistic`, ` : ` before the value) tolerates any
-variation, remain **unverified beyond what a script emitting exactly one line, matching exactly
-one column, has proven**. `sam.md`'s own note that `DynamicEvidence`/`DynamicEvidenceColumnSchema`
-carry "the columns a script monitor returned" is confirmed by this sample rather than
-superseded by it.
+numbered slot, and not an arbitrary free-form label.
+
+**Several values from one component is proven** (2026-09-17, MongoDB 5.0+ (Linux) v2
+re-exported from 2026.4). Its eight `LinuxScript` components emit between two and eight named
+pairs each, for example:
+
+```perl
+print "Message.Queue_total: Current queue total: $stat1\n";
+print "Statistic.Queue_total: $stat1\n";
+print "Message.Queue_readers: Current queue readers: $stat2\n";
+print "Statistic.Queue_readers: $stat2\n";
+```
+
+and each name has **two** `DynamicEvidenceColumnSchema` entries, a `String` one (the
+`Message.<Name>` text, with an empty `<DataTransform />`) followed by a `Numeric` one (the
+`Statistic.<Name>` value, with the nested `DataTransform`), both carrying that name in `Name`
+and `Label`. The Citrix sample, which emits no `Message.<Name>`, has only the `Numeric` entry
+per name, so the `String` column exists exactly when the script emits a message for that name.
+An unnamed `Message:` (a plain error text before a non-zero exit) needs no column.
+
+The separator tolerates variation. Real, working scripts write `Statistic.Queue_total: $stat1`
+(colon, space), `Statistic.Host_CPU_Utilization : $cpu_avg` (space, colon, space),
+`Statistic.SwisPubSub:$($messages[1])` (no spaces) and the unnamed `statistic: $netstat` in lower
+case. SolarWinds' page for the monitor caps a component at ten pairs.
+
+Exit codes in the shipped scripts are `0` for Up and `1` for Down, with the Azure template
+using `exit -1` for its error paths, which the platform treats as a non-zero failure. The
+Warning and Critical exits (`2`, `3`) that this repository's own scripts use are documented by
+SolarWinds but not exercised by any shipped script seen here.
 
 ## Credentials do not travel, and neither do secrets
 
@@ -457,8 +573,11 @@ if('${USER}' ne ''){
 }
 ```
 
-and the Azure template's PowerShell declares `[Parameter(Mandatory=$True)] $password`, taking
-the value as an argument rather than embedding it.
+and the Azure template's PowerShell takes its secret as a named argument
+(`ScriptArguments` = `subID,TenantID,APPID,SecretKey=secretKey`) rather than embedding it. The
+Orion template's `Http`/`Https` and `DirectorySize` components use `${IP}` and `${PORT}` in
+`Url` and a UNC `FullDirPath`, so the macros apply to ordinary string settings, not only to
+scripts.
 
 **This makes an `.apmtemplate` markedly safer to share than a
 [report definition](../automation/report-definitions.md#before-you-share-one)**, which carries

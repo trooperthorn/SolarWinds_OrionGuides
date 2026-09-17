@@ -70,6 +70,10 @@ is that its claims are checkable:
   columns on one component is structurally plausible (the schema is a list) but not exercised
   by this reference, so this repository's own components stay one metric per component to match
   what is actually proven.
+  **Answered since:** the MongoDB 5.0+ (Linux) v2 template re-exported from a 2026.4 server on
+  2026-09-17 emits up to eight named pairs from one `LinuxScript` component, each name with a
+  `String` and a `Numeric` column. One metric per component is a choice, not a limit; see
+  [sam-templates.md](sam-templates.md#dynamic-script-columns-dynamiccolumnsettings-and-the-statisticname-output-contract).
 - **`LinuxScript` does not use an `ExecutionMode` setting**, and does not use `ScriptArguments`
   either. It uses `AuthenticationType` (`UsernamePassword`), `Port` (`22`), `ScriptDirectory`
   (`/tmp`), `CommandLineToPass` (see below), `CountAsDifference` (`false`), and
