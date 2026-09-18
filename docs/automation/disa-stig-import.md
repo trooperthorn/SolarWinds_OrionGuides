@@ -16,7 +16,10 @@ them, and the DISA STIG Conversion Tool (`apps/disa-stig-conversion-tool`) in th
 **Source.** Verified against a real DISA package (Cisco IOS Router, Y26M07 release: NDM
 V3R8 and RTR V3R4 benchmarks, 127 rules) and a real SCM policy export (Microsoft IIS 8.5
 Server STIG version 1 rel. 10, 18 rules), and against the 2026.2 schema and verb
-contracts.
+contracts. A later [NCM portability audit](../modules/ncm-compliance-portability-audit.md)
+adds contractor-export evidence and concrete gaps in the current converters. This page
+describes current behavior; it does not certify complete XCCDF interpretation or live
+import verification.
 
 ## What DISA actually publishes
 
@@ -80,13 +83,18 @@ The target format is the three-tier NCM policy report — report → policies �
 whose file format and verbs [../modules/ncm-compliance-reports.md](../modules/ncm-compliance-reports.md)
 documents in full. The mapping that works:
 
-- One **report** per STIG package, one **policy** per benchmark (its
-  `NodeSelectionString` scopes the nodes — `Criteria: Where ( (Nodes.Vendor = 'Cisco') )`
-  is the part that filters), one **rule** per XCCDF rule.
+- The current `build_reports` implementation creates one **report and policy per
+  benchmark**, with a basic rule for each parsed requirement. This is a packaging choice: a
+  report can have several policies, and policies can share rules. `NodeSelectionString`
+  carries both picker state and a SQL-like suffix; use a target-validated scope and preserve
+  both representations. The current parser selects the first Rule in each Group and does
+  not retain profiles, so it is not a complete general XCCDF reader.
 - Severity → `ErrorLevel`: high `2` (critical), medium `1` (warning), low `0` (info).
-- Discussion, check content and every id land in the rule's `Comments`; the fix text
-  becomes `RemediateScript` (type CLI) with `ExecuteScriptAutomatically` **false** — a
-  downloaded checklist must never push configuration on its own.
+- Discussion, selected check content and the supported IDs land in `Comments`; this is
+  not lossless preservation of all XCCDF metadata. The current tool copies fix text into
+  `RemediateScript` (CLI) with `ExecuteScriptAutomatically` **false**. Fix prose is not
+  necessarily executable CLI; future generation should separate guidance from reviewed
+  commands. Retain full source provenance in a companion manifest.
 - Because the checks are prose, the rule pattern is a choice: a sentinel that never
   matches with must-exist set, so every rule flags a violation and each finding is an
   open action item until an engineer writes the real pattern — or a heuristic draft
@@ -104,8 +112,10 @@ but has been observed in the field creating only the report row over JSON REST:
    `AssignedRulesList` carrying the rule GUIDs — returns the policy GUID.
 4. `AddPolicyReport(report, importFlag)` with `importFlag` false and
    `AssignedPoliciesList` carrying the policy GUIDs — returns the report GUID.
-5. `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true — read the tree back and count policies and
-   rules before claiming success.
+5. `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true — read the tree back and
+   compare expected relationships and content before claiming success. The current tool
+   checks only that policy/rule counts are nonzero; the audit reproduced a partial tree
+   being accepted. Exact verification is a required improvement, not existing behavior.
 6. `StartCaching(selectedReportsIds)` with `[thatGuid]` — the report shows nothing
    until cached, and an empty array would re-cache every report on the server.
 
@@ -144,6 +154,9 @@ python3 apps/disa-stig-conversion-tool/disa_stig_tool.py import U_Cisco_IOS_Rout
     --host orion.example.com --user admin
 ```
 
-Its safety posture is the one this page argues for: nothing auto-executes, name
+For current serializer and verification limitations, read the
+[implementation findings](../modules/ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter).
+In particular, the XML fallback drops advanced conditions if those are supplied; the
+normal generator currently emits basic rules. Its intended safety posture is: nothing auto-executes, name
 collisions are errors rather than merges, and caching/evaluation is started for the
 specific import only.

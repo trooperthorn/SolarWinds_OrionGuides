@@ -573,15 +573,31 @@ Log Analyzer is where messages the platform did not ask for arrive.
 - [What is not verified here](modules/log-analyzer.md#what-is-not-verified-here)
 - [Related pages](modules/log-analyzer.md#related-pages): source mappings.
 
+### [NCM compliance portability and DISA conversion: export audit](modules/ncm-compliance-portability-audit.md)
+
+The report XML preserves a useful rule-authoring vocabulary, but moving the file is only one part of moving a compliance assessment.
+
+- [Evidence and limits](modules/ncm-compliance-portability-audit.md#evidence-and-limits): This audit reads the owner-supplied NCM-Compliance.zip, SHA-256 e87b7e4df42b4e196e8bd3b4e542a6bc968e9ec13a3f5fe8f19acb5338cdfae8.
+- [Report, policy, rule, and requirement are different identities](modules/ncm-compliance-portability-audit.md#report-policy-rule-and-requirement-are-different-identities): The exported hierarchy remains PolicyReport → AssignedPolicies/Policy → AssignedPolicyRules/PolicyRule.
+- [Scope and collected configuration are portable dependencies](modules/ncm-compliance-portability-audit.md#scope-and-collected-configuration-are-portable-dependencies): Thirty-eight policies contain WebCriteria: followed by an escaped picker document and an SQL:Where suffix.
+- [Preserve condition structure and whitespace](modules/ncm-compliance-portability-audit.md#preserve-condition-structure-and-whitespace): The 236 advanced rules contain 1,178 ordered condition rows: 236 first rows have an empty Condition, with 707 AND and 235 OR connectors afterward.
+- [Concrete content findings](modules/ncm-compliance-portability-audit.md#concrete-content-findings): These findings support remediation work; they do not establish the entire package's compliance effectiveness without representative device configurations.
+- [Encoding is a compatibility issue, not a format prescription](modules/ncm-compliance-portability-audit.md#encoding-is-a-compatibility-issue-not-a-format-prescription): All 24 files declare utf-16 but contain UTF-8 bytes without a UTF-16 BOM.
+- [Code gaps affecting the STIG Tool and Porter](modules/ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter): These are findings against the named baseline, not changes implemented by this audit.
+- [A conversion model that retains DISA meaning](modules/ncm-compliance-portability-audit.md#a-conversion-model-that-retains-disa-meaning): DISA distinguishes human-readable STIG content from SCAP data streams containing multiple components; displaying or extracting a reference to OVAL does not evaluate that check.
+- [Proposed import and export contract](modules/ncm-compliance-portability-audit.md#proposed-import-and-export-contract): containers separately.
+- [Acceptance tests before claiming cross-customer support](modules/ncm-compliance-portability-audit.md#acceptance-tests-before-claiming-cross-customer-support): This documentation proposal adds evidence and an implementation contract.
+- [Official DISA package comparison, 2026-09-18](modules/ncm-compliance-portability-audit.md#official-disa-package-comparison-2026-09-18): The live DISA download catalog was accessed in a browser and 11 packages were downloaded using its Download buttons.
+
 ### [NCM compliance policy reports: the export file and its round trip](modules/ncm-compliance-reports.md)
 
 A policy report checks device configurations against rules and reports the violations.
 
 - [The three-tier structure](modules/ncm-compliance-reports.md#the-three-tier-structure): The same rule can appear in several policies and the same policy in several reports — the file denormalizes that: each export carries complete copies of everything it uses.
-- [The file](modules/ncm-compliance-reports.md#the-file): All three sample files declare encoding="utf-16" in the XML prolog while the bytes on disk are UTF-8.
+- [The file](modules/ncm-compliance-reports.md#the-file): The original three samples, and all 24 files in the later audit, declare encoding="utf-16" over UTF-8 bytes.
 - [The SWIS round trip (2026.2, verified)](modules/ncm-compliance-reports.md#the-swis-round-trip-20262-verified): All writes are Invoke verbs on Cirrus.PolicyReports — the Cirrus.Policy* SWQL entities are read-only.
-- [Porter](modules/ncm-compliance-reports.md#porter): The Porter utility in this repository (apps/porter) implements this round trip as its NCM Compliance area: console-compatible XML out (UTF-16, matching element order), AddPolicyReport with importFlag true in, name-col...
-- [From a DISA STIG package](modules/ncm-compliance-reports.md#from-a-disa-stig-package): Reports in this format can also be generated from DISA's own XCCDF STIG downloads rather than a console export — one policy per benchmark, one rule per requirement, fix text as never-auto-executed remediation.
+- [Porter](modules/ncm-compliance-reports.md#porter): The Porter utility in this repository (apps/porter) writes UTF-16 XML with a matching declaration and uses nested AddPolicyReport import, name-collision skip, and StartCaching.
+- [From a DISA STIG package](modules/ncm-compliance-reports.md#from-a-disa-stig-package): Reports in this format can also be generated from DISA's own XCCDF STIG downloads rather than a console export.
 
 ### [NCM device templates: the .ConfigMgmtCommands format](modules/ncm-device-templates.md)
 
@@ -1682,6 +1698,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [hardware-health.md](reference/unverified.md#hardware-healthmd): Enabling and disabling individual sensors
 - [ipam.md](reference/unverified.md#ipammd): The status values, and how to find out what the numbers are
 - [log-analyzer.md](reference/unverified.md#log-analyzermd): Verbs
+- [ncm-compliance-portability-audit.md](reference/unverified.md#ncm-compliance-portability-auditmd): Report, policy, rule, and requirement are different identities
 - [ncm-device-templates.md](reference/unverified.md#ncm-device-templatesmd): The root attributes
 - [ncm.md](reference/unverified.md#ncmmd): Gotchas
 - [npm.md](reference/unverified.md#npmmd): Wireless

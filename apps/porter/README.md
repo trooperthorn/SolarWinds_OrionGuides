@@ -182,7 +182,7 @@ error sentence stay plain. For the record:
 | WPM Recordings | `Export(id, password)` / `Import(content, name, password)` — cipher password mandatory | **Flight-ready** |
 | NCM Device Templates | `TemplateXml` column out · SWIS CRUD Create in · built-ins read-only | **Flight-ready** |
 | Nodes + Custom Properties | one CSV · `CreateCustomProperty` (admin) + per-node `…/CustomProperties` update | **Flight-ready** |
-| NCM Compliance Reports | `GetPolicyReport(id, true)` / `AddPolicyReport(report, true)` + `StartCaching` | **Flight-ready** |
+| NCM Compliance Reports | `GetPolicyReport(id, true)` / `AddPolicyReport(report, true)` + `StartCaching` | Implemented; nested read-back verification gap documented in the [audit](../../docs/modules/ncm-compliance-portability-audit.md) |
 | Discovery + Credentials | partial by design — secrets never leave a server | In Dry Dock (v2) |
 | Universal Device Pollers | export-only; definitions have no SWIS create | In Dry Dock (v2) |
 | Device Studio | no SWIS route in 2026.2 | Uncharted |
@@ -218,8 +218,10 @@ error sentence stay plain. For the record:
   Ambiguous matches are skipped and named, never guessed; every row fails individually
   and the outcome accounts for all of it. Values with embedded newlines round-trip.
   SNMP community strings are deliberately not exported.
-- **NCM Compliance Reports** — Porter writes the console's own XML format (UTF-16),
-  so files interchange with the WebUI both ways. Import validation raises a **blocking
+- **NCM Compliance Reports** — Porter writes the observed element structure as UTF-16
+  with a matching declaration. Validate interchange on the target console. Its current
+  import verifies the report row rather than the full nested tree; see the
+  [portability audit](../../docs/modules/ncm-compliance-portability-audit.md). Import validation raises a **blocking
   security flag** for every rule with `ExecuteScriptAutomatically=true` (those rules
   push configuration to failing devices once cached); the file cannot be imported
   until the operator ticks the acknowledgement. After import Porter starts compliance

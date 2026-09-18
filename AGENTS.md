@@ -15,7 +15,10 @@ the documented, customer-facing API. Do not present anything here as insider mat
 and do not add any. The versioned Modern Dashboard audit additionally uses an owner-supplied
 2026.4 export, with owner-reported provenance and selected configuration evidence. Its
 observations do not expand the 2026.2 schema contract; consult
-`docs/webui/modern-dashboard-2026-4-export-audit.md` for the validation boundary.
+`docs/webui/modern-dashboard-2026-4-export-audit.md` for the validation boundary. An
+owner-supplied contractor NCM package is likewise documented in
+`docs/modules/ncm-compliance-portability-audit.md`; its reported 2022-2026.1 source range
+and observed XML shape do not certify API or rule-evaluation compatibility across releases.
 
 ## Finding your way around
 

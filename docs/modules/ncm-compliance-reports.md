@@ -10,6 +10,10 @@ this format).
 Report, a DISA STIG routing-interface report, and the Cisco Security Audit sample —
 against the 2026.2 schema and verb contract. [ncm.md](ncm.md) covers the entity model
 and the full compliance verb table; this page is the file format and the API round trip.
+The later [portability audit](ncm-compliance-portability-audit.md) adds 24 contractor-authored
+reports, 39 policy occurrences and 415 rule occurrences, with source versions reported by the
+owner as spanning 2022 through 2026.1. It documents shared rules, scope/config dependencies,
+advanced conditions, and verified gaps in the repository tools.
 
 ## The three-tier structure
 
@@ -41,9 +45,11 @@ the file denormalizes that: each export carries complete copies of everything it
 </PolicyReport>
 ```
 
-**The encoding lies.** All three sample files declare `encoding="utf-16"` in the XML
-prolog while the bytes on disk are UTF-8. Any parser that trusts the declaration
-fails; sniff the byte-order mark and fall back to UTF-8, never believe the prolog.
+**Observed encoding mismatch.** The original three samples, and all 24 files in the later
+audit, declare `encoding="utf-16"` over UTF-8 bytes. Record the original bytes and hash,
+try normal byte parsing, and report a diagnosed UTF-8 text fallback when needed. Correct
+UTF-8 and UTF-16 files must still honor their encoding. New output should normally declare
+the actual encoding; legacy compatibility behavior needs target-console validation.
 
 ### Policy
 
@@ -69,8 +75,10 @@ fails; sniff the byte-order mark and fall back to UTF-8, never believe the prolo
   `SQL:Where (Vendor = 'Cisco') `. Column names in the SQL fragment are bare
   (`Vendor`, not `Nodes.Vendor`). When generating files for import, match the
   server's own exports.
-- **Policies carry no GUID in the file** — `PolicyName` is the identity. Rules do
-  carry a `RuleId` GUID.
+- **Policies carry no GUID in these console files**, although the API contract has
+  `PolicyId`. `PolicyName` is a portable label, not proof of unique identity. Retain scope,
+  config type, source path and a content fingerprint for collision review. Rules carry
+  `RuleId`; the later audit finds ten identical shared rules across two reports.
 - `ConfigTypes` restricts which downloaded config type the rules scan (`Any`,
   `Running`, `Startup`, …). Reports never run against XML-format configs.
 
@@ -87,7 +95,7 @@ fails; sniff the byte-order mark and fall back to UTF-8, never believe the prolo
 | `AdvancedMode` | `true` = the test is `MultiLineRulePatterns`, not the simple pattern |
 | `MultiLineRulePatterns` | list of `MultiLineRulePattern` {`Pattern`, `PatternType`, `Criteria`, `Condition`, `BeginBracket`, `EndBracket`} — multi-line/AND-OR matching |
 | `ConfigBlockStart` / `ConfigBlockEnd` / `ConfigBlockPatternType` / `ConfigBlockMustExist` | restrict matching to a config block (e.g. one interface stanza) |
-| `RemediateScript` | CLI script run to fix a violation — the shipped DISA STIG rules carry full "Fix Text" scripts |
+| `RemediateScript` | Remediation field; some exports store whole STIG narratives here, which are not ready-to-run CLI scripts |
 | `RemediateScriptType` | `CLI`, or a config change template |
 | `ExecuteScriptAutomatically` | **the dangerous one** — `true` pushes the remediation to failing devices automatically |
 | `ExecuteRemediationScriptPerBlock`, `ExecuteScriptInConfigMode` | how the script is delivered |
@@ -142,28 +150,37 @@ Round-trip gotchas:
   exportFlag)` (`exportFlag` true) that the stored tree actually holds the policies
   and rules before trusting the import — and when nothing is accepted, writing the
   console-export file and importing through the web console (Compliance → Manage
-  Policy Reports → Import) always works.
+  Policy Reports → Import) is the supported fallback to test. It is not a guarantee that
+  malformed, unsupported, or incorrectly scoped content will work. These format probes
+  create objects; journal them and account for partial progress.
 - The `Update*` verbs have no `importFlag`, so they touch only their own level;
   cascading replace means delete-then-add, and `DeletePolicyReports(ids,
   deleteChildren=true)` can rip shared policies out from under other reports —
   default `deleteChildren=false`.
 - `ReportStatus` is the string `Enabled`/`Disabled` in payloads but a boolean in SWQL.
-- Verb access is role-gated NCM-side (download = WebDownloader, upload = WebUploader),
-  and the whole compliance verb set can be restricted to admins by a server option.
+- Verify roles per verb rather than inferring them from read/write intent. The published
+  2026.2 descriptions for `GetPolicyReport`, `AddPolicyRule`, and `TestRule` name at least
+  WebDownloader when compliance is not restricted to administrators. Target settings
+  and other verbs need their own permission checks.
 
 ## Porter
 
-The Porter utility in this repository (`apps/porter`) implements this round trip as
-its NCM Compliance area: console-compatible XML out (UTF-16, matching element order),
-`AddPolicyReport` with `importFlag` true in, name-collision skip, and `StartCaching` for the
-new report. Its import validation raises a **blocking security flag** for every
+The Porter utility in this repository (`apps/porter`) writes UTF-16 XML with a matching
+declaration and uses nested `AddPolicyReport` import, name-collision skip, and `StartCaching`.
+Its current read-back checks the report row, not the nested policy/rule tree. The
+[portability audit](ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter)
+records the missing verification before this should be treated as a complete round trip.
+Its import validation raises a **blocking security flag** for every
 auto-executing remediation rule; the file cannot be imported until the operator
 explicitly acknowledges the flags.
 
 ## From a DISA STIG package
 
 Reports in this format can also be generated from DISA's own XCCDF STIG downloads
-rather than a console export — one policy per benchmark, one rule per requirement,
-fix text as never-auto-executed remediation. That flow, and the DISA STIG Conversion Tool (`apps/disa-stig-conversion-tool`)
+rather than a console export. The current converter creates one report and policy per
+benchmark and basic manual-review or heuristic rules. It stores fix text in a nonautomatic
+CLI remediation field. The audit recommends retaining guidance separately from executable
+commands in future generated content; advanced rules need additional serialization support.
+That flow, and the DISA STIG Conversion Tool (`apps/disa-stig-conversion-tool`)
 that implements it (plus the SCM path for server STIG YAML), is documented in
 [../automation/disa-stig-import.md](../automation/disa-stig-import.md).

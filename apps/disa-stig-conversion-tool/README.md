@@ -16,9 +16,10 @@ The **Compliance target** dropdown (or `--target`) controls the routing:
 names as above; **Network Compliance** forces NCM; **Server Compliance** forces
 SCM. Auto falls back to NCM, saying so, when nothing is recognized.
 
-The tool ships in **two self-contained single-file editions with identical behavior**
-— pick whichever your environment mandates; both are dependency-free and derive
-byte-identical rule GUIDs, so their outputs are interchangeable:
+The tool ships in **two self-contained single-file editions**. Both derive the same
+rule GUIDs for the same source Rule ID. Do not assume full serialization parity for
+advanced rules: the [NCM portability audit](../../docs/modules/ncm-compliance-portability-audit.md)
+records differences and offline-reproduced limitations. The generated default rules are basic:
 
 - **`disa_stig_tool.py`** — Python 3, standard library only (no `orionsdk`).
 - **`disa_stig_tool.ps1`** — Windows PowerShell 5.1+ / PowerShell 7+, built-in .NET
@@ -150,7 +151,7 @@ the check prose — importing both would just duplicate rules. Packages download
 | fixtext (the Fix Text) | `RemediateScript`, type CLI, **never auto-executed** |
 | one XCCDF Group/Rule (each check) | one NCM rule |
 | one benchmark | one policy — the device scope (`--node-where`, default `(Nodes.Vendor = 'Cisco')`) |
-| one benchmark | one report **named `<zip name> - <benchmark>`** (the router zip yields an NDM report with 35 rules and an RTR report with 92), `Enabled`, in the `DISA STIG` folder — matching the console's own one-policy-per-report exports |
+| one benchmark | one report **named `<zip name> - <benchmark>`** (the router zip yields an NDM report with 35 rules and an RTR report with 92), `Enabled`, in the `DISA STIG` folder — a converter packaging choice, not a one-policy limit in the console format |
 
 Manual STIGs describe their checks in prose, not machine-checkable patterns, so the
 tool is honest about that:
@@ -167,6 +168,20 @@ tool is honest about that:
 
 `RuleId` GUIDs are derived deterministically from the DISA rule ID (uuid5), so
 re-importing the same STIG release produces the same rule identities.
+
+## Current NCM coverage and import limits
+
+The input parser reads XCCDF benchmarks; it is not an importer for an existing
+`PolicyReport` XML file. Porter is the repository's reader for that artifact. The current
+XCCDF model omits profile selection and retains only the first direct Rule per Group.
+OVAL references are recorded, not evaluated. A generated sentinel or heuristic is not
+an implemented automated STIG assessment.
+
+Before extending the tool to richer rules, fix the XML fallback serializers, preserve
+advanced conditions in both editions, and compare exact imported relationships and
+content. The current read-back rejects empty trees but can accept a partial tree.
+See the [evidence and acceptance tests](../../docs/modules/ncm-compliance-portability-audit.md)
+for scope/config dependencies, version tracking, and the proposed import journal.
 
 ## Server STIGs into SCM (the Server Compliance route)
 

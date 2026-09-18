@@ -111,6 +111,7 @@ Per-product deep dives. An entity only exists if its module is licensed and inst
 | [docs/modules/sam-udp-port-exhaustion-template.md](docs/modules/sam-udp-port-exhaustion-template.md) | A worked `.apmtemplate` for Windows UDP ephemeral port exhaustion, PowerShell over WinRM plus native counters |
 | [docs/modules/ncm.md](docs/modules/ncm.md) | Network Configuration Manager |
 | [docs/modules/ncm-device-templates.md](docs/modules/ncm-device-templates.md) | The `.ConfigMgmtCommands` device template format: CLI commands, prompt detection, and the three execution modes |
+| [docs/modules/ncm-compliance-portability-audit.md](docs/modules/ncm-compliance-portability-audit.md) | 24 contractor reports: dependency mapping, advanced rules, STIG traceability, serializer gaps, and cross-customer acceptance tests |
 | [docs/modules/ncm-compliance-reports.md](docs/modules/ncm-compliance-reports.md) | The compliance policy report export: the three-tier PolicyReport XML, the `GetPolicyReport`/`AddPolicyReport` round trip, and the encoding trap |
 | [docs/modules/nta.md](docs/modules/nta.md) | NetFlow Traffic Analyzer |
 | [docs/modules/srm.md](docs/modules/srm.md) | Storage Resource Monitor |
@@ -149,7 +150,7 @@ Task guides that combine query, CRUD and Invoke.
 | [docs/automation/report-definitions.md](docs/automation/report-definitions.md) | The report export XML, field by field, and moving a report between servers |
 | [docs/automation/scheduling.md](docs/automation/scheduling.md) | Scheduled tasks and maintenance plans |
 | [docs/automation/high-availability.md](docs/automation/high-availability.md) | HA pools |
-| [docs/automation/disa-stig-import.md](docs/automation/disa-stig-import.md) | Importing DISA STIG checks as SCM compliance policies |
+| [docs/automation/disa-stig-import.md](docs/automation/disa-stig-import.md) | DISA XCCDF into NCM and SCM, with current conversion limits and import verification gaps |
 
 ## Polling
 

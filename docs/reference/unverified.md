@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**298 statements across 71 pages.**
+**300 statements across 72 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -474,6 +474,16 @@ Read this before relying on this repository for something load-bearing. If you h
 **[What is not verified here](../modules/log-analyzer.md#what-is-not-verified-here)**
 
 - ## What is not verified here
+
+## [ncm-compliance-portability-audit.md](../modules/ncm-compliance-portability-audit.md)
+
+**[Report, policy, rule, and requirement are different identities](../modules/ncm-compliance-portability-audit.md#report-policy-rule-and-requirement-are-different-identities)**
+
+- Completeness against DISA is **unverified** until a specific source benchmark, release, and selected profile have been compared.
+
+**[Scope and collected configuration are portable dependencies](../modules/ncm-compliance-portability-audit.md#scope-and-collected-configuration-are-portable-dependencies)**
+
+- Runtime precedence if the two representations disagree is **unverified** here.
 
 ## [ncm-device-templates.md](../modules/ncm-device-templates.md)
 

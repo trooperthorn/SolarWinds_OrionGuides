@@ -68,6 +68,9 @@ for a Windows signal no stock counter exposes.
 [ncm-device-templates.md](ncm-device-templates.md)
 documents the `.ConfigMgmtCommands` document that tells NCM how to hold a Telnet or SSH
 session with a given kind of device.
+[ncm-compliance-portability-audit.md](ncm-compliance-portability-audit.md) adds an audit of
+24 contractor reports and the import/export requirements for the DISA STIG Tool.
+
 [ncm-compliance-reports.md](ncm-compliance-reports.md) documents the policy report export —
 the three-tier PolicyReport XML and its GetPolicyReport/AddPolicyReport round trip. And
 [scm-compliance-policies.md](scm-compliance-policies.md) documents the SCM compliance
