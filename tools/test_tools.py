@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import build_reference_data
 import check_dashboards
+import audit_dashboard_identities
 import diff_schema
 import validate_swql
 from schema_query import Schema
@@ -2048,6 +2049,59 @@ class TestMcpServer(unittest.TestCase):
     def test_every_tool_has_a_docstring_for_the_client(self):
         for fn in self.mod.TOOLS:
             self.assertTrue((fn.__doc__ or "").strip(), fn.__name__)
+
+
+class TestDashboardIdentityAudit(unittest.TestCase):
+    """Identity conflicts must be detected across files, even with new page keys."""
+
+    def report(self, *widgets):
+        documents = []
+        for i, widget in enumerate(widgets):
+            documents.append({"source_id": i, "package": f"p{i}.zip", "member": "d.json",
+                              "data": {"dashboards": [{"unique_key": f"page-{i}",
+                                  "name": f"Page {i}", "widgets": [{"unique_key": widget["unique_key"],
+                                                                       "reference": False}]}],
+                                       "widgets": [widget]}})
+        return audit_dashboard_identities.audit(documents, [])
+
+    def test_different_dashboard_keys_do_not_hide_widget_conflict(self):
+        result = self.report({"unique_key": "widget", "configuration": {"swql": "a"}},
+                             {"unique_key": "widget", "configuration": {"swql": "b"}})
+        self.assertEqual(result["summary"]["conflicting_keys"], 1)
+        finding = result["findings"][0]
+        self.assertTrue(finding["cross_package"])
+        self.assertEqual(finding["differences"][0]["changed_paths"], ["/configuration/swql"])
+
+    def test_object_order_is_not_a_conflict_but_sharing_is_reported(self):
+        result = self.report({"unique_key": "w", "name": "n", "configuration": {}},
+                             {"configuration": {}, "name": "n", "unique_key": "w"})
+        self.assertEqual(result["summary"]["conflicting_keys"], 0)
+        self.assertEqual(result["findings"][0]["classification"], "same_key_same_definition")
+
+    def test_internal_tile_id_is_not_global_widget_identity(self):
+        result = self.report({"unique_key": "one", "configuration": {"kpi_same": {"id": "same"}}},
+                             {"unique_key": "two", "configuration": {"kpi_same": {"id": "same"}}})
+        self.assertEqual(result["findings"], [])
+
+    def test_uuid_case_is_normalized(self):
+        result = self.report({"unique_key": "f4c74926-35af-4044-b921-dc2468e81c58"},
+                             {"unique_key": "F4C74926-35AF-4044-B921-DC2468E81C58"})
+        self.assertEqual(result["summary"]["distinct_widget_keys"], 1)
+
+    def test_missing_null_and_array_order_are_preserved(self):
+        self.assertEqual(audit_dashboard_identities.changed_paths({}, {"parent": None}), ["/parent"])
+        self.assertEqual(audit_dashboard_identities.changed_paths([1, 2], [2, 1]), ["/0", "/1"])
+
+    def test_duplicate_json_fields_rejected(self):
+        with self.assertRaises(ValueError):
+            json.loads('{"unique_key":"a","unique_key":"b"}',
+                       object_pairs_hook=audit_dashboard_identities.unique_members)
+
+    def test_unresolved_placement_reported(self):
+        result = audit_dashboard_identities.audit([{"source_id": 0, "package": "p", "member": "d",
+            "data": {"dashboards": [{"unique_key": "page", "widgets": [{"unique_key": "missing"}]}],
+                     "widgets": []}}], [])
+        self.assertEqual(result["summary"]["unresolved_placements"], 1)
 
 
 if __name__ == "__main__":

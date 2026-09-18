@@ -1294,13 +1294,26 @@ modern-dashboards.md is the format.
 - [Adding a dashboard to console navigation](webui/modern-dashboard-authoring.md#adding-a-dashboard-to-console-navigation): A Modern Dashboard is reachable at /apps/platform/dashboard/{DashboardID} (the same URL the filter grammar below extends), but nothing places it in the console's own menu automatically.
 - [Columns exist to feed formatters](webui/modern-dashboard-authoring.md#columns-exist-to-feed-formatters): A table column binds data fields to a rendering component, so the query needs a column for each input the formatter takes — not just the visible value.
 - [The self-referencing link pattern](webui/modern-dashboard-authoring.md#the-self-referencing-link-pattern): Two of the three authors independently use the same technique for one dashboard to link to another, and it is the most quietly clever thing in these files.
-- [Duplicating a dashboard onto the same server](webui/modern-dashboard-authoring.md#duplicating-a-dashboard-onto-the-same-server): Import creates whatever the file says, so re-importing an unmodified export next to its original offers the server a dashboard with the same name and the same unique_keys it already has — the duplicate-key situation w...
+- [Duplicating a dashboard onto the same server](webui/modern-dashboard-authoring.md#duplicating-a-dashboard-onto-the-same-server): A same-key import is an update path, not an independent copy.
 - [The ?filters= grammar](webui/modern-dashboard-authoring.md#the-filters-grammar): Appending a filter to a dashboard URL is how these dashboards drill down.
 - [KPI tiles link through the interaction handler](webui/modern-dashboard-authoring.md#kpi-tiles-link-through-the-interaction-handler): A KPI widget has no per-tile link property.
 - [A complete minimal file](webui/modern-dashboard-authoring.md#a-complete-minimal-file): This is a whole, importable dashboard: one KPI tile and one table, both against stock entities so it works on any installation without custom properties.
 - [Asking an AI to generate one](webui/modern-dashboard-authoring.md#asking-an-ai-to-generate-one): The format is regular enough that a language model can emit a whole valid file, provided the prompt pins the parts it cannot infer.
 - [Gotchas](webui/modern-dashboard-authoring.md#gotchas): One author's file carries collisions across 27 widgets.
 - [See also](webui/modern-dashboard-authoring.md#see-also): custom properties a dashboard can filter on - custom-query-widget.md — the classic-console equivalent, with its own _LinkFor_ convention - ../swql/README.md and ../swql/gotchas.md — the query language every widget is...
+
+### [Modern Dashboard widget identity and import collisions](webui/modern-dashboard-widget-identity-audit.md)
+
+The import identity to check is widgets[].unique_key, together with the matching dashboards[].widgets[].unique_key placement references.
+
+- [What the two packages actually establish](webui/modern-dashboard-widget-identity-audit.md#what-the-two-packages-actually-establish): The demonstrable conflict is inside Sean's package: three dashboard files define All Active Alerts under one key but with different configuration.
+- [The conflicting widget and its resources](webui/modern-dashboard-widget-identity-audit.md#the-conflicting-widget-and-its-resources): All three instances are table widgets named All Active Alerts.
+- [Repeated keys with identical definitions](webui/modern-dashboard-widget-identity-audit.md#repeated-keys-with-identical-definitions): Two more keys occur on all three Sean dashboards with equal parsed JSON definitions:
+- [Import behavior and the evidence boundary](webui/modern-dashboard-widget-identity-audit.md#import-behavior-and-the-evidence-boundary): SolarWinds documents keys as dashboard/widget identities for distributing updates, and states that an imported dashboard with an existing key overwrites the original.
+- [Rules for AI authors and import preflight](webui/modern-dashboard-widget-identity-audit.md#rules-for-ai-authors-and-import-preflight): ZIPs in the import batch, and exported target definitions.
+- [Reproduce the package check](webui/modern-dashboard-widget-identity-audit.md#reproduce-the-package-check): Run the read-only identity auditor against both archives together.
+- [Read-only target checks](webui/modern-dashboard-widget-identity-audit.md#read-only-target-checks): The 2026.2 schema exposes widget UniqueKey through Orion.Dashboards.Entity and links through Orion.Dashboards.Links.
+- [Gaps in the repository import applications](webui/modern-dashboard-widget-identity-audit.md#gaps-in-the-repository-import-applications): At baseline commit 614cbb7, Dashboard Porter's FindCollisionsAsync checks dashboard keys only.
 
 ### [Modern Dashboard files](webui/modern-dashboards.md)
 
@@ -1313,7 +1326,7 @@ A Modern Dashboard — the console calls the feature Dashboards, under /apps/pla
 - [Table configuration](webui/modern-dashboards.md#table-configuration): sortBy refers to a column id, not a data field.
 - [KPI configuration](webui/modern-dashboards.md#kpi-configuration): A KPI widget is a container of tiles.
 - [Proportional (donut) configuration](webui/modern-dashboards.md#proportional-donut-configuration): The five *Field properties are the whole binding: each names a column of the query.
-- [unique_key collisions, and the reuse that is fine](webui/modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine): unique_key is the only thing joining a placement to a definition, and nothing enforces that it is unique.
+- [unique_key collisions, and the reuse that is fine](webui/modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine): unique_key joins a placement to a definition.
 - [Exporting and importing](webui/modern-dashboards.md#exporting-and-importing): The console's export button is one route; Orion.Dashboards.Instances is the other.
 - [What this repository verified](webui/modern-dashboards.md#what-this-repository-verified): Nine exports from three independent authors, parsed and checked against the extracted 2026.2 schema:
 - [Modern Dashboard widgets do not work on classic dashboards](webui/modern-dashboards.md#modern-dashboard-widgets-do-not-work-on-classic-dashboards): Asked directly in SolarWinds Lab #93 (39:53-39:57), the presenter confirms the boundary runs one way only: a Modern Dashboard widget cannot be placed on a classic console dashboard.
@@ -1750,7 +1763,8 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [README.md](reference/unverified.md#readmemd): A caveat that applies to the whole section
 - [custom-query-call-queries.md](reference/unverified.md#custom-query-call-queriesmd): Call Queries: VNQM call detail widgets
 - [custom-query-widget.md](reference/unverified.md#custom-query-widgetmd): Where the link value comes from
-- [modern-dashboard-authoring.md](reference/unverified.md#modern-dashboard-authoringmd): Reusing another dashboard's widget from the console
+- [modern-dashboard-authoring.md](reference/unverified.md#modern-dashboard-authoringmd): The ?filters= grammar
+- [modern-dashboard-widget-identity-audit.md](reference/unverified.md#modern-dashboard-widget-identity-auditmd): Import behavior and the evidence boundary
 - [modern-dashboards.md](reference/unverified.md#modern-dashboardsmd): Modern Dashboard files
 - [ncm-change-template-language.md](reference/unverified.md#ncm-change-template-languagemd): If you know C#, what does not transfer
 - [ncm-change-templates.md](reference/unverified.md#ncm-change-templatesmd): The directives

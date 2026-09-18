@@ -277,3 +277,13 @@ guessing around them:
 Match the repository: complete sentences, explain why rather than only what, runnable
 examples with real verified names, no em dashes, and no attribution footers or model
 names in committed files.
+
+## Modern Dashboard identity checks
+
+Before generating independent dashboard copies or preparing imports, read
+`docs/webui/modern-dashboard-widget-identity-audit.md`. Check `widgets[].unique_key`
+across every file in the batch and target exports, not only `dashboards[].unique_key`.
+Use `tools/audit_dashboard_identities.py` to flag repeated keys with different definitions
+and report identical sharing separately. New dashboard names and `reference: false` do
+not establish isolation. Independent copies need new widget identities and remapped
+placements; deliberate updates preserve identities. Never replace all GUIDs blindly.

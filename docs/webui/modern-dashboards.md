@@ -45,7 +45,7 @@ Four keys, and the split between the last three is the thing to understand first
 | `widgets` | The **widget definitions**: type, queries, formatting |
 | `remove` | `null` in every export seen; purpose undocumented and **unverified here** |
 
-**A widget is defined once and placed once.** The two arrays are joined by `unique_key`:
+**A widget definition can have placements on multiple dashboards.** The two arrays are joined by `unique_key`:
 `dashboards[].widgets[].unique_key` is a placement referring to a definition in the top-level
 `widgets[]` array. That indirection is what lets the same widget appear on several dashboards.
 
@@ -577,10 +577,10 @@ for a KPI tile, `NOVA_DATASOURCE_ADAPTER` for a chart, and an anonymous
 
 ## `unique_key` collisions, and the reuse that is fine
 
-`unique_key` is the only thing joining a placement to a definition, and **nothing enforces
-that it is unique.** One author's file breaks it, in two different ways, and neither break is
-visible from the console. A third author's five files are clean — 43 definitions, 43 distinct
-keys — so this is a defect a careful author avoids, not something the format forces on you.
+`unique_key` joins a placement to a definition. Check identities across the entire import
+batch and against target exports, not just within each file. The
+[widget identity audit](modern-dashboard-widget-identity-audit.md) establishes the exact
+conflict in the owner-supplied Sean package and provides a read-only package auditor.
 
 **Within one file.** In the second author's 27-widget dashboard, there are only **14 distinct
 `unique_key` values**. One key is used for seven separate widget definitions:
@@ -593,25 +593,27 @@ keys — so this is a defect a careful author avoids, not something the format f
 ```
 
 Seven different names, seven different queries, one key — and seven placements referring to
-it. Another key covers seven interface widgets the same way, and a third covers two. The
-pattern is unmistakable: the widget was copied in the editor and the key came with it.
+it. Another key covers seven interface widgets the same way, and a third covers two. The files establish key reuse with conflicting definitions; they do not establish the
+exact editing operation that created it.
 
 **Across files.** In another author's three dashboards, the widget
 `f4c74926-35af-4044-b921-dc2468e81c58` ("All Active Alerts") appears in all three with the
 **same key and different content** — the Alert Status copy links its Site column to the System
 Status dashboard, while the other two link to Alert Status.
 
-What the platform does with a duplicate key is **not documented and unverified here**. The two
-readings are that the last definition wins or that the first does; either way the other
-definitions are silently discarded, and on the cross-file case importing the three dashboards
-in a different order gives a different result.
+SolarWinds documents same-key imports as updates and dashboard overwrites. Repeated widget
+keys with different configurations must therefore be flagged before importing independent
+copies. Exact precedence for contradictory definitions in one payload and behavior on
+individual customer versions are **unverified here**; do not assert which definition wins.
 
-**So: regenerate `unique_key` whenever you copy a widget**, and treat a repeated key as a bug
-rather than as reuse. Genuine reuse — the same widget deliberately shown on several pages — is
-what the first author's `751bb079` and `52ad9838` do correctly: same key, and the definition is
-**byte-identical** in all three files.
+**Regenerate widget keys when creating independent copies**, and remap their placements.
+Preserve identities for deliberate updates or intentional sharing. The `751bb079` and
+`52ad9838` widgets have identical parsed definitions across the three Sean files; that is
+possible deliberate reuse, but future edits remain coupled unless their identities are split.
+The [audit](modern-dashboard-widget-identity-audit.md#rules-for-ai-authors-and-import-preflight)
+explains why a single old-to-new map cannot resolve conflicting definitions under one key.
 
-A one-line check before you import anything:
+A quick within-file check, followed by the package-wide identity audit:
 
 ```bash
 python3 -c "import json,sys,collections; d=json.load(open(sys.argv[1])); c=collections.Counter(w['unique_key'] for w in d['widgets']); print({k:v for k,v in c.items() if v>1} or 'no duplicate widget keys')" dashboard.json
@@ -627,9 +629,9 @@ same four tile ids in **fourteen different KPI widgets**, and another uses
 `kpi_3d1205d9-595a-49b3-b1a6-04d50ea1be4d` for the single tile in **all six** of a dashboard's
 widgets — six different queries, six different labels, one id, and the dashboard works.
 
-So the rule is narrower than "regenerate every GUID": a **widget** `unique_key` must be unique
-across the file, while a **tile** id only has to be unique within its widget. Regenerating both
-on a copy still costs nothing and removes the need to remember which is which.
+An independent **widget** needs its own identity across the import batch and target, while
+**tile** IDs are scoped within their widget. Preserve tile IDs and their matching internal
+references when remapping widget identities; arbitrary GUID replacement can break bindings.
 
 ## Exporting and importing
 
@@ -677,12 +679,13 @@ FROM Orion.Dashboards.Instances
 WHERE UniqueKey = @key
 ```
 
-Run the same query **before** importing, as a collision check. What `Import` does when the
-`UniqueKey` already exists on the server — update in place or a second dashboard — is
-**unverified here**, so find out whether you are about to collide and decide deliberately
-rather than learning the answer from a production server. To land a copy next to a
-still-present original, rewrite the file first — see
-[duplicating a dashboard onto the same server](modern-dashboard-authoring.md#duplicating-a-dashboard-onto-the-same-server).
+Run the same query **before** importing, as a dashboard collision check. SolarWinds'
+[import documentation](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-fusion-dashboard-import-export.htm)
+states that matching dashboard keys overwrite the original. Also check widget identities:
+a fresh dashboard key does not isolate reused widget keys. See the
+[target widget checks](modern-dashboard-widget-identity-audit.md#read-only-target-checks).
+To land an independent copy next to its original, rewrite the identities and references
+first; see [duplicating a dashboard](modern-dashboard-authoring.md#duplicating-a-dashboard-onto-the-same-server).
 
 `Clone(dashboardID, displayName, asPrivate)` is the server-side copy of a single dashboard,
 no file involved, and it corroborates the `parent` reading above: the contract documents

@@ -42,6 +42,7 @@ reported, sourced and marked unverified. Read
 | [ncm-change-template-language.md](ncm-change-template-language.md) | The template scripting language: variables and macros, operators, string functions, loops, CLI blocks and custom properties |
 | [modern-dashboards.md](modern-dashboards.md) | The Modern Dashboard export format, field by field: the envelope, the 12-column grid, the three widget types and the duplication that breaks files |
 | [modern-dashboard-2026-4-export-audit.md](modern-dashboard-2026-4-export-audit.md) | 127 exported dashboards: eight widget types, provider contracts, view hierarchy, formatting, context, and version limits |
+| [modern-dashboard-widget-identity-audit.md](modern-dashboard-widget-identity-audit.md) | Sean/emcel package identities, conflicting widgets, deliberate sharing, and import preflight |
 | [modern-dashboard-authoring.md](modern-dashboard-authoring.md) | Producing a dashboard file by hand, from a script, or by prompting an AI system, with the invariants that decide whether it works; also the console workflow itself — building, reusing and navigating to a widget |
 
 [custom-query-widget.md](custom-query-widget.md) and [modern-dashboards.md](modern-dashboards.md)

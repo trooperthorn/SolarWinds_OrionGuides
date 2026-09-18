@@ -1,0 +1,368 @@
+{
+  "format_version": 1,
+  "comparison": "Parsed JSON; object keys sorted; only root unique_key excluded; no SWQL normalization",
+  "identity_comparison": "UUID spellings normalized; named keys compared exactly; server collation unverified",
+  "packages": [
+    {
+      "source_id": 0,
+      "name": "ecmel-ModernDashboards.zip",
+      "bytes": 5231,
+      "sha256": "1732cea3b8474f7eceea717babf309ae41d7302c39189cad04bec7b530e08130"
+    },
+    {
+      "source_id": 1,
+      "name": "Sean-ModernDashboards.zip",
+      "bytes": 15056,
+      "sha256": "2fb4c528e4f15c6ca12daa01e102cbfd3b00d1933b3015fdf6e8fd59c4cd65be"
+    }
+  ],
+  "files": [
+    {
+      "source_id": 0,
+      "package": "ecmel-ModernDashboards.zip",
+      "member": "Servers Summary - Alert Status.json",
+      "sha256": "dd8cd0e66f92e1cdda5274b686f26a59192233a3f5d8ffaf323955d4327b2fd9",
+      "file_id": 0,
+      "dashboard_count": 1,
+      "widget_definition_count": 1
+    },
+    {
+      "source_id": 0,
+      "package": "ecmel-ModernDashboards.zip",
+      "member": "Servers Summary - API Poller Status.json",
+      "sha256": "9f46784df08b124a76d443bfeee043a0f4f6cba84e61a5a6cff8ab5fad2e5cf4",
+      "file_id": 1,
+      "dashboard_count": 1,
+      "widget_definition_count": 1
+    },
+    {
+      "source_id": 0,
+      "package": "ecmel-ModernDashboards.zip",
+      "member": "Servers Summary - Application Status.json",
+      "sha256": "bf0585f5df37323a24af6da15bbc4337523845b85216bcfd1fc97e4efa018ff2",
+      "file_id": 2,
+      "dashboard_count": 1,
+      "widget_definition_count": 1
+    },
+    {
+      "source_id": 1,
+      "package": "Sean-ModernDashboards.zip",
+      "member": "Site Summary - Alert Status.json",
+      "sha256": "469f96e7b13c4c52eb8e828116c7fec4963d05e0dfe00f44bd144272bb2355b7",
+      "file_id": 3,
+      "dashboard_count": 1,
+      "widget_definition_count": 5
+    },
+    {
+      "source_id": 1,
+      "package": "Sean-ModernDashboards.zip",
+      "member": "Site Summary - Overview.json",
+      "sha256": "b45e175c9c6d82e503c65d908dfead56508db053d0e1d4cbfc8ddc0d4ab74fb3",
+      "file_id": 4,
+      "dashboard_count": 1,
+      "widget_definition_count": 6
+    },
+    {
+      "source_id": 1,
+      "package": "Sean-ModernDashboards.zip",
+      "member": "Site Summary - System Status.json",
+      "sha256": "c6296a461e2c0db7b30e9cb1d7851c7a8600c4f5e2a9b632fa3203e575d0ec82",
+      "file_id": 5,
+      "dashboard_count": 1,
+      "widget_definition_count": 6
+    }
+  ],
+  "summary": {
+    "files": 6,
+    "dashboard_definitions": 6,
+    "widget_definitions": 20,
+    "distinct_dashboard_keys": 6,
+    "distinct_widget_keys": 14,
+    "repeated_keys": 3,
+    "conflicting_keys": 1,
+    "cross_package_repeated_keys": 0,
+    "unresolved_placements": 0
+  },
+  "findings": [
+    {
+      "kind": "widget",
+      "unique_key": "52ad9838-b1f9-4ee9-8a06-3a74c5743d0f",
+      "classification": "same_key_same_definition",
+      "cross_package": false,
+      "occurrences": [
+        {
+          "source_id": 1,
+          "package": "Sean-ModernDashboards.zip",
+          "member": "Site Summary - Alert Status.json",
+          "sha256": "469f96e7b13c4c52eb8e828116c7fec4963d05e0dfe00f44bd144272bb2355b7",
+          "file_id": 3,
+          "pointer": "/widgets/0",
+          "name": "Active Site Alerts",
+          "original_key": "52ad9838-b1f9-4ee9-8a06-3a74c5743d0f",
+          "definition_sha256": "6814700cb92c312028f7afc034543ab744eeb7a98dbfd59b1436bf1da16d05b8",
+          "placements": [
+            {
+              "dashboard": "Site Summary - Alert Status",
+              "dashboard_key": "d7329475-f0e1-4fb1-87b6-7fbe52feed3d",
+              "pointer": "/dashboards/0/widgets/0",
+              "reference": false,
+              "location": {
+                "x": 10,
+                "y": 5,
+                "cols": 2,
+                "rows": 2
+              }
+            }
+          ]
+        },
+        {
+          "source_id": 1,
+          "package": "Sean-ModernDashboards.zip",
+          "member": "Site Summary - Overview.json",
+          "sha256": "b45e175c9c6d82e503c65d908dfead56508db053d0e1d4cbfc8ddc0d4ab74fb3",
+          "file_id": 4,
+          "pointer": "/widgets/2",
+          "name": "Active Site Alerts",
+          "original_key": "52ad9838-b1f9-4ee9-8a06-3a74c5743d0f",
+          "definition_sha256": "6814700cb92c312028f7afc034543ab744eeb7a98dbfd59b1436bf1da16d05b8",
+          "placements": [
+            {
+              "dashboard": "Site Summary - Overview",
+              "dashboard_key": "0ecba6a9-a7d1-497a-b6af-5a6a73796069",
+              "pointer": "/dashboards/0/widgets/2",
+              "reference": false,
+              "location": {
+                "x": 10,
+                "y": 4,
+                "cols": 2,
+                "rows": 2
+              }
+            }
+          ]
+        },
+        {
+          "source_id": 1,
+          "package": "Sean-ModernDashboards.zip",
+          "member": "Site Summary - System Status.json",
+          "sha256": "c6296a461e2c0db7b30e9cb1d7851c7a8600c4f5e2a9b632fa3203e575d0ec82",
+          "file_id": 5,
+          "pointer": "/widgets/2",
+          "name": "Active Site Alerts",
+          "original_key": "52ad9838-b1f9-4ee9-8a06-3a74c5743d0f",
+          "definition_sha256": "6814700cb92c312028f7afc034543ab744eeb7a98dbfd59b1436bf1da16d05b8",
+          "placements": [
+            {
+              "dashboard": "Site Summary - System Status",
+              "dashboard_key": "36b880f5-b1f5-49a0-8f8c-e8428c92b456",
+              "pointer": "/dashboards/0/widgets/2",
+              "reference": false,
+              "location": {
+                "x": 10,
+                "y": 0,
+                "cols": 2,
+                "rows": 2
+              }
+            }
+          ]
+        }
+      ],
+      "differences": []
+    },
+    {
+      "kind": "widget",
+      "unique_key": "751bb079-62d7-4cf3-827b-5e42dd393568",
+      "classification": "same_key_same_definition",
+      "cross_package": false,
+      "occurrences": [
+        {
+          "source_id": 1,
+          "package": "Sean-ModernDashboards.zip",
+          "member": "Site Summary - Alert Status.json",
+          "sha256": "469f96e7b13c4c52eb8e828116c7fec4963d05e0dfe00f44bd144272bb2355b7",
+          "file_id": 3,
+          "pointer": "/widgets/4",
+          "name": "Sites by Status",
+          "original_key": "751bb079-62d7-4cf3-827b-5e42dd393568",
+          "definition_sha256": "8004ac984c5da553a2a1fb5d22e8bcfd8075b9a712fd01bad5c835dbb8b93a19",
+          "placements": [
+            {
+              "dashboard": "Site Summary - Alert Status",
+              "dashboard_key": "d7329475-f0e1-4fb1-87b6-7fbe52feed3d",
+              "pointer": "/dashboards/0/widgets/4",
+              "reference": false,
+              "location": {
+                "x": 0,
+                "y": 0,
+                "cols": 10,
+                "rows": 2
+              }
+            }
+          ]
+        },
+        {
+          "source_id": 1,
+          "package": "Sean-ModernDashboards.zip",
+          "member": "Site Summary - Overview.json",
+          "sha256": "b45e175c9c6d82e503c65d908dfead56508db053d0e1d4cbfc8ddc0d4ab74fb3",
+          "file_id": 4,
+          "pointer": "/widgets/0",
+          "name": "Sites by Status",
+          "original_key": "751bb079-62d7-4cf3-827b-5e42dd393568",
+          "definition_sha256": "8004ac984c5da553a2a1fb5d22e8bcfd8075b9a712fd01bad5c835dbb8b93a19",
+          "placements": [
+            {
+              "dashboard": "Site Summary - Overview",
+              "dashboard_key": "0ecba6a9-a7d1-497a-b6af-5a6a73796069",
+              "pointer": "/dashboards/0/widgets/0",
+              "reference": false,
+              "location": {
+                "x": 0,
+                "y": 0,
+                "cols": 10,
+                "rows": 2
+              }
+            }
+          ]
+        },
+        {
+          "source_id": 1,
+          "package": "Sean-ModernDashboards.zip",
+          "member": "Site Summary - System Status.json",
+          "sha256": "c6296a461e2c0db7b30e9cb1d7851c7a8600c4f5e2a9b632fa3203e575d0ec82",
+          "file_id": 5,
+          "pointer": "/widgets/0",
+          "name": "Sites by Status",
+          "original_key": "751bb079-62d7-4cf3-827b-5e42dd393568",
+          "definition_sha256": "8004ac984c5da553a2a1fb5d22e8bcfd8075b9a712fd01bad5c835dbb8b93a19",
+          "placements": [
+            {
+              "dashboard": "Site Summary - System Status",
+              "dashboard_key": "36b880f5-b1f5-49a0-8f8c-e8428c92b456",
+              "pointer": "/dashboards/0/widgets/0",
+              "reference": false,
+              "location": {
+                "x": 0,
+                "y": 0,
+                "cols": 10,
+                "rows": 2
+              }
+            }
+          ]
+        }
+      ],
+      "differences": []
+    },
+    {
+      "kind": "widget",
+      "unique_key": "f4c74926-35af-4044-b921-dc2468e81c58",
+      "classification": "same_key_different_definition",
+      "cross_package": false,
+      "occurrences": [
+        {
+          "source_id": 1,
+          "package": "Sean-ModernDashboards.zip",
+          "member": "Site Summary - Alert Status.json",
+          "sha256": "469f96e7b13c4c52eb8e828116c7fec4963d05e0dfe00f44bd144272bb2355b7",
+          "file_id": 3,
+          "pointer": "/widgets/1",
+          "name": "All Active Alerts",
+          "original_key": "f4c74926-35af-4044-b921-dc2468e81c58",
+          "definition_sha256": "cebb841cb2cb17fc6178dc44ea4c595a56761a3232a31f2375d0c4d3407c9e87",
+          "placements": [
+            {
+              "dashboard": "Site Summary - Alert Status",
+              "dashboard_key": "d7329475-f0e1-4fb1-87b6-7fbe52feed3d",
+              "pointer": "/dashboards/0/widgets/1",
+              "reference": false,
+              "location": {
+                "x": 0,
+                "y": 2,
+                "cols": 10,
+                "rows": 3
+              }
+            }
+          ]
+        },
+        {
+          "source_id": 1,
+          "package": "Sean-ModernDashboards.zip",
+          "member": "Site Summary - Overview.json",
+          "sha256": "b45e175c9c6d82e503c65d908dfead56508db053d0e1d4cbfc8ddc0d4ab74fb3",
+          "file_id": 4,
+          "pointer": "/widgets/3",
+          "name": "All Active Alerts",
+          "original_key": "f4c74926-35af-4044-b921-dc2468e81c58",
+          "definition_sha256": "2f4bfa4fc00eed8110c4d6f388155c94c78f79744aac50cd505e90971bcc547d",
+          "placements": [
+            {
+              "dashboard": "Site Summary - Overview",
+              "dashboard_key": "0ecba6a9-a7d1-497a-b6af-5a6a73796069",
+              "pointer": "/dashboards/0/widgets/3",
+              "reference": false,
+              "location": {
+                "x": 0,
+                "y": 4,
+                "cols": 10,
+                "rows": 3
+              }
+            }
+          ]
+        },
+        {
+          "source_id": 1,
+          "package": "Sean-ModernDashboards.zip",
+          "member": "Site Summary - System Status.json",
+          "sha256": "c6296a461e2c0db7b30e9cb1d7851c7a8600c4f5e2a9b632fa3203e575d0ec82",
+          "file_id": 5,
+          "pointer": "/widgets/3",
+          "name": "All Active Alerts",
+          "original_key": "f4c74926-35af-4044-b921-dc2468e81c58",
+          "definition_sha256": "dbd368579a1a7a5bac7fc38bf40b1c194a862611ab125db5a1bdea741410cc75",
+          "placements": [
+            {
+              "dashboard": "Site Summary - System Status",
+              "dashboard_key": "36b880f5-b1f5-49a0-8f8c-e8428c92b456",
+              "pointer": "/dashboards/0/widgets/3",
+              "reference": false,
+              "location": {
+                "x": 0,
+                "y": 2,
+                "cols": 10,
+                "rows": 2
+              }
+            }
+          ]
+        }
+      ],
+      "differences": [
+        {
+          "left_occurrence": 0,
+          "right_occurrence": 1,
+          "changed_paths": [
+            "/configuration/header/properties/subtitle",
+            "/configuration/table/providers/adapter/properties/dataSource/properties/swql",
+            "/configuration/table/providers/dataSource/properties/swql",
+            "/subtitle"
+          ]
+        },
+        {
+          "left_occurrence": 0,
+          "right_occurrence": 2,
+          "changed_paths": [
+            "/configuration/table/providers/adapter/properties/dataSource/properties/swql",
+            "/configuration/table/providers/dataSource/properties/swql"
+          ]
+        },
+        {
+          "left_occurrence": 1,
+          "right_occurrence": 2,
+          "changed_paths": [
+            "/configuration/header/properties/subtitle",
+            "/subtitle"
+          ]
+        }
+      ]
+    }
+  ],
+  "unresolved_placements": []
+}

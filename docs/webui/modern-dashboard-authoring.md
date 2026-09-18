@@ -112,17 +112,13 @@ interactive path to the same outcome as copying a widget definition between expo
 which [the `unique_key` collision section](modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine)
 covers from the file side.
 
-**The copy is independent once created.** Asked directly in the same session (41:55-42:33),
-the presenter confirms that editing the original afterward does not change the copy — only the
-initial definition is copied, not a live reference to it. That matches the file-format finding
-that a widget is defined once and merely placed by `unique_key`: the console-level copy
-produces a new, separate definition rather than a second placement of the same one.
-
-Whether this console path assigns the copy a **fresh** `unique_key` or reuses the source
-widget's — the one detail that would make it exactly equivalent to the file-copy hazard
-described above — is **unverified here**. It is worth checking with an export taken before and
-after using this feature on your own server before relying on it to avoid the collision
-[`tools/check_dashboards.py`](../../tools/check_dashboards.py) looks for.
+**Distinguish customized copies from linked clones.** The older Lab session describes an
+independent copy, but current SolarWinds [clone/duplicate documentation](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-fusion-dashboard-clone-duplicate.htm)
+also documents linked widgets that follow changes to their base widget. Duplicated dashboards
+use linked widgets by default; use **Unlink Widget** to make a linked widget independent.
+Export the result and compare identities before distributing it. The
+[widget identity audit](modern-dashboard-widget-identity-audit.md) shows why titles and a
+false placement `reference` flag alone cannot establish identity isolation.
 
 ## Adding a dashboard to console navigation
 
@@ -208,15 +204,16 @@ python3 tools/schema_query.py show Orion.Dashboards.Instances
 
 ## Duplicating a dashboard onto the same server
 
-Import creates whatever the file says, so re-importing an unmodified export next to its
-original offers the server a dashboard with the same name and the same `unique_key`s it
-already has — the duplicate-key situation whose outcome is
-[unverified](modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine). A copy
-that behaves as a copy is a four-step rewrite of the file:
+A same-key import is an update path, not an independent copy. SolarWinds documents dashboard
+overwrite on matching identity. Review widget keys across the whole batch and target too;
+see the [identity audit](modern-dashboard-widget-identity-audit.md). A copy requires these
+coordinated changes:
 
 1. **Regenerate `dashboards[].unique_key` and every `widgets[].unique_key`**, remapping the
    placements through the same old→new map so each placement still resolves to its
-   definition (rules 1 and 2).
+   definition (rules 1 and 2). Split differing definitions under a shared key before remapping;
+   use dashboard/definition-scoped mappings for independent copies. One global old-to-new
+   mapping preserves a pre-existing collision. Keep identities stable on subsequent updates.
 2. **Rename the dashboard** — `dashboards[].name` — since the original still owns the old
    name.
 3. **Rewrite the quoted dashboard-name literals inside the embedded SWQL** wherever the file
@@ -227,8 +224,9 @@ that behaves as a copy is a four-step rewrite of the file:
    objects, not parts of the file; the two `unique_key` families in step 1 are the only
    identity the file itself owns.
 
-For a single dashboard there is a server-side alternative that skips the file entirely:
-`Orion.Dashboards.Instances.Clone(dashboardID, displayName, asPrivate)` — see
+`Orion.Dashboards.Instances.Clone(dashboardID, displayName, asPrivate)` also exists, but do
+not equate a clone with full widget independence. Review linked widgets and unlink where
+needed, then verify exported identities; see
 [exporting and importing](modern-dashboards.md#exporting-and-importing).
 
 ## The `?filters=` grammar

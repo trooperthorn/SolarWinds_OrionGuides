@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**302 statements across 73 pages.**
+**302 statements across 74 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -1062,10 +1062,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [modern-dashboard-authoring.md](../webui/modern-dashboard-authoring.md)
 
-**[Reusing another dashboard's widget from the console](../webui/modern-dashboard-authoring.md#reusing-another-dashboards-widget-from-the-console)**
-
-- Whether this console path assigns the copy a **fresh** `unique_key` or reuses the source widget's — the one detail that would make it exactly equivalent to the file-copy hazard described above — is **unverified here**.
-
 **[The `?filters=` grammar](../webui/modern-dashboard-authoring.md#the-filters-grammar)**
 
 - **Only `eq` and `ne` appear.** Whether the filter engine accepts comparison, `like` or `in` operators is **not documented and unverified here**.
@@ -1073,6 +1069,16 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Gotchas](../webui/modern-dashboard-authoring.md#gotchas)**
 
 - **Filter values are not escaped.** A value containing `-` or `:` is unverified territory.
+
+## [modern-dashboard-widget-identity-audit.md](../webui/modern-dashboard-widget-identity-audit.md)
+
+**[Import behavior and the evidence boundary](../webui/modern-dashboard-widget-identity-audit.md#import-behavior-and-the-evidence-boundary)**
+
+- Exact widget overwrite ordering, transaction behavior, and outcomes on affected customer versions are **unverified here**.
+
+**[Reproduce the package check](../webui/modern-dashboard-widget-identity-audit.md#reproduce-the-package-check)**
+
+- Named-key collation on a target remains **unverified here**.
 
 ## [modern-dashboards.md](../webui/modern-dashboards.md)
 
@@ -1129,11 +1135,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[`unique_key` collisions, and the reuse that is fine](../webui/modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine)**
 
-- What the platform does with a duplicate key is **not documented and unverified here**.
+- Exact precedence for contradictory definitions in one payload and behavior on individual customer versions are **unverified here**; do not assert which definition wins.
 
 **[Exporting and importing](../webui/modern-dashboards.md#exporting-and-importing)**
 
-- What `Import` does when the `UniqueKey` already exists on the server — update in place or a second dashboard — is **unverified here**, so find out whether you are about to collide and decide deliberately rather than learning the answer from a production server.
 - Their signatures are in the contract — `python3 tools/schema_query.py verbs --entity Orion.Dashboards.Instances` — but their semantics are undocumented and **unverified here**.
 
 **[One name that does not resolve](../webui/modern-dashboards.md#one-name-that-does-not-resolve)**
