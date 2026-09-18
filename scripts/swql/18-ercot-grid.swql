@@ -15,7 +15,9 @@
 -- Traps: Metric is the mapped value after any string-to-number rule, so a text value such
 -- as Grid Condition State reads 0 for "normal" and the fallback 5 for anything else. The
 -- Metrics history is a statistics table and grows by one row per value per poll, so window
--- it. LastPollTimestamp's timezone is not documented in the schema.
+-- it. ObservationTimestamp was UTC in the 2026-09-18 installation diagnostic; verify
+-- other installations. LastPollTimestamp's timezone is not documented in the schema.
+-- Name filters assume one matching poller instance. Pin ApiPollerId if names repeat.
 
 
 -- Every value on one poller with its status and the poll time. The table widgets use this
@@ -75,34 +77,40 @@ WHERE v.ApiPoller.Name = 'ERCOT Grid Conditions'
 ORDER BY v.DisplayName
 
 
--- History for one value, windowed. A Modern Dashboard has no SWQL time-series widget, so
--- history is shown as a table (or built in PerfStack); this is the table's query.
-SELECT TOP 288
-    m.ObservationTimestamp AS [Observed],
-    m.MinMetric AS [Min Hz],
-    m.AvgMetric AS [Avg Hz],
-    m.MaxMetric AS [Max Hz]
+-- Hourly frequency statistics over a UTC-filtered day, displayed in server-local time.
+-- A rolling window can include 25 clock-hour groups; boundary hours are partial.
+-- AVG averages stored interval averages, not time-weighted raw samples.
+SELECT
+    DateTrunc('hour', ToLocal(m.ObservationTimestamp)) AS [Observed],
+    ROUND(MIN(m.MinMetric), 3) AS [Min Hz],
+    ROUND(AVG(m.AvgMetric), 3) AS [Avg Hz],
+    ROUND(MAX(m.MaxMetric), 3) AS [Max Hz]
 FROM Orion.APIPoller.ValueToMonitor.Metrics m
 WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
   AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'
-  AND m.ObservationTimestamp > AddHour(-24, GetDate())
-ORDER BY m.ObservationTimestamp DESC
+  AND m.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
+GROUP BY DateTrunc('hour', ToLocal(m.ObservationTimestamp))
+ORDER BY DateTrunc('hour', ToLocal(m.ObservationTimestamp)) DESC
 
 
--- Two histories side by side, joined on the observation timestamp, with a derived column.
-SELECT TOP 288
-    d.ObservationTimestamp AS [Observed],
+-- Two histories on the same poller instance, joined on the observation timestamp.
+-- Keep metric navigation filters in WHERE; see the guide for the reported ON failure.
+-- Exact timestamp pairing still needs confirmation on each installation.
+SELECT
+    ToLocal(d.ObservationTimestamp) AS [Observed],
     d.AvgMetric AS [Demand MW],
     c.AvgMetric AS [Capacity MW],
     c.AvgMetric - d.AvgMetric AS [Unused MW]
 FROM Orion.APIPoller.ValueToMonitor.Metrics d
 JOIN Orion.APIPoller.ValueToMonitor.Metrics c
-  ON c.ObservationTimestamp = d.ObservationTimestamp
- AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'
- AND c.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
+    ON c.ObservationTimestamp = d.ObservationTimestamp
 WHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
   AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'
-  AND d.ObservationTimestamp > AddHour(-24, GetDate())
+  AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'
+  AND c.ValueToMonitor.ApiPollerId = d.ValueToMonitor.ApiPollerId
+  AND d.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))
+  AND d.ObservationTimestamp <= GetUTCDate()
 ORDER BY d.ObservationTimestamp DESC
 
 
@@ -202,3 +210,24 @@ FROM Orion.APM.DynamicEvidenceChart h
 WHERE h.Component.Application.Name = 'ERCOT Real-Time System Conditions (HTML)'
   AND h.TimeStamp > AddHour(-24, GetDate())
 ORDER BY h.TimeStamp DESC, h.ColumnName
+
+
+-- Six-hour settlement summary: one row per named hub, assuming one matching poller.
+-- AVG is an arithmetic mean of stored averages; missing intervals are not zeros.
+SELECT
+    m.ValueToMonitor.DisplayName AS [Settlement Point],
+    MIN(m.MinMetric) AS [Minimum $/MWh],
+    AVG(m.AvgMetric) AS [Average $/MWh],
+    MAX(m.MaxMetric) AS [High $/MWh]
+FROM Orion.APIPoller.ValueToMonitor.Metrics m
+WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'
+  AND m.ValueToMonitor.DisplayName IN (
+      'HB_HUBAVG ($/MWh)',
+      'HB_HOUSTON ($/MWh)',
+      'HB_NORTH ($/MWh)',
+      'HB_WEST ($/MWh)'
+  )
+  AND m.ObservationTimestamp > ToUtc(AddHour(-6, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
+GROUP BY m.ValueToMonitor.DisplayName
+ORDER BY m.ValueToMonitor.DisplayName

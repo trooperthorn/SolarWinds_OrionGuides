@@ -1029,7 +1029,7 @@
       "type": "table",
       "unique_key": "7e88da65-7665-5bf9-8538-ce283b280061",
       "name": "Grid Frequency, last 24 hours",
-      "subtitle": "Min, average and max per observation",
+      "subtitle": "Min, average and max per local clock hour",
       "description": "Windowed read of Orion.APIPoller.ValueToMonitor.Metrics for the frequency value. A Modern Dashboard has no SWQL time-series widget; this table and PerfStack are the two ways to see history.",
       "private": false,
       "configuration": {
@@ -1047,7 +1047,7 @@
         "header": {
           "properties": {
             "title": "Grid Frequency, last 24 hours",
-            "subtitle": "Min, average and max per observation",
+            "subtitle": "Min, average and max per local clock hour",
             "url": "",
             "description": "Windowed read of Orion.APIPoller.ValueToMonitor.Metrics for the frequency value. A Modern Dashboard has no SWQL time-series widget; this table and PerfStack are the two ways to see history.",
             "collapsible": false,
@@ -1059,7 +1059,7 @@
             "dataSource": {
               "providerId": "TableSwqlDatasourceService",
               "properties": {
-                "swql": "SELECT TOP 288\n    m.ObservationTimestamp AS [Observed],\n    m.MinMetric AS [Min Hz],\n    m.AvgMetric AS [Avg Hz],\n    m.MaxMetric AS [Max Hz]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'\n  AND m.ObservationTimestamp > AddHour(-24, GetDate())\nORDER BY m.ObservationTimestamp DESC",
+                "swql": "SELECT\n    DateTrunc('hour', ToLocal(m.ObservationTimestamp)) AS [Observed],\n    ROUND(MIN(m.MinMetric), 3) AS [Min Hz],\n    ROUND(AVG(m.AvgMetric), 3) AS [Avg Hz],\n    ROUND(MAX(m.MaxMetric), 3) AS [Max Hz]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'\n  AND m.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))\n  AND m.ObservationTimestamp <= GetUTCDate()\nGROUP BY DateTrunc('hour', ToLocal(m.ObservationTimestamp))\nORDER BY DateTrunc('hour', ToLocal(m.ObservationTimestamp)) DESC",
                 "dataFields": [
                   {
                     "id": "Observed",
@@ -1089,7 +1089,7 @@
               "properties": {
                 "dataSource": {
                   "properties": {
-                    "swql": "SELECT TOP 288\n    m.ObservationTimestamp AS [Observed],\n    m.MinMetric AS [Min Hz],\n    m.AvgMetric AS [Avg Hz],\n    m.MaxMetric AS [Max Hz]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'\n  AND m.ObservationTimestamp > AddHour(-24, GetDate())\nORDER BY m.ObservationTimestamp DESC",
+                    "swql": "SELECT\n    DateTrunc('hour', ToLocal(m.ObservationTimestamp)) AS [Observed],\n    ROUND(MIN(m.MinMetric), 3) AS [Min Hz],\n    ROUND(AVG(m.AvgMetric), 3) AS [Avg Hz],\n    ROUND(MAX(m.MaxMetric), 3) AS [Max Hz]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'\n  AND m.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))\n  AND m.ObservationTimestamp <= GetUTCDate()\nGROUP BY DateTrunc('hour', ToLocal(m.ObservationTimestamp))\nORDER BY DateTrunc('hour', ToLocal(m.ObservationTimestamp)) DESC",
                     "dataFields": [
                       {
                         "id": "Observed",
@@ -1223,7 +1223,7 @@
             "dataSource": {
               "providerId": "TableSwqlDatasourceService",
               "properties": {
-                "swql": "SELECT TOP 288\n    d.ObservationTimestamp AS [Observed],\n    d.AvgMetric AS [Demand MW],\n    c.AvgMetric AS [Capacity MW],\n    c.AvgMetric - d.AvgMetric AS [Unused MW]\nFROM Orion.APIPoller.ValueToMonitor.Metrics d\nJOIN Orion.APIPoller.ValueToMonitor.Metrics c\n  ON c.ObservationTimestamp = d.ObservationTimestamp\n AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'\n AND c.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\nWHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'\n  AND d.ObservationTimestamp > AddHour(-24, GetDate())\nORDER BY d.ObservationTimestamp DESC",
+                "swql": "SELECT\n    ToLocal(d.ObservationTimestamp) AS [Observed],\n    d.AvgMetric AS [Demand MW],\n    c.AvgMetric AS [Capacity MW],\n    c.AvgMetric - d.AvgMetric AS [Unused MW]\nFROM Orion.APIPoller.ValueToMonitor.Metrics d\nJOIN Orion.APIPoller.ValueToMonitor.Metrics c\n    ON c.ObservationTimestamp = d.ObservationTimestamp\nWHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'\n  AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'\n  AND c.ValueToMonitor.ApiPollerId = d.ValueToMonitor.ApiPollerId\n  AND d.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))\n  AND d.ObservationTimestamp <= GetUTCDate()\nORDER BY d.ObservationTimestamp DESC",
                 "dataFields": [
                   {
                     "id": "Observed",
@@ -1253,7 +1253,7 @@
               "properties": {
                 "dataSource": {
                   "properties": {
-                    "swql": "SELECT TOP 288\n    d.ObservationTimestamp AS [Observed],\n    d.AvgMetric AS [Demand MW],\n    c.AvgMetric AS [Capacity MW],\n    c.AvgMetric - d.AvgMetric AS [Unused MW]\nFROM Orion.APIPoller.ValueToMonitor.Metrics d\nJOIN Orion.APIPoller.ValueToMonitor.Metrics c\n  ON c.ObservationTimestamp = d.ObservationTimestamp\n AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'\n AND c.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\nWHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'\n  AND d.ObservationTimestamp > AddHour(-24, GetDate())\nORDER BY d.ObservationTimestamp DESC",
+                    "swql": "SELECT\n    ToLocal(d.ObservationTimestamp) AS [Observed],\n    d.AvgMetric AS [Demand MW],\n    c.AvgMetric AS [Capacity MW],\n    c.AvgMetric - d.AvgMetric AS [Unused MW]\nFROM Orion.APIPoller.ValueToMonitor.Metrics d\nJOIN Orion.APIPoller.ValueToMonitor.Metrics c\n    ON c.ObservationTimestamp = d.ObservationTimestamp\nWHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'\n  AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'\n  AND c.ValueToMonitor.ApiPollerId = d.ValueToMonitor.ApiPollerId\n  AND d.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))\n  AND d.ObservationTimestamp <= GetUTCDate()\nORDER BY d.ObservationTimestamp DESC",
                     "dataFields": [
                       {
                         "id": "Observed",
@@ -1689,7 +1689,7 @@
             "dataSource": {
               "providerId": "TableSwqlDatasourceService",
               "properties": {
-                "swql": "SELECT TOP 96\n    m.ObservationTimestamp AS [Observed],\n    m.ValueToMonitor.DisplayName AS [Settlement Point],\n    m.AvgMetric AS [$/MWh]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'\n  AND m.ValueToMonitor.DisplayName IN ('HB_HUBAVG ($/MWh)', 'HB_HOUSTON ($/MWh)', 'HB_NORTH ($/MWh)', 'HB_WEST ($/MWh)')\n  AND m.ObservationTimestamp > AddHour(-6, GetDate())\nORDER BY m.ObservationTimestamp DESC, m.ValueToMonitor.DisplayName",
+                "swql": "SELECT\n    ToLocal(m.ObservationTimestamp) AS [Observed],\n    m.ValueToMonitor.DisplayName AS [Settlement Point],\n    m.AvgMetric AS [$/MWh]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'\n  AND m.ValueToMonitor.DisplayName IN ('HB_HUBAVG ($/MWh)', 'HB_HOUSTON ($/MWh)', 'HB_NORTH ($/MWh)', 'HB_WEST ($/MWh)')\n  AND m.ObservationTimestamp > ToUtc(AddHour(-6, GetDate()))\n  AND m.ObservationTimestamp <= GetUTCDate()\nORDER BY m.ObservationTimestamp DESC, m.ValueToMonitor.DisplayName",
                 "dataFields": [
                   {
                     "id": "Observed",
@@ -1714,7 +1714,7 @@
               "properties": {
                 "dataSource": {
                   "properties": {
-                    "swql": "SELECT TOP 96\n    m.ObservationTimestamp AS [Observed],\n    m.ValueToMonitor.DisplayName AS [Settlement Point],\n    m.AvgMetric AS [$/MWh]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'\n  AND m.ValueToMonitor.DisplayName IN ('HB_HUBAVG ($/MWh)', 'HB_HOUSTON ($/MWh)', 'HB_NORTH ($/MWh)', 'HB_WEST ($/MWh)')\n  AND m.ObservationTimestamp > AddHour(-6, GetDate())\nORDER BY m.ObservationTimestamp DESC, m.ValueToMonitor.DisplayName",
+                    "swql": "SELECT\n    ToLocal(m.ObservationTimestamp) AS [Observed],\n    m.ValueToMonitor.DisplayName AS [Settlement Point],\n    m.AvgMetric AS [$/MWh]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'\n  AND m.ValueToMonitor.DisplayName IN ('HB_HUBAVG ($/MWh)', 'HB_HOUSTON ($/MWh)', 'HB_NORTH ($/MWh)', 'HB_WEST ($/MWh)')\n  AND m.ObservationTimestamp > ToUtc(AddHour(-6, GetDate()))\n  AND m.ObservationTimestamp <= GetUTCDate()\nORDER BY m.ObservationTimestamp DESC, m.ValueToMonitor.DisplayName",
                     "dataFields": [
                       {
                         "id": "Observed",

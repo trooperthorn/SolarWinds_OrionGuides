@@ -19,8 +19,9 @@ one.
 
 Every entity and property name below is checked against the extracted 2026.2 schema on each
 build, and every query is run through `tools/validate_swql.py`. Every endpoint and every
-response shape was read live on 2026-09-17. What has **not** been done is importing these
-files into a server, and the last section is precise about what that leaves open.
+response shape was read live on 2026-09-17. The original files were not imported into a server during construction. Subsequent
+contributor query and widget observations are recorded below; they do not verify a fresh
+import of the shipped files, and the last section is precise about what remains open.
 
 The files:
 
@@ -395,40 +396,45 @@ ORDER BY v.DisplayName
 ### Row 3: Ancillary Services (`table`) and two history tables
 
 The Datadog "Grid Frequency" and "Capacity & Demand" line charts become windowed reads of
-`Orion.APIPoller.ValueToMonitor.Metrics`, newest first, bounded to a day and to `TOP 288`
-(one row per five-minute observation). `ObservationTimestamp` is compared in local time with
-`AddHour(-24, GetDate())`, per [date-and-time.md](../swql/date-and-time.md):
+`Orion.APIPoller.ValueToMonitor.Metrics`, newest first. Frequency is aggregated by local clock
+hour. UTC observations are compared against UTC bounds, with date arithmetic performed in
+local time before `ToUtc()`, per [date-and-time.md](../swql/date-and-time.md). The one-minute
+poller does not justify a `TOP 288` limit: that could truncate a day of detailed readings.
+The rolling day can cover 25 clock hours because its first and last hours are partial:
 
 ```sql
-SELECT TOP 288
-    m.ObservationTimestamp AS [Observed],
-    m.MinMetric AS [Min Hz],
-    m.AvgMetric AS [Avg Hz],
-    m.MaxMetric AS [Max Hz]
+SELECT
+    DateTrunc('hour', ToLocal(m.ObservationTimestamp)) AS [Observed],
+    ROUND(MIN(m.MinMetric), 3) AS [Min Hz],
+    ROUND(AVG(m.AvgMetric), 3) AS [Avg Hz],
+    ROUND(MAX(m.MaxMetric), 3) AS [Max Hz]
 FROM Orion.APIPoller.ValueToMonitor.Metrics m
 WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
   AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'
-  AND m.ObservationTimestamp > AddHour(-24, GetDate())
-ORDER BY m.ObservationTimestamp DESC
+  AND m.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
+GROUP BY DateTrunc('hour', ToLocal(m.ObservationTimestamp))
+ORDER BY DateTrunc('hour', ToLocal(m.ObservationTimestamp)) DESC
 ```
 
 Capacity and demand side by side, joined on the observation timestamp, with the unused margin
-the Datadog page charts as "Operating Reserves":
+labelled here as unused capacity. This subtraction does not establish an ERCOT operating-reserve measurement:
 
 ```sql
-SELECT TOP 288
-    d.ObservationTimestamp AS [Observed],
+SELECT
+    ToLocal(d.ObservationTimestamp) AS [Observed],
     d.AvgMetric AS [Demand MW],
     c.AvgMetric AS [Capacity MW],
     c.AvgMetric - d.AvgMetric AS [Unused MW]
 FROM Orion.APIPoller.ValueToMonitor.Metrics d
 JOIN Orion.APIPoller.ValueToMonitor.Metrics c
-  ON c.ObservationTimestamp = d.ObservationTimestamp
- AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'
- AND c.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
+    ON c.ObservationTimestamp = d.ObservationTimestamp
 WHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
   AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'
-  AND d.ObservationTimestamp > AddHour(-24, GetDate())
+  AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'
+  AND c.ValueToMonitor.ApiPollerId = d.ValueToMonitor.ApiPollerId
+  AND d.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))
+  AND d.ObservationTimestamp <= GetUTCDate()
 ORDER BY d.ObservationTimestamp DESC
 ```
 
@@ -456,18 +462,19 @@ WHERE v.ApiPoller.Name = 'ERCOT Settlement Point Prices'
 ORDER BY v.Metric DESC
 ```
 
-The history table keeps four hubs over the last six hours, which at fifteen-minute intervals
-is `TOP 96` rows:
+The history table keeps four hubs over the last six hours without an arbitrary row cap.
+It retains interval rows; the summary example below instead returns one row per hub:
 
 ```sql
-SELECT TOP 96
-    m.ObservationTimestamp AS [Observed],
+SELECT
+    ToLocal(m.ObservationTimestamp) AS [Observed],
     m.ValueToMonitor.DisplayName AS [Settlement Point],
     m.AvgMetric AS [$/MWh]
 FROM Orion.APIPoller.ValueToMonitor.Metrics m
 WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'
   AND m.ValueToMonitor.DisplayName IN ('HB_HUBAVG ($/MWh)', 'HB_HOUSTON ($/MWh)', 'HB_NORTH ($/MWh)', 'HB_WEST ($/MWh)')
-  AND m.ObservationTimestamp > AddHour(-6, GetDate())
+  AND m.ObservationTimestamp > ToUtc(AddHour(-6, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
 ORDER BY m.ObservationTimestamp DESC, m.ValueToMonitor.DisplayName
 ```
 
@@ -536,6 +543,139 @@ pressure, and a `diff()` of the time error. None of those is a widget type this 
 seen in an export, and the time error is a SAM-only value. Wind and PVGR generation, the
 "Wind & Solar Generation" chart, are also SAM-only, so they appear in the fallback template's
 values and not on the dashboard as shipped.
+
+## Live query lessons from 2026-09-18
+
+These observations came from a contributor running queries through the Web Console on one
+installation. The platform version was not captured. They supplement schema checks; they
+do not establish behavior across all releases or verify a fresh import of this dashboard.
+
+### UTC bounds and local labels
+
+The diagnostic returned a stored timestamp of `2026-09-18T17:56:00.7214769` and a local
+timestamp of `2026-09-18T12:56:00.7214769`. Stored Hour was 17; Local Hour and Grouped Local
+Hour were both 12, as was Server Current Hour. The conversion worked. Comparing the UTC
+observations against `GetDate()` instead selected older records. Correcting the bounds
+restored the current local hour. This evidence concerns `ObservationTimestamp`, not
+`LastPollTimestamp` or the separate SAM history timestamp. Verify clocks on other installations.
+
+`ToLocal()` uses the server's local timezone, not the browser's. Do not hard-code a five-hour
+offset. The date arithmetic follows SolarWinds' documented
+[timezone guidance](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/).
+A rolling local-day window can span a different elapsed duration at a daylight-saving change.
+
+### Hourly aggregation and widget sorting
+
+At individual polls the stored minimum, average and maximum may be identical. Group by
+the hourly timestamp and aggregate across the polls, as the frequency query above does.
+`AVG(AvgMetric)` averages the stored averages; unequal sample counts or interval durations
+would require weighting for a true raw-sample or time-weighted mean. Missing intervals are
+not zero readings. Local clock-hour grouping can merge repeated hours at the autumn clock
+change; group by UTC hour when those intervals must remain distinct.
+
+For a compact label, add this expression alongside the full `Observed` timestamp:
+
+```sql
+SELECT
+    DateTrunc('hour', ToLocal(m.ObservationTimestamp)) AS [Observed],
+    Concat(
+        CASE WHEN Hour(DateTrunc('hour', ToLocal(m.ObservationTimestamp))) < 10
+            THEN '0' ELSE '' END,
+        ToString(Hour(DateTrunc('hour', ToLocal(m.ObservationTimestamp)))),
+        ':00'
+    ) AS [Hour],
+    ROUND(MIN(m.MinMetric), 3) AS [Min Hz],
+    ROUND(AVG(m.AvgMetric), 3) AS [Avg Hz],
+    ROUND(MAX(m.MaxMetric), 3) AS [Max Hz]
+FROM Orion.APIPoller.ValueToMonitor.Metrics m
+WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'
+  AND m.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
+GROUP BY DateTrunc('hour', ToLocal(m.ObservationTimestamp))
+ORDER BY DateTrunc('hour', ToLocal(m.ObservationTimestamp)) DESC
+```
+
+The contributor confirmed that sorting by **Observed descending**, then hiding that column,
+kept the visible Hour labels chronological. Sorting Hour as text placed 10 before 6;
+zero-padding fixed that within a day but still put yesterday's 23:00 above today's 13:00.
+Remove the Hour sort. The shipped JSON retains its existing Observed column and field
+contract; the hidden-column configuration has not been exported and is not guessed here.
+
+### History joins and static validation
+
+The original capacity query failed with navigation-property filters in its `ON` clause.
+The contributor reported that removing those filters allowed execution. The revised query
+puts them in `WHERE` and also requires the same `ApiPollerId`, avoiding cross-instance
+matches. This does not prove that `AND` is generally unsupported in joins. Full execution
+of the revised same-poller query remains unverified, and timestamp equality must still be
+checked on the target installation. Do not replace missing samples with zeros.
+
+A separate 12-hour label expression passed the static checker but failed on the server with
+`mismatched input '-' expecting 'END' in Select clause` when subtraction appeared in a
+`CASE` result. The working examples use 24-hour labels. Static schema validation checks
+names and references; it does not prove full grammar acceptance, timestamps, widget behavior
+or live execution. The exact syntax boundary behind that error remains unverified.
+
+### Current values, units and formatting
+
+Use `ValueToMonitor.Metric` for a current reading and the Metrics history for interval
+aggregates. Name filters assume one matching poller; select a specific `ApiPollerId` when
+multiple assignments have the same name. `TOP 1` alone does not choose the newest assignment.
+
+Keep the stored name in filters even when converting the output. The contributor confirmed
+that filtering on `Total System Capacity (GW)` returned nothing; the stored name is
+`Total System Capacity (MW)`. A GW tile can use:
+
+```sql
+SELECT TOP 1 ROUND(v.Metric / 1000.0, 2) AS [Value]
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND v.DisplayName = 'Total System Capacity (MW)'
+```
+
+For unused capacity in GW, divide the parenthesized difference `(c.Metric - d.Metric)` by
+`1000.0`. The DC tie values already use MW; removing `(MW)` from a label does not rescale them.
+Keep chart values numeric and set their units in the widget.
+
+`ROUND(value, 2)` limits precision but does not force trailing zeros. Screenshots showed
+`60` and `60.01` despite rounding to three places. Fixed decimal display belongs in a
+supported widget formatter; its exact settings and serialized configuration remain
+unverified here. `Concat('$', ToString(ROUND(v.Metric, 2)), '')` or a ` Hz` suffix yields text,
+which can sort lexically and cannot replace a numeric chart value. It still does not force
+two trailing decimal places. Preserve numeric values when sorting, thresholds or charts need them.
+
+### Six-hour settlement summary
+
+This additional example returns minimum, average and high per hub, rather than one row per
+observation. It is schema-checked, not confirmed by a live result in the contributor's report.
+The shipped dashboard keeps its existing interval-history layout.
+
+```sql
+SELECT
+    m.ValueToMonitor.DisplayName AS [Settlement Point],
+    MIN(m.MinMetric) AS [Minimum $/MWh],
+    AVG(m.AvgMetric) AS [Average $/MWh],
+    MAX(m.MaxMetric) AS [High $/MWh]
+FROM Orion.APIPoller.ValueToMonitor.Metrics m
+WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'
+  AND m.ValueToMonitor.DisplayName IN (
+      'HB_HUBAVG ($/MWh)',
+      'HB_HOUSTON ($/MWh)',
+      'HB_NORTH ($/MWh)',
+      'HB_WEST ($/MWh)'
+  )
+  AND m.ObservationTimestamp > ToUtc(AddHour(-6, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
+GROUP BY m.ValueToMonitor.DisplayName
+ORDER BY m.ValueToMonitor.DisplayName
+```
+
+An EEA text label also needs Grid Condition State: EEA 0 alone cannot distinguish normal
+operation from conservation. The template maps `normal` to 0 and every other state string
+to 5, so that fallback cannot distinguish a known conservation state from an unrecognized
+one. The proposed text mapping was not confirmed live and is not shipped as an authoritative
+emergency-status interpretation.
 
 ## Making it yours
 

@@ -15,7 +15,7 @@ Everything in this repository was assembled from resources SolarWinds publishes 
 Guidance for SolarWinds Orion / Observability Self-Hosted, organized by what you are trying to do.
 
 - [Sections](README.md#sections)
-- [Working examples](README.md#working-examples): Runnable code lives outside docs/: ../scripts/swql/ has 238 verified sample queries, ../scripts/powershell/, ../scripts/python/ and ../scripts/curl/ cover the three clients, and ../tools/ explores the schema offline a...
+- [Working examples](README.md#working-examples): Runnable code lives outside docs/: ../scripts/swql/ has 239 verified sample queries, ../scripts/powershell/, ../scripts/python/ and ../scripts/curl/ cover the three clients, and ../tools/ explores the schema offline a...
 - [A note on trust](README.md#a-note-on-trust): Every entity, property, verb and parameter named in these pages was checked against the extracted schema before it was written, and every SWQL example is re-validated on each build.
 
 ## docs/platform/
@@ -1202,7 +1202,7 @@ Most of this repository is about SWIS: the API, the schema, and automating again
 - [A caveat that applies to the whole section](webui/README.md#a-caveat-that-applies-to-the-whole-section): Everywhere else in this repository, a claim is checked against the extracted contract before it is written down, and make check fails if it drifts.
 - [The pages](webui/README.md#the-pages): custom-query-widget.md and modern-dashboards.md cover two separate widget systems, not an old and a new version of the same one: a Modern Dashboard widget cannot be placed on a classic dashboard, in either direction —...
 - [Where these come from](webui/README.md#where-these-come-from): Community material, chiefly THWACK, which is where the conventions on these pages were worked out and written down by the people who found them.
-- [See also](webui/README.md#see-also): prefixes that appear in console URLs - ../automation/accounts-and-permissions.md for why two users can see different rows in the same widget
+- [See also](webui/README.md#see-also): prefixes that appear in console URLs - ../automation/accounts-and-permissions.md for why two users can see different rows in the same widget - ../guides/webview-embedding-and-node-mapping.md for embedding an external...
 
 ### [Call Queries: VNQM call detail widgets](webui/custom-query-call-queries.md)
 
@@ -1401,6 +1401,7 @@ A public Datadog dashboard, ERCOT (Texas Power Grid) by @danopia, has tracked th
 - [The five pollers](guides/ercot-grid-dashboard.md#the-five-pollers): All five poll GET with an Accept: application/json header and no credential.
 - [Importing and assigning](guides/ercot-grid-dashboard.md#importing-and-assigning): Import each template into the library, then assign it to a node.
 - [The dashboard, row by row](guides/ercot-grid-dashboard.md#the-dashboard-row-by-row): ercot-texas-power-grid.json imports from My Dashboards > Manage Dashboards > Import, and passes tools/check_dashboards.py.
+- [Live query lessons from 2026-09-18](guides/ercot-grid-dashboard.md#live-query-lessons-from-2026-09-18): These observations came from a contributor running queries through the Web Console on one installation.
 - [Making it yours](guides/ercot-grid-dashboard.md#making-it-yours): Regenerate every GUID before building on the file, as scripts/dashboards/README.md shows, and the template Guids likewise if you fork a poller template.
 - [What is verified and what is not](guides/ercot-grid-dashboard.md#what-is-verified-and-what-is-not)
 - [See also](guides/ercot-grid-dashboard.md#see-also)
@@ -1464,6 +1465,15 @@ Organised by what you are looking at, because that is what you have when somethi
 - [The numbers disagree with the web console](guides/troubleshooting.md#the-numbers-disagree-with-the-web-console): A count, a total or an average from a query that does not match what the console shows for the same thing.
 - [What to capture before asking for help](guides/troubleshooting.md#what-to-capture-before-asking-for-help): Whether you are opening a support case or handing the problem to a colleague, these five things turn a description into something diagnosable:
 - [Related pages](guides/troubleshooting.md#related-pages): connection - cookbook.md for the queries themselves - ../swis/connecting.md for ports, authentication modes and TLS - ../swis/rest-api.md for the REST error contract - ../swis/invoke-verbs.md for verb-specific failure...
+
+### [Embedding webviews and placing nodes on a map](guides/webview-embedding-and-node-mapping.md)
+
+Two separate questions come up together often enough to answer on one page: how to get an external webpage into the SolarWinds Platform Web Console, and how to get nodes positioned on a map by geographic coordinate ra...
+
+- [Getting a webpage into the console](guides/webview-embedding-and-node-mapping.md#getting-a-webpage-into-the-console): Two supported mechanisms, both configured in the Web Console with admin rights and neither requiring custom development.
+- [Placing nodes on a map by coordinate](guides/webview-embedding-and-node-mapping.md#placing-nodes-on-a-map-by-coordinate): Orion.Nodes.Location is sysLocation, a single free-text System.String property:
+- [Which approach fits which goal](guides/webview-embedding-and-node-mapping.md#which-approach-fits-which-goal)
+- [Related pages](guides/webview-embedding-and-node-mapping.md#related-pages): entity family - building-integrations.md for connecting an external application to SWIS safely: its own account, bound parameters, capability preflight - ../webui/custom-query-widget.md for turning a SWQL result into...
 
 ### [Wireless heat maps](guides/wireless-heatmaps.md)
 
@@ -1643,6 +1653,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [building-integrations.md](reference/unverified.md#building-integrationsmd): 3.
 - [cookbook.md](reference/unverified.md#cookbookmd): Rules these queries follow
 - [ercot-grid-dashboard.md](reference/unverified.md#ercot-grid-dashboardmd): What changed since 2021
+- [webview-embedding-and-node-mapping.md](reference/unverified.md#webview-embedding-and-node-mappingmd): The coordinate itself lives in a separate entity, not a custom property
 - [wireless-heatmaps.md](reference/unverified.md#wireless-heatmapsmd): Writing it
 - [agents.md](reference/unverified.md#agentsmd): Namespaces and how many entities
 - [cloud.md](reference/unverified.md#cloudmd): Tag filters and resource tags are different entities

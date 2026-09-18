@@ -126,7 +126,7 @@ data/
   schema/2026.2/    entities, verbs, relationships, index, manifest
   reference/        SWQL functions, status codes, NetObject types, reconciliation
 scripts/
-  swql/         238 verified sample queries by subject area
+  swql/         239 verified sample queries by subject area
   powershell/   SwisPowerShell examples
   python/       a dependency-light REST client
   curl/         the raw wire protocol

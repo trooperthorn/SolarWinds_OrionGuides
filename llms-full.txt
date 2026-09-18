@@ -418,7 +418,7 @@ data/
   schema/2026.2/    entities, verbs, relationships, index, manifest
   reference/        SWQL functions, status codes, NetObject types, reconciliation
 scripts/
-  swql/         238 verified sample queries by subject area
+  swql/         239 verified sample queries by subject area
   powershell/   SwisPowerShell examples
   python/       a dependency-light REST client
   curl/         the raw wire protocol
@@ -597,7 +597,7 @@ themselves, for jumping to a section rather than a file.
 
 ## Working examples
 
-Runnable code lives outside `docs/`: [../scripts/swql/](../scripts/swql/) has 238 verified
+Runnable code lives outside `docs/`: [../scripts/swql/](../scripts/swql/) has 239 verified
 sample queries, [../scripts/powershell/](../scripts/powershell/),
 [../scripts/python/](../scripts/python/) and [../scripts/curl/](../scripts/curl/) cover the
 three clients, and [../tools/](../tools/README.md) explores the schema offline and
@@ -49450,6 +49450,8 @@ this section needs — see [../../CONTRIBUTING.md](../../CONTRIBUTING.md).
   prefixes that appear in console URLs
 - [../automation/accounts-and-permissions.md](../automation/accounts-and-permissions.md) for
   why two users can see different rows in the same widget
+- [../guides/webview-embedding-and-node-mapping.md](../guides/webview-embedding-and-node-mapping.md)
+  for embedding an external page with the Custom HTML widget, and for `Orion.WorldMap.Point`
 
 
 ==============================================================================
@@ -56114,8 +56116,9 @@ one.
 
 Every entity and property name below is checked against the extracted 2026.2 schema on each
 build, and every query is run through `tools/validate_swql.py`. Every endpoint and every
-response shape was read live on 2026-09-17. What has **not** been done is importing these
-files into a server, and the last section is precise about what that leaves open.
+response shape was read live on 2026-09-17. The original files were not imported into a server during construction. Subsequent
+contributor query and widget observations are recorded below; they do not verify a fresh
+import of the shipped files, and the last section is precise about what remains open.
 
 The files:
 
@@ -56490,40 +56493,45 @@ ORDER BY v.DisplayName
 ### Row 3: Ancillary Services (`table`) and two history tables
 
 The Datadog "Grid Frequency" and "Capacity & Demand" line charts become windowed reads of
-`Orion.APIPoller.ValueToMonitor.Metrics`, newest first, bounded to a day and to `TOP 288`
-(one row per five-minute observation). `ObservationTimestamp` is compared in local time with
-`AddHour(-24, GetDate())`, per [date-and-time.md](../swql/date-and-time.md):
+`Orion.APIPoller.ValueToMonitor.Metrics`, newest first. Frequency is aggregated by local clock
+hour. UTC observations are compared against UTC bounds, with date arithmetic performed in
+local time before `ToUtc()`, per [date-and-time.md](../swql/date-and-time.md). The one-minute
+poller does not justify a `TOP 288` limit: that could truncate a day of detailed readings.
+The rolling day can cover 25 clock hours because its first and last hours are partial:
 
 ```sql
-SELECT TOP 288
-    m.ObservationTimestamp AS [Observed],
-    m.MinMetric AS [Min Hz],
-    m.AvgMetric AS [Avg Hz],
-    m.MaxMetric AS [Max Hz]
+SELECT
+    DateTrunc('hour', ToLocal(m.ObservationTimestamp)) AS [Observed],
+    ROUND(MIN(m.MinMetric), 3) AS [Min Hz],
+    ROUND(AVG(m.AvgMetric), 3) AS [Avg Hz],
+    ROUND(MAX(m.MaxMetric), 3) AS [Max Hz]
 FROM Orion.APIPoller.ValueToMonitor.Metrics m
 WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
   AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'
-  AND m.ObservationTimestamp > AddHour(-24, GetDate())
-ORDER BY m.ObservationTimestamp DESC
+  AND m.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
+GROUP BY DateTrunc('hour', ToLocal(m.ObservationTimestamp))
+ORDER BY DateTrunc('hour', ToLocal(m.ObservationTimestamp)) DESC
 ```
 
 Capacity and demand side by side, joined on the observation timestamp, with the unused margin
-the Datadog page charts as "Operating Reserves":
+labelled here as unused capacity. This subtraction does not establish an ERCOT operating-reserve measurement:
 
 ```sql
-SELECT TOP 288
-    d.ObservationTimestamp AS [Observed],
+SELECT
+    ToLocal(d.ObservationTimestamp) AS [Observed],
     d.AvgMetric AS [Demand MW],
     c.AvgMetric AS [Capacity MW],
     c.AvgMetric - d.AvgMetric AS [Unused MW]
 FROM Orion.APIPoller.ValueToMonitor.Metrics d
 JOIN Orion.APIPoller.ValueToMonitor.Metrics c
-  ON c.ObservationTimestamp = d.ObservationTimestamp
- AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'
- AND c.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
+    ON c.ObservationTimestamp = d.ObservationTimestamp
 WHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
   AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'
-  AND d.ObservationTimestamp > AddHour(-24, GetDate())
+  AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'
+  AND c.ValueToMonitor.ApiPollerId = d.ValueToMonitor.ApiPollerId
+  AND d.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))
+  AND d.ObservationTimestamp <= GetUTCDate()
 ORDER BY d.ObservationTimestamp DESC
 ```
 
@@ -56551,18 +56559,19 @@ WHERE v.ApiPoller.Name = 'ERCOT Settlement Point Prices'
 ORDER BY v.Metric DESC
 ```
 
-The history table keeps four hubs over the last six hours, which at fifteen-minute intervals
-is `TOP 96` rows:
+The history table keeps four hubs over the last six hours without an arbitrary row cap.
+It retains interval rows; the summary example below instead returns one row per hub:
 
 ```sql
-SELECT TOP 96
-    m.ObservationTimestamp AS [Observed],
+SELECT
+    ToLocal(m.ObservationTimestamp) AS [Observed],
     m.ValueToMonitor.DisplayName AS [Settlement Point],
     m.AvgMetric AS [$/MWh]
 FROM Orion.APIPoller.ValueToMonitor.Metrics m
 WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'
   AND m.ValueToMonitor.DisplayName IN ('HB_HUBAVG ($/MWh)', 'HB_HOUSTON ($/MWh)', 'HB_NORTH ($/MWh)', 'HB_WEST ($/MWh)')
-  AND m.ObservationTimestamp > AddHour(-6, GetDate())
+  AND m.ObservationTimestamp > ToUtc(AddHour(-6, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
 ORDER BY m.ObservationTimestamp DESC, m.ValueToMonitor.DisplayName
 ```
 
@@ -56631,6 +56640,139 @@ pressure, and a `diff()` of the time error. None of those is a widget type this 
 seen in an export, and the time error is a SAM-only value. Wind and PVGR generation, the
 "Wind & Solar Generation" chart, are also SAM-only, so they appear in the fallback template's
 values and not on the dashboard as shipped.
+
+## Live query lessons from 2026-09-18
+
+These observations came from a contributor running queries through the Web Console on one
+installation. The platform version was not captured. They supplement schema checks; they
+do not establish behavior across all releases or verify a fresh import of this dashboard.
+
+### UTC bounds and local labels
+
+The diagnostic returned a stored timestamp of `2026-09-18T17:56:00.7214769` and a local
+timestamp of `2026-09-18T12:56:00.7214769`. Stored Hour was 17; Local Hour and Grouped Local
+Hour were both 12, as was Server Current Hour. The conversion worked. Comparing the UTC
+observations against `GetDate()` instead selected older records. Correcting the bounds
+restored the current local hour. This evidence concerns `ObservationTimestamp`, not
+`LastPollTimestamp` or the separate SAM history timestamp. Verify clocks on other installations.
+
+`ToLocal()` uses the server's local timezone, not the browser's. Do not hard-code a five-hour
+offset. The date arithmetic follows SolarWinds' documented
+[timezone guidance](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/).
+A rolling local-day window can span a different elapsed duration at a daylight-saving change.
+
+### Hourly aggregation and widget sorting
+
+At individual polls the stored minimum, average and maximum may be identical. Group by
+the hourly timestamp and aggregate across the polls, as the frequency query above does.
+`AVG(AvgMetric)` averages the stored averages; unequal sample counts or interval durations
+would require weighting for a true raw-sample or time-weighted mean. Missing intervals are
+not zero readings. Local clock-hour grouping can merge repeated hours at the autumn clock
+change; group by UTC hour when those intervals must remain distinct.
+
+For a compact label, add this expression alongside the full `Observed` timestamp:
+
+```sql
+SELECT
+    DateTrunc('hour', ToLocal(m.ObservationTimestamp)) AS [Observed],
+    Concat(
+        CASE WHEN Hour(DateTrunc('hour', ToLocal(m.ObservationTimestamp))) < 10
+            THEN '0' ELSE '' END,
+        ToString(Hour(DateTrunc('hour', ToLocal(m.ObservationTimestamp)))),
+        ':00'
+    ) AS [Hour],
+    ROUND(MIN(m.MinMetric), 3) AS [Min Hz],
+    ROUND(AVG(m.AvgMetric), 3) AS [Avg Hz],
+    ROUND(MAX(m.MaxMetric), 3) AS [Max Hz]
+FROM Orion.APIPoller.ValueToMonitor.Metrics m
+WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'
+  AND m.ObservationTimestamp > ToUtc(AddHour(-24, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
+GROUP BY DateTrunc('hour', ToLocal(m.ObservationTimestamp))
+ORDER BY DateTrunc('hour', ToLocal(m.ObservationTimestamp)) DESC
+```
+
+The contributor confirmed that sorting by **Observed descending**, then hiding that column,
+kept the visible Hour labels chronological. Sorting Hour as text placed 10 before 6;
+zero-padding fixed that within a day but still put yesterday's 23:00 above today's 13:00.
+Remove the Hour sort. The shipped JSON retains its existing Observed column and field
+contract; the hidden-column configuration has not been exported and is not guessed here.
+
+### History joins and static validation
+
+The original capacity query failed with navigation-property filters in its `ON` clause.
+The contributor reported that removing those filters allowed execution. The revised query
+puts them in `WHERE` and also requires the same `ApiPollerId`, avoiding cross-instance
+matches. This does not prove that `AND` is generally unsupported in joins. Full execution
+of the revised same-poller query remains unverified, and timestamp equality must still be
+checked on the target installation. Do not replace missing samples with zeros.
+
+A separate 12-hour label expression passed the static checker but failed on the server with
+`mismatched input '-' expecting 'END' in Select clause` when subtraction appeared in a
+`CASE` result. The working examples use 24-hour labels. Static schema validation checks
+names and references; it does not prove full grammar acceptance, timestamps, widget behavior
+or live execution. The exact syntax boundary behind that error remains unverified.
+
+### Current values, units and formatting
+
+Use `ValueToMonitor.Metric` for a current reading and the Metrics history for interval
+aggregates. Name filters assume one matching poller; select a specific `ApiPollerId` when
+multiple assignments have the same name. `TOP 1` alone does not choose the newest assignment.
+
+Keep the stored name in filters even when converting the output. The contributor confirmed
+that filtering on `Total System Capacity (GW)` returned nothing; the stored name is
+`Total System Capacity (MW)`. A GW tile can use:
+
+```sql
+SELECT TOP 1 ROUND(v.Metric / 1000.0, 2) AS [Value]
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND v.DisplayName = 'Total System Capacity (MW)'
+```
+
+For unused capacity in GW, divide the parenthesized difference `(c.Metric - d.Metric)` by
+`1000.0`. The DC tie values already use MW; removing `(MW)` from a label does not rescale them.
+Keep chart values numeric and set their units in the widget.
+
+`ROUND(value, 2)` limits precision but does not force trailing zeros. Screenshots showed
+`60` and `60.01` despite rounding to three places. Fixed decimal display belongs in a
+supported widget formatter; its exact settings and serialized configuration remain
+unverified here. `Concat('$', ToString(ROUND(v.Metric, 2)), '')` or a ` Hz` suffix yields text,
+which can sort lexically and cannot replace a numeric chart value. It still does not force
+two trailing decimal places. Preserve numeric values when sorting, thresholds or charts need them.
+
+### Six-hour settlement summary
+
+This additional example returns minimum, average and high per hub, rather than one row per
+observation. It is schema-checked, not confirmed by a live result in the contributor's report.
+The shipped dashboard keeps its existing interval-history layout.
+
+```sql
+SELECT
+    m.ValueToMonitor.DisplayName AS [Settlement Point],
+    MIN(m.MinMetric) AS [Minimum $/MWh],
+    AVG(m.AvgMetric) AS [Average $/MWh],
+    MAX(m.MaxMetric) AS [High $/MWh]
+FROM Orion.APIPoller.ValueToMonitor.Metrics m
+WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'
+  AND m.ValueToMonitor.DisplayName IN (
+      'HB_HUBAVG ($/MWh)',
+      'HB_HOUSTON ($/MWh)',
+      'HB_NORTH ($/MWh)',
+      'HB_WEST ($/MWh)'
+  )
+  AND m.ObservationTimestamp > ToUtc(AddHour(-6, GetDate()))
+  AND m.ObservationTimestamp <= GetUTCDate()
+GROUP BY m.ValueToMonitor.DisplayName
+ORDER BY m.ValueToMonitor.DisplayName
+```
+
+An EEA text label also needs Grid Condition State: EEA 0 alone cannot distinguish normal
+operation from conservation. The template maps `normal` to 0 and every other state string
+to 5, so that fallback cannot distinguish a known conservation state from an unrecognized
+one. The proposed text mapping was not confirmed live and is not shipped as an authoritative
+emergency-status interpretation.
 
 ## Making it yours
 
@@ -58894,6 +59036,191 @@ things turn a description into something diagnosable:
 
 
 ==============================================================================
+FILE: docs/guides/webview-embedding-and-node-mapping.md
+==============================================================================
+
+# Embedding webviews and placing nodes on a map
+
+Two separate questions come up together often enough to answer on one page: how to get an
+external webpage into the SolarWinds Platform Web Console, and how to get nodes positioned on
+a map by geographic coordinate rather than by hand. Neither is a SWQL question. The console
+mechanics below are official, documented product behaviour and cannot be checked against the
+extracted schema the way the rest of this repository is; where a fact *is* schema-backed
+(`Orion.Nodes.Location`, `Orion.WorldMap.Point`) it is verified against 2026.2 and cited as
+such, and everywhere else this page cites SolarWinds' own documentation directly rather than
+asserting from memory.
+
+## Getting a webpage into the console
+
+Two supported mechanisms, both configured in the Web Console with admin rights and neither
+requiring custom development.
+
+**Custom HTML widget** embeds a page inside an existing view, alongside other resources. Edit
+the view, Add Widgets, search "Custom HTML", drop it on the page, then edit the new widget and
+supply a title, subtitle, and HTML containing an `<iframe>`:
+
+```html
+<iframe src="https://your-app.example.com" width="100%" height="600"></iframe>
+```
+
+The target must be served over HTTPS, or the browser blocks the frame outright. Creating or
+editing a Custom HTML widget has required admin rights since platform release 2020.2.5.
+[Source][custom-html].
+
+**External Website view** registers a page as its own navigable entry rather than a tile on a
+dashboard: Settings → All Settings → External Websites → Add, then set a Menu Title, an
+optional Page Title, the URL, and which menu bar it appears under (Admin restricts it to
+administrators, under My Dashboards → Home). This is the better fit when the target should be
+a full page a user navigates to, not a widget sharing space with other resources. [Source][ext-sites].
+
+For a custom map view built against your own node data — the shape this page leads to — the
+Custom HTML route is usually the one that matters: it puts your page inside the console's
+existing navigation and layout rather than off to the side as a separate link.
+
+## Placing nodes on a map by coordinate
+
+### `Location` is text, not a coordinate
+
+`Orion.Nodes.Location` is `sysLocation`, a single free-text `System.String` property:
+
+```
+Orion.Nodes properties
+  Location   System.String
+```
+
+Verified directly against the extracted 2026.2 schema (`tools/schema_query.py props
+Orion.Nodes --grep location`). It holds whatever an operator or an SNMP agent put there —
+`"Rack 4, DC2"`, `"Lancaster, PA"`, a raw `"lat,long"` pair, or nothing. Nothing about the
+property enforces a geocodable format, which is the root of most Worldwide Map placement
+trouble: the field the map tries to read from is exactly as reliable as whoever populated it.
+
+### The coordinate itself lives in a separate entity, not a custom property
+
+The console UI presents map coordinates as if they were two more columns in the Custom
+Property Editor, labelled "Longitude (World Map)" and "Latitude (World Map)". Schematically
+they are not custom properties at all. They are a dedicated entity that targets `Orion.Nodes`:
+
+```
+Orion.WorldMap.Point   [2026.2]
+  inherits: System.Entity -> Orion.WorldMap.Point
+  operations: create, delete, invoke, read, update
+    read                                requires everyone
+    create,read,update,delete,invoke    requires manageNodes
+
+  properties (7)
+    PointId          System.Int32
+    Instance         System.String
+    InstanceID       System.String
+    Latitude         System.Double
+    Longitude        System.Double
+    AutoAdded        System.Boolean
+    StreetAddress    System.String
+
+  targetRelationships (3)
+    Group   -> Orion.Groups
+    Label   -> Orion.WorldMap.PointLabel
+    Node    -> Orion.Nodes
+```
+
+Verified against 2026.2 (`tools/schema_query.py show Orion.WorldMap.Point`). A sibling entity,
+`Orion.WorldMap.PointLabel`, holds the location's display name. Both are plain CRUD entities —
+`create`, `read`, `update`, `delete` — with no verbs of their own, gated by `manageNodes`. A
+point's `AutoAdded` flag distinguishes a location the geocoder placed from one entered by hand,
+which is the schema-level version of the "manual placement is never overwritten" rule described
+below.
+
+The practical consequence: querying or writing map placement through SWIS is a query or a CRUD
+call against `Orion.WorldMap.Point` joined back to `Orion.Nodes` through the `Node` target
+relationship, not a read or write of a `Longitude`/`Latitude` property on `Orion.Nodes` itself
+and not a `NodesCustomProperties` field. A worked example:
+
+```sql
+SELECT wp.PointId, wp.Latitude, wp.Longitude, wp.StreetAddress, wp.AutoAdded,
+       wp.Node.NodeID, wp.Node.Caption
+FROM Orion.WorldMap.Point wp
+WHERE wp.Node.NodeID IS NOT NULL
+ORDER BY wp.Node.Caption
+```
+
+This query is schema-checked and passes `tools/validate_swql.py`. Whether `Orion.WorldMap.Point`
+accepts a CRUD `Create` supplying `InstanceID`/`Instance`/`Latitude`/`Longitude` directly against
+a node, without going through the console's own placement flow, is **not recorded in the
+published schema** and is unverified here; the entity's `canCreate`/`canUpdate` flags say the
+interface is open, but the exact property combination a create call needs has to be confirmed
+against a live server before it is relied on.
+
+### How SolarWinds' own UI populates it
+
+Two paths, both documented, neither going through SWIS directly from the operator's side:
+
+**Automatic geolocation** (Settings → Web Console Settings → Worldwide Map Settings → enable
+Automatic Geolocation) runs each node's `Location` value through the MapQuest geocoder.
+Accepted input formats: `"City, State"`, `"City, State, ZIP"`, `"ZIP"` alone,
+`"Street, City, State"`, or a raw `"latitude,longitude"` pair with no spaces. Placement can take
+up to an hour to appear, and it never overwrites a node that has been positioned manually — that
+is what `Orion.WorldMap.Point.AutoAdded` is recording. [Source][auto-geo].
+
+**Manual and bulk entry** goes through Settings → Manage Nodes → Custom Property Editor, which
+exposes the `Longitude (World Map)` / `Latitude (World Map)` columns for direct typing (avoid
+extra whitespace in the value), or through an export/import round-trip: export a custom property
+that already holds coordinates from Settings → All Settings → Manage Custom Properties, then
+re-import the file with "Update existing custom property values" turned off and the columns
+mapped onto `Longitude (World Map)` and `Latitude (World Map)`. Values set this way are not
+touched by Automatic Geolocation even if it is later enabled. [Source][manual-coords].
+[Source][custom-loc-prop].
+
+### Using your own GPS custom property
+
+If nodes already carry a GPS grid coordinate in a custom property you maintain (rather than
+`Location`), that property is not read by the Worldwide Map directly — the widget only reads
+`Orion.WorldMap.Point`. Two ways to connect the two:
+
+1. **Round-trip through the console**, as above: export the custom property, re-import mapping
+   it onto `Longitude (World Map)` / `Latitude (World Map)`. Keeps the built-in Worldwide Map
+   widget as the renderer, and your custom property stays the value you edit going forward — the
+   import is a one-time or periodic sync, not the source of truth.
+2. **Bypass the Worldwide Map widget entirely** and render your own map (Leaflet, Mapbox, or the
+   A-ORG-2 globe) inside a Custom HTML-embedded page that reads the custom property straight from
+   `Orion.NodesCustomProperties` over SWIS. This is the better fit when the coordinate property
+   is the durable source of truth and syncing it into a second SolarWinds-owned field is an
+   extra moving part you would rather not maintain. It also sidesteps whatever
+   `Orion.WorldMap.Point` will or will not accept from a direct CRUD call, since your renderer
+   never touches that entity.
+
+Both paths need the custom property itself, defined once at Settings → All Settings → Manage
+Custom Properties → Add Custom Property, entity type Nodes. [Source][custom-loc-prop].
+
+## Which approach fits which goal
+
+| Goal | Use |
+| --- | --- |
+| Show an existing external app inside a console page | Custom HTML widget with an `<iframe>` |
+| Give the external app its own console nav entry | External Website view |
+| Use SolarWinds' built-in map, coordinates already clean | Automatic Geolocation from `Location` |
+| Use SolarWinds' built-in map, coordinates come from your own property | Export/import round-trip onto `Longitude (World Map)` / `Latitude (World Map)` |
+| A custom-built map is the actual deliverable (e.g. an external globe/map app) | Custom HTML iframe embedding that app, with the app reading node coordinates from your custom property over SWIS directly — `Orion.WorldMap.Point` is not involved |
+
+## Related pages
+
+- [../schema/README.md](../schema/README.md) for `Orion.Nodes` and the custom-properties
+  entity family
+- [building-integrations.md](building-integrations.md) for connecting an external application
+  to SWIS safely: its own account, bound parameters, capability preflight
+- [../webui/custom-query-widget.md](../webui/custom-query-widget.md) for turning a SWQL result
+  into a linked, icon-bearing console widget, the nearest built-in analogue to a custom map pin
+  list
+- [../reference/unverified.md](../reference/unverified.md) for the collected list of claims this
+  repository declines to assert without a live server, including the `Orion.WorldMap.Point`
+  create call above
+
+[custom-html]: https://support.solarwinds.com/SuccessCenter/s/article/Use-the-Custom-HTML-widget-to-display-HTML-based-data-in-the-Orion-Web-Console
+[ext-sites]: https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-creating-and-editing-external-website-views-sw1301.htm
+[auto-geo]: https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-automatic-placement-of-nodes-sw3059.htm
+[manual-coords]: https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-place-object-into-worldmap-using-coordinates.htm
+[custom-loc-prop]: https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-creating-a-custom-location-property.htm
+
+
+==============================================================================
 FILE: docs/guides/wireless-heatmaps.md
 ==============================================================================
 
@@ -59171,7 +59498,10 @@ supportable.
 `Orion.APIPoller.ApiPoller` feed and rendering coverage in a custom widget — forfeits the
 generation engine and buys vendor independence permanently. See
 [../webui/modern-dashboard-authoring.md](../webui/modern-dashboard-authoring.md) and
-[../webui/custom-query-widget.md](../webui/custom-query-widget.md).
+[../webui/custom-query-widget.md](../webui/custom-query-widget.md). The same trade applies to
+node position rather than signal coverage; see
+[webview-embedding-and-node-mapping.md](webview-embedding-and-node-mapping.md) for the built-in
+Worldwide Map's coordinate model versus rendering your own map from a custom property.
 
 For an estate that is not Cisco-first, the third option is usually the better trade. The
 second is more interesting engineering and means maintaining a synthetic controller
@@ -63154,7 +63484,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**294 statements across 70 pages.**
+**298 statements across 71 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -63466,9 +63796,24 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether two values on one poller are observed with the identical timestamp, so that the join matches, is unverified here.
 
+**[History joins and static validation](../guides/ercot-grid-dashboard.md#history-joins-and-static-validation)**
+
+- Full execution of the revised same-poller query remains unverified, and timestamp equality must still be checked on the target installation.
+- The exact syntax boundary behind that error remains unverified.
+
+**[Current values, units and formatting](../guides/ercot-grid-dashboard.md#current-values-units-and-formatting)**
+
+- Fixed decimal display belongs in a supported widget formatter; its exact settings and serialized configuration remain unverified here.
+
 **[What is verified and what is not](../guides/ercot-grid-dashboard.md#what-is-verified-and-what-is-not)**
 
 - **Not verified, in the order it matters:**
+
+## [webview-embedding-and-node-mapping.md](../guides/webview-embedding-and-node-mapping.md)
+
+**[The coordinate itself lives in a separate entity, not a custom property](../guides/webview-embedding-and-node-mapping.md#the-coordinate-itself-lives-in-a-separate-entity-not-a-custom-property)**
+
+- Whether `Orion.WorldMap.Point` accepts a CRUD `Create` supplying `InstanceID`/`Instance`/`Latitude`/`Longitude` directly against a node, without going through the console's own placement flow, is **not recorded in the published schema** and is unverified here; the entity's `canCreate`/`canUpdate` flags say the interface is open, but the exact property combination a create call needs has to be c...
 
 ## [wireless-heatmaps.md](../guides/wireless-heatmaps.md)
 

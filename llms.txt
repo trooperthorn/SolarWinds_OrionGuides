@@ -230,7 +230,7 @@ Lookup tables. Most are generated from the extracted data and must not be edited
 
 Runnable code lives outside `docs/`:
 
-- [scripts/swql/](scripts/swql/): 238 sample queries, all validated against the schema
+- [scripts/swql/](scripts/swql/): 239 sample queries, all validated against the schema
 - [scripts/api-pollers/](scripts/api-pollers/), [scripts/sam-templates/](scripts/sam-templates/) and
   [scripts/dashboards/](scripts/dashboards/) hold importable API Poller, SAM and Modern Dashboard files
 - [scripts/powershell/](scripts/powershell/), [scripts/python/](scripts/python/) and

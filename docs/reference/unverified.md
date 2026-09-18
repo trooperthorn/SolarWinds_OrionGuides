@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**294 statements across 70 pages.**
+**298 statements across 71 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -320,9 +320,24 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether two values on one poller are observed with the identical timestamp, so that the join matches, is unverified here.
 
+**[History joins and static validation](../guides/ercot-grid-dashboard.md#history-joins-and-static-validation)**
+
+- Full execution of the revised same-poller query remains unverified, and timestamp equality must still be checked on the target installation.
+- The exact syntax boundary behind that error remains unverified.
+
+**[Current values, units and formatting](../guides/ercot-grid-dashboard.md#current-values-units-and-formatting)**
+
+- Fixed decimal display belongs in a supported widget formatter; its exact settings and serialized configuration remain unverified here.
+
 **[What is verified and what is not](../guides/ercot-grid-dashboard.md#what-is-verified-and-what-is-not)**
 
 - **Not verified, in the order it matters:**
+
+## [webview-embedding-and-node-mapping.md](../guides/webview-embedding-and-node-mapping.md)
+
+**[The coordinate itself lives in a separate entity, not a custom property](../guides/webview-embedding-and-node-mapping.md#the-coordinate-itself-lives-in-a-separate-entity-not-a-custom-property)**
+
+- Whether `Orion.WorldMap.Point` accepts a CRUD `Create` supplying `InstanceID`/`Instance`/`Latitude`/`Longitude` directly against a node, without going through the console's own placement flow, is **not recorded in the published schema** and is unverified here; the entity's `canCreate`/`canUpdate` flags say the interface is open, but the exact property combination a create call needs has to be c...
 
 ## [wireless-heatmaps.md](../guides/wireless-heatmaps.md)
 
