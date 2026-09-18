@@ -16,6 +16,12 @@
                 <Button x:Name="OpenOutBtn" Content="Open destination folder" ToolTip="Open the output folder"
                         AutomationProperties.Name="Open output folder" Click="OpenOut_Click" IsEnabled="False"/>
                 <Button x:Name="DoneBtn" Content="Done" FontWeight="SemiBold" Click="Done_Click" IsEnabled="False"/>
+                <Button x:Name="ImportNowBtn" Content="Import Now" ToolTip="Run the real import using these same staged files"
+                        AutomationProperties.Name="Import now" FontWeight="SemiBold" Click="ImportNow_Click"
+                        Visibility="Collapsed" IsEnabled="False"/>
+                <Button x:Name="BackBtn" Content="Back" ToolTip="Back to the staged file list — nothing more is written"
+                        AutomationProperties.Name="Back to the list" Click="Back_Click"
+                        Visibility="Collapsed" IsEnabled="False"/>
             </StackPanel>
         </StackPanel>
         <TextBox x:Name="LogBox" IsReadOnly="True" FontFamily="Consolas" FontSize="12"

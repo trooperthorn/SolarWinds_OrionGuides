@@ -437,9 +437,10 @@ public partial class ExportImportView : UserControl
         var asCopy = PolicyCopy.IsChecked == true;
         var core = _core;
 
-        _shell.Go(new RunView(_shell,
-            dryRun ? "Dry run — Modern Dashboards (no writes)" : "Importing Modern Dashboards",
-            async (log, ct) =>
+        // Captures the same staged-file snapshot (files/skippedInvalid/asCopy) regardless
+        // of which mode runs, so "Import Now" after a dry run acts on exactly what the dry
+        // run just checked, even if the user has since changed something on the tab.
+        Func<IProgress<string>, CancellationToken, Task<RunSummary>> BuildJob(bool dry) => async (log, ct) =>
         {
             var summary = new RunSummary();
 
@@ -447,7 +448,7 @@ public partial class ExportImportView : UserControl
             {
                 summary.Skipped++;
                 summary.SkippedNames.Add($"{file.FileName} — {file.Validation.Summary}");
-                log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {file.Validation.Summary}");
+                log.Report($"{(dry ? "NO-GO" : "SKIP")} {file.FileName}: {file.Validation.Summary}");
             }
 
             foreach (var file in files)
@@ -471,8 +472,8 @@ public partial class ExportImportView : UserControl
                             : $"\"{d.Name}\" (skipped with its file)").ToList();
                         var detail = string.Join(", ", parts);
                         summary.SkippedNames.Add($"{file.FileName} — {detail}");
-                        log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
-                        SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "skipped", detail);
+                        log.Report($"{(dry ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
+                        SessionLog.Log(dry ? "dry-run" : "import", file.FileName, "skipped", detail);
                         continue;
                     }
                     if (collisions.Count > 0)
@@ -485,7 +486,7 @@ public partial class ExportImportView : UserControl
                         foreach (var extra in rewrite.Notes) log.Report($"  note: {extra}");
                     }
 
-                    if (dryRun)
+                    if (dry)
                     {
                         log.Report($"GO — would import {file.FileName}{note}");
                         summary.Ok++;
@@ -514,12 +515,27 @@ public partial class ExportImportView : UserControl
                 }
                 catch (Exception ex)
                 {
-                    log.Report($"{(dryRun ? "NO-GO" : "FAILED")} {file.FileName}: {ex.Message}");
-                    SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "failed", ex.Message);
+                    log.Report($"{(dry ? "NO-GO" : "FAILED")} {file.FileName}: {ex.Message}");
+                    SessionLog.Log(dry ? "dry-run" : "import", file.FileName, "failed", ex.Message);
                     summary.Failed++;
                 }
             }
             return summary;
-        }), dryRun ? "Import · Dry run" : "Import · Modern Dashboards");
+        };
+
+        if (dryRun)
+        {
+            _shell.Go(new RunView(_shell, "Dry run — Modern Dashboards (no writes)", BuildJob(true),
+                onImportNow: () => _shell.Go(
+                    new RunView(_shell, "Importing Modern Dashboards", BuildJob(false)),
+                    "Import · Modern Dashboards"),
+                onBack: () => _shell.Go(this, "Modern Dashboards")),
+                "Import · Dry run");
+        }
+        else
+        {
+            _shell.Go(new RunView(_shell, "Importing Modern Dashboards", BuildJob(false)),
+                "Import · Modern Dashboards");
+        }
     }
 }

@@ -21,13 +21,24 @@ public partial class RunView : UserControl
 {
     private readonly MainWindow _shell;
     private readonly Func<IProgress<string>, CancellationToken, Task<RunSummary>> _job;
+    private readonly Action? _onImportNow;
+    private readonly Action? _onBack;
     private RunSummary? _summary;
 
+    /// <summary>
+    /// onImportNow/onBack are set together, only for a dry run's result screen: onImportNow
+    /// runs the real import against the same staged files the dry run just checked, onBack
+    /// returns to the staged file list without writing anything. Neither replaces Done —
+    /// a real import (dryRun = false) still just offers Done.
+    /// </summary>
     public RunView(MainWindow shell, string title,
-        Func<IProgress<string>, CancellationToken, Task<RunSummary>> job)
+        Func<IProgress<string>, CancellationToken, Task<RunSummary>> job,
+        Action? onImportNow = null, Action? onBack = null)
     {
         _shell = shell;
         _job = job;
+        _onImportNow = onImportNow;
+        _onBack = onBack;
         InitializeComponent();
         TitleText.Text = title;
         Loaded += RunView_Loaded;
@@ -65,9 +76,23 @@ public partial class RunView : UserControl
         }
         finally
         {
-            DoneBtn.IsEnabled = true;
+            if (_onImportNow is not null && _onBack is not null)
+            {
+                DoneBtn.Visibility = Visibility.Collapsed;
+                ImportNowBtn.Visibility = Visibility.Visible;
+                ImportNowBtn.IsEnabled = true;
+                BackBtn.Visibility = Visibility.Visible;
+                BackBtn.IsEnabled = true;
+            }
+            else
+            {
+                DoneBtn.IsEnabled = true;
+            }
         }
     }
+
+    private void ImportNow_Click(object sender, RoutedEventArgs e) => _onImportNow?.Invoke();
+    private void Back_Click(object sender, RoutedEventArgs e) => _onBack?.Invoke();
 
     // Absolute path: an elevated process must never resolve "explorer.exe" through the
     // working directory (CWE-427 binary planting — think a USB stick the exe runs from).
