@@ -342,7 +342,7 @@ def main() -> None:
 
     files = []
     for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, args.root)):
-        dirnames[:] = [d for d in dirnames if d not in {".git", ".orionsdk", ".schema-versions"}]
+        dirnames[:] = [d for d in dirnames if d not in {".git", ".orionsdk", ".schema-versions", "node_modules", "dist"}]
         files.extend(os.path.join(dirpath, f) for f in filenames if f.endswith(".md"))
     files.sort()
 

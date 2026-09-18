@@ -78,7 +78,7 @@ def main() -> None:
     scan_root = os.path.join(ROOT, args.root)
     files = []
     for dirpath, dirnames, filenames in os.walk(scan_root):
-        dirnames[:] = [d for d in dirnames if d not in {".git", "node_modules", ".orionsdk"}]
+        dirnames[:] = [d for d in dirnames if d not in {".git", "node_modules", ".orionsdk", "dist"}]
         for name in filenames:
             if name.endswith(".md"):
                 files.append(os.path.join(dirpath, name))
