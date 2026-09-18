@@ -180,7 +180,8 @@ Five separate polling systems that share no entities and reuse each other's colu
 | [docs/webui/custom-query-call-queries.md](docs/webui/custom-query-call-queries.md) | Six VNQM call detail widgets, the auto-hide and search query boxes, `${SEARCH_STRING}` |
 | [docs/webui/ncm-change-templates.md](docs/webui/ncm-change-templates.md) | NCM config change templates: directives, parameters, and the `Cirrus.ConfigSnippets` API |
 | [docs/webui/ncm-change-template-language.md](docs/webui/ncm-change-template-language.md) | The change template scripting language, end to end |
-| [docs/webui/modern-dashboards.md](docs/webui/modern-dashboards.md) | The Modern Dashboard export format, read off five real files |
+| [docs/webui/modern-dashboards.md](docs/webui/modern-dashboards.md) | The Modern Dashboard export format, based on nine files with a linked 2026.4 supplement |
+| [docs/webui/modern-dashboard-2026-4-export-audit.md](docs/webui/modern-dashboard-2026-4-export-audit.md) | 127 dashboards and eight widget types: provider contracts, groups/routes, context, numeric formatting, hidden sorting, and validation limits |
 | [docs/webui/modern-dashboard-authoring.md](docs/webui/modern-dashboard-authoring.md) | Writing a dashboard file, including what an AI prompt has to pin down |
 
 ## Guides

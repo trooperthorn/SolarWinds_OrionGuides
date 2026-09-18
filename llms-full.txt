@@ -23,12 +23,15 @@ extracted facts instead of recalling them.
 
 Read this file before answering from memory.
 
-Everything here was assembled from resources SolarWinds publishes on the public internet:
+The core schema and reference data were assembled from resources SolarWinds publishes on the public internet:
 the OrionSDK repository, its rendered schema pages and Swagger contract, the public SDK
 documentation, and a community SWQL examples workbook. There is no SolarWinds internal
 documentation in this repository and no method of access to any SolarWinds system beyond
 the documented, customer-facing API. Do not present anything here as insider material,
-and do not add any.
+and do not add any. The versioned Modern Dashboard audit additionally uses an owner-supplied
+2026.4 export, with owner-reported provenance and selected configuration evidence. Its
+observations do not expand the 2026.2 schema contract; consult
+`docs/webui/modern-dashboard-2026-4-export-audit.md` for the validation boundary.
 
 ## Finding your way around
 
@@ -49407,7 +49410,9 @@ reads `[_LinkFor_X]` or that `/Orion/NetPerfMon/NodeDetails.aspx` still exists.
 
 What *is* verified is everything a query touches: every entity, property and function named on
 these pages is checked against 2026.2 like any other page here, and the queries are run
-through `tools/validate_swql.py`. So the SWQL is sound and the UI conventions around it are
+through `tools/validate_swql.py`. The versioned 2026.4 export audit is an explicit exception:
+it preserves observed configuration as evidence and reports gaps against the older schema;
+it does not certify its exported queries. Static checks do not prove runtime behavior. UI conventions are
 reported, sourced and marked unverified. Read
 [../reference/unverified.md](../reference/unverified.md) for the collected list.
 
@@ -49424,6 +49429,7 @@ reported, sourced and marked unverified. Read
 | [ncm-change-templates.md](ncm-change-templates.md) | What an NCM config change template is, its directives, the parameters that become form fields, and managing them through `Cirrus.ConfigSnippets` |
 | [ncm-change-template-language.md](ncm-change-template-language.md) | The template scripting language: variables and macros, operators, string functions, loops, CLI blocks and custom properties |
 | [modern-dashboards.md](modern-dashboards.md) | The Modern Dashboard export format, field by field: the envelope, the 12-column grid, the three widget types and the duplication that breaks files |
+| [modern-dashboard-2026-4-export-audit.md](modern-dashboard-2026-4-export-audit.md) | 127 exported dashboards: eight widget types, provider contracts, view hierarchy, formatting, context, and version limits |
 | [modern-dashboard-authoring.md](modern-dashboard-authoring.md) | Producing a dashboard file by hand, from a script, or by prompting an AI system, with the invariants that decide whether it works; also the console workflow itself — building, reusing and navigating to a widget |
 
 [custom-query-widget.md](custom-query-widget.md) and [modern-dashboards.md](modern-dashboards.md)
@@ -50290,6 +50296,325 @@ same page can see different row counts. See
 
 
 ==============================================================================
+FILE: docs/webui/modern-dashboard-2026-4-export-audit.md
+==============================================================================
+
+# Modern Dashboard authoring: evidence from the 2026.4 export
+
+This audit turns a real Observability Self-Hosted export into guidance for creating and modifying dashboards. It is a versioned evidence supplement, not an importable dashboard or a claim that every exported setting has been tested independently.
+
+## Evidence and scope
+
+- Package: `dashboards-pkg_SWOSH-SVR_2026-09-18_140510.zip`.
+- Package SHA-256: `4fe913780f264bb750fda8314d678541f8863f3615ad2c88f1f2aeb1110219af`.
+- Manifest platform: **SolarWinds Platform 2026.4.0.3320**, SWIS v3; exporter: DashboardPorter 0.1.
+- Export timestamp: `2026-09-18T19:05:10.3061800Z`.
+- All **127** manifest item hashes match the archived JSON bytes. All widget placements resolve to definitions in their respective files.
+- The owner identifies **124 dashboards as supplied with the product** and three as custom: **ERCOT Texas Power Grid**, **Minimal Dashboard Template**, and **SOC2**. This is owner-reported provenance, not independent verification against a pristine vendor installation.
+- The package contains dashboard configuration, not proof that every widget currently renders useful data. No commands, queries, imports, or actions contained in the attachment were executed against a server.
+- Comparison baseline: `trooperthorn/SolarWinds_OrionGuides` commit `fcec2e3bc61244f0afeb1088fb810c38a940789d`. Its extracted schema is **2026.2**, earlier than this export.
+
+Evidence references below use the archive-relative filename and a JSON Pointer. A `~1` segment represents the literal `/` configuration key. Where noted, dashboard-level `configuration` must be JSON-decoded a second time.
+
+## What the package adds
+
+| Widget type | Definitions | Practical use |
+|---|---:|---|
+| `multicharttimeseries` | 239 | Metric history through the PerfStack data provider |
+| `table` | 222 | Inventory, alerts, history, formatted measurements |
+| `proportional` | 192 | Donuts, pies, vertical bars, horizontal bars |
+| `kpi` | 136 | Current metrics, counts, costs, and text labels |
+| `drilldown` | 4 | A hierarchy such as region → availability zone → network → subnet |
+| `entityPropertyDetails` | 3 | Selected properties of the entity in context |
+| `entityDrilldown` | 2 | Entity/group navigation backed by content-model metadata |
+| `risk-score` | 1 | Specialized vulnerability risk presentation |
+| **Total** | **799** | **798 distinct widget keys across the package** |
+
+The totals count definitions as exported, including a repeated Interfaces widget in two files. They are not counts of independent rendered components. KPI tiles are nested within a KPI widget and are counted separately from widget definitions.
+
+The three custom dashboards contain 23 definitions: ERCOT has 12, Minimal has 2, and SOC2 has 9. All eight widget types occur in the owner-reported vendor group; the custom group uses only table, proportional, and KPI widgets.
+
+## 1. Time-series charts are now evidenced in JSON
+
+The older guide describes a `timeseries` widget from a demonstration but lacks an exported example. This package supplies **239 instances of the exact serialized type `multicharttimeseries`**. Every one uses `TimeseriesPerfstackDatasourceService` with `configType: "json"`.
+
+The root is:
+
+```text
+widgets[i].configuration["/"].providers.dataSource
+```
+
+For `AKS_Cluster_Instance_Details.json`, widget 1, the provider properties include:
+
+```json
+{
+  "presetTime": "last12Hours",
+  "configType": "json",
+  "metricId": "Orion.Cloud.Azure.KubernetesClusterStatistics.ApiserverCpuUsagePercentage",
+  "instanceType": "Orion.Cloud.Azure.KubernetesCluster",
+  "swql": "SELECT TOP 1 InstanceSiteId, InstanceType as EntityType, ID as EntityId FROM Orion.Cloud.Azure.KubernetesCluster"
+}
+```
+
+This is an observed vendor configuration fragment, not a standalone query recommendation. The SWQL selects **entity identity** (`InstanceSiteId`, `EntityType`, `EntityId`); `metricId` selects the metric. It is not an arbitrary SWQL result with time/value columns. Copying it onto a context-free dashboard could select an unintended first entity.
+
+`timeframeSelection.properties.timeframe.selectedPresetId` separately carries `last12Hours`. Preserve both the provider and selection configuration when modifying an example. Precedence when they disagree is not established by the export.
+
+Widget 7 in the same file has five comma-separated metric identifiers for pod states. This provides a concrete multiple-metric configuration pattern. It does not prove that an arbitrary calculated SWQL column can be registered as a PerfStack metric.
+
+Some time-series definitions retain `startTime` and `endTime` strings together with a relative preset. Some `id` values are `"UNUSED"`. Do not interpret every nonempty id as a saved PerfStack project, or assume stale absolute dates override the preset. Every observed `configType` is `json`; this package does not establish the saved-project mode contract.
+
+**Repository change:** add a dedicated time-series section using the exact type and provider above. Keep the older saved-project workflow as a separate, differently sourced mode.
+
+## 2. Dashboard identity, groups, routes, and context form a view hierarchy
+
+The files are not simply independent pages with different names. **70 pages carry a groupId**, and **113 carry routeId and dashboardRoutes values**.
+
+For example, `AWS_Costs.json` and `AWS_Costs (2).json` both have the dashboard name `AWS Costs`, but:
+
+| Property | Month page | Year page |
+|---|---|---|
+| `groupId` | `AwsCostsDashboard` | `AwsCostsDashboard` |
+| `groupRank` | 1 | 2 |
+| `groupMemberName` | `Month` | `Year` |
+| `groupName` | `AWS Costs` | `AWS Costs` |
+| `routeId` | `aws-monthly-costs` | `aws-yearly-costs` |
+| `unique_key` | `CLM-Aws-Monthly-Costs` | `CLM-Aws-Yearly-Costs` |
+
+The filename suffix `(2)` is not enough to identify a duplicate that should be discarded. Group membership, route, key, and tab label distinguish the views.
+
+There are **545 named widget keys** and **254 GUID-shaped widget keys**. `CLM-Aws-DatabaseCpuUtilizationChart` is a normal vendor key in this corpus. Therefore “every widget key must be a GUID” is an authoring convention, not a format requirement. Fresh GUIDs remain a convenient way to avoid collisions for newly authored copies.
+
+**Repository change:** document separate clone/update behavior. Preserve identity when deliberately updating an existing view. When cloning, remap dashboard/widget identities and review routes, group membership, navigation links, and any shared widget references together. Do not regenerate arbitrary metric ids, column ids, or entity references indiscriminately.
+
+## 3. Decode the dashboard-level configuration string
+
+In these exports, `dashboards[i].configuration` can contain a JSON string; it is not always an already-decoded object. One value decodes to `null`. A parser that inspects only the outer document misses most view-level options.
+
+Observed decoded keys:
+
+| Key | Pages | What it lets an author investigate |
+|---|---:|---|
+| `globalFilter` | 78 | Entity filter configuration and groupable properties |
+| `urlTabs` | 18 | Tab navigation to URL destinations |
+| `messages` | 14 | Conditional notices within the view |
+| `toolbarItems` | 11 | View-level toolbar configuration |
+| `nocView` | 11 | NOC view settings, refresh cadence, dark theme |
+| `preserveTimeFrameAcrossTabs` | 6 | Whether a time selection is preserved between tabs |
+| `customToolbarMenuItems` | 1 | Custom menus and command sequences |
+| `hideDefaultMenuItemsGroup` | 1 | Suppression of the default menu group |
+
+These counts establish presence, not that an empty list activates a feature. For example, `toolbarItems` can be empty.
+
+The custom ERCOT page has this decoded configuration:
+
+```json
+{
+  "nocView": {
+    "enabled": true,
+    "refreshInterval": 15,
+    "unit": "seconds",
+    "darkThemeEnabled": true
+  }
+}
+```
+
+Widget refresher settings remain separate. A 15-second NOC refresh does not prove that the API Poller collects every 15 seconds. Polling, widget refreshing, time selection, and screen rotation/refresh are distinct controls.
+
+## 4. Global filtering and contextual detail pages need their surrounding configuration
+
+`AWS_Costs (2).json` names account, service, region, and category as groupable properties. Other cloud pages configure account filtering and provider-specific restrictions. `APIC_Members.json` binds a condition argument from `${opid.entityIds[0]}`.
+
+Cloud detail widgets often query a dashboard-specific entity without a visible `WHERE` on an object id. That does not establish an unfiltered query contract. Routes, view context, entity metadata, provider behavior, and the surrounding page may supply the scope.
+
+Links also carry filters, for example a compute cost tile directs to a cost page with a `filters=` expression. A useful dashboard can therefore progress from estate summary → category → entity → metric history instead of adding ever more columns to one table.
+
+**Authoring rule:** transplant the context and filters with the widget, or replace them with an explicit, verified scope. Test the destination with two different entities/accounts to prove the view is scoped correctly. Do not assume that appending an arbitrary filter string makes every provider honor it.
+
+## 5. ERCOT proves the hidden timestamp sort pattern precisely
+
+The relevant source is `ERCOT_Texas_Power_Grid.json`, widget 4, under:
+
+```text
+/widgets/4/configuration/table/properties/configuration
+```
+
+The query returns a single DateTime field, `Observed`. **Both display columns bind to it.** The export no longer needs a separate Hour string from SWQL:
+
+```json
+{
+  "columns": [
+    {
+      "id": "column_092154af-31b7-4b19-9848-28436913ac23",
+      "label": "Hour",
+      "isActive": true,
+      "formatter": {
+        "componentType": "DatetimeFormatterComponent",
+        "properties": {
+          "dataFieldIds": {"value": "Observed"},
+          "option": "0",
+          "isUtc": true,
+          "replaceDate": true,
+          "replaceEmptyValue": false,
+          "emptyValueDisplay": "(Unknown)"
+        }
+      }
+    },
+    {
+      "id": "column_3238dd52-d57b-45e3-afef-6e0e3b087d86",
+      "label": "HIDE ME",
+      "isActive": false,
+      "formatter": {
+        "componentType": "DatetimeFormatterComponent",
+        "properties": {
+          "dataFieldIds": {"value": "Observed"},
+          "option": "0",
+          "isUtc": true,
+          "replaceDate": false,
+          "replaceEmptyValue": false,
+          "emptyValueDisplay": "(Unknown)"
+        }
+      }
+    }
+  ],
+  "sorterConfiguration": {
+    "sortBy": "column_3238dd52-d57b-45e3-afef-6e0e3b087d86",
+    "descendantSorting": true
+  }
+}
+```
+
+This is a partial configuration excerpt; the three frequency columns are omitted. It is not a complete import file.
+
+The contributor separately confirmed that this sort behavior works. `sortBy` names a **column configuration id**, not the query field alias. An inactive display column can retain its role as the sorter.
+
+The exported query applies `ToLocal()` while these formatters carry `isUtc: true`. Preserve this observed combination when documenting the working example; the flag's exact conversion semantics are not proven by its name. Verify on the target server/browser before applying an extra timezone conversion.
+
+## 6. Numeric formatting, text KPIs, and thresholds need distinct rules
+
+There are **131 SimpleNumberFormatterComponent** definitions. All bind a `value` and carry `suffixText`; 125 also carry `prefixIcon`. The ERCOT frequency columns use:
+
+```json
+{
+  "componentType": "SimpleNumberFormatterComponent",
+  "properties": {
+    "dataFieldIds": {"value": "Min Hz"},
+    "prefixIcon": "",
+    "suffixText": "Hz",
+    "replaceEmptyValue": false,
+    "emptyValueDisplay": "(Unknown)"
+  }
+}
+```
+
+This keeps the SWQL result numeric. The same pattern appears with MW, GB, MB/s, dollars, and other suffixes. `prefixIcon` is an icon setting, not evidence of a currency-text prefix control.
+
+**Fixed trailing zeros remain unproven.** No widget configuration key matching decimal, precision, fraction, digits, or numberFormat was found. No such control appears in the 131 simple-number formatter property sets. Earlier advice to set a fixed-decimal option was not supported by this export. `ROUND()` still only changes the numeric value; it does not guarantee `60.000` in the UI.
+
+Text KPIs are also present in the vendor group, including cost strings and `N/A` values. A blanket claim that KPI widgets only accept numeric values is too strong. However, a text-capable display does not establish that numeric threshold comparison works on values such as `60.01 Hz` or `$42.75`.
+
+**ERCOT review items:** its frequency KPI returns `System.String` while numeric thresholds are enabled, and its highest settlement-price KPI also returns `System.String` with thresholds enabled. Keep a numeric query and use unit presentation when threshold coloring matters. Verify high-side and low-side behavior deliberately. `reversedThresholds: true` is recorded for the low-frequency tile; that alone does not create a two-sided acceptable frequency band.
+
+The package also contains 56 threshold formatters, with metric threshold names, instance/site field bindings, and visualization options. Copy a known compatible threshold family and verify its bindings, rather than applying a generic color to all numbers.
+
+## 7. A proportional widget has several chart forms
+
+Observed `chartOptions.type` values:
+
+- `DonutChart`: 111.
+- `VerticalBarChart`: 67.
+- `PieChart`: 8.
+- `HorizontalBarChart`: 6.
+
+Legend placements include Right, None, and Bottom. Labels, numerical value fields, colors, links, legend formatters, and interaction handlers are independent choices.
+
+For a useful bar chart, keep the chart value numeric, return the intended category grain, and document the unit and time window. Adding `$` or `MW` in SWQL turns the chart measure into text. The export does not establish how all chart variants handle negative DC tie values; that remains a rendering test, not a JSON inference.
+
+## 8. Tables can be navigators and operational views
+
+The 222 tables include more than raw grids:
+
+- `EntityLinkFormatterComponent` and `LinkFormatterComponent` connect rows to entity/detail views.
+- Status, severity, duration, color, threshold, and HTML formatters carry different data-field contracts.
+- Multiple visible or hidden columns can bind to the same source field.
+- `selectionConfiguration` can specify multiple selection, row clicking, and a stable `trackByProperty`.
+- `scrollType`, `paginatorConfiguration`, `hasVirtualScroll`, and `searchConfiguration` coexist. The package includes `scrollType: "virtual"` beside `hasVirtualScroll: false`, so precedence should be tested rather than inferred from one property.
+- `descendantSorting` appears as booleans and strings such as `"desc"` and `""`. New custom examples should use a demonstrated configuration rather than normalize every vendor export blindly.
+
+`All_Active_Alerts.json` demonstrates multi-selection with `AlertActiveID`, a paginator with 10/20/50/100 choices, and a configured sort column. Some toolbar commands invoke write operations. Those serialized actions are evidence of UI capability, not authorization to execute them or proof that their web endpoints are a stable public automation API.
+
+## 9. Drilldown and entity detail widgets are separate authoring patterns
+
+`AWS_Compute.json`, widget 13, uses `DrilldownSwqlDatasourceService` and `NOVA_DRILLDOWN_DATASOURCE_ADAPTER`. Its `groupBy` contains region, availability zone, virtual network, and subnet; the leaf carries the entity name and link. It supplies group and leaf component mappings, not an ordinary table column collection.
+
+`Home_Summary_-_Overview.json` includes two `entityDrilldown` widgets. Their definitions include content-view queries, property path metadata, grouping, and content-type bindings. `entityPropertyDetails` likewise uses selected property definitions and composite formatter mappings. These are not safely generated by changing a table's `type` string.
+
+`risk-score` is a separate specialized widget in `Vulnerability_and_Risk_Dashboard.json`; it records a 0–10 range and risk-oriented labels. Its presence does not establish a generic gauge contract or universal module availability.
+
+**Repository change:** use separate recipes for ordinary SWQL widgets, metric time-series widgets, hierarchical widgets, and module-specific widgets. Begin specialized examples from an exported working configuration and preserve their context dependencies.
+
+## 10. Query duplication is an authoring policy, not a universal export invariant
+
+The audit found **642 blocks** with a data source and adapter where at least one side contained SWQL:
+
+- 635 have a query on both sides.
+- 626 of those are byte-identical.
+- 9 have differing queries; some differences are whitespace/case, while others affect selected columns or null handling.
+- 7 have only the source-side query; these include four drilldown adapters and three proportional adapters.
+- Among the 635 two-query blocks, 8 also have unequal `dataFields` arrays.
+
+Concrete differences include `GCP_Cloud_Router_Details.json` widget 4 (BGP status projection) and `GCP_Database_Details.json` widget 2 (TOP selection versus CASE null handling). Do not infer which copy wins at runtime, and do not silently reconcile a vendor export without checking it in the console.
+
+The repository should still require matching query copies for newly authored ordinary widgets when their adapter stores a copy. It should distinguish **strict authoring validation** from **evidence inspection**. Otherwise a tool will reject useful vendor evidence or teach an AI that every difference is necessarily the root cause of a failure.
+
+## 11. Graphical query metadata is present
+
+Four serialized data-source property blocks use `type: "graphical"`; these include duplicated source/adapter blocks, not four independent widgets. `GKE_Entities.json` widget 1 carries `editor.entity` and `editor.state` alongside its SWQL and field metadata.
+
+A change to the SWQL alone can leave graphical editor state describing a different query. For generated custom work, either keep the editor model consistent or use a tested hand-edit workflow. “All exports are hand-edit” only described the older sample set.
+
+## 12. Version and validation boundaries
+
+The audit extracted **750 distinct SELECT strings** from the outer documents and decoded dashboard configuration. The repository's 2026.2 static checker produced findings for 453 of them, including 136 distinct unknown entity names. Many are module-specific dashboard/content-model entities in this 2026.4 export.
+
+This does **not** prove 453 broken queries. It shows why an older public schema and a partial static parser cannot certify every product dashboard. No-findings also does not prove runtime success. A repository should record the source platform version, module/provider dependency, query provenance, and target-server validation separately.
+
+The existing query extractor should eventually cover `swqlQuery` and conditional `query` fields inside decoded configuration as well as ordinary `swql`. It must never execute exported actions while inspecting them.
+
+## Specific improvements for the three custom dashboards
+
+### ERCOT Texas Power Grid
+
+1. Adopt the exact exported hidden timestamp/date formatter configuration as the canonical compact-time example.
+2. Keep numeric frequency and price KPI outputs wherever numeric thresholds are enabled; reserve concatenated labels for presentation-only values.
+3. Update the frequency subtitle from “per observation” to “per local clock hour,” matching the actual query.
+4. Teach three different measurements explicitly: latest value, hourly summary, and a six-hour settlement summary. Preserve UTC filters and local display conversion as separate concerns.
+5. Investigate a metric-backed capacity/demand chart using an API Poller metric supported by the target server's PerfStack registry. The package provides the general serialization pattern but not the API Poller metric registration needed to claim this chart is ready.
+6. Keep unused capacity distinct from ERCOT operating reserves; signed tie flows should retain their documented meaning and numerical values.
+
+### Minimal Dashboard Template
+
+Keep it minimal: one numeric KPI and one table with a timestamp, numeric measurement, status/link mappings, and clear data-source duplication. Use the richer vendor patterns as optional recipes instead of packing them all into the starter file.
+
+### SOC2
+
+Use tables and navigation to expose evidence scope, exceptions, observation age, and entity links. Operational status and configured thresholds do not themselves establish compliance. A useful next iteration is summary counts → exceptions → supporting object detail, with clearly bounded observation windows.
+
+These are design recommendations. The source dashboards have not been edited or re-imported by this audit.
+
+## Authoring implications and follow-up work
+
+1. **Use the corrected authoring rules:** identifiers need not be GUIDs; query-copy equality is a safe rule for authored widgets, not universal vendor evidence; graphical mode exists; KPI display can be text; multiple time-series/provider modes must be distinguished.
+2. **Keep versioned evidence separate from universal format claims.** This supplement records archive files/pointers and owner-reported provenance; the older guides retain their nine-file baseline.
+3. **Retain a machine-readable evidence index.** The [evidence index](../../reference/dashboard-evidence/2026-09-18.json) records archive/item hashes, counts, selected excerpts, provider types, and exceptions. Raw site-specific exports are not part of the shipped examples.
+4. **Build further complete recipes from the evidenced fragments:** hidden date sorting, numeric suffixes, low-side thresholds, metric time series, context-filtered drilldown, grouped tabs/routes, NOC refresh, and conditional notices.
+5. **Extend an audit tool before relaxing the strict validator:** decode nested configuration, inventory unknown providers without rejecting them, check references and query copies, flag numeric-threshold/text-value combinations, and report schema-version gaps separately.
+6. **Keep acceptance tests explicit:** verify two entity contexts, midnight ordering, empty/unknown values, signed chart values, threshold direction, time presets, and the actual rendered result after import. A valid JSON file is only the first check.
+
+The practical change for AI-assisted authoring is to choose the data grain, entity scope, widget/provider contract, and field types first. Then bind presentation, sorting, navigation, and refresh behavior using an evidenced recipe. Fragments establish field shapes, but complete imports and provider behavior still require target-server testing.
+
+
+==============================================================================
 FILE: docs/webui/modern-dashboard-authoring.md
 ==============================================================================
 
@@ -50304,20 +50629,26 @@ presentation hung off each one.
 
 ## The five rules that decide whether a file works
 
-Everything else is detail. These are the invariants, all confirmed across nine real exports
-from three independent authors:
+These rules guide newly authored ordinary SWQL widgets. The original evidence was nine
+exports from three authors. The [2026.4 export audit](modern-dashboard-2026-4-export-audit.md)
+adds 127 files and eight widget types; it distinguishes authoring policy from vendor export
+behavior and provides the specialized provider patterns.
 
-1. **Every widget `unique_key` is a fresh GUID, and duplicates are a bug.** Copying a widget
-   without regenerating its key is the most common defect in real files — see
+1. **Give a newly cloned widget a distinct `unique_key` and remap its placements.** Fresh
+   GUIDs are convenient, but named keys also occur in product exports. Preserve keys when
+   deliberately updating existing objects. Conflicting definitions under one key need review;
+   a shared key across exported files is not automatically a defect. See
    [modern-dashboards.md](modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine).
    Note that a `kpi_…` **tile** id is a different thing: it is scoped to its widget, and reusing
    one across widgets is normal.
 2. **Every placement resolves to a definition.** `dashboards[].widgets[].unique_key` must
    appear in the top-level `widgets[]` array.
-3. **The SWQL is written twice and both copies must match** — under
-   `providers.dataSource.properties.swql` and again under
-   `providers.adapter.properties.dataSource.properties.swql`. All **146 pairs across all nine
-   files** are byte-identical, which makes this the best-attested rule here.
+3. **Keep query copies and field metadata synchronized when the adapter stores a copy.**
+   Ordinary SWQL widgets commonly use `providers.dataSource.properties.swql` and
+   `providers.adapter.properties.dataSource.properties.swql`. All 146 pairs in the original
+   nine files match. The newer corpus includes missing and differing adapter copies, so
+   equality is a strict authoring policy, not a universal product invariant. Do not apply
+   this shape to metric time-series or specialized adapters without checking their contract.
 4. **Every `dataFields[].id` is a column the query returns** — the alias if there is one, and
    the bare property name if there is not, so `ONodes.Status` returns `Status`. A mismatch
    renders a blank column rather than raising an error.
@@ -50340,11 +50671,14 @@ Then decide, per query, which widget carries it:
 | You want | Widget | The query must return |
 | --- | --- | --- |
 | A grid of objects | `table` | One row per object, plus a column per formatter input |
-| A number, or a row of numbers | `kpi` | **One row**, one query per tile |
+| A current value, or a row of values | `kpi` | **One row**, one query per tile; retain numeric types for numerical thresholds |
 | A breakdown of a total | `proportional` | One row per slice: a label, a value, optionally a colour, icon and link |
 
 A `kpi` widget with six tiles is six separate single-row queries, not one query with six
-columns. That is the most common surprise in the format.
+columns. Text KPI values also occur in product exports, but text display does not establish
+that numerical threshold comparisons work. For history use the evidenced
+`multicharttimeseries` metric/provider recipe; for hierarchy or entity detail use the
+specialized contracts in the [2026.4 audit](modern-dashboard-2026-4-export-audit.md).
 
 ## Building a widget from the console
 
@@ -50354,8 +50688,9 @@ maps that form to the fields it produces, walking the same sequence [SolarWinds 
 #93](https://www.youtube.com/watch?v=9T1VlIvAfdo) uses to build a KPI widget (15:11-19:14).
 
 1. **Drag a widget onto the grid, then "finish configuring".** This is where you pick the
-   widget type (`table`, `kpi`, `proportional`, or the undocumented `timeseries` — see
-   [modern-dashboards.md](modern-dashboards.md#a-fourth-type-timeseries)) and whether it
+   widget family (`table`, `kpi`, `proportional`, or a time-series chart; the 2026.4
+   export serializes the latter as `multicharttimeseries`). For provider modes see
+   [modern-dashboards.md](modern-dashboards.md#a-fourth-type-timeseries). Also choose whether it
    starts blank ("from empty widgets") or copies an existing one — see
    [reusing another dashboard's widget](#reusing-another-dashboards-widget-from-the-console)
    below for the second path.
@@ -50369,7 +50704,9 @@ maps that form to the fields it produces, walking the same sequence [SolarWinds 
    the **graphical query builder** and **hand-editing SWQL**. Hand-editing is what every
    sample query on both of these pages assumes, and it is also what all 146 embedded queries
    examined for [modern-dashboards.md](modern-dashboards.md) turn out to be
-   (`type: "hand-edit"` on every one). Paste a query you have already run through
+   (`type: "hand-edit"` on every one in that original sample). The 2026.4 export also
+   contains `graphical` editor state; preserve its consistency when editing those widgets.
+   Paste a query you have already run through
    `tools/validate_swql.py` here rather than composing it for the first time in this box.
 4. **Validate, then Show records.** Validate is a client-side parse; Show records actually
    runs the query against your server and previews the rows, which is the point at which a
@@ -50648,7 +50985,10 @@ python3 tools/check_dashboards.py scripts/dashboards/minimal-dashboard.json
 every shipped dashboard satisfies the invariants in docs/webui/modern-dashboard-authoring.md
 ```
 
-Give it the path to your own export in place of that one.
+Give it the path to your authored ordinary-widget export in place of that one. This is a
+strict authoring checker, not a certification tool for every built-in provider or product
+version. The 2026.4 audit records source/adapter differences and specialized widget contracts
+that need separate interpretation; do not automatically rewrite vendor exports to satisfy it.
 
 It enforces all five rules above plus the column bindings, and it is deliberately quiet about
 the things real files legitimately do: an absent `componentId`, an empty `sortBy`, the `""`
@@ -50693,7 +51033,8 @@ and set `collapsible: true` if you mean the widget to collapse.
 
 **A `ThresholdFormatterComponent` column takes a `thresholdName`**, binding the bar to a
 threshold the platform already defines (`Nodes.Stats.CpuLoad` and friends) rather than to
-numbers in the file. Its `instanceId` and `siteId` are `""` in every real instance.
+numbers in the file. Its `instanceId` and `siteId` are `""` in the original nine-file sample;
+the 2026.4 corpus also has populated bindings, so preserve the source widget's entity/site contract.
 
 **An unaliased select item still names a column.** `ONodes.Status` returns `Status`. But an
 unaliased *expression* — a `CONCAT(...)` or `COUNT(...)` — gets a server-assigned name you
@@ -50735,12 +51076,18 @@ A Modern Dashboard — the console calls the feature **Dashboards**, under `/app
 exports as a single JSON file. That file is the whole dashboard: layout, widgets, every SWQL
 query, every column formatter and every colour.
 
-Nothing about the format is documented by SolarWinds. This page is derived by parsing **nine
+This page reconstructs the serialized format by parsing **nine
 real exports from three independent authors** and checking every entity, property and query
 they contain against the 2026.2 schema. Where all three authors agree, the rule is stated
 plainly; where only one exercises a feature, it says so.
 [modern-dashboard-authoring.md](modern-dashboard-authoring.md) is the other half: how to write
 one from scratch, including for an AI asked to generate a whole file.
+
+The [2026.4 export audit](modern-dashboard-2026-4-export-audit.md) adds 127 files and eight
+widget types. Unless explicitly updated below, statements such as "every export seen" refer
+to this page's original nine-file sample, not every product dashboard. The supplement covers
+named keys, routes/groups, decoded page configuration, query-copy exceptions, and exact
+time-series and hidden-sort configurations.
 
 A few claims on this page come from a fourth source instead of a file: [SolarWinds Lab
 #93](https://www.youtube.com/watch?v=9T1VlIvAfdo), "A Step-by-Step Guide to Building Modern
@@ -50791,7 +51138,7 @@ Four keys, and the split between the last three is the thing to understand first
 
 | Field | Meaning |
 | --- | --- |
-| `unique_key` | The dashboard's own GUID |
+| `unique_key` | The dashboard's identity; GUIDs and named keys are evidenced |
 | `name` | The display name. **This string is load-bearing**: other dashboards look one up by name to build links to it, so a rename breaks those links silently — see [the self-referencing link pattern](modern-dashboard-authoring.md#the-self-referencing-link-pattern) |
 | `parent` | `null` in every export seen. Presumably the clone source, matching `Orion.Dashboards.Instances.ParentID` — **unverified** |
 | `feature` | `null` in every export seen; matches `Orion.Dashboards.Instances.Feature` |
@@ -50807,8 +51154,10 @@ One author's export carries eight further dashboard-level keys, all empty:
 
 The other two authors' files omit them entirely and import the same way, so they are optional.
 `groupId`/`groupRank`/`groupName` read as dashboard grouping and `routeId`/`dashboardRoutes` as
-custom URL routing, but every value seen is empty, so what they do is **undocumented and
-unverified here**.
+custom URL routing. Their behavior was **unverified** in that original empty sample.
+The [2026.4 evidence](modern-dashboard-2026-4-export-audit.md) now includes populated groups,
+routes, filters, NOC configuration and cross-tab time settings. Its page `configuration` can
+be a JSON-encoded string, so decode it separately before inspecting those options.
 
 ### The grid is 12 columns wide
 
@@ -50886,8 +51235,13 @@ provider id, and how the PerfStack project reference and time range are represen
 demonstrates, rather than a file, is that the widget's data comes from a row already saved in
 `Orion.PerfStack.Projects` — see
 [perfstack.md](perfstack.md#settle-the-grammar-against-your-own-server) — instead of carrying
-its own query the way the other three types do. If you can export a dashboard containing one,
-that is what would close this gap.
+its own query the way the other three types do.
+
+**Newer exported mode:** the 2026.4 corpus contains 239 `multicharttimeseries` definitions
+using `TimeseriesPerfstackDatasourceService` and `configType: "json"`. Their SWQL selects
+entity identity while `metricId` selects metrics. This is not proof of arbitrary time/value
+SWQL support, nor the saved-project serialization demonstrated above. See the
+[exact fragment and time-selection notes](modern-dashboard-2026-4-export-audit.md#1-time-series-charts-are-now-evidenced-in-json).
 
 **`proportional` is not "a donut".** It is the part-to-whole chart widget, and
 `chartOptions.type` picks the rendering. Across the nine files that field takes `DonutChart`,
@@ -50998,7 +51352,8 @@ copies are byte-identical**. Treat that as an invariant: edit one and you must e
 It is the single easiest way to produce a file that imports and then behaves inconsistently.
 
 `type: "hand-edit"` marks a query typed by a person rather than built by the console's query
-builder. Every query in the samples is `hand-edit`.
+builder. Every query in the original samples is `hand-edit`; the 2026.4 supplement also
+records `graphical` query/editor metadata and exceptions to duplicated query equality.
 
 ### `dataFields` declares the result shape
 
@@ -56697,7 +57052,11 @@ The contributor confirmed that sorting by **Observed descending**, then hiding t
 kept the visible Hour labels chronological. Sorting Hour as text placed 10 before 6;
 zero-padding fixed that within a day but still put yesterday's 23:00 above today's 13:00.
 Remove the Hour sort. The shipped JSON retains its existing Observed column and field
-contract; the hidden-column configuration has not been exported and is not guessed here.
+contract. The later 2026.4 export now supplies the
+[exact hidden-sort configuration](../webui/modern-dashboard-2026-4-export-audit.md#5-ercot-proves-the-hidden-timestamp-sort-pattern-precisely):
+two formatter columns bind to `Observed`, one shows the hour, and `sortBy` refers to the
+inactive full-date column id. That evidence is documented separately; the shipped starter
+JSON has not been replaced with the contributor's custom dashboard.
 
 ### History joins and static validation
 
@@ -56776,7 +57135,7 @@ emergency-status interpretation.
 
 ## Making it yours
 
-Regenerate every GUID before building on the file, as
+For a new clone, regenerate dashboard/widget identities and remap placements, as
 [scripts/dashboards/README.md](../../scripts/dashboards/README.md#using-it-as-a-starting-point)
 shows, and the template `Guid`s likewise if you fork a poller template. To add a value, add a
 `ValueToMonitor` to the right request, then a row to the relevant table appears on its own,
@@ -56787,8 +57146,10 @@ single-row query in three places, per
 To chart rather than tabulate, build a PerfStack project over the `ValueToMonitor` metrics
 you want, save it, and place a `timeseries` widget pointing at it, as
 [modern-dashboards.md](../webui/modern-dashboards.md#a-fourth-type-timeseries) describes from
-SolarWinds' own walkthrough. An export of a dashboard containing one would let this page ship
-the chart too.
+SolarWinds' own walkthrough. The [2026.4 export audit](../webui/modern-dashboard-2026-4-export-audit.md)
+now provides a separate `multicharttimeseries` JSON metric configuration. It does not establish
+which API Poller metrics are registered on the target server; verify that before promising
+an importable ERCOT line chart.
 
 ## What is verified and what is not
 
@@ -64473,7 +64834,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[A caveat that applies to the whole section](../webui/README.md#a-caveat-that-applies-to-the-whole-section)**
 
-- So the SWQL is sound and the UI conventions around it are reported, sourced and marked unverified.
+- UI conventions are reported, sourced and marked unverified.
 
 ## [custom-query-call-queries.md](../webui/custom-query-call-queries.md)
 
@@ -64544,7 +64905,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - `parent` — `null` in every export seen. Presumably the clone source, matching `Orion.Dashboards.Instances.ParentID` — **unverified**
 - `private` — `null` on the dashboard, `false` on widgets. Visibility; **unverified**
-- `groupId`/`groupRank`/`groupName` read as dashboard grouping and `routeId`/`dashboardRoutes` as custom URL routing, but every value seen is empty, so what they do is **undocumented and unverified here**.
+- Their behavior was **unverified** in that original empty sample.
 
 **[The grid is 12 columns wide](../webui/modern-dashboards.md#the-grid-is-12-columns-wide)**
 

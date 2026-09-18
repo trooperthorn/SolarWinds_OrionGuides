@@ -4,12 +4,18 @@ A Modern Dashboard — the console calls the feature **Dashboards**, under `/app
 exports as a single JSON file. That file is the whole dashboard: layout, widgets, every SWQL
 query, every column formatter and every colour.
 
-Nothing about the format is documented by SolarWinds. This page is derived by parsing **nine
+This page reconstructs the serialized format by parsing **nine
 real exports from three independent authors** and checking every entity, property and query
 they contain against the 2026.2 schema. Where all three authors agree, the rule is stated
 plainly; where only one exercises a feature, it says so.
 [modern-dashboard-authoring.md](modern-dashboard-authoring.md) is the other half: how to write
 one from scratch, including for an AI asked to generate a whole file.
+
+The [2026.4 export audit](modern-dashboard-2026-4-export-audit.md) adds 127 files and eight
+widget types. Unless explicitly updated below, statements such as "every export seen" refer
+to this page's original nine-file sample, not every product dashboard. The supplement covers
+named keys, routes/groups, decoded page configuration, query-copy exceptions, and exact
+time-series and hidden-sort configurations.
 
 A few claims on this page come from a fourth source instead of a file: [SolarWinds Lab
 #93](https://www.youtube.com/watch?v=9T1VlIvAfdo), "A Step-by-Step Guide to Building Modern
@@ -60,7 +66,7 @@ Four keys, and the split between the last three is the thing to understand first
 
 | Field | Meaning |
 | --- | --- |
-| `unique_key` | The dashboard's own GUID |
+| `unique_key` | The dashboard's identity; GUIDs and named keys are evidenced |
 | `name` | The display name. **This string is load-bearing**: other dashboards look one up by name to build links to it, so a rename breaks those links silently — see [the self-referencing link pattern](modern-dashboard-authoring.md#the-self-referencing-link-pattern) |
 | `parent` | `null` in every export seen. Presumably the clone source, matching `Orion.Dashboards.Instances.ParentID` — **unverified** |
 | `feature` | `null` in every export seen; matches `Orion.Dashboards.Instances.Feature` |
@@ -76,8 +82,10 @@ One author's export carries eight further dashboard-level keys, all empty:
 
 The other two authors' files omit them entirely and import the same way, so they are optional.
 `groupId`/`groupRank`/`groupName` read as dashboard grouping and `routeId`/`dashboardRoutes` as
-custom URL routing, but every value seen is empty, so what they do is **undocumented and
-unverified here**.
+custom URL routing. Their behavior was **unverified** in that original empty sample.
+The [2026.4 evidence](modern-dashboard-2026-4-export-audit.md) now includes populated groups,
+routes, filters, NOC configuration and cross-tab time settings. Its page `configuration` can
+be a JSON-encoded string, so decode it separately before inspecting those options.
 
 ### The grid is 12 columns wide
 
@@ -155,8 +163,13 @@ provider id, and how the PerfStack project reference and time range are represen
 demonstrates, rather than a file, is that the widget's data comes from a row already saved in
 `Orion.PerfStack.Projects` — see
 [perfstack.md](perfstack.md#settle-the-grammar-against-your-own-server) — instead of carrying
-its own query the way the other three types do. If you can export a dashboard containing one,
-that is what would close this gap.
+its own query the way the other three types do.
+
+**Newer exported mode:** the 2026.4 corpus contains 239 `multicharttimeseries` definitions
+using `TimeseriesPerfstackDatasourceService` and `configType: "json"`. Their SWQL selects
+entity identity while `metricId` selects metrics. This is not proof of arbitrary time/value
+SWQL support, nor the saved-project serialization demonstrated above. See the
+[exact fragment and time-selection notes](modern-dashboard-2026-4-export-audit.md#1-time-series-charts-are-now-evidenced-in-json).
 
 **`proportional` is not "a donut".** It is the part-to-whole chart widget, and
 `chartOptions.type` picks the rendering. Across the nine files that field takes `DonutChart`,
@@ -267,7 +280,8 @@ copies are byte-identical**. Treat that as an invariant: edit one and you must e
 It is the single easiest way to produce a file that imports and then behaves inconsistently.
 
 `type: "hand-edit"` marks a query typed by a person rather than built by the console's query
-builder. Every query in the samples is `hand-edit`.
+builder. Every query in the original samples is `hand-edit`; the 2026.4 supplement also
+records `graphical` query/editor metadata and exceptions to duplicated query equality.
 
 ### `dataFields` declares the result shape
 

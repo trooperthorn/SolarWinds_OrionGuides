@@ -22,7 +22,9 @@ reads `[_LinkFor_X]` or that `/Orion/NetPerfMon/NodeDetails.aspx` still exists.
 
 What *is* verified is everything a query touches: every entity, property and function named on
 these pages is checked against 2026.2 like any other page here, and the queries are run
-through `tools/validate_swql.py`. So the SWQL is sound and the UI conventions around it are
+through `tools/validate_swql.py`. The versioned 2026.4 export audit is an explicit exception:
+it preserves observed configuration as evidence and reports gaps against the older schema;
+it does not certify its exported queries. Static checks do not prove runtime behavior. UI conventions are
 reported, sourced and marked unverified. Read
 [../reference/unverified.md](../reference/unverified.md) for the collected list.
 
@@ -39,6 +41,7 @@ reported, sourced and marked unverified. Read
 | [ncm-change-templates.md](ncm-change-templates.md) | What an NCM config change template is, its directives, the parameters that become form fields, and managing them through `Cirrus.ConfigSnippets` |
 | [ncm-change-template-language.md](ncm-change-template-language.md) | The template scripting language: variables and macros, operators, string functions, loops, CLI blocks and custom properties |
 | [modern-dashboards.md](modern-dashboards.md) | The Modern Dashboard export format, field by field: the envelope, the 12-column grid, the three widget types and the duplication that breaks files |
+| [modern-dashboard-2026-4-export-audit.md](modern-dashboard-2026-4-export-audit.md) | 127 exported dashboards: eight widget types, provider contracts, view hierarchy, formatting, context, and version limits |
 | [modern-dashboard-authoring.md](modern-dashboard-authoring.md) | Producing a dashboard file by hand, from a script, or by prompting an AI system, with the invariants that decide whether it works; also the console workflow itself — building, reusing and navigating to a widget |
 
 [custom-query-widget.md](custom-query-widget.md) and [modern-dashboards.md](modern-dashboards.md)

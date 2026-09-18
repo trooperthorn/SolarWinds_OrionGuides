@@ -600,7 +600,11 @@ The contributor confirmed that sorting by **Observed descending**, then hiding t
 kept the visible Hour labels chronological. Sorting Hour as text placed 10 before 6;
 zero-padding fixed that within a day but still put yesterday's 23:00 above today's 13:00.
 Remove the Hour sort. The shipped JSON retains its existing Observed column and field
-contract; the hidden-column configuration has not been exported and is not guessed here.
+contract. The later 2026.4 export now supplies the
+[exact hidden-sort configuration](../webui/modern-dashboard-2026-4-export-audit.md#5-ercot-proves-the-hidden-timestamp-sort-pattern-precisely):
+two formatter columns bind to `Observed`, one shows the hour, and `sortBy` refers to the
+inactive full-date column id. That evidence is documented separately; the shipped starter
+JSON has not been replaced with the contributor's custom dashboard.
 
 ### History joins and static validation
 
@@ -679,7 +683,7 @@ emergency-status interpretation.
 
 ## Making it yours
 
-Regenerate every GUID before building on the file, as
+For a new clone, regenerate dashboard/widget identities and remap placements, as
 [scripts/dashboards/README.md](../../scripts/dashboards/README.md#using-it-as-a-starting-point)
 shows, and the template `Guid`s likewise if you fork a poller template. To add a value, add a
 `ValueToMonitor` to the right request, then a row to the relevant table appears on its own,
@@ -690,8 +694,10 @@ single-row query in three places, per
 To chart rather than tabulate, build a PerfStack project over the `ValueToMonitor` metrics
 you want, save it, and place a `timeseries` widget pointing at it, as
 [modern-dashboards.md](../webui/modern-dashboards.md#a-fourth-type-timeseries) describes from
-SolarWinds' own walkthrough. An export of a dashboard containing one would let this page ship
-the chart too.
+SolarWinds' own walkthrough. The [2026.4 export audit](../webui/modern-dashboard-2026-4-export-audit.md)
+now provides a separate `multicharttimeseries` JSON metric configuration. It does not establish
+which API Poller metrics are registered on the target server; verify that before promising
+an importable ERCOT line chart.
 
 ## What is verified and what is not
 

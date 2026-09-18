@@ -997,7 +997,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[A caveat that applies to the whole section](../webui/README.md#a-caveat-that-applies-to-the-whole-section)**
 
-- So the SWQL is sound and the UI conventions around it are reported, sourced and marked unverified.
+- UI conventions are reported, sourced and marked unverified.
 
 ## [custom-query-call-queries.md](../webui/custom-query-call-queries.md)
 
@@ -1068,7 +1068,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - `parent` — `null` in every export seen. Presumably the clone source, matching `Orion.Dashboards.Instances.ParentID` — **unverified**
 - `private` — `null` on the dashboard, `false` on widgets. Visibility; **unverified**
-- `groupId`/`groupRank`/`groupName` read as dashboard grouping and `routeId`/`dashboardRoutes` as custom URL routing, but every value seen is empty, so what they do is **undocumented and unverified here**.
+- Their behavior was **unverified** in that original empty sample.
 
 **[The grid is 12 columns wide](../webui/modern-dashboards.md#the-grid-is-12-columns-wide)**
 

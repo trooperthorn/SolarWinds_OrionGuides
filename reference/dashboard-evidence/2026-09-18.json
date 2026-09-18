@@ -1,0 +1,1932 @@
+{
+  "format_version": 1,
+  "source": {
+    "archive_sha256": "4fe913780f264bb750fda8314d678541f8863f3615ad2c88f1f2aeb1110219af",
+    "platform": "Platform SolarWinds Platform 2026.4.0.3320",
+    "created": "2026-09-18T19:05:10.3061800Z"
+  },
+  "provenance": "Owner identifies 124 dashboards as product-supplied and ERCOT Texas Power Grid, Minimal Dashboard Template, and SOC2 as custom. Not compared with a pristine vendor installation.",
+  "baseline_commit": "fcec2e3bc61244f0afeb1088fb810c38a940789d",
+  "method": "Read JSON without executing queries or actions; verify manifest hashes; resolve placement keys within each file; recursively inventory outer JSON and JSON-decoded page configuration. Counts include repeated definitions and source/adapter copies unless stated otherwise.",
+  "summary": {
+    "dashboard_files": 127,
+    "widgets": 799,
+    "unique_widget_keys": 798,
+    "origins": {
+      "vendor-reported": 124,
+      "custom": 3
+    }
+  },
+  "manifest_hashes_verified": 127,
+  "unresolved_placements": [],
+  "widget_types": {
+    "table": 222,
+    "multicharttimeseries": 239,
+    "kpi": 136,
+    "proportional": 192,
+    "drilldown": 4,
+    "entityPropertyDetails": 3,
+    "entityDrilldown": 2,
+    "risk-score": 1
+  },
+  "provider_ids": {
+    "TableSwqlDatasourceService": 220,
+    "TimeseriesPerfstackDatasourceService": 239,
+    "KpiSwqlDatasourceService": 225,
+    "TableEntityPropertiesDataSourceService": 1,
+    "NOVA_TABLE_DATASOURCE_ADAPTER": 55,
+    "NOVA_URL_INTERACTION_HANDLER": 206,
+    "ProportionalSwqlDatasourceService": 192,
+    "NOVA_DATASOURCE_ADAPTER": 192,
+    "NOVA_KPI_DATASOURCE_ADAPTER": 127,
+    "DrilldownSwqlDatasourceService": 4,
+    "NOVA_DRILLDOWN_DATASOURCE_ADAPTER": 4,
+    "EntityPropertyDetailsDataSourceService": 3,
+    "FDK_ENTITY_DRILL_DOWN_ADAPTER": 1,
+    "FDK_ENTITY_DRILL_DOWN_GROUPS_ADAPTER": 1,
+    "NOVA_KPI_SCALE_SYNC_BROKER": 3
+  },
+  "formatter_component_types": {
+    "RawFormatterComponent": 500,
+    "ThresholdFormatterComponent": 56,
+    "SimpleNumberFormatterComponent": 131,
+    "ContentAllActiveAlertsCustomLabelFormatterComponent": 2,
+    "ContentRawFormatterComponent": 6,
+    "ContentEntityLinkFormatterComponent": 1,
+    "ContentDurationFormatterComponent": 1,
+    "ContentDateTimeFormatterComponent": 2,
+    "ContentSeverityFormatterComponent": 1,
+    "ContentLinkFormatterComponent": 1,
+    "EntityLinkFormatterComponent": 212,
+    "StatusFormatterComponent": 20,
+    "DatetimeFormatterComponent": 29,
+    "GenericValueFormatterComponent": 188,
+    "LinkFormatterComponent": 55,
+    "DurationFormatterComponent": 2,
+    "HtmlFormatterComponent": 2,
+    "ColorFormatterComponent": 1,
+    "StatusWithIconFormatterComponent": 4,
+    "SeverityCountsFormatterComponent": 2,
+    "SeverityColorFormatterComponent": 2
+  },
+  "observed_statistics": {
+    "key_style": {
+      "guid": 254,
+      "named": 545
+    },
+    "query_modes": {
+      "hand-edit": 1273,
+      "graphical": 4
+    },
+    "timeseries_modes": {
+      "json": 239
+    },
+    "timeseries_presets": {
+      "last12Hours": 191,
+      "lastHour": 25,
+      "last30Days": 6,
+      "absent": 17
+    },
+    "formatter_property_keys.ThresholdFormatterComponent": {
+      "dataFieldIds": 56,
+      "thresholdName": 55,
+      "visualization": 55,
+      "replaceEmptyValue": 6,
+      "emptyValueDisplay": 6,
+      "suffixText": 1
+    },
+    "formatter_property_keys.SimpleNumberFormatterComponent": {
+      "dataFieldIds": 131,
+      "prefixIcon": 125,
+      "suffixText": 131,
+      "replaceEmptyValue": 36,
+      "emptyValueDisplay": 36
+    },
+    "dashboard_config_keys": {
+      "globalFilter": 78,
+      "toolbarItems": 11,
+      "nocView": 11,
+      "messages": 14,
+      "hideDefaultMenuItemsGroup": 1,
+      "customToolbarMenuItems": 1,
+      "preserveTimeFrameAcrossTabs": 6,
+      "urlTabs": 18,
+      "enableTableFiltering": 1
+    },
+    "hidden_columns": {
+      "All_Active_Alerts.json": 2,
+      "Azure_Private_Peerings.json": 1,
+      "Blobs_Details.json": 1,
+      "ERCOT_Texas_Power_Grid.json": 1,
+      "Home_Summary_-_Top_10.json": 5,
+      "Microsoft_Peerings.json": 1,
+      "Tables_Details.json": 1
+    },
+    "grouped_pages": {
+      "Azure-CloudEntitiesPage": 10,
+      "Aws-CloudEntitiesPage": 9,
+      "AwsCloudDashboard": 5,
+      "AwsCostsDashboard": 3,
+      "AzureCloudDashboard": 5,
+      "AzureCostsDashboard": 3,
+      "_a46c5e02-1068-4cca-9434-b7d256f6ee19": 3,
+      "AzureStorageAccount": 3,
+      "Azure Virtual Hub Details": 2,
+      "Gcp-CloudRouterEntitiesPage": 1,
+      "Gcp-CloudEntitiesPage": 3,
+      "EOCSummary": 2,
+      "GcpCloudDashboard": 5,
+      "GcpCostsDashboard": 2,
+      "gcp-cluster": 1,
+      "NpmHomeSummary": 3,
+      "Gcp-LoadBalancerEntitiesPage": 1,
+      "NpmNetworkSummary": 3,
+      "RoutingDashboard": 3,
+      "_fb1c894a-7f8b-47df-a098-d875d37f5e64": 3
+    },
+    "formatter_property_keys.DatetimeFormatterComponent": {
+      "dataFieldIds": 29,
+      "option": 29,
+      "replaceDate": 29,
+      "isUtc": 4,
+      "replaceEmptyValue": 4,
+      "emptyValueDisplay": 4
+    },
+    "chart_types": {
+      "DonutChart": 111,
+      "VerticalBarChart": 67,
+      "PieChart": 8,
+      "HorizontalBarChart": 6
+    },
+    "legend_placements": {
+      "Right": 164,
+      "None": 22,
+      "Bottom": 6
+    },
+    "string_kpi_sources": {
+      "AWS_Compute.json": 1,
+      "AWS_Costs (2).json": 6,
+      "AWS_Costs.json": 6,
+      "AWS_Database.json": 1,
+      "AWS_DynamoDb_Table_Details.json": 2,
+      "AWS_Network.json": 1,
+      "AWS_Storage.json": 1,
+      "Azure_Compute.json": 1,
+      "Azure_CosmosDB_NoSQL_Account_Details.json": 2,
+      "Azure_Costs (2).json": 6,
+      "Azure_Costs.json": 6,
+      "Azure_Database.json": 1,
+      "Azure_Database_Details.json": 2,
+      "Azure_Network.json": 1,
+      "Azure_Storage.json": 1,
+      "Beanstalk_Environments_Instance_Details.json": 4,
+      "EKS_Cluster_Instance_Details.json": 3,
+      "ERCOT_Texas_Power_Grid.json": 3,
+      "GCP_Compute.json": 1,
+      "GCP_Costs (2).json": 6,
+      "GCP_Costs.json": 6,
+      "GCP_Database.json": 1,
+      "GCP_Database_Details.json": 1,
+      "GCP_Network.json": 1,
+      "GCP_Storage.json": 1,
+      "GKE_Container_Details.json": 2,
+      "Lambda_Function_Instance_Details.json": 5,
+      "Routing_Summary.json": 1
+    },
+    "reversed_thresholds": {
+      "False": 62,
+      "True": 4
+    }
+  },
+  "precision_related_widget_keys": [],
+  "query_copy_audit": {
+    "blocks_with_either_query": 642,
+    "both_queries": 635,
+    "equal_queries": 626,
+    "different_queries": 9,
+    "source_only": 7,
+    "different_field_arrays_among_both_queries": 8,
+    "runtime_precedence": "not tested"
+  },
+  "static_query_check": {
+    "schema_version": "2026.2",
+    "distinct_select_strings": 750,
+    "queries_with_findings": 453,
+    "unique_unknown_entity_names": 136,
+    "interpretation": "Static findings are not proof of runtime failure on the 2026.4 source server; no runtime execution was performed."
+  },
+  "examples": {
+    "timeseries": {
+      "file": "dashboards/AKS_Cluster_Instance_Details.json",
+      "pointer": "/widgets/1",
+      "value": {
+        "type": "multicharttimeseries",
+        "configuration": {
+          "header": {
+            "properties": {
+              "title": "API Server CPU Usage",
+              "subtitle": "",
+              "url": "",
+              "description": "",
+              "collapsible": false,
+              "collapsed": true
+            }
+          },
+          "/": {
+            "providers": {
+              "dataSource": {
+                "providerId": "TimeseriesPerfstackDatasourceService",
+                "properties": {
+                  "presetTime": "last12Hours",
+                  "configType": "json",
+                  "metricId": "Orion.Cloud.Azure.KubernetesClusterStatistics.ApiserverCpuUsagePercentage",
+                  "instanceType": "Orion.Cloud.Azure.KubernetesCluster",
+                  "swql": "SELECT TOP 1 InstanceSiteId, InstanceType as EntityType, ID as EntityId FROM Orion.Cloud.Azure.KubernetesCluster"
+                }
+              }
+            }
+          },
+          "timeframeSelection": {
+            "properties": {
+              "timeframe": {
+                "selectedPresetId": "last12Hours"
+              }
+            }
+          }
+        },
+        "subtitle": "",
+        "description": "",
+        "unique_key": "5e6816a1-785c-4a28-96f2-c3644c592fd7",
+        "name": "API Server CPU Usage",
+        "private": false
+      }
+    },
+    "multiple_metrics": {
+      "file": "dashboards/AKS_Cluster_Instance_Details.json",
+      "pointer": "/widgets/7/configuration/~1/providers/dataSource/properties",
+      "value": {
+        "id": "",
+        "displayName": "",
+        "startTime": "",
+        "endTime": "",
+        "presetTime": "last12Hours",
+        "configType": "json",
+        "metricId": "Orion.Cloud.Azure.KubernetesClusterStatistics.KubePodsRunningPhase, Orion.Cloud.Azure.KubernetesClusterStatistics.KubePodsSucceededPhase, Orion.Cloud.Azure.KubernetesClusterStatistics.KubePodsFailedPhase, Orion.Cloud.Azure.KubernetesClusterStatistics.KubePodsUnknownPhase, Orion.Cloud.Azure.KubernetesClusterStatistics.KubePodsPendingPhase",
+        "instanceType": "Orion.Cloud.Azure.KubernetesCluster",
+        "swql": "SELECT TOP 1 InstanceSiteId, InstanceType as EntityType, ID as EntityId FROM Orion.Cloud.Azure.KubernetesCluster"
+      }
+    },
+    "globalFilter": {
+      "file": "dashboards/All_Active_Alerts.json",
+      "pointer": "/dashboards/0/configuration (decoded)/globalFilter",
+      "value": {
+        "entityTypeFilterConfig": {
+          "entityTypeOption": {
+            "entityType": "Orion.AllActiveAlerts.Dashboard",
+            "title": " "
+          },
+          "groupableProperties": [
+            "AcknowledgedBy",
+            "Category",
+            "LicenseFeatureName",
+            "AlertName",
+            "AssignedTo",
+            "ResponsibleTeam",
+            "TriggeredBy",
+            "Severity"
+          ]
+        },
+        "enableTableFiltering": true
+      }
+    },
+    "nocView": {
+      "file": "dashboards/All_Active_Alerts.json",
+      "pointer": "/dashboards/0/configuration (decoded)/nocView",
+      "value": {
+        "enabled": true,
+        "refreshInterval": 15,
+        "unit": "seconds",
+        "darkThemeEnabled": false
+      }
+    },
+    "messages": {
+      "file": "dashboards/All_Active_Alerts.json",
+      "pointer": "/dashboards/0/configuration (decoded)/messages",
+      "value": [
+        {
+          "uniqueKey": "all-alert-actions-paused",
+          "type": "warning",
+          "content": "<b>All alert actions are paused.</b>",
+          "dismissible": false,
+          "features": [
+            "NPM",
+            "EOC"
+          ],
+          "condition": {
+            "type": "swql",
+            "query": "SELECT CurrentValue FROM Orion.Settings WHERE SettingID = 'AlertEngine-PauseActionsOfAllAlerts' AND CurrentValue = 1"
+          }
+        }
+      ]
+    },
+    "preserveTimeFrameAcrossTabs": {
+      "file": "dashboards/AWS_Costs (2).json",
+      "pointer": "/dashboards/0/configuration (decoded)/preserveTimeFrameAcrossTabs",
+      "value": false
+    },
+    "nonempty_timeseries_id": {
+      "file": "dashboards/Azure_App_Service_Detail.json",
+      "pointer": "/widgets/1/configuration/~1/providers/dataSource/properties",
+      "value": {
+        "id": "UNUSED",
+        "configType": "json",
+        "metricId": "Orion.Cloud.Azure.AppServiceStatistics.CpuTime",
+        "swql": "SELECT DISTINCT InstanceSiteId,InstanceType as EntityType,ID as EntityId from Orion.Cloud.Azure.AppService",
+        "displayName": "CPU Time (Web Apps)",
+        "startTime": "2024-03-13T04:02:36.130Z",
+        "endTime": "2024-03-13T16:02:36.130Z",
+        "presetTime": "last12Hours"
+      }
+    },
+    "ercot_hour_sort": {
+      "file": "dashboards/ERCOT_Texas_Power_Grid.json",
+      "pointer": "/widgets/4/configuration/table/properties/configuration",
+      "value": {
+        "columns": [
+          {
+            "id": "column_092154af-31b7-4b19-9848-28436913ac23",
+            "label": "Hour",
+            "isActive": true,
+            "formatter": {
+              "componentType": "DatetimeFormatterComponent",
+              "properties": {
+                "dataFieldIds": {
+                  "value": "Observed"
+                },
+                "option": "0",
+                "isUtc": true,
+                "replaceDate": true,
+                "replaceEmptyValue": false,
+                "emptyValueDisplay": "(Unknown)"
+              }
+            }
+          },
+          {
+            "id": "column_3238dd52-d57b-45e3-afef-6e0e3b087d86",
+            "label": "HIDE ME",
+            "isActive": false,
+            "formatter": {
+              "componentType": "DatetimeFormatterComponent",
+              "properties": {
+                "dataFieldIds": {
+                  "value": "Observed"
+                },
+                "option": "0",
+                "isUtc": true,
+                "replaceDate": false,
+                "replaceEmptyValue": false,
+                "emptyValueDisplay": "(Unknown)"
+              }
+            }
+          },
+          {
+            "id": "column_9acc2349-d50f-4108-9093-9897356495bc",
+            "label": "Min Hz",
+            "isActive": true,
+            "formatter": {
+              "componentType": "SimpleNumberFormatterComponent",
+              "properties": {
+                "dataFieldIds": {
+                  "value": "Min Hz"
+                },
+                "prefixIcon": "",
+                "suffixText": "Hz",
+                "replaceEmptyValue": false,
+                "emptyValueDisplay": "(Unknown)"
+              }
+            }
+          },
+          {
+            "id": "column_b6cd471e-9f1c-4a4a-90b4-2433f5fab459",
+            "label": "AVG Hz",
+            "isActive": true,
+            "formatter": {
+              "componentType": "SimpleNumberFormatterComponent",
+              "properties": {
+                "dataFieldIds": {
+                  "value": "Avg Hz"
+                },
+                "prefixIcon": "",
+                "suffixText": "Hz",
+                "replaceEmptyValue": false,
+                "emptyValueDisplay": "(Unknown)"
+              }
+            }
+          },
+          {
+            "id": "column_37302767-2cdc-4b94-bd13-dda7c83370ea",
+            "label": "MAX Hz",
+            "isActive": true,
+            "formatter": {
+              "componentType": "SimpleNumberFormatterComponent",
+              "properties": {
+                "dataFieldIds": {
+                  "value": "Max Hz"
+                },
+                "prefixIcon": "",
+                "suffixText": "Hz",
+                "replaceEmptyValue": false,
+                "emptyValueDisplay": "(Unknown)"
+              }
+            }
+          }
+        ],
+        "sorterConfiguration": {
+          "sortBy": "column_3238dd52-d57b-45e3-afef-6e0e3b087d86",
+          "descendantSorting": true
+        },
+        "hasVirtualScroll": false,
+        "searchConfiguration": {
+          "enabled": false
+        },
+        "scrollType": "virtual",
+        "paginatorConfiguration": {
+          "pageSizeSet": [
+            10
+          ],
+          "pageSize": 10
+        }
+      }
+    },
+    "graphical": {
+      "file": "dashboards/GKE_Entities.json",
+      "pointer": "/widgets/1/configuration/table/providers/dataSource/properties",
+      "value": {
+        "type": "graphical",
+        "swql": "SELECT DisplayName AS Name, Type, Location, ClusterStatus, Status, Network, Subnetwork, CurrentNodeVersion, DetailsUrl FROM Orion.Cloud.Gcp.GkeClustersDashboard",
+        "dataFields": [
+          {
+            "id": "Status",
+            "label": "Status",
+            "dataType": "System.Int32"
+          },
+          {
+            "id": "Name",
+            "label": "Name",
+            "dataType": "System.String"
+          },
+          {
+            "id": "Type",
+            "label": "Mode",
+            "dataType": "System.String"
+          },
+          {
+            "id": "Location",
+            "label": "Location",
+            "dataType": "System.String"
+          },
+          {
+            "id": "ClusterStatus",
+            "label": "Provisioning State",
+            "dataType": "System.String"
+          },
+          {
+            "id": "Network",
+            "label": "Network",
+            "dataType": "System.String"
+          },
+          {
+            "id": "Subnetwork",
+            "label": "Subnetwork",
+            "dataType": "System.String"
+          },
+          {
+            "id": "CurrentNodeVersion",
+            "label": "Node Version",
+            "dataType": "System.String"
+          },
+          {
+            "id": "DetailsUrl",
+            "label": "DetailsUrl",
+            "dataType": "System.String"
+          }
+        ],
+        "editor": {
+          "entity": {
+            "id": "Orion.Cloud.Gcp.GkeCluster",
+            "displayName": "GKE Clusters"
+          },
+          "state": []
+        }
+      }
+    }
+  },
+  "dashboards": [
+    {
+      "file": "dashboards/AKS_Cluster_Instance_Details.json",
+      "name": "AKS Cluster Instance Details",
+      "origin": "vendor-reported",
+      "widgets": 10,
+      "types": {
+        "table": 2,
+        "multicharttimeseries": 6,
+        "kpi": 2
+      },
+      "sha256": "402536b86feeb6c3cc3d7a7ef228d9479f766f514b2ae3ba63f66e71a12e8e42"
+    },
+    {
+      "file": "dashboards/All_Active_Alerts.json",
+      "name": "All Active Alerts",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "4ddf25bcb73550b5fb07fc98f166e22b466eb0a89a956ae455544c74ecafa31c"
+    },
+    {
+      "file": "dashboards/APIC_Members.json",
+      "name": "APIC Members",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "1ae109840bdab18b8f745e94ae1f1061f6631561fe0448332fccbfab9f3a0ac1"
+    },
+    {
+      "file": "dashboards/App_Services.json",
+      "name": "App Services",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "415501a3c574afe42c535f38d3b261f30b90d733c142623236bc810a3ba4e18a"
+    },
+    {
+      "file": "dashboards/AWS_Beanstalk_Environments.json",
+      "name": "AWS Beanstalk Environments",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "de9a27bdcf5cbcc88319db970b6232890e2fc3c2342cff53ee4d962d3fdf607f"
+    },
+    {
+      "file": "dashboards/AWS_Bucket_Details.json",
+      "name": "AWS Bucket Details",
+      "origin": "vendor-reported",
+      "widgets": 16,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 15
+      },
+      "sha256": "f886f56ec8793d79c4a13bf24decec54457c3540a0234ce7ef0975249805af0b"
+    },
+    {
+      "file": "dashboards/AWS_Buckets.json",
+      "name": "AWS Buckets",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "d32eb8899c2fb6c057bcd4dfc6c6a8ee0518c5573c997921885ea5b7f56053d7"
+    },
+    {
+      "file": "dashboards/AWS_Compute.json",
+      "name": "AWS Compute",
+      "origin": "vendor-reported",
+      "widgets": 14,
+      "types": {
+        "proportional": 7,
+        "table": 5,
+        "kpi": 1,
+        "drilldown": 1
+      },
+      "sha256": "4e35e193badb5d4e6089a322c6a6b524c76d5817112a96365f4716612453ac8e"
+    },
+    {
+      "file": "dashboards/AWS_Connection_Details.json",
+      "name": "AWS Connection Details",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 6
+      },
+      "sha256": "96a21f00d00d16b47ecb0f2297cd95c7d6fb556226c39bebac583741832d25f7"
+    },
+    {
+      "file": "dashboards/AWS_Connections.json",
+      "name": "AWS Connections",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "37637a4a169c36441bdea0b37af04820aac03f435ebf0e46385ae7a234030f98"
+    },
+    {
+      "file": "dashboards/AWS_Costs.json",
+      "name": "AWS Costs",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "kpi": 3,
+        "proportional": 5,
+        "table": 1
+      },
+      "sha256": "3af74301142bf8ee3c4222875b2a9017d470fd75f5716d74dd229acf01f0f8ea"
+    },
+    {
+      "file": "dashboards/AWS_Costs (2).json",
+      "name": "AWS Costs",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "kpi": 3,
+        "proportional": 5,
+        "table": 1
+      },
+      "sha256": "2abed36ee424fc1c5289194f8bc65fdf83f2c07c6df03db0e72dd051cbf4fe1b"
+    },
+    {
+      "file": "dashboards/AWS_Costs (3).json",
+      "name": "AWS Costs",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "proportional": 5,
+        "table": 1
+      },
+      "sha256": "1e13dc5e3905bf573589ae5c5b23f477afc6507515534271bbb17392d440a79c"
+    },
+    {
+      "file": "dashboards/AWS_Database.json",
+      "name": "AWS Database",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "proportional": 2,
+        "kpi": 2,
+        "table": 5
+      },
+      "sha256": "b436569df5bd7d7db2f600fc177927b57ee272d8a57da369826feede867abc73"
+    },
+    {
+      "file": "dashboards/AWS_Database_Details.json",
+      "name": "AWS Database Details",
+      "origin": "vendor-reported",
+      "widgets": 40,
+      "types": {
+        "entityPropertyDetails": 1,
+        "kpi": 7,
+        "multicharttimeseries": 32
+      },
+      "sha256": "0ba0f254b05d8177c0c6cd0a4c9af6c7cffe08af679dd328646faa02cd4c4d68"
+    },
+    {
+      "file": "dashboards/AWS_DynamoDb_Table_Details.json",
+      "name": "AWS DynamoDb Table Details",
+      "origin": "vendor-reported",
+      "widgets": 13,
+      "types": {
+        "table": 1,
+        "kpi": 2,
+        "multicharttimeseries": 10
+      },
+      "sha256": "856d85815a90c10ab0854cbf59ea3e2ed437e010792a0d18dc1bc70b2412740c"
+    },
+    {
+      "file": "dashboards/AWS_EKS_Clusters.json",
+      "name": "AWS EKS Clusters",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "0cbb57f65ae99b058729779964a06b172139d896abb55051b245806093a485e1"
+    },
+    {
+      "file": "dashboards/AWS_Elastic_Load_Balancer_details.json",
+      "name": "AWS Elastic Load Balancer details",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 6
+      },
+      "sha256": "6888a4e5b197658b4c36b67bf907db29a3fcf90002385858920698a70f8afcf0"
+    },
+    {
+      "file": "dashboards/AWS_Elastic_Load_Balancers.json",
+      "name": "AWS Elastic Load Balancers",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "017f9e2f8f6542f3da412a9a06aef40426f96412625dbb2010457fd8539db0ca"
+    },
+    {
+      "file": "dashboards/AWS_Lambda_Functions.json",
+      "name": "AWS Lambda Functions",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "498b2886c9bcf0df954449705eca9cd3bdcda50b736549c756eb2d2630a5590b"
+    },
+    {
+      "file": "dashboards/AWS_Network.json",
+      "name": "AWS Network",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "kpi": 3,
+        "proportional": 6
+      },
+      "sha256": "a3eeef426395583703579f285b388950236f367c8a7f0e05ee0af6433acc42f4"
+    },
+    {
+      "file": "dashboards/AWS_Overview.json",
+      "name": "AWS Overview",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "kpi": 2,
+        "proportional": 6,
+        "table": 1
+      },
+      "sha256": "661f56da785210365d3774f878cb995853902226f8e660f7aaab8b6ca62ac849"
+    },
+    {
+      "file": "dashboards/AWS_Storage.json",
+      "name": "AWS Storage",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "proportional": 4,
+        "table": 2,
+        "kpi": 1
+      },
+      "sha256": "e83046e8c1f6cf22508e3af3722633001576f6504353a6c95f89544ddc5a614f"
+    },
+    {
+      "file": "dashboards/AWS_Transit_Gateway_Details.json",
+      "name": "AWS Transit Gateway Details",
+      "origin": "vendor-reported",
+      "widgets": 11,
+      "types": {
+        "table": 2,
+        "multicharttimeseries": 9
+      },
+      "sha256": "346a1c540d761cdd364307a9f18d7f9356270a6b1e1a82adc69dd14eba4bb76a"
+    },
+    {
+      "file": "dashboards/AWS_Transit_Gateways.json",
+      "name": "AWS Transit Gateways",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "ba9eccd047ef4c1d7e561c9aab03a26ba4f38518a28f75ae5df2caae8934fa70"
+    },
+    {
+      "file": "dashboards/AWS_Virtual_Machines.json",
+      "name": "AWS Virtual Machines",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "6dfddd843852c2bbc97a9a1c6e77ab33607cc51e17fc5fb80690fd343e4cd301"
+    },
+    {
+      "file": "dashboards/Azure_AKS_Clusters.json",
+      "name": "Azure AKS Clusters",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "3563191d2e507a25fe4c72fbc0bc39e5c26f1bfdfe984f6ebdc236f14ed90f4c"
+    },
+    {
+      "file": "dashboards/Azure_App_Service_Detail.json",
+      "name": "Azure App Service Detail",
+      "origin": "vendor-reported",
+      "widgets": 15,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 14
+      },
+      "sha256": "ea517b73efd0bd0868afb8c08f9226c029fb0c6a945eb2b4013adbb3a71cb89c"
+    },
+    {
+      "file": "dashboards/Azure_Application_Gateway_Details.json",
+      "name": "Azure Application Gateway Details",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "proportional": 2,
+        "kpi": 3,
+        "table": 1,
+        "multicharttimeseries": 3
+      },
+      "sha256": "ad477a1738c6ecceb0989289d471d3cb065770ec1afc811ae29e11da0d505792"
+    },
+    {
+      "file": "dashboards/Azure_Application_Gateways.json",
+      "name": "Azure Application Gateways",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "d6e3a1ae8a6c7963057b1e45ad7dbb4575d5f527f71acbad083bc841e554ba5f"
+    },
+    {
+      "file": "dashboards/Azure_Compute.json",
+      "name": "Azure Compute",
+      "origin": "vendor-reported",
+      "widgets": 14,
+      "types": {
+        "proportional": 7,
+        "table": 5,
+        "kpi": 1,
+        "drilldown": 1
+      },
+      "sha256": "f2b66e8faa85039963a2c3b5154d2096c6dc4790567ac83087981723e092f5be"
+    },
+    {
+      "file": "dashboards/Azure_CosmosDB_NoSQL_Account_Details.json",
+      "name": "Azure CosmosDB NoSQL Account Details",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "table": 3,
+        "multicharttimeseries": 2,
+        "kpi": 2
+      },
+      "sha256": "8f831fdd7b44876c4b7ffb46cdd3c628fe952b995ba5d59b9da4e439b221e4db"
+    },
+    {
+      "file": "dashboards/Azure_Costs.json",
+      "name": "Azure Costs",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "kpi": 3,
+        "proportional": 5,
+        "table": 1
+      },
+      "sha256": "6daa42837216f73c1b46edabf8536eb69ae0b604234ab7d029cf2c68a5bc890b"
+    },
+    {
+      "file": "dashboards/Azure_Costs (2).json",
+      "name": "Azure Costs",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "kpi": 3,
+        "proportional": 5,
+        "table": 1
+      },
+      "sha256": "c41508a344051c46c0977da30da6d86240fdff76687c9b68b2c05f4e875260ac"
+    },
+    {
+      "file": "dashboards/Azure_Costs (3).json",
+      "name": "Azure Costs",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "proportional": 5,
+        "table": 1
+      },
+      "sha256": "ff5abdb66b07e8dbb736e5183df38af276328a66587a1df67c38231cc1874811"
+    },
+    {
+      "file": "dashboards/Azure_Database.json",
+      "name": "Azure Database",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "proportional": 3,
+        "table": 4,
+        "kpi": 2
+      },
+      "sha256": "a63c4080bf0cf1a4754a6c97c0024b060bd28fbcb9549988ea2a22a80979ce33"
+    },
+    {
+      "file": "dashboards/Azure_Database_Details.json",
+      "name": "Azure Database Details",
+      "origin": "vendor-reported",
+      "widgets": 16,
+      "types": {
+        "kpi": 6,
+        "multicharttimeseries": 9,
+        "entityPropertyDetails": 1
+      },
+      "sha256": "0524df589702e52ad80a3ead9d5468ca92632693291a2db6ac16681dc1b2097c"
+    },
+    {
+      "file": "dashboards/Azure_ExpressRoute_Circuit_Details.json",
+      "name": "Azure ExpressRoute Circuit Details",
+      "origin": "vendor-reported",
+      "widgets": 13,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 10,
+        "proportional": 2
+      },
+      "sha256": "3ee7afefb7664554c4fb158ec9007e91285b5b884ba13066d8de654e264844d5"
+    },
+    {
+      "file": "dashboards/Azure_ExpressRoute_Circuits.json",
+      "name": "Azure ExpressRoute Circuits",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "15a8b3ca5eaed2596eb65f6a8c4073a6514ca7a1e8f7c8f89e4cdf51125996ff"
+    },
+    {
+      "file": "dashboards/Azure_Function_App_Detail.json",
+      "name": "Azure Function App Detail",
+      "origin": "vendor-reported",
+      "widgets": 18,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 17
+      },
+      "sha256": "2fc87bccaa2f6081114cb086447174e0fcb83b77edc4030380db8e4d9d68375f"
+    },
+    {
+      "file": "dashboards/Azure_Function_Apps.json",
+      "name": "Azure Function Apps",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "3588e8c42b6309daeeb171d694ef81fe27f8972e26d36b16f6615245dbcf70ab"
+    },
+    {
+      "file": "dashboards/Azure_Load_Balancer_Details.json",
+      "name": "Azure Load Balancer Details",
+      "origin": "vendor-reported",
+      "widgets": 8,
+      "types": {
+        "multicharttimeseries": 5,
+        "kpi": 2,
+        "table": 1
+      },
+      "sha256": "7b1fd14f527a9c33ec2ede314b2d3404bf2468d1964794263c226d2e780fa226"
+    },
+    {
+      "file": "dashboards/Azure_Load_Balancers.json",
+      "name": "Azure Load Balancers",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "0d1bd3b8135cab9cb58dc01be95d4183d7a48dbaa53be44ab47424b3c5210a72"
+    },
+    {
+      "file": "dashboards/Azure_Network.json",
+      "name": "Azure Network",
+      "origin": "vendor-reported",
+      "widgets": 10,
+      "types": {
+        "kpi": 3,
+        "proportional": 7
+      },
+      "sha256": "06b3ec5a352aa0de3aa573e7b7788ac6a6884a30be952c1e413066b4384aac87"
+    },
+    {
+      "file": "dashboards/Azure_Overview.json",
+      "name": "Azure Overview",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "proportional": 6,
+        "kpi": 2,
+        "table": 1
+      },
+      "sha256": "43190f1ef96b058fb7a6d55774594460d15ceda98521c1a1bb773dedd81f396a"
+    },
+    {
+      "file": "dashboards/Azure_Private_Peerings.json",
+      "name": "Azure Private Peerings",
+      "origin": "vendor-reported",
+      "widgets": 4,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 3
+      },
+      "sha256": "928d20454db70e462903e766a874d839cbadf113a0570db4faffb183630be329"
+    },
+    {
+      "file": "dashboards/Azure_Storage.json",
+      "name": "Azure Storage",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "proportional": 4,
+        "table": 2,
+        "kpi": 1
+      },
+      "sha256": "9a95206c3a70df8fcf6331ac3f26140eeb91fb047e60c74186889969a6991ca0"
+    },
+    {
+      "file": "dashboards/Azure_Storage_Account_Details.json",
+      "name": "Azure Storage Account Details",
+      "origin": "vendor-reported",
+      "widgets": 10,
+      "types": {
+        "multicharttimeseries": 7,
+        "table": 1,
+        "proportional": 2
+      },
+      "sha256": "f149d8a48d124af7a4de9616a96e4c74e8b04bb4fadbdfd4427d3f78b0f1b6f3"
+    },
+    {
+      "file": "dashboards/Azure_Storage_Accounts.json",
+      "name": "Azure Storage Accounts",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "fa9967943d20bb61aa7f0934bd6e5a1e65afc7a6d3de1f72bbc1c7ff57e15cfd"
+    },
+    {
+      "file": "dashboards/Azure_Virtual_Hub_Details_Entities.json",
+      "name": "Azure Virtual Hub Details Entities",
+      "origin": "vendor-reported",
+      "widgets": 5,
+      "types": {
+        "table": 5
+      },
+      "sha256": "c4d7713738e7ccbf2f4415b80e417165e4ba8e7eff119e2517d0c49ea99f659b"
+    },
+    {
+      "file": "dashboards/Azure_Virtual_Hub_Details_Metrics.json",
+      "name": "Azure Virtual Hub Details Metrics",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 6
+      },
+      "sha256": "a6ce49c6715bbe90b5a7e9b61289d5dd79d795b81ea3eacf3826a0dd4d215c12"
+    },
+    {
+      "file": "dashboards/Azure_Virtual_Machines.json",
+      "name": "Azure Virtual Machines",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "59d950440d752aebb916056330dd56a3ce2b10e1a5a056b04320c2f155e51023"
+    },
+    {
+      "file": "dashboards/Azure_Virtual_WAN_Details.json",
+      "name": "Azure Virtual WAN Details",
+      "origin": "vendor-reported",
+      "widgets": 5,
+      "types": {
+        "table": 3,
+        "kpi": 2
+      },
+      "sha256": "d469a049249caa288995abcf9d11a83ab86dae3f9b9137eaa48a24c1edd9c9ca"
+    },
+    {
+      "file": "dashboards/Azure_Virtual_WANs.json",
+      "name": "Azure Virtual WANs",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "0a74ab2f403bbf9246887a07e7980c95ba4907852238345b5c45368e9cf2b03a"
+    },
+    {
+      "file": "dashboards/Beanstalk_Environments_Instance_Details.json",
+      "name": "Beanstalk Environments Instance Details",
+      "origin": "vendor-reported",
+      "widgets": 11,
+      "types": {
+        "table": 2,
+        "kpi": 4,
+        "multicharttimeseries": 5
+      },
+      "sha256": "4859bfd05e86baa7d25093e7e3b478dc497c27ea3dde67040986fad38fbeb83c"
+    },
+    {
+      "file": "dashboards/Blobs_Details.json",
+      "name": "Blobs Details",
+      "origin": "vendor-reported",
+      "widgets": 8,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 7
+      },
+      "sha256": "29220bc607947b1de7810879c77c90a2bbb22563bb003edfecc43d9c7e5bc5f3"
+    },
+    {
+      "file": "dashboards/Cloud_Routers.json",
+      "name": "Cloud Routers",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "kpi": 2,
+        "proportional": 2,
+        "table": 2
+      },
+      "sha256": "20599607206354575f4f9030147eee0cf58488140465f5afa2cdc9a6a4ffad74"
+    },
+    {
+      "file": "dashboards/Cloud_Storage_Account_Details.json",
+      "name": "Cloud Storage Account Details",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "multicharttimeseries": 5,
+        "table": 1
+      },
+      "sha256": "94cc74bb4e9febafc77238d2dc373101aa945f206c886489d04b960cef316a48"
+    },
+    {
+      "file": "dashboards/Cloud_Storage_Accounts.json",
+      "name": "Cloud Storage Accounts",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "70c1b3d31ef586562be1593ed520728b63cbda3e96f5b8130d9623452c4d6eea"
+    },
+    {
+      "file": "dashboards/Config_Summary.json",
+      "name": "Config Summary",
+      "origin": "vendor-reported",
+      "widgets": 13,
+      "types": {
+        "proportional": 4,
+        "table": 4,
+        "kpi": 5
+      },
+      "sha256": "2b849f858eb02e38b038c5e777a6f13481687c8a6f93c45027c432ffe88a5824"
+    },
+    {
+      "file": "dashboards/Databases.json",
+      "name": "Databases",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "c7cdc6e402226c4cb3b7be231edee72e4f735319e95cc58d4f62fa53920bcfd2"
+    },
+    {
+      "file": "dashboards/Edge_VPN_Tunnels.json",
+      "name": "Edge VPN Tunnels",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "289317bda509a4e604eb54f426dab32c467392056e8544612ffbd42ca6297e5f"
+    },
+    {
+      "file": "dashboards/EKS_Cluster_Instance_Details.json",
+      "name": "EKS Cluster Instance Details",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "table": 3,
+        "kpi": 3,
+        "multicharttimeseries": 3
+      },
+      "sha256": "0935a0e3ba7ad5584c2570f4573286421b6b6b2d2d3d18c9b462f7e33b07d045"
+    },
+    {
+      "file": "dashboards/Enterprise_Environment_Summary.json",
+      "name": "Enterprise Environment Summary",
+      "origin": "vendor-reported",
+      "widgets": 8,
+      "types": {
+        "kpi": 1,
+        "table": 1,
+        "proportional": 6
+      },
+      "sha256": "28f131236cec5918b1e6211fa0aaab8565ea77342b8314bfcf4e01867055bf5f"
+    },
+    {
+      "file": "dashboards/Enterprise_Top_10.json",
+      "name": "Enterprise Top 10",
+      "origin": "vendor-reported",
+      "widgets": 16,
+      "types": {
+        "table": 16
+      },
+      "sha256": "70243fc02afacde0092cf721bda177863878769869c37c5298501cc6a71a1b35"
+    },
+    {
+      "file": "dashboards/ERCOT_Texas_Power_Grid.json",
+      "name": "ERCOT Texas Power Grid",
+      "origin": "custom",
+      "widgets": 12,
+      "types": {
+        "kpi": 1,
+        "table": 8,
+        "proportional": 3
+      },
+      "sha256": "55860569fa40c9f4b859207f5502fe8fc312e9672b082df0607dbe4d1c2bb6a1"
+    },
+    {
+      "file": "dashboards/GCP_Cloud_Router_Details.json",
+      "name": "GCP Cloud Router Details",
+      "origin": "vendor-reported",
+      "widgets": 16,
+      "types": {
+        "proportional": 2,
+        "kpi": 3,
+        "table": 2,
+        "multicharttimeseries": 9
+      },
+      "sha256": "c0cccae209c3b586997a65f0934791395347958289e6ad7e66149ac4759c87b2"
+    },
+    {
+      "file": "dashboards/GCP_Compute.json",
+      "name": "GCP Compute",
+      "origin": "vendor-reported",
+      "widgets": 11,
+      "types": {
+        "proportional": 5,
+        "table": 5,
+        "kpi": 1
+      },
+      "sha256": "68a8e61de321f17a0915bdd943c95343bfddb5a0c6197e714358c6c5ad897299"
+    },
+    {
+      "file": "dashboards/GCP_Costs.json",
+      "name": "GCP Costs",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "kpi": 3,
+        "proportional": 5,
+        "table": 1
+      },
+      "sha256": "bdbad488b56224a39f7ed80c0bd9ff8a7b78bd247cab80808f5b997e8dcbca1a"
+    },
+    {
+      "file": "dashboards/GCP_Costs (2).json",
+      "name": "GCP Costs",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "kpi": 3,
+        "proportional": 5,
+        "table": 1
+      },
+      "sha256": "b281123f838241f5c1aa4de1b44007c7a8a5ed12c9e7241ceb4c578565c71f6e"
+    },
+    {
+      "file": "dashboards/GCP_Database.json",
+      "name": "GCP Database",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "proportional": 2,
+        "kpi": 2,
+        "table": 5
+      },
+      "sha256": "8b4e8a1defee671b7c18a056c82a6fe2d7c12ad13062d9298346f5a497730b5e"
+    },
+    {
+      "file": "dashboards/GCP_Database_Details.json",
+      "name": "GCP Database Details",
+      "origin": "vendor-reported",
+      "widgets": 14,
+      "types": {
+        "multicharttimeseries": 10,
+        "kpi": 3,
+        "entityPropertyDetails": 1
+      },
+      "sha256": "a6a48dddc03fb229707b7ac8aa1164eb56710b0489245954ad86801fbf200654"
+    },
+    {
+      "file": "dashboards/GCP_Network.json",
+      "name": "GCP Network",
+      "origin": "vendor-reported",
+      "widgets": 8,
+      "types": {
+        "kpi": 4,
+        "proportional": 4
+      },
+      "sha256": "c421c90ab2da660e8f3dd71e43d483233acfb432c51a8f34cd676f3f1f95f6ee"
+    },
+    {
+      "file": "dashboards/GCP_Overview.json",
+      "name": "GCP Overview",
+      "origin": "vendor-reported",
+      "widgets": 10,
+      "types": {
+        "kpi": 2,
+        "proportional": 6,
+        "table": 1,
+        "drilldown": 1
+      },
+      "sha256": "7a5024ce40e82b3a79b3af884f670895340ebc0bf9011062216db8249fe77f8d"
+    },
+    {
+      "file": "dashboards/GCP_Storage.json",
+      "name": "GCP Storage",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "proportional": 4,
+        "table": 2,
+        "kpi": 1
+      },
+      "sha256": "7c804935de82a8af916dc7effc5ec9830248e019e544dd7a3f834837f71bb25d"
+    },
+    {
+      "file": "dashboards/GKE_Cluster_Details.json",
+      "name": "GKE Cluster Details",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "table": 3,
+        "proportional": 3,
+        "kpi": 1
+      },
+      "sha256": "a2e70335c50e71b16eafd2f3a70bdc52fb5c4c899228660aeb79b4edcfb15fa8"
+    },
+    {
+      "file": "dashboards/GKE_Container_Details.json",
+      "name": "GKE Container Details",
+      "origin": "vendor-reported",
+      "widgets": 8,
+      "types": {
+        "table": 1,
+        "kpi": 3,
+        "multicharttimeseries": 4
+      },
+      "sha256": "2a362fec92aa9b2dab646b1a62a096e84e8957ea8d712d649c9fc6d996f98bff"
+    },
+    {
+      "file": "dashboards/GKE_Entities.json",
+      "name": "GKE Entities",
+      "origin": "vendor-reported",
+      "widgets": 4,
+      "types": {
+        "table": 4
+      },
+      "sha256": "fcbe52a25daa4427e307b5cae02d33391ab1279061a92f2beef8f5891602a5cd"
+    },
+    {
+      "file": "dashboards/GKE_Node_Details.json",
+      "name": "GKE Node Details",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "multicharttimeseries": 3,
+        "table": 2,
+        "kpi": 3,
+        "proportional": 1
+      },
+      "sha256": "20cf0a872b6227fdccc4422dce3801fbf4ba4f992915cf4b3c661f8b34677079"
+    },
+    {
+      "file": "dashboards/GKE_Pod_Details.json",
+      "name": "GKE Pod Details",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "table": 2,
+        "proportional": 1,
+        "kpi": 1,
+        "multicharttimeseries": 2
+      },
+      "sha256": "413b24a5e30908039d569f58093c1ad04a011838d9abc3879343fc9325c8d6c1"
+    },
+    {
+      "file": "dashboards/GlobalProtect_VPN.json",
+      "name": "GlobalProtect VPN",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "929d4d262f87020860568363302bbef2219804c335d8a3be2a75a63b938e554a"
+    },
+    {
+      "file": "dashboards/Home_Summary_-_Applications_List.json",
+      "name": "Home Summary - Applications List",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "ac46f9bf555f816bc58aa91b031e20429f02aff58997e2cab55f4e19ae4861c8"
+    },
+    {
+      "file": "dashboards/Home_Summary_-_Events.json",
+      "name": "Home Summary - Events",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "22d8431206bca19a9d66b641f719ad452d33c5936af02d97c93377b215237bb5"
+    },
+    {
+      "file": "dashboards/Home_Summary_-_Node_List.json",
+      "name": "Home Summary - Node List",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "b6ee9e765b3ef11399e4d843de9b61a58788f9276c0deba0b7ce654d86570071"
+    },
+    {
+      "file": "dashboards/Home_Summary_-_Nodes_with_Hardware_Health.json",
+      "name": "Home Summary - Nodes with Hardware Health",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "0e7f4933e83786d3074bf855efd276bc08987fd6fad603d0965d960a161ca97f"
+    },
+    {
+      "file": "dashboards/Home_Summary_-_Overview.json",
+      "name": "Home Summary - Overview",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "proportional": 2,
+        "entityDrilldown": 2,
+        "kpi": 5
+      },
+      "sha256": "5f2451a2dd831f3c5e1d3873ce2a3a551618ee999534f1579e3bdbd96117757d"
+    },
+    {
+      "file": "dashboards/Home_Summary_-_Top_10.json",
+      "name": "Home Summary - Top 10",
+      "origin": "vendor-reported",
+      "widgets": 5,
+      "types": {
+        "table": 5
+      },
+      "sha256": "9bd31a8f2a74a9e3afac6e515fcb7b72543102bc78eb2dde8bc7d3a59baabd5e"
+    },
+    {
+      "file": "dashboards/Interfaces_Dashboard.json",
+      "name": "Interfaces Dashboard",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "689bea848513d32078c8cfba38f360917351c758542747a402394a0510f73a46"
+    },
+    {
+      "file": "dashboards/Interfaces_Dashboard (2).json",
+      "name": "Interfaces Dashboard",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "3219d74a97ee598a2af30d32665288dca2c5ee549e0f63fb41174e738137f91c"
+    },
+    {
+      "file": "dashboards/Lambda_Function_Instance_Details.json",
+      "name": "Lambda Function Instance Details",
+      "origin": "vendor-reported",
+      "widgets": 17,
+      "types": {
+        "table": 1,
+        "kpi": 5,
+        "multicharttimeseries": 11
+      },
+      "sha256": "77d65bdcc296840dece426c3c601807bfb90ab9cebb36c2c81f9494c642ec36e"
+    },
+    {
+      "file": "dashboards/Load_Balancer_Details.json",
+      "name": "Load Balancer Details",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "table": 2,
+        "multicharttimeseries": 4
+      },
+      "sha256": "52ee30885350edd19de291c8099d891315218327756f02931e311e26d1facbf6"
+    },
+    {
+      "file": "dashboards/Load_Balancers.json",
+      "name": "Load Balancers",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "9ce6c49ece38aeac4aacc6e3f24bf55120231de4abeb8863d24741759cbca205"
+    },
+    {
+      "file": "dashboards/Manage_Banners.json",
+      "name": "Manage Banners",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "50059d63baab3db2240e254414da1880cb6e033cd96166f5383ba25f7a39a32e"
+    },
+    {
+      "file": "dashboards/Microsoft_Peerings.json",
+      "name": "Microsoft Peerings",
+      "origin": "vendor-reported",
+      "widgets": 4,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 3
+      },
+      "sha256": "b4fce6096818cc74013603fd71aa73bcfb09a6c29c48b62bfb717817098c4fbd"
+    },
+    {
+      "file": "dashboards/Migration_Errors_Summary.json",
+      "name": "Migration Errors Summary",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "4eea3be4b0bb43a8a028ed982013bd6b0f3001e621f5680efd9b34128cfb1480"
+    },
+    {
+      "file": "dashboards/Minimal_Dashboard_Template.json",
+      "name": "Minimal Dashboard Template",
+      "origin": "custom",
+      "widgets": 2,
+      "types": {
+        "kpi": 1,
+        "table": 1
+      },
+      "sha256": "894f4474773cf0f7a85a63d5b63af6cd8dab0b2aad5b106940b38ecb2b92a6b5"
+    },
+    {
+      "file": "dashboards/NCM_Remediation_Scripts.json",
+      "name": "NCM Remediation Scripts",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "a8833450d98a375f0a4fa0952365421e4d983ace54a7a675f4b22e02a24084df"
+    },
+    {
+      "file": "dashboards/New_Cloud_Summary.json",
+      "name": "New Cloud Summary",
+      "origin": "vendor-reported",
+      "widgets": 13,
+      "types": {
+        "kpi": 2,
+        "proportional": 9,
+        "drilldown": 1,
+        "table": 1
+      },
+      "sha256": "dd03acf008af8fd670c4295dab58021be24f2b70a49ed4bafd111f046e4f69db"
+    },
+    {
+      "file": "dashboards/Nexus_VPC.json",
+      "name": "Nexus VPC",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "582b086063521e8816227b966ff36a114f32423116ceaf01cf325be460e5c199"
+    },
+    {
+      "file": "dashboards/NPM_Summary_-_Devices.json",
+      "name": "NPM Summary - Devices",
+      "origin": "vendor-reported",
+      "widgets": 3,
+      "types": {
+        "table": 3
+      },
+      "sha256": "58c92d0dc698f2cb2b2462d08cd0ce7281b2d4d95c245dc19ece9665475a98a2"
+    },
+    {
+      "file": "dashboards/NPM_Summary_-_Overview.json",
+      "name": "NPM Summary - Overview",
+      "origin": "vendor-reported",
+      "widgets": 3,
+      "types": {
+        "proportional": 2,
+        "kpi": 1
+      },
+      "sha256": "063137a7615675120b0773ae0a81e7e141b1dbfed499e29df852cdcaf67fab5f"
+    },
+    {
+      "file": "dashboards/NPM_Summary_-_Wireless.json",
+      "name": "NPM Summary - Wireless",
+      "origin": "vendor-reported",
+      "widgets": 5,
+      "types": {
+        "kpi": 4,
+        "table": 1
+      },
+      "sha256": "665b1b7e808de7a93cc11c99eb720ff9c80aaa62453dacf31c9f8eb7755d70cd"
+    },
+    {
+      "file": "dashboards/Orchestrator_Inventory.json",
+      "name": "Orchestrator Inventory",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "ef4efabd836d76a905469ebf4854bfa859aa87a3c983faa669e25fc215dd9645"
+    },
+    {
+      "file": "dashboards/Orchestrator_VPN_Tunnels.json",
+      "name": "Orchestrator VPN Tunnels",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "be23f7083e76069f34cb65c06fff5d6ed3cce22e5ef380d0a391ce1ad0d518a7"
+    },
+    {
+      "file": "dashboards/Overall_Compliance_Summary.json",
+      "name": "Overall Compliance Summary",
+      "origin": "vendor-reported",
+      "widgets": 3,
+      "types": {
+        "kpi": 1,
+        "proportional": 1,
+        "table": 1
+      },
+      "sha256": "66ed1f87044395dc464f766e15d0d4807f4f42e0d18c781e1e464e925b217ecd"
+    },
+    {
+      "file": "dashboards/Policy_Assignment_Detail.json",
+      "name": "Policy Assignment Detail",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "kpi": 1,
+        "proportional": 1,
+        "table": 5
+      },
+      "sha256": "e7bf08a5b84e93bded6baf922f0365a9410fe06d5c0aa7323afd0d3177861302"
+    },
+    {
+      "file": "dashboards/Policy_Compliance.json",
+      "name": "Policy Compliance",
+      "origin": "vendor-reported",
+      "widgets": 5,
+      "types": {
+        "kpi": 1,
+        "proportional": 1,
+        "table": 3
+      },
+      "sha256": "d4f3dce97154d7577a00aac719b67cd3ad8b2d75c6df1a0d75c78f0448f8138f"
+    },
+    {
+      "file": "dashboards/Policy_Compliance_Summary.json",
+      "name": "Policy Compliance Summary",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "kpi": 1,
+        "proportional": 1,
+        "table": 4
+      },
+      "sha256": "399e4f74aab0717b61293fafa8622cdc68f857a50227f149eff238b38cbefd76"
+    },
+    {
+      "file": "dashboards/Routing.json",
+      "name": "Routing",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "9714c615a205f896b4504801834213b7755f7fb1cb055ae4fda38af75b69942c"
+    },
+    {
+      "file": "dashboards/Routing_Neighbors.json",
+      "name": "Routing Neighbors",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "b849fbe4cd4f99466e4e8d699dd3b7e086d31f207360563c85bc5f6aca767a3a"
+    },
+    {
+      "file": "dashboards/Routing_Summary.json",
+      "name": "Routing Summary",
+      "origin": "vendor-reported",
+      "widgets": 13,
+      "types": {
+        "kpi": 4,
+        "proportional": 5,
+        "table": 4
+      },
+      "sha256": "b44ad544c64f7a7da2266125a5f74ee27964cee22ccbf112ed419ef705b5c36b"
+    },
+    {
+      "file": "dashboards/SD-WAN_Summary.json",
+      "name": "SD-WAN Summary",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "proportional": 3,
+        "multicharttimeseries": 3
+      },
+      "sha256": "bb8d1026c9f7e36fed2fc903314f03dd11c5130f77cfbee5d289009c00dedc20"
+    },
+    {
+      "file": "dashboards/SD-WAN_Summary (2).json",
+      "name": "SD-WAN Summary",
+      "origin": "vendor-reported",
+      "widgets": 5,
+      "types": {
+        "proportional": 2,
+        "multicharttimeseries": 3
+      },
+      "sha256": "6a92b84e9b368e1f24f31883df6baf3ac770468f35717b5f01b66c7d6c572765"
+    },
+    {
+      "file": "dashboards/Security_Summary.json",
+      "name": "Security Summary",
+      "origin": "vendor-reported",
+      "widgets": 11,
+      "types": {
+        "table": 5,
+        "proportional": 5,
+        "kpi": 1
+      },
+      "sha256": "f9a5f9d2b2655af219015595ddca21a8e14ee623fc0fef1487d77cc43b03d881"
+    },
+    {
+      "file": "dashboards/SEM_Instance.json",
+      "name": "SEM Instance",
+      "origin": "vendor-reported",
+      "widgets": 7,
+      "types": {
+        "table": 3,
+        "proportional": 4
+      },
+      "sha256": "b670e8d6178e4fb51ebbe529f1165659875c4d55ea61875c88bad4d869ac8454"
+    },
+    {
+      "file": "dashboards/SEM_Saved_Searches_Runs.json",
+      "name": "SEM Saved Searches Runs",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "889a9b4ef394338b83737a45b72b4d82853ea119461d69359f6bf2c58a5aadde"
+    },
+    {
+      "file": "dashboards/SEM_Summary.json",
+      "name": "SEM Summary",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "table": 4,
+        "proportional": 2
+      },
+      "sha256": "07eefcc8ea5d806a2ad19f15803299555df60b25e6f513db753976b3797ff7a9"
+    },
+    {
+      "file": "dashboards/SOC2.json",
+      "name": "SOC2",
+      "origin": "custom",
+      "widgets": 9,
+      "types": {
+        "kpi": 2,
+        "proportional": 2,
+        "table": 5
+      },
+      "sha256": "2c15ddfc330028fc53970a34a1e1337ac687a41c15057d5fb15a6fcfd743258d"
+    },
+    {
+      "file": "dashboards/Tables_Details.json",
+      "name": "Tables Details",
+      "origin": "vendor-reported",
+      "widgets": 8,
+      "types": {
+        "table": 1,
+        "multicharttimeseries": 7
+      },
+      "sha256": "fb1ba780bd89222a9c68fc4f19ba5098412160255e96446cff48f525b9d5705b"
+    },
+    {
+      "file": "dashboards/UDT_Job_Status.json",
+      "name": "UDT Job Status",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "fb94b01bc5544ca4a90a7bf3a02246a1a0816a504ca92eba317461249f95c12b"
+    },
+    {
+      "file": "dashboards/Virtual_Machines.json",
+      "name": "Virtual Machines",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "075806866076eef0e15271a9e69655cc723cf50d5c96c89ec8e9b7bf3796a16b"
+    },
+    {
+      "file": "dashboards/Vulnerability_and_Risk_Dashboard.json",
+      "name": "Vulnerability and Risk Dashboard",
+      "origin": "vendor-reported",
+      "widgets": 6,
+      "types": {
+        "kpi": 1,
+        "risk-score": 1,
+        "proportional": 2,
+        "table": 2
+      },
+      "sha256": "ac0839f8826326e05cd89b549046425329e7c5463f2165c517f48fa3135ee7a6"
+    },
+    {
+      "file": "dashboards/WAN_UpLinks.json",
+      "name": "WAN UpLinks",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "595fca46a629f44136bf9cec382832be0ed8ab498da4c0b4790a01618ef117b8"
+    },
+    {
+      "file": "dashboards/WAN_UpLinks (2).json",
+      "name": "WAN UpLinks",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "d2bf9061b236a3a000933c8b7267dec5a442a7c733759a8e6e38b16136464e13"
+    },
+    {
+      "file": "dashboards/Wireless_Monitoring.json",
+      "name": "Wireless Monitoring",
+      "origin": "vendor-reported",
+      "widgets": 5,
+      "types": {
+        "kpi": 4,
+        "table": 1
+      },
+      "sha256": "caea2fcb1e692d0a745ebd8f8956bd11a0f24eab15ebc2f43cf8d89c01a17145"
+    },
+    {
+      "file": "dashboards/Wireless_Monitoring_-_Access_Points.json",
+      "name": "Wireless Monitoring - Access Points",
+      "origin": "vendor-reported",
+      "widgets": 1,
+      "types": {
+        "table": 1
+      },
+      "sha256": "426993dd20c1e5731bf04c5e99fb0762e61d90086e89a23d1b3302ede8702b13"
+    },
+    {
+      "file": "dashboards/Wireless_Monitoring_-_Top_10.json",
+      "name": "Wireless Monitoring - Top 10",
+      "origin": "vendor-reported",
+      "widgets": 9,
+      "types": {
+        "proportional": 9
+      },
+      "sha256": "7a040757acf2efe65fdd8953cd28042576970803c69247cc6a9d96db0165e223"
+    }
+  ]
+}

@@ -9,20 +9,26 @@ presentation hung off each one.
 
 ## The five rules that decide whether a file works
 
-Everything else is detail. These are the invariants, all confirmed across nine real exports
-from three independent authors:
+These rules guide newly authored ordinary SWQL widgets. The original evidence was nine
+exports from three authors. The [2026.4 export audit](modern-dashboard-2026-4-export-audit.md)
+adds 127 files and eight widget types; it distinguishes authoring policy from vendor export
+behavior and provides the specialized provider patterns.
 
-1. **Every widget `unique_key` is a fresh GUID, and duplicates are a bug.** Copying a widget
-   without regenerating its key is the most common defect in real files — see
+1. **Give a newly cloned widget a distinct `unique_key` and remap its placements.** Fresh
+   GUIDs are convenient, but named keys also occur in product exports. Preserve keys when
+   deliberately updating existing objects. Conflicting definitions under one key need review;
+   a shared key across exported files is not automatically a defect. See
    [modern-dashboards.md](modern-dashboards.md#unique_key-collisions-and-the-reuse-that-is-fine).
    Note that a `kpi_…` **tile** id is a different thing: it is scoped to its widget, and reusing
    one across widgets is normal.
 2. **Every placement resolves to a definition.** `dashboards[].widgets[].unique_key` must
    appear in the top-level `widgets[]` array.
-3. **The SWQL is written twice and both copies must match** — under
-   `providers.dataSource.properties.swql` and again under
-   `providers.adapter.properties.dataSource.properties.swql`. All **146 pairs across all nine
-   files** are byte-identical, which makes this the best-attested rule here.
+3. **Keep query copies and field metadata synchronized when the adapter stores a copy.**
+   Ordinary SWQL widgets commonly use `providers.dataSource.properties.swql` and
+   `providers.adapter.properties.dataSource.properties.swql`. All 146 pairs in the original
+   nine files match. The newer corpus includes missing and differing adapter copies, so
+   equality is a strict authoring policy, not a universal product invariant. Do not apply
+   this shape to metric time-series or specialized adapters without checking their contract.
 4. **Every `dataFields[].id` is a column the query returns** — the alias if there is one, and
    the bare property name if there is not, so `ONodes.Status` returns `Status`. A mismatch
    renders a blank column rather than raising an error.
@@ -45,11 +51,14 @@ Then decide, per query, which widget carries it:
 | You want | Widget | The query must return |
 | --- | --- | --- |
 | A grid of objects | `table` | One row per object, plus a column per formatter input |
-| A number, or a row of numbers | `kpi` | **One row**, one query per tile |
+| A current value, or a row of values | `kpi` | **One row**, one query per tile; retain numeric types for numerical thresholds |
 | A breakdown of a total | `proportional` | One row per slice: a label, a value, optionally a colour, icon and link |
 
 A `kpi` widget with six tiles is six separate single-row queries, not one query with six
-columns. That is the most common surprise in the format.
+columns. Text KPI values also occur in product exports, but text display does not establish
+that numerical threshold comparisons work. For history use the evidenced
+`multicharttimeseries` metric/provider recipe; for hierarchy or entity detail use the
+specialized contracts in the [2026.4 audit](modern-dashboard-2026-4-export-audit.md).
 
 ## Building a widget from the console
 
@@ -59,8 +68,9 @@ maps that form to the fields it produces, walking the same sequence [SolarWinds 
 #93](https://www.youtube.com/watch?v=9T1VlIvAfdo) uses to build a KPI widget (15:11-19:14).
 
 1. **Drag a widget onto the grid, then "finish configuring".** This is where you pick the
-   widget type (`table`, `kpi`, `proportional`, or the undocumented `timeseries` — see
-   [modern-dashboards.md](modern-dashboards.md#a-fourth-type-timeseries)) and whether it
+   widget family (`table`, `kpi`, `proportional`, or a time-series chart; the 2026.4
+   export serializes the latter as `multicharttimeseries`). For provider modes see
+   [modern-dashboards.md](modern-dashboards.md#a-fourth-type-timeseries). Also choose whether it
    starts blank ("from empty widgets") or copies an existing one — see
    [reusing another dashboard's widget](#reusing-another-dashboards-widget-from-the-console)
    below for the second path.
@@ -74,7 +84,9 @@ maps that form to the fields it produces, walking the same sequence [SolarWinds 
    the **graphical query builder** and **hand-editing SWQL**. Hand-editing is what every
    sample query on both of these pages assumes, and it is also what all 146 embedded queries
    examined for [modern-dashboards.md](modern-dashboards.md) turn out to be
-   (`type: "hand-edit"` on every one). Paste a query you have already run through
+   (`type: "hand-edit"` on every one in that original sample). The 2026.4 export also
+   contains `graphical` editor state; preserve its consistency when editing those widgets.
+   Paste a query you have already run through
    `tools/validate_swql.py` here rather than composing it for the first time in this box.
 4. **Validate, then Show records.** Validate is a client-side parse; Show records actually
    runs the query against your server and previews the rows, which is the point at which a
@@ -353,7 +365,10 @@ python3 tools/check_dashboards.py scripts/dashboards/minimal-dashboard.json
 every shipped dashboard satisfies the invariants in docs/webui/modern-dashboard-authoring.md
 ```
 
-Give it the path to your own export in place of that one.
+Give it the path to your authored ordinary-widget export in place of that one. This is a
+strict authoring checker, not a certification tool for every built-in provider or product
+version. The 2026.4 audit records source/adapter differences and specialized widget contracts
+that need separate interpretation; do not automatically rewrite vendor exports to satisfy it.
 
 It enforces all five rules above plus the column bindings, and it is deliberately quiet about
 the things real files legitimately do: an absent `componentId`, an empty `sortBy`, the `""`
@@ -398,7 +413,8 @@ and set `collapsible: true` if you mean the widget to collapse.
 
 **A `ThresholdFormatterComponent` column takes a `thresholdName`**, binding the bar to a
 threshold the platform already defines (`Nodes.Stats.CpuLoad` and friends) rather than to
-numbers in the file. Its `instanceId` and `siteId` are `""` in every real instance.
+numbers in the file. Its `instanceId` and `siteId` are `""` in the original nine-file sample;
+the 2026.4 corpus also has populated bindings, so preserve the source widget's entity/site contract.
 
 **An unaliased select item still names a column.** `ONodes.Status` returns `Status`. But an
 unaliased *expression* — a `CONCAT(...)` or `COUNT(...)` — gets a server-assigned name you

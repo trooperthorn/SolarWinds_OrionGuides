@@ -1234,11 +1234,32 @@ The Custom Query widget renders a SWQL query as a table on any view.
 - [Practical notes](webui/custom-query-widget.md#practical-notes): The queries on this page are validated against the extracted schema like every other query in this repository.
 - [See also](webui/custom-query-widget.md#see-also): using all three query boxes - ../reference/netobject-types.md for the NetObject prefixes the console URLs use - ../swql/functions.md for ToString() and string concatenation - ../swql/performance.md for what a widget q...
 
+### [Modern Dashboard authoring: evidence from the 2026.4 export](webui/modern-dashboard-2026-4-export-audit.md)
+
+This audit turns a real Observability Self-Hosted export into guidance for creating and modifying dashboards.
+
+- [Evidence and scope](webui/modern-dashboard-2026-4-export-audit.md#evidence-and-scope): Evidence references below use the archive-relative filename and a JSON Pointer.
+- [What the package adds](webui/modern-dashboard-2026-4-export-audit.md#what-the-package-adds): The totals count definitions as exported, including a repeated Interfaces widget in two files.
+- [1. Time-series charts are now evidenced in JSON](webui/modern-dashboard-2026-4-export-audit.md#1-time-series-charts-are-now-evidenced-in-json): The older guide describes a timeseries widget from a demonstration but lacks an exported example.
+- [2. Dashboard identity, groups, routes, and context form a view hierarchy](webui/modern-dashboard-2026-4-export-audit.md#2-dashboard-identity-groups-routes-and-context-form-a-view-hierarchy): The files are not simply independent pages with different names.
+- [3. Decode the dashboard-level configuration string](webui/modern-dashboard-2026-4-export-audit.md#3-decode-the-dashboard-level-configuration-string): In these exports, dashboards[i].configuration can contain a JSON string; it is not always an already-decoded object.
+- [4. Global filtering and contextual detail pages need their surrounding configuration](webui/modern-dashboard-2026-4-export-audit.md#4-global-filtering-and-contextual-detail-pages-need-their-surrounding-configuration): AWS_Costs (2).json names account, service, region, and category as groupable properties.
+- [5. ERCOT proves the hidden timestamp sort pattern precisely](webui/modern-dashboard-2026-4-export-audit.md#5-ercot-proves-the-hidden-timestamp-sort-pattern-precisely): The relevant source is ERCOT_Texas_Power_Grid.json, widget 4, under:
+- [6. Numeric formatting, text KPIs, and thresholds need distinct rules](webui/modern-dashboard-2026-4-export-audit.md#6-numeric-formatting-text-kpis-and-thresholds-need-distinct-rules): There are 131 SimpleNumberFormatterComponent definitions.
+- [7. A proportional widget has several chart forms](webui/modern-dashboard-2026-4-export-audit.md#7-a-proportional-widget-has-several-chart-forms): Observed chartOptions.type values:
+- [8. Tables can be navigators and operational views](webui/modern-dashboard-2026-4-export-audit.md#8-tables-can-be-navigators-and-operational-views): The 222 tables include more than raw grids:
+- [9. Drilldown and entity detail widgets are separate authoring patterns](webui/modern-dashboard-2026-4-export-audit.md#9-drilldown-and-entity-detail-widgets-are-separate-authoring-patterns): AWS_Compute.json, widget 13, uses DrilldownSwqlDatasourceService and NOVA_DRILLDOWN_DATASOURCE_ADAPTER.
+- [10. Query duplication is an authoring policy, not a universal export invariant](webui/modern-dashboard-2026-4-export-audit.md#10-query-duplication-is-an-authoring-policy-not-a-universal-export-invariant): The audit found 642 blocks with a data source and adapter where at least one side contained SWQL:
+- [11. Graphical query metadata is present](webui/modern-dashboard-2026-4-export-audit.md#11-graphical-query-metadata-is-present): Four serialized data-source property blocks use type: "graphical"; these include duplicated source/adapter blocks, not four independent widgets.
+- [12. Version and validation boundaries](webui/modern-dashboard-2026-4-export-audit.md#12-version-and-validation-boundaries): The audit extracted 750 distinct SELECT strings from the outer documents and decoded dashboard configuration.
+- [Specific improvements for the three custom dashboards](webui/modern-dashboard-2026-4-export-audit.md#specific-improvements-for-the-three-custom-dashboards): Keep it minimal: one numeric KPI and one table with a timestamp, numeric measurement, status/link mappings, and clear data-source duplication.
+- [Authoring implications and follow-up work](webui/modern-dashboard-2026-4-export-audit.md#authoring-implications-and-follow-up-work): The practical change for AI-assisted authoring is to choose the data grain, entity scope, widget/provider contract, and field types first.
+
 ### [Writing a Modern Dashboard file](webui/modern-dashboard-authoring.md)
 
 modern-dashboards.md is the format.
 
-- [The five rules that decide whether a file works](webui/modern-dashboard-authoring.md#the-five-rules-that-decide-whether-a-file-works): Everything else is detail.
+- [The five rules that decide whether a file works](webui/modern-dashboard-authoring.md#the-five-rules-that-decide-whether-a-file-works): These rules guide newly authored ordinary SWQL widgets.
 - [Build it query-first](webui/modern-dashboard-authoring.md#build-it-query-first): The presentation is the easy half.
 - [Building a widget from the console](webui/modern-dashboard-authoring.md#building-a-widget-from-the-console): Everything above describes the JSON.
 - [Reusing another dashboard's widget from the console](webui/modern-dashboard-authoring.md#reusing-another-dashboards-widget-from-the-console): The widget picker's "finish configuring" step (step 1 above) carries a Source field that defaults to the current dashboard but can be set to "any dashboard" — SolarWinds Lab #93 (34:47-35:37) uses it to browse a colle...
@@ -1402,7 +1423,7 @@ A public Datadog dashboard, ERCOT (Texas Power Grid) by @danopia, has tracked th
 - [Importing and assigning](guides/ercot-grid-dashboard.md#importing-and-assigning): Import each template into the library, then assign it to a node.
 - [The dashboard, row by row](guides/ercot-grid-dashboard.md#the-dashboard-row-by-row): ercot-texas-power-grid.json imports from My Dashboards > Manage Dashboards > Import, and passes tools/check_dashboards.py.
 - [Live query lessons from 2026-09-18](guides/ercot-grid-dashboard.md#live-query-lessons-from-2026-09-18): These observations came from a contributor running queries through the Web Console on one installation.
-- [Making it yours](guides/ercot-grid-dashboard.md#making-it-yours): Regenerate every GUID before building on the file, as scripts/dashboards/README.md shows, and the template Guids likewise if you fork a poller template.
+- [Making it yours](guides/ercot-grid-dashboard.md#making-it-yours): For a new clone, regenerate dashboard/widget identities and remap placements, as scripts/dashboards/README.md shows, and the template Guids likewise if you fork a poller template.
 - [What is verified and what is not](guides/ercot-grid-dashboard.md#what-is-verified-and-what-is-not)
 - [See also](guides/ercot-grid-dashboard.md#see-also)
 

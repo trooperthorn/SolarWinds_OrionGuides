@@ -7,12 +7,15 @@ extracted facts instead of recalling them.
 
 Read this file before answering from memory.
 
-Everything here was assembled from resources SolarWinds publishes on the public internet:
+The core schema and reference data were assembled from resources SolarWinds publishes on the public internet:
 the OrionSDK repository, its rendered schema pages and Swagger contract, the public SDK
 documentation, and a community SWQL examples workbook. There is no SolarWinds internal
 documentation in this repository and no method of access to any SolarWinds system beyond
 the documented, customer-facing API. Do not present anything here as insider material,
-and do not add any.
+and do not add any. The versioned Modern Dashboard audit additionally uses an owner-supplied
+2026.4 export, with owner-reported provenance and selected configuration evidence. Its
+observations do not expand the 2026.2 schema contract; consult
+`docs/webui/modern-dashboard-2026-4-export-audit.md` for the validation boundary.
 
 ## Finding your way around
 
