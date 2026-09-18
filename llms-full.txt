@@ -49835,7 +49835,7 @@ ORDER BY v.DateTimeOrigination DESC
 
 ## 5. Top 25 non-7-digit calling numbers
 
-Widget 4 rolled up by calling number. The `IsNull(..., '(blank)')` in both the select list
+Widget 4 rolled up by calling number. The `IsNull(v.CallingPartyNumber, '(blank)')` in both the select list
 and the `GROUP BY` keeps the blank callers as one visible group rather than dropping them.
 
 Main query:
@@ -62541,7 +62541,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**280 statements across 68 pages.**
+**286 statements across 69 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -63483,6 +63483,25 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - So the SWQL is sound and the UI conventions around it are reported, sourced and marked unverified.
 
+## [custom-query-call-queries.md](../webui/custom-query-call-queries.md)
+
+**[Call Queries: VNQM call detail widgets](../webui/custom-query-call-queries.md#call-queries-vnqm-call-detail-widgets)**
+
+- What the schema cannot verify is the widget's own behaviour, and that is the second subject of this page: the Custom Query widget has **three** query boxes, not one, and the other two are documented nowhere in enough detail to use them.
+
+**[The three query boxes](../webui/custom-query-call-queries.md#the-three-query-boxes)**
+
+- The three facts below are what those sentences leave out, and they are **reported from practice and unverified here**, in the same sense as everything else in this section: the schema does not describe the widget.
+
+**[The entity and its links](../webui/custom-query-call-queries.md#the-entity-and-its-links)**
+
+- That the widget renders an empty link value as text rather than as a dead link is **reported from practice and unverified here**.
+
+**[What is not verified here](../webui/custom-query-call-queries.md#what-is-not-verified-here)**
+
+- ## What is not verified here
+- Everything in [the three query boxes](../webui/custom-query-call-queries.md#the-three-query-boxes) about how the widget runs its auto-hide and search queries and substitutes `${SEARCH_STRING}` is reported from practice and **unverified here**; SolarWinds documents the fields but not the behaviour. - That the widget renders a `NULL` link value as plain text is **unverified here**. - The queries validate against the 2026.2 schema bu...
+
 ## [custom-query-widget.md](../webui/custom-query-widget.md)
 
 **[Where the link value comes from](../webui/custom-query-widget.md#where-the-link-value-comes-from)**
@@ -63496,6 +63515,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[A worked widget](../webui/custom-query-widget.md#a-worked-widget)**
 
 - What it means for a query that spans several statistics tables is **not documented by SolarWinds and is unverified here**; see [../swql/performance.md](../swql/performance.md) for what a widget query costs and [../swql/gotchas.md](../swql/gotchas.md) for reading uncommitted data.
+
+**[The other two query boxes](../webui/custom-query-widget.md#the-other-two-query-boxes)**
+
+- As with everything else on this page, the widget's behaviour is reported from practice and **unverified here**.
 
 **[Practical notes](../webui/custom-query-widget.md#practical-notes)**
 
