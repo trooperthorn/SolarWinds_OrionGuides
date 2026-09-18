@@ -24,6 +24,7 @@ believed to.
 | [15-voip-and-web-transactions.swql](15-voip-and-web-transactions.swql) | IP SLA operations, phones, web transactions, steps, playback locations |
 | [16-cloud-and-appinsight.swql](16-cloud-and-appinsight.swql) | Cloud accounts and instances, AppInsight for SQL, IIS and Exchange |
 | [17-wireless-heatmaps.swql](17-wireless-heatmaps.swql) | Heat maps, placed points, signal measurements, computed client locations, collection health |
+| [18-ercot-grid.swql](18-ercot-grid.swql) | Reading API Poller values back out: KPI, derived, aggregate, windowed history, per-station pivot, poller health, import checks |
 
 ## Running them
 

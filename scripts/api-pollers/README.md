@@ -10,6 +10,12 @@ Importable `.apipoller.template` files for the SolarWinds Platform API Poller.
 | [zscaler-zia-performance-availability.apipoller.template](zscaler-zia-performance-availability.apipoller.template) | **Experimental.** The same OAuth-then-chain shape against the Zscaler ZIA API: config-sync status mapped from text to a number with the fallback above critical, plus a GRE tunnel count filtered to tunnels not reporting `UP`. The status vocabulary and tunnel endpoint are inferred, not read off a real export — read the template's `Description` |
 | [zscaler-zdx-digital-experience.apipoller.template](zscaler-zdx-digital-experience.apipoller.template) | **Experimental, and the least confirmed of the three.** Discovers a monitored application the way the UniFi template discovers a site (positional, fragile), then reads its ZDX Score with thresholds left nil — this repository has never confirmed a `ThresholdRule` other than `GreaterThan` exists, so alerting on a *low* score is an open question, not a solved one. Also flags a real risk that ZDX's API needs per-request HMAC signing, which an API Poller cannot compute at all. Read the template's `Description` before treating this as more than a sketch |
 
+| [ercot-grid-conditions.apipoller.template](ercot-grid-conditions.apipoller.template) | Three requests against ERCOT's public dashboard JSON, every minute: EEA level and grid condition (a text state mapped with the fallback above critical), then frequency, inertia, four DC tie flows, demand and capacity read as the newest row of a day-long array with a `[-1:]` slice. The slice is the one thing about it not confirmed offline; [docs/guides/ercot-grid-dashboard.md](../../docs/guides/ercot-grid-dashboard.md) says how to tell and what to fall back to |
+| [ercot-ancillary-services.apipoller.template](ercot-ancillary-services.apipoller.template) | One request, fourteen values, every five minutes: PRC, regulation, non-spin and reserve capacities from a response whose groups are `[key, value]` arrays, so every path is positional and the key each position held is written into the value's name to make it checkable |
+| [ercot-settlement-point-prices.apipoller.template](ercot-settlement-point-prices.apipoller.template) | One request, fifteen values, every fifteen minutes: the seven hubs and eight load zones of the latest interval, again by `[-1:]` slice |
+| [metar-texas-airports.apipoller.template](metar-texas-airports.apipoller.template) | Fourteen requests, one per airport, against the Aviation Weather Center JSON API, every thirty minutes: temperature, dewpoint, wind, gust and altimeter, with `$.[0]` safe because each request asks for one station |
+| [poweroutage-us-texas.apipoller.template](poweroutage-us-texas.apipoller.template) | **Experimental, unverified.** County outage counts from poweroutage.us, whose API now needs a paid key supplied at assign time as `${POWEROUTAGE_KEY}`; an `ArrayCount` of counties over a thousand out and eight named counties by JSONPath filter, all assumed from the 2021 collector's parsing rather than read from a live response |
+
 The format is documented in
 [../../docs/polling/api-pollers.md](../../docs/polling/api-pollers.md#the-apipollertemplate-file-format),
 along with the six Invoke verbs that import, export and assign these.
@@ -67,8 +73,9 @@ server to check its structure and to be told about a fallback that hides unknown
 
 ## Multi-request templates
 
-`citrix-hypervisor-xenapi.apipoller.template` is the one file here with more than one
-`RequestDetails`. It exists to demonstrate the login-then-call chain a session-based API
+`citrix-hypervisor-xenapi.apipoller.template` is the one file here whose requests depend on
+each other. (The ERCOT grid and METAR templates also carry several `RequestDetails`, but every
+request in them is independent and none reads a variable from another.) It exists to demonstrate the login-then-call chain a session-based API
 demands, and it comes with an explicit warning attached: the syntax it uses to carry a
 `RequestVariable` from the login response into a later request's `Body` is inferred from the
 feature's stated purpose, not read off a real export, because no such export exists in this

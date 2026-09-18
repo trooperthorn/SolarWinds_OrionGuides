@@ -5,12 +5,12 @@ Self-Hosted, in the four forms people actually use.
 
 | Directory | Contents |
 | --- | --- |
-| [swql/](swql/) | 224 verified sample queries, grouped by subject |
+| [swql/](swql/) | 238 verified sample queries, grouped by subject |
 | [powershell/](powershell/) | `SwisPowerShell` module examples |
 | [python/](python/) | A dependency-light REST client and CLI |
 | [curl/](curl/) | The raw wire protocol, with nothing in between |
-| [dashboards/](dashboards/) | Importable Modern Dashboard JSON |
-| [api-pollers/](api-pollers/) | Importable API Poller templates |
+| [dashboards/](dashboards/) | Importable Modern Dashboard JSON, including the ERCOT Texas power grid page |
+| [api-pollers/](api-pollers/) | Importable API Poller templates, including the five behind the ERCOT dashboard |
 | [sam-templates/](sam-templates/) | Importable SAM `.apmtemplate` application templates |
 
 Every SWQL statement in `swql/` is checked against the extracted schema on each build, so

@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>655c1aa3-483d-5464-b909-b32358c9db06</Guid>
+  <Name>ERCOT Settlement Point Prices</Name>
+  <DisplayName>ERCOT Settlement Point Prices</DisplayName>
+  <Description>ERCOT real-time settlement point prices in dollars per MWh from system-wide-prices.json, polled every 15 minutes to match the interval ERCOT publishes. The endpoint carries the same 15 hubs and load zones as the real_time_spp.html page the 2021 Datadog dashboard scraped, one row per 15-minute interval of the operating day under rtSppData, so every path selects the newest row with the [-1:] slice. Prices include the Real-Time Reliability Deployment Price Adders, as the page states. Read against the live endpoint on 2026-09-17; see docs/guides/ercot-grid-dashboard.md. Thresholds are left nil because a sensible alert level is a market judgement; the 2021 winter event cleared at the $9,000 cap. The [-1:] slice that selects the newest row of a time-series array, and the [?(@.forecast==0)] filter that skips forecast rows, are JSONPath features this repository has not confirmed the platform's implementation accepts (docs/polling/api-poller-vendor-templates.md confirms a filter against response headers only). If those values read Unknown after assignment, the values themselves are wrong rather than the endpoint: assign scripts/sam-templates/ercot-system-conditions-html.apmtemplate instead, which reads the same numbers off ERCOT's HTML page with a script.</Description>
+  <Created>2026-09-17T00:00:00.0000000Z</Created>
+  <Updated>2026-09-17T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://www.ercot.com/api/1/services/read/dashboards/system-wide-prices.json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>HB_BUSAVG ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['hbBusAvg']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>HB_HOUSTON ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['hbHouston']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>HB_HUBAVG ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['hbHubAvg']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>HB_NORTH ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['hbNorth']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>HB_PAN ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['hbPan']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>HB_SOUTH ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['hbSouth']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>HB_WEST ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['hbWest']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>LZ_AEN ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['lzAen']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>LZ_CPS ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['lzCps']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>LZ_HOUSTON ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['lzHouston']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>LZ_LCRA ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['lzLcra']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>LZ_NORTH ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['lzNorth']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>LZ_RAYBN ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['lzRaybn']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>LZ_SOUTH ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['lzSouth']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>LZ_WEST ($/MWh)</DisplayName>
+          <Path>$.['rtSppData'].[-1:].['lzWest']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>15</PollingInterval>
+</Template>

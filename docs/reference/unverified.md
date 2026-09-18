@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**286 statements across 69 pages.**
+**294 statements across 70 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -289,6 +289,40 @@ Read this before relying on this repository for something load-bearing. If you h
 **[49. Which accounts see less than the whole estate?](../guides/cookbook.md#49-which-accounts-see-less-than-the-whole-estate)**
 
 - `IsNull(column, 0) <> 0` because whether an unused slot holds `0` or `NULL` is not recorded in the schema; written this way the query is correct either way.
+
+## [ercot-grid-dashboard.md](../guides/ercot-grid-dashboard.md)
+
+**[What changed since 2021](../guides/ercot-grid-dashboard.md#what-changed-since-2021)**
+
+- So "the latest reading" has to be a JSONPath that selects the last element of an array, and that is the one thing about these templates this repository could not verify offline.
+
+**[Why API Pollers, and the two places they stop](../guides/ercot-grid-dashboard.md#why-api-pollers-and-the-two-places-they-stop)**
+
+- **Whether `[-1:]` and a body filter resolve is unverified here.** The `$.['name']` bracket form the platform writes is what Json.NET's `SelectToken` produces, and Json.NET accepts both constructs, which is the reason to expect them to work and not a reason to assume it.
+
+**[ERCOT Grid Conditions, every minute](../guides/ercot-grid-dashboard.md#ercot-grid-conditions-every-minute)**
+
+- `current_condition` also carries `prc_value`, the Physical Responsive Capability, but as a string with a thousands separator (`"11,490"`), and whether the poller parses that as a number is unverified, so PRC is read as a number from the ancillary endpoint instead.
+
+**[ERCOT Ancillary Services, every five minutes](../guides/ercot-grid-dashboard.md#ercot-ancillary-services-every-five-minutes)**
+
+- ERCOT's own PRC thresholds are the ones worth setting after import: an EEA 1 is declared when PRC falls below 3,000 MW and EEA 2 below 2,000 MW, but those are low-side alerts, and whether a `ThresholdRule` other than `GreaterThan` exists is [still unverified here](../polling/api-pollers.md#the-threshold-boundary), so the template leaves them nil rather than shipping a rule that reads backwards.
+
+**[Texas Airport Weather (METAR), every thirty minutes](../guides/ercot-grid-dashboard.md#texas-airport-weather-metar-every-thirty-minutes)**
+
+- What the poller records for a path that does not resolve is unverified here; if the gust values sit at Unknown on a calm day, delete those values and keep the requests.
+
+**[Row 1: Big Honkin' Numbers (`kpi` widget, six tiles)](../guides/ercot-grid-dashboard.md#row-1-big-honkin-numbers-kpi-widget-six-tiles)**
+
+- The Datadog row is Generation Capacity, Grid Frequency, Unused System Capacity, DC ties, Highest Settlement Point Price and Outages; the sixth tile here is EEA Level, since outages are unverified and have a section of their own.
+
+**[Row 3: Ancillary Services (`table`) and two history tables](../guides/ercot-grid-dashboard.md#row-3-ancillary-services-table-and-two-history-tables)**
+
+- Whether two values on one poller are observed with the identical timestamp, so that the join matches, is unverified here.
+
+**[What is verified and what is not](../guides/ercot-grid-dashboard.md#what-is-verified-and-what-is-not)**
+
+- **Not verified, in the order it matters:**
 
 ## [wireless-heatmaps.md](../guides/wireless-heatmaps.md)
 

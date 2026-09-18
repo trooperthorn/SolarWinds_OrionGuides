@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>f3ac1c40-b278-52d0-99d9-f12d44bbfa09</Guid>
+  <Name>ERCOT Ancillary Services</Name>
+  <DisplayName>ERCOT Ancillary Services</DisplayName>
+  <Description>ERCOT ancillary service capacity from ancillary-service-capacity-monitor.json, polled every five minutes. The endpoint replaces the as_capacity_monitor.html page the 2021 Datadog dashboard scraped, which now returns 404. Every group in the response is an array of [key, value] pairs whose first element is the header ['key','value'], so each path below addresses a row by position: [1] is the first data row. That is the same positional coupling docs/polling/api-poller-vendor-templates.md describes for the Azure template, and the key each position held on 2026-09-17 is written into the value's DisplayName so a reader can re-check it against a fresh response. If ERCOT reorders a group, the metric keeps reporting under the old label. Read against the live endpoint on 2026-09-17; see docs/guides/ercot-grid-dashboard.md.</Description>
+  <Created>2026-09-17T00:00:00.0000000Z</Created>
+  <Updated>2026-09-17T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://www.ercot.com/api/1/services/read/dashboards/ancillary-service-capacity-monitor.json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Physical Responsive Capability PRC (MW) [prc]</DisplayName>
+          <Path>$.['data'].['ercotWidePhysicalResponsiveCapabilityGroup'].[1].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Regulation Up Capacity (MW) [regUpCap]</DisplayName>
+          <Path>$.['data'].['regulationCapacityGroup'].[1].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Regulation Down Capacity (MW) [regDownCap]</DisplayName>
+          <Path>$.['data'].['regulationCapacityGroup'].[2].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Regulation Up Deployed (MW) [regUpDeployed]</DisplayName>
+          <Path>$.['data'].['regulationCapacityGroup'].[5].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Regulation Down Deployed (MW) [regDownDeployed]</DisplayName>
+          <Path>$.['data'].['regulationCapacityGroup'].[6].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Non-Spin Off-Line Generation Capacity (MW) [nsrCapOffGen]</DisplayName>
+          <Path>$.['data'].['nonSpinReserveCapabilityGroup'].[4].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Non-Spin Quick Start Awards (MW) [nsrAwdQs]</DisplayName>
+          <Path>$.['data'].['nonSpinReserveAwardsGroup'].[5].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>RT Reserve On-Line (MW) [rtReserveOnline]</DisplayName>
+          <Path>$.['data'].['realTimeOperatingReserveDemandCurveCapacityGroup'].[1].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>RT Reserve On-Line and Off-Line (MW) [rtReserveOnOffline]</DisplayName>
+          <Path>$.['data'].['realTimeOperatingReserveDemandCurveCapacityGroup'].[2].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Capacity Available to Increase Generation (MW) [capIncreaseGenBp]</DisplayName>
+          <Path>$.['data'].['systemAvailableCapacityGroup'].[11].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Capacity Available to Decrease Generation (MW) [capDecreaseGenBp]</DisplayName>
+          <Path>$.['data'].['systemAvailableCapacityGroup'].[12].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Total Reserve Capacity RegUp+RRS+ECRS+NSR (MW) [sumCapResRegUpRrsEcrsNsr]</DisplayName>
+          <Path>$.['data'].['systemAvailableCapacityGroup'].[15].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Responsive Reserve Awards Generation (MW) [rrAwdGen]</DisplayName>
+          <Path>$.['data'].['responsiveReserveAwardsGroup'].[1].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>ECRS Awards Generation (MW) [ecrsAwdGen]</DisplayName>
+          <Path>$.['data'].['ercotContingencyReserveAwardsGroup'].[1].[1]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>5</PollingInterval>
+</Template>

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>56d7c0bd-2035-523d-9d09-7135896f5312</Guid>
+  <Name>PowerOutage.us Texas Counties (experimental)</Name>
+  <DisplayName>PowerOutage.us Texas Counties (experimental)</DisplayName>
+  <Description>Experimental and unverified. County outage counts for Texas from poweroutage.us, polled every 30 minutes. The 2021 Datadog collector called https://poweroutage.us/api/web/counties with a key embedded in the site's own JavaScript; on 2026-09-17 that key answers 401 Unauthorized and poweroutage.us states that programmatic access requires a paid API subscription, so ${POWEROUTAGE_KEY} is an assign-time placeholder for a key you hold, in the same ${NAME} form SolarWinds' vendor templates use (docs/polling/api-poller-vendor-templates.md). The response shape assumed here, WebCountyRecord[] with CountyName, OutageCount and CustomerCount, is the one the 2021 source code parsed and has not been re-read from a live response. The per-county values use a JSONPath filter against the body, which this repository has only confirmed against response headers. Counties Reporting is an ArrayCount of the array, and Counties Over 1000 Out counts elements whose OutageCount exceeds 1000. Confirm every path with a single GET before assigning.</Description>
+  <Created>2026-09-17T00:00:00.0000000Z</Created>
+  <Updated>2026-09-17T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://poweroutage.us/api/web/counties?key=${POWEROUTAGE_KEY}&amp;countryid=us&amp;statename=Texas</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Counties Reporting</DisplayName>
+          <Path>$.['WebCountyRecord']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>ArrayCount</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues>0</StringToNumberTransformationOtherValues>
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Counties Over 1000 Out</DisplayName>
+          <Path>$.['WebCountyRecord'].[?(@.OutageCount&gt;1000)]</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>0</WarningThresholdValue>
+          <CriticalThresholdValue>5</CriticalThresholdValue>
+          <Type>ArrayCount</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues>0</StringToNumberTransformationOtherValues>
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Harris County Outages</DisplayName>
+          <Path>$.['WebCountyRecord'].[?(@.CountyName=='Harris')].['OutageCount']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Dallas County Outages</DisplayName>
+          <Path>$.['WebCountyRecord'].[?(@.CountyName=='Dallas')].['OutageCount']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Tarrant County Outages</DisplayName>
+          <Path>$.['WebCountyRecord'].[?(@.CountyName=='Tarrant')].['OutageCount']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Bexar County Outages</DisplayName>
+          <Path>$.['WebCountyRecord'].[?(@.CountyName=='Bexar')].['OutageCount']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Travis County Outages</DisplayName>
+          <Path>$.['WebCountyRecord'].[?(@.CountyName=='Travis')].['OutageCount']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Collin County Outages</DisplayName>
+          <Path>$.['WebCountyRecord'].[?(@.CountyName=='Collin')].['OutageCount']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Denton County Outages</DisplayName>
+          <Path>$.['WebCountyRecord'].[?(@.CountyName=='Denton')].['OutageCount']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Fort Bend County Outages</DisplayName>
+          <Path>$.['WebCountyRecord'].[?(@.CountyName=='Fort Bend')].['OutageCount']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>30</PollingInterval>
+</Template>

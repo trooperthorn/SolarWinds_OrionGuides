@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>656c282d-548b-5ce6-bab2-4d671b18e261</Guid>
+  <Name>ERCOT Grid Conditions</Name>
+  <DisplayName>ERCOT Grid Conditions</DisplayName>
+  <Description>Real-time ERCOT (Texas) grid conditions from ERCOT's public dashboard JSON, polled every minute. Request 0 reads the current grid condition (EEA level, condition state, energy level index) from daily-prc.json; request 1 reads frequency, system inertia and the four DC tie flows from dc-tie-flows.json; request 2 reads actual demand and total capacity from supply-demand.json. Built and read against the live endpoints on 2026-09-17; see docs/guides/ercot-grid-dashboard.md for the widget queries that consume these values and for what changed since the 2021 Datadog dashboard this replicates. No credential is needed. Note the payload sizes: dc-tie-flows.json and daily-prc.json each grow to over 1 MB by the end of the operating day because they carry the whole day at 10-second resolution, so a one-minute poll moves roughly 3 GB a day; raise PollingInterval if that matters on your link. The [-1:] slice that selects the newest row of a time-series array, and the [?(@.forecast==0)] filter that skips forecast rows, are JSONPath features this repository has not confirmed the platform's implementation accepts (docs/polling/api-poller-vendor-templates.md confirms a filter against response headers only). If those values read Unknown after assignment, the values themselves are wrong rather than the endpoint: assign scripts/sam-templates/ercot-system-conditions-html.apmtemplate instead, which reads the same numbers off ERCOT's HTML page with a script.</Description>
+  <Created>2026-09-17T00:00:00.0000000Z</Created>
+  <Updated>2026-09-17T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://www.ercot.com/api/1/services/read/dashboards/daily-prc.json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>EEA Level</DisplayName>
+          <Path>$.['current_condition'].['eea_level']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>0</WarningThresholdValue>
+          <CriticalThresholdValue>1</CriticalThresholdValue>
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Grid Condition State</DisplayName>
+          <Path>$.['current_condition'].['state']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue>1</WarningThresholdValue>
+          <CriticalThresholdValue>2</CriticalThresholdValue>
+          <Type>Path</Type>
+          <StringToNumberTransformationRules>
+            <StringToNumberTransformationRule>
+              <Text>normal</Text>
+              <Number>0</Number>
+            </StringToNumberTransformationRule>
+          </StringToNumberTransformationRules>
+          <StringToNumberTransformationOtherValues>5</StringToNumberTransformationOtherValues>
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Energy Level Index</DisplayName>
+          <Path>$.['current_condition'].['energy_level_value']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://www.ercot.com/api/1/services/read/dashboards/dc-tie-flows.json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Grid Frequency (Hz)</DisplayName>
+          <Path>$.['data'].[-1:].['currentFrequency']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>System Inertia (MW-s)</DisplayName>
+          <Path>$.['data'].[-1:].['currentSystemInertia']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>DC Tie Flow DC_E East (MW)</DisplayName>
+          <Path>$.['data'].[-1:].['dcE']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>DC Tie Flow DC_N North (MW)</DisplayName>
+          <Path>$.['data'].[-1:].['dcN']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>DC Tie Flow DC_L Laredo VFT (MW)</DisplayName>
+          <Path>$.['data'].[-1:].['dcL']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>DC Tie Flow DC_R Railroad (MW)</DisplayName>
+          <Path>$.['data'].[-1:].['dcR']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>1</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://www.ercot.com/api/1/services/read/dashboards/supply-demand.json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>Actual System Demand (MW)</DisplayName>
+          <Path>$.['data'].[?(@.forecast==0)].[-1:].['demand']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>Total System Capacity (MW)</DisplayName>
+          <Path>$.['data'].[?(@.forecast==0)].[-1:].['capacity']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>2</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>1</PollingInterval>
+</Template>
