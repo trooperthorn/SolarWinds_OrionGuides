@@ -10,6 +10,15 @@
     <AssemblyName>DashboardPorter</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>0.1.0</Version>
+
+    <!-- Single-file publish (dotnet publish, Release, win-x64, self-contained,
+         PublishSingleFile=true): bundle WPF's native interop DLLs into the exe itself
+         (self-extracted to a per-run temp dir at launch) instead of leaving them beside
+         it, so the publish output really is one file to hand out. Only takes effect when
+         PublishSingleFile is set; a plain dotnet build or F5 debug run is unaffected. -->
+    <IncludeNativeLibrariesForSelfExtract Condition="'$(PublishSingleFile)' == 'true'">true</IncludeNativeLibrariesForSelfExtract>
+    <SelfContained Condition="'$(PublishSingleFile)' == 'true'">true</SelfContained>
+    <RuntimeIdentifier Condition="'$(PublishSingleFile)' == 'true' and '$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
   </PropertyGroup>
 
 </Project>

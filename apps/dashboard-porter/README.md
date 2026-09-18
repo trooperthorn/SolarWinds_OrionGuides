@@ -20,8 +20,12 @@ dotnet publish DashboardPorter\DashboardPorter.csproj -c Release -r win-x64 --se
 ```
 
 The executable lands in
-`DashboardPorter\bin\Release\net8.0-windows\win-x64\publish\DashboardPorter.exe` — a single
-file, no runtime install needed on the target machine (air-gap friendly).
+`DashboardPorter\bin\Release\net8.0-windows\win-x64\publish\DashboardPorter.exe` — one file
+(~155 MB; the .NET runtime and WPF's native interop libraries are bundled in), no install
+and no separate runtime needed on the target machine (air-gap friendly). Hand out just that
+`.exe` — the `.pdb` beside it is debug symbols only, safe to leave behind. On first launch it
+self-extracts its bundled native libraries to a per-run temp folder; nothing is written next
+to the exe itself, so it can be run straight from a USB stick or a read-only share.
 
 **Elevation:** `app.manifest` bakes `requireAdministrator` into the binary (DISA STIG
 requirement, matching Porter). Windows refuses an un-elevated launch; the exe carries the
