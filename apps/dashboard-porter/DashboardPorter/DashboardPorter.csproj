@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -19,6 +19,28 @@
     <IncludeNativeLibrariesForSelfExtract Condition="'$(PublishSingleFile)' == 'true'">true</IncludeNativeLibrariesForSelfExtract>
     <SelfContained Condition="'$(PublishSingleFile)' == 'true'">true</SelfContained>
     <RuntimeIdentifier Condition="'$(PublishSingleFile)' == 'true' and '$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+
+    <!-- .NET 10's self-contained WindowsDesktop deployment no longer copies the WinForms
+         assembly family (System.Windows.Forms.dll + Design/Primitives satellites, ~22 MB)
+         for a WPF-only app (UseWindowsForms is never set here) — confirmed by direct
+         testing, no flag needed, this is just what net10.0-windows publishes. Compression
+         packs the remaining single-file bundle; it self-extracts to a per-version cache on
+         first launch of a given build, not on every run. Both are officially supported,
+         no code/behavior change — see apps/dashboard-porter/README.md for the measurements. -->
+    <EnableCompressionInSingleFile Condition="'$(PublishSingleFile)' == 'true'">true</EnableCompressionInSingleFile>
+
+    <!-- DashboardPorter has no localized strings and no plans for any — every label is
+         plain English. The self-contained WPF/.NET runtime otherwise ships ~16 MB of
+         translated satellite resource assemblies (cs/de/es/fr/it/ja/ko/pl/pt-BR/ru/tr/
+         zh-Hans/zh-Hant) purely for framework-level exception/dialog text no one here
+         will ever see. Officially supported SDK property, no behavior change. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+
+    <!-- Release publish ships no debug symbols or the native PDB reader that goes with
+         them (Microsoft.DiaSymReader.Native, ~2.3 MB) — this is a shipped tool, not
+         something anyone attaches a debugger to in place. Debug builds (F5 in an IDE)
+         are unaffected, so local debugging still gets full symbols. -->
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
   </PropertyGroup>
 
 </Project>

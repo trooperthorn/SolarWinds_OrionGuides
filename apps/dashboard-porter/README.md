@@ -11,7 +11,7 @@ repository before it was coded.
 
 ## Build (on Windows)
 
-Requires the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). WPF is
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). WPF is
 Windows-only: build on Windows, not WSL.
 
 ```text
@@ -20,12 +20,40 @@ dotnet publish DashboardPorter\DashboardPorter.csproj -c Release -r win-x64 --se
 ```
 
 The executable lands in
-`DashboardPorter\bin\Release\net8.0-windows\win-x64\publish\DashboardPorter.exe` — one file
-(~155 MB; the .NET runtime and WPF's native interop libraries are bundled in), no install
-and no separate runtime needed on the target machine (air-gap friendly). Hand out just that
-`.exe` — the `.pdb` beside it is debug symbols only, safe to leave behind. On first launch it
-self-extracts its bundled native libraries to a per-run temp folder; nothing is written next
-to the exe itself, so it can be run straight from a USB stick or a read-only share.
+`DashboardPorter\bin\Release\net10.0-windows\win-x64\publish\DashboardPorter.exe` — one file
+(~59 MB; the .NET runtime and WPF's native interop libraries are bundled in), no install
+and no separate runtime needed on the target machine (air-gap friendly). No `.pdb` ships
+with it — Release builds carry no debug symbols. On first launch it self-extracts to a
+per-version cache (native libraries plus the compressed bundle above); nothing is written
+next to the exe itself, so it can be run straight from a USB stick or a read-only share.
+
+The size is a direct, measured result of a few things the `.csproj` does, none of which
+change behavior — see the comments there for the details:
+
+- **`net10.0-windows` over `net8.0-windows`** — .NET 10's self-contained WindowsDesktop
+  deployment stopped copying the WinForms assembly family (`System.Windows.Forms.dll` and
+  its Design/Primitives satellites) for a WPF-only app that never sets `UseWindowsForms`.
+  That's ~22 MB gone for free, confirmed by direct testing (untrimmed .NET 8 publish: 162
+  MB; untrimmed .NET 10 publish: 125 MB).
+- **`EnableCompressionInSingleFile`** — the officially supported single-file bundler
+  compression, not IL trimming. It packs the same set of files smaller on disk and
+  decompresses once per build version into a cache, not on every launch.
+- **`SatelliteResourceLanguages=en`** — this is an English-only tool with no localization
+  planned, so the ~16 MB of translated framework resource assemblies (cs/de/es/fr/it/ja/
+  ko/pl/pt-BR/ru/tr/zh-Hans/zh-Hant) never ship.
+- **`DebugType=none`** on Release — no `.pdb`, no bundled native PDB reader.
+
+**Deliberately not done:** Native AOT and IL trimming (`PublishAot`/`PublishTrimmed`) are
+both blocked by the SDK for WPF apps (`NETSDK1168`) on .NET 8 and .NET 10 alike — no
+supported override exists. There is an internal, underscore-prefixed escape hatch
+(`_SuppressWpfTrimError`) that forces trimming through anyway; testing confirmed it does
+**not** trim WPF's own assemblies (they're hard-excluded from the linker), it only shrinks
+already-small BCL libraries, and it ran with zero trim-safety warnings despite this app
+using reflection-based `JsonSerializer.Serialize` in `Core/` — meaning the linker silently
+skipped analyzing our own code rather than confirming it's safe. That risk can only be
+resolved by actually launching the built exe, which requires the UAC elevation this app's
+manifest demands; that isn't something a non-interactive build step can verify. It stays
+off.
 
 **Elevation:** `app.manifest` bakes `requireAdministrator` into the binary (DISA STIG
 requirement, matching Porter). Windows refuses an un-elevated launch; the exe carries the
