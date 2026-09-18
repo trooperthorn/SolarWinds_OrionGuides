@@ -272,7 +272,10 @@ supportable.
 `Orion.APIPoller.ApiPoller` feed and rendering coverage in a custom widget — forfeits the
 generation engine and buys vendor independence permanently. See
 [../webui/modern-dashboard-authoring.md](../webui/modern-dashboard-authoring.md) and
-[../webui/custom-query-widget.md](../webui/custom-query-widget.md).
+[../webui/custom-query-widget.md](../webui/custom-query-widget.md). The same trade applies to
+node position rather than signal coverage; see
+[webview-embedding-and-node-mapping.md](webview-embedding-and-node-mapping.md) for the built-in
+Worldwide Map's coordinate model versus rendering your own map from a custom property.
 
 For an estate that is not Cisco-first, the third option is usually the better trade. The
 second is more interesting engineering and means maintaining a synthetic controller

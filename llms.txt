@@ -195,6 +195,7 @@ Five separate polling systems that share no entities and reuse each other's colu
 | [docs/guides/layer2-switching-dashboard.md](docs/guides/layer2-switching-dashboard.md) | Validated SWQL and widget types for a Layer 2 switching dashboard: interfaces, VLANs, trunks, UDT ports and endpoints |
 | [docs/guides/wireless-heatmaps.md](docs/guides/wireless-heatmaps.md) | Where heat map signal data comes from, what can be written back, and what that means for unsupported hardware |
 | [docs/guides/ercot-grid-dashboard.md](docs/guides/ercot-grid-dashboard.md) | Replicating a public ERCOT grid dashboard with five API Poller templates, a SAM fallback for the HTML-only values, and a Modern Dashboard over the stored values |
+| [docs/guides/webview-embedding-and-node-mapping.md](docs/guides/webview-embedding-and-node-mapping.md) | Embedding an external webpage in the console with the Custom HTML widget, and placing nodes on a map by coordinate: `Location`, `Orion.WorldMap.Point`, and syncing a custom GPS property into it |
 
 ## Reference
 

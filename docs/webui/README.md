@@ -65,3 +65,5 @@ this section needs — see [../../CONTRIBUTING.md](../../CONTRIBUTING.md).
   prefixes that appear in console URLs
 - [../automation/accounts-and-permissions.md](../automation/accounts-and-permissions.md) for
   why two users can see different rows in the same widget
+- [../guides/webview-embedding-and-node-mapping.md](../guides/webview-embedding-and-node-mapping.md)
+  for embedding an external page with the Custom HTML widget, and for `Orion.WorldMap.Point`
