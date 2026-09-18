@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**300 statements across 72 pages.**
+**302 statements across 73 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -599,7 +599,17 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The SWIS round trip (2026.2, verified)](../modules/scm-compliance-policies.md#the-swis-round-trip-20262-verified)**
 
 - Assign — `AssignToEntity(policyId, entityUri, data)` — `entityUri` is a SWIS URI, and "For SCM policies it needs to be a Node"; `data` is "optional additional data" with no documented content — **unverified**, observe the console's own call before composing one
-- The file's `uniqueId` is how you *recognise* a re-import of the same policy (the `UniqueId` column), not how the server deduplicates it — query `Name`/`UniqueId` first and refuse or delete before importing again. - A `builtIn: true` in the file does not make the imported row `BuiltIn` — that column is read-only and "true only for policies deployed with the SCM installation" (**unverified** for...
+- [Policy-engine documentation](https://documentation.solarwinds.com/en/success_center/scm/content/scm-monitor-compliance-using-the-scm-policy-engine.htm). - A `builtIn: true` in the file does not make the imported row `BuiltIn` — that column is read-only and "true only for policies deployed with the SCM installation" (**unverified** for the import path specifically; the column's read-only contra...
+
+## [scm-policy-portability-audit.md](../modules/scm-policy-portability-audit.md)
+
+**[Policy inventory and intentional coverage limits](../modules/scm-policy-portability-audit.md#policy-inventory-and-intentional-coverage-limits)**
+
+- Exact coverage against the stated V1 releases remains unverified pending those releases.
+
+**[Historical-source limitation](../modules/scm-policy-portability-audit.md#historical-source-limitation)**
+
+- The archive itself was unavailable, so its precise contained release was not verified.
 
 ## [scm.md](../modules/scm.md)
 

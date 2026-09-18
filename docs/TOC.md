@@ -748,9 +748,21 @@ Server and Application Monitor is the module that monitors what runs on a node r
 Server Configuration Monitor's compliance side answers a different question than its drift-detection side.
 
 - [The entity model](modules/scm-compliance-policies.md#the-entity-model): Orion.PolicyEngine.
+- [Additional export evidence](modules/scm-compliance-policies.md#additional-export-evidence): The three-policy audit examines 333 rules from IIS, SQL Server, and Windows Server policies.
 - [The file](modules/scm-compliance-policies.md#the-file): A policy is one YAML document using application-specific tags.
 - [The SWIS round trip (2026.2, verified)](modules/scm-compliance-policies.md#the-swis-round-trip-20262-verified): The verbs live on Orion.PolicyEngine.Policy.
 - [DISA STIGs, two modules, one repository](modules/scm-compliance-policies.md#disa-stigs-two-modules-one-repository): The same STIG exists in two shapes in this repository's world: DISA's own XCCDF zip (imported into NCM compliance for network devices) and SolarWinds' SCM policy YAML (evaluated agent-side on servers).
+
+### [SCM policy portability and DISA comparison: three-policy audit](modules/scm-policy-portability-audit.md)
+
+The supplied SCM policies contain authored collection and evaluation logic that cannot be reconstructed merely by copying a STIG title, check, and fix.
+
+- [Evidence and validation boundary](modules/scm-policy-portability-audit.md#evidence-and-validation-boundary): This audit reads the owner-supplied SCM-Policies.zip, SHA-256 52efdebf42f85b80155dc8affa390d62bb90967248d929e442ddf625086db7a8.
+- [Policy inventory and intentional coverage limits](modules/scm-policy-portability-audit.md#policy-inventory-and-intentional-coverage-limits): The 100 exclusion IDs are extracted from the policy descriptions.
+- [Matching official sources and historical identities](modules/scm-policy-portability-audit.md#matching-official-sources-and-historical-identities): The live DISA catalog was accessed on 2026-09-18 using its browser search and Download controls.
+- [Observed YAML grammar and portability requirements](modules/scm-policy-portability-audit.md#observed-yaml-grammar-and-portability-requirements): All three inputs are UTF-16LE with a BOM and have the root tag !policy.
+- [Verified gaps in the current conversion tool](modules/scm-policy-portability-audit.md#verified-gaps-in-the-current-conversion-tool): The existing Python path correctly reads each supplied UTF-16 file and its preview counts 18, 79, and 236 top-level rules.
+- [Field mapping and import acceptance contract](modules/scm-policy-portability-audit.md#field-mapping-and-import-acceptance-contract): The documented 2026.2 verbs are ExportPolicy(policyId) returning a YAML string and ImportPolicy(yaml) returning a numeric policy ID on Orion.PolicyEngine.Policy.
 
 ### [SCM: Server Configuration Monitor](modules/scm.md)
 
@@ -1707,6 +1719,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [sam-templates.md](reference/unverified.md#sam-templatesmd): The root is an array
 - [sam.md](reference/unverified.md#sammd): Gotchas
 - [scm-compliance-policies.md](reference/unverified.md#scm-compliance-policiesmd): The SWIS round trip (2026.2, verified)
+- [scm-policy-portability-audit.md](reference/unverified.md#scm-policy-portability-auditmd): Policy inventory and intentional coverage limits
 - [scm.md](reference/unverified.md#scmmd): Profiles
 - [srm.md](reference/unverified.md#srmmd): Providers
 - [vman.md](reference/unverified.md#vmanmd): Hosts, clusters, datacenters and vCenters

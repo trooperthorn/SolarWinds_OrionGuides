@@ -204,7 +204,12 @@ verb `Orion.PolicyEngine.Policy.ImportPolicy(yaml)` takes the file text verbatim
 returns the new PolicyID. The tool refuses to import when a same-name policy already
 exists, then leaves assignment to you: Settings → SCM Settings → Policies (or the
 `AssignToEntity` verb). Preview parses nothing server-side — it just scans the YAML for
-the policy name, rule ids and severities.
+the policy name, rule ids and severities. The
+[SCM export audit](../../docs/modules/scm-policy-portability-audit.md) documents
+additional database sources, numeric comparisons, status translations, dependencies,
+and optional fields. Current preview is regex-based, collision checking covers Name
+only, and import has no full read-back verification. A ZIP containing policy YAML
+is not accepted by the XCCDF package reader.
 
 ## Security rules
 
@@ -360,7 +365,7 @@ All verbs live on `Orion.PolicyEngine.Policy`; positional JSON bodies.
 
 | Call | Signature (positional) | Used for |
 | --- | --- | --- |
-| Query | `SELECT PolicyID FROM Orion.PolicyEngine.Policy WHERE Name = @n` | Collision check — `ImportPolicy` always creates |
+| Query | `SELECT PolicyID FROM Orion.PolicyEngine.Policy WHERE Name = @n` | Name-only preflight; add UniqueId checking and full import verification |
 | `ImportPolicy` | `(yaml)` → new `PolicyID` (number) | The import; the argument is the `!policy` YAML document text **verbatim** |
 | `ExportPolicy` | `(policyId)` → YAML string | Round-trip/export |
 | `AssignToEntity` | `(policyId, entityUri, data)` | Assignment; the URI must be a Node for SCM policies (`swis://…/Orion/Orion.Nodes/NodeID=42`) |

@@ -34,6 +34,20 @@ WHERE AR.Status = 2
 ORDER BY PolicyName, AR.Rule.DisplayId
 ```
 
+## Additional export evidence
+
+The [three-policy audit](scm-policy-portability-audit.md) examines 333 rules from IIS,
+SQL Server, and Windows Server policies. It adds database-query sources, numeric
+comparisons, status translations, rule dependencies, optional-field omissions, legacy
+DISA identity mappings, and offline parser probes. In those exports, top-level `version`
+and `builtIn` and every rule's `checkText` are absent; preserve absence rather than
+requiring all fields shown in the earlier example below.
+
+All three supplied YAML files match the corresponding THWACK publication attachments
+byte-for-byte, and the published exclusion lists match their descriptions. The audit
+records those sources and distinguishes newer same-product references from an IIS 8.5
+to IIS 10.0 migration; a newer source package does not itself update executable checks.
+
 ## The file
 
 A policy is one YAML document using application-specific tags. The root is `!policy`:
@@ -103,7 +117,8 @@ Print Services role installed, otherwise the rule is not applicable rather than 
 or failed.
 
 Two YAML features matter for parsing these files: anchors and aliases (`&o0` / `*o0`)
-de-duplicate a source that several comparisons share — one collection, many tests — and
+share a source node among comparisons; actual collection scheduling is not established
+by the alias alone. Also,
 the custom tags mean a stock `yaml.safe_load` refuses the document. Either register the
 tags with the loader or, better, don't parse at all: the import verb wants the text.
 
@@ -123,10 +138,10 @@ endpoint; the entity requires `manageNodes` for anything beyond read.
 
 Round-trip gotchas:
 
-- `ImportPolicy` always creates; there is no update-by-import. The file's `uniqueId` is
-  how you *recognise* a re-import of the same policy (the `UniqueId` column), not how
-  the server deduplicates it — query `Name`/`UniqueId` first and refuse or delete
-  before importing again.
+- SolarWinds documents that import rejects a policy whose name or unique ID already
+  exists. Preflight both `Name` and `UniqueId`, report the conflict, and preserve the
+  existing policy. Do not treat import as an upsert or automatically delete a collision.
+  [Policy-engine documentation](https://documentation.solarwinds.com/en/success_center/scm/content/scm-monitor-compliance-using-the-scm-policy-engine.htm).
 - A `builtIn: true` in the file does not make the imported row `BuiltIn` — that column
   is read-only and "true only for policies deployed with the SCM installation"
   (**unverified** for the import path specifically; the column's read-only contract is

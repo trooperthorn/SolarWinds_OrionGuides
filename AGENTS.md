@@ -19,6 +19,9 @@ observations do not expand the 2026.2 schema contract; consult
 owner-supplied contractor NCM package is likewise documented in
 `docs/modules/ncm-compliance-portability-audit.md`; its reported 2022-2026.1 source range
 and observed XML shape do not certify API or rule-evaluation compatibility across releases.
+The owner-supplied SCM policy audit in `docs/modules/scm-policy-portability-audit.md`
+adds three tagged-YAML exports and source comparisons. Their historical STIG labels
+do not identify an SCM release, and offline parsing does not certify live evaluation.
 
 ## Finding your way around
 

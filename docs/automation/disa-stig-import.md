@@ -125,7 +125,11 @@ SolarWinds ships server STIGs as SCM compliance policies — YAML documents tagg
 `!policy` with `pluginName: SCM`, whose rules carry actual machine checks
 (`!scm.registry` and `!scm.powershell` sources under `!all`/`!any`/`!none`
 combinators). The format is documented field by field in
-[../modules/scm-compliance-policies.md](../modules/scm-compliance-policies.md).
+[../modules/scm-compliance-policies.md](../modules/scm-compliance-policies.md). The
+[three-policy export audit](../modules/scm-policy-portability-audit.md) adds status
+translations, rule dependencies, database sources, legacy identities, and verified
+preview/import-validation gaps. A ZIP of SCM YAML is not currently recognized by
+the converter's XCCDF ZIP path; select individual policy files until that is implemented.
 
 The import is one verb, because the file itself is the payload:
 

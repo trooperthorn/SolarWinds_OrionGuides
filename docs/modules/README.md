@@ -15,6 +15,9 @@ exposes, worked queries, and the traps specific to it.
 For the one-screen version of the same map, plus the platform core entities that exist
 regardless of licensing, see [../platform/modules.md](../platform/modules.md).
 
+The [SCM policy portability audit](scm-policy-portability-audit.md) compares three
+policy exports with official source content and documents parser/import requirements.
+
 ## The modules
 
 Entity counts are exact for the 2026.2 extraction in
