@@ -1,0 +1,2692 @@
+{
+  "version": 1,
+  "dashboards": [
+    {
+      "unique_key": "098fc35c-d282-5a8e-8329-eef654bf03e9",
+      "name": "ERCOT Texas Power Grid",
+      "parent": null,
+      "feature": null,
+      "private": null,
+      "widgets": [
+        {
+          "unique_key": "7c2c18f5-e79d-56c0-ae72-7fd949b97ad1",
+          "location": {
+            "x": 0,
+            "y": 0,
+            "cols": 12,
+            "rows": 1
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "ab3b7bad-ec94-5bcd-9eb3-101b3dcfb93a",
+          "location": {
+            "x": 0,
+            "y": 1,
+            "cols": 7,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "92eac585-8480-5c72-9c56-cb1379b92df7",
+          "location": {
+            "x": 7,
+            "y": 1,
+            "cols": 5,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "d9ac298d-513c-529d-9115-ca7e28eb21f3",
+          "location": {
+            "x": 0,
+            "y": 4,
+            "cols": 6,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "7e88da65-7665-5bf9-8538-ce283b280061",
+          "location": {
+            "x": 6,
+            "y": 4,
+            "cols": 3,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "6fb3b6cf-2c6e-5841-a799-3a9163779d85",
+          "location": {
+            "x": 9,
+            "y": 4,
+            "cols": 3,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "511c7509-a619-54d5-8794-63c50313a557",
+          "location": {
+            "x": 0,
+            "y": 7,
+            "cols": 5,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "313ec801-da95-5757-a04d-df4894ab288b",
+          "location": {
+            "x": 5,
+            "y": 7,
+            "cols": 4,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "9d3023c8-3851-53c6-855b-044613ad05aa",
+          "location": {
+            "x": 9,
+            "y": 7,
+            "cols": 3,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "ac6ee4ec-fb7c-5658-901c-c9c6c1b551e1",
+          "location": {
+            "x": 0,
+            "y": 10,
+            "cols": 8,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "c7ca0b7a-9217-5ec1-8f07-117642fa1df3",
+          "location": {
+            "x": 8,
+            "y": 10,
+            "cols": 4,
+            "rows": 3
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "01d61eea-1e22-5c72-a5e3-21aada8ec6ff",
+          "location": {
+            "x": 0,
+            "y": 13,
+            "cols": 3,
+            "rows": 1
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "650d82c6-8c86-5c55-b339-eea78a7879cb",
+          "location": {
+            "x": 3,
+            "y": 13,
+            "cols": 9,
+            "rows": 2
+          },
+          "reference": false
+        },
+        {
+          "unique_key": "55d8381e-c3e2-54c6-8a26-167a7709a2d6",
+          "location": {
+            "x": 0,
+            "y": 15,
+            "cols": 12,
+            "rows": 2
+          },
+          "reference": false
+        }
+      ]
+    }
+  ],
+  "widgets": [
+    {
+      "type": "kpi",
+      "unique_key": "7c2c18f5-e79d-56c0-ae72-7fd949b97ad1",
+      "name": "Big Honkin' Numbers",
+      "subtitle": "Latest readings from the ERCOT Grid Conditions and Settlement Point Prices pollers",
+      "description": "One single-row query per tile. Frequency should hover at 60 Hz; Unused Capacity is capacity minus demand; DC Tie Net Flow is the sum of the four tie flows, positive when ERCOT is exporting.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 60,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Big Honkin' Numbers",
+            "subtitle": "Latest readings from the ERCOT Grid Conditions and Settlement Point Prices pollers",
+            "url": "",
+            "description": "One single-row query per tile. Frequency should hover at 60 Hz; Unused Capacity is capacity minus demand; DC Tie Net Flow is the sum of the four tie flows, positive when ERCOT is exporting.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "tiles": {
+          "properties": {
+            "nodes": [
+              "kpi_5cdbb83f-5ae1-55e5-baa6-cd8e63c13c33",
+              "kpi_a1d5c909-0ec7-530d-b3c6-b709aaafb530",
+              "kpi_3eeb1cd6-c1f5-5b52-8292-2e6965b05503",
+              "kpi_0eb1a386-43f3-5789-b274-e888ee94a6ea",
+              "kpi_14c0682c-d13a-5244-82d6-ea1abd67866c",
+              "kpi_f577ddb6-8160-5dc0-adf2-a59f5832d032"
+            ]
+          }
+        },
+        "kpi_5cdbb83f-5ae1-55e5-baa6-cd8e63c13c33": {
+          "id": "kpi_5cdbb83f-5ae1-55e5-baa6-cd8e63c13c33",
+          "componentType": "KpiComponent",
+          "providers": {
+            "dataSource": {
+              "providerId": "KpiSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT TOP 1 v.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName = 'Total System Capacity (MW)'",
+                "dataFields": [
+                  {
+                    "id": "Value",
+                    "label": "Value",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_KPI_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "kpi_5cdbb83f-5ae1-55e5-baa6-cd8e63c13c33",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT TOP 1 v.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName = 'Total System Capacity (MW)'",
+                    "dataFields": [
+                      {
+                        "id": "Value",
+                        "label": "Value",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                },
+                "thresholds": {
+                  "criticalThresholdValue": null,
+                  "warningThresholdValue": null,
+                  "showThresholds": false,
+                  "reversedThresholds": false
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "interactive": false
+            },
+            "widgetData": {
+              "label": "Generation Capacity",
+              "backgroundColor": "var(--nui-color-semantic-info)",
+              "units": "MW"
+            }
+          }
+        },
+        "kpi_a1d5c909-0ec7-530d-b3c6-b709aaafb530": {
+          "id": "kpi_a1d5c909-0ec7-530d-b3c6-b709aaafb530",
+          "componentType": "KpiComponent",
+          "providers": {
+            "dataSource": {
+              "providerId": "KpiSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT TOP 1 v.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName = 'Grid Frequency (Hz)'",
+                "dataFields": [
+                  {
+                    "id": "Value",
+                    "label": "Value",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_KPI_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "kpi_a1d5c909-0ec7-530d-b3c6-b709aaafb530",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT TOP 1 v.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName = 'Grid Frequency (Hz)'",
+                    "dataFields": [
+                      {
+                        "id": "Value",
+                        "label": "Value",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                },
+                "thresholds": {
+                  "criticalThresholdValue": null,
+                  "warningThresholdValue": null,
+                  "showThresholds": false,
+                  "reversedThresholds": false
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "interactive": false
+            },
+            "widgetData": {
+              "label": "Grid Frequency",
+              "backgroundColor": "var(--nui-color-semantic-ok)",
+              "units": "Hz (should hover at 60)"
+            }
+          }
+        },
+        "kpi_3eeb1cd6-c1f5-5b52-8292-2e6965b05503": {
+          "id": "kpi_3eeb1cd6-c1f5-5b52-8292-2e6965b05503",
+          "componentType": "KpiComponent",
+          "providers": {
+            "dataSource": {
+              "providerId": "KpiSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT TOP 1 c.Metric - d.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor c\nJOIN Orion.APIPoller.ValueToMonitor d ON d.ApiPollerId = c.ApiPollerId\nWHERE c.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND c.DisplayName = 'Total System Capacity (MW)'\n  AND d.DisplayName = 'Actual System Demand (MW)'",
+                "dataFields": [
+                  {
+                    "id": "Value",
+                    "label": "Value",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_KPI_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "kpi_3eeb1cd6-c1f5-5b52-8292-2e6965b05503",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT TOP 1 c.Metric - d.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor c\nJOIN Orion.APIPoller.ValueToMonitor d ON d.ApiPollerId = c.ApiPollerId\nWHERE c.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND c.DisplayName = 'Total System Capacity (MW)'\n  AND d.DisplayName = 'Actual System Demand (MW)'",
+                    "dataFields": [
+                      {
+                        "id": "Value",
+                        "label": "Value",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                },
+                "thresholds": {
+                  "criticalThresholdValue": null,
+                  "warningThresholdValue": null,
+                  "showThresholds": false,
+                  "reversedThresholds": false
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "interactive": false
+            },
+            "widgetData": {
+              "label": "Unused Capacity",
+              "backgroundColor": "var(--nui-color-semantic-info)",
+              "units": "MW (capacity minus demand)"
+            }
+          }
+        },
+        "kpi_0eb1a386-43f3-5789-b274-e888ee94a6ea": {
+          "id": "kpi_0eb1a386-43f3-5789-b274-e888ee94a6ea",
+          "componentType": "KpiComponent",
+          "providers": {
+            "dataSource": {
+              "providerId": "KpiSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT SUM(v.Metric) AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName LIKE 'DC Tie Flow%'",
+                "dataFields": [
+                  {
+                    "id": "Value",
+                    "label": "Value",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_KPI_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "kpi_0eb1a386-43f3-5789-b274-e888ee94a6ea",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT SUM(v.Metric) AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName LIKE 'DC Tie Flow%'",
+                    "dataFields": [
+                      {
+                        "id": "Value",
+                        "label": "Value",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                },
+                "thresholds": {
+                  "criticalThresholdValue": null,
+                  "warningThresholdValue": null,
+                  "showThresholds": false,
+                  "reversedThresholds": false
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "interactive": false
+            },
+            "widgetData": {
+              "label": "DC Tie Net Flow",
+              "backgroundColor": "var(--nui-color-semantic-info)",
+              "units": "MW (+ to other grids, - from)"
+            }
+          }
+        },
+        "kpi_14c0682c-d13a-5244-82d6-ea1abd67866c": {
+          "id": "kpi_14c0682c-d13a-5244-82d6-ea1abd67866c",
+          "componentType": "KpiComponent",
+          "providers": {
+            "dataSource": {
+              "providerId": "KpiSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT MAX(v.Metric) AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Settlement Point Prices'",
+                "dataFields": [
+                  {
+                    "id": "Value",
+                    "label": "Value",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_KPI_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "kpi_14c0682c-d13a-5244-82d6-ea1abd67866c",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT MAX(v.Metric) AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Settlement Point Prices'",
+                    "dataFields": [
+                      {
+                        "id": "Value",
+                        "label": "Value",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                },
+                "thresholds": {
+                  "criticalThresholdValue": null,
+                  "warningThresholdValue": null,
+                  "showThresholds": false,
+                  "reversedThresholds": false
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "interactive": false
+            },
+            "widgetData": {
+              "label": "Highest Settlement Point Price",
+              "backgroundColor": "var(--nui-color-semantic-warning)",
+              "units": "$/MWh, latest interval"
+            }
+          }
+        },
+        "kpi_f577ddb6-8160-5dc0-adf2-a59f5832d032": {
+          "id": "kpi_f577ddb6-8160-5dc0-adf2-a59f5832d032",
+          "componentType": "KpiComponent",
+          "providers": {
+            "dataSource": {
+              "providerId": "KpiSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT TOP 1 v.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName = 'EEA Level'",
+                "dataFields": [
+                  {
+                    "id": "Value",
+                    "label": "Value",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_KPI_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "kpi_f577ddb6-8160-5dc0-adf2-a59f5832d032",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT TOP 1 v.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName = 'EEA Level'",
+                    "dataFields": [
+                      {
+                        "id": "Value",
+                        "label": "Value",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                },
+                "thresholds": {
+                  "criticalThresholdValue": null,
+                  "warningThresholdValue": null,
+                  "showThresholds": false,
+                  "reversedThresholds": false
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "interactive": false
+            },
+            "widgetData": {
+              "label": "EEA Level",
+              "backgroundColor": "var(--nui-color-semantic-ok)",
+              "units": "0 = normal"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "ab3b7bad-ec94-5bcd-9eb3-101b3dcfb93a",
+      "name": "Real-Time Grid Conditions",
+      "subtitle": "ERCOT Grid Conditions poller, every value with its status",
+      "description": "Every ValueToMonitor on the ERCOT Grid Conditions API Poller, with the platform's own status and last poll time.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 60,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Real-Time Grid Conditions",
+            "subtitle": "ERCOT Grid Conditions poller, every value with its status",
+            "url": "",
+            "description": "Every ValueToMonitor on the ERCOT Grid Conditions API Poller, with the platform's own status and last poll time.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    v.DisplayName AS [Metric],\n    v.DetailsUrl AS [Metric_URL],\n    v.Status AS [Metric_Status],\n    v.Metric AS [Reading],\n    v.StatusDescription AS [State],\n    v.ApiPoller.LastPollTimestamp AS [Last Poll]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions'\nORDER BY v.DisplayName",
+                "dataFields": [
+                  {
+                    "id": "Metric",
+                    "label": "Metric",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Metric_URL",
+                    "label": "Metric_URL",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Metric_Status",
+                    "label": "Metric_Status",
+                    "dataType": "System.Int32"
+                  },
+                  {
+                    "id": "Reading",
+                    "label": "Reading",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "State",
+                    "label": "State",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Last Poll",
+                    "label": "Last Poll",
+                    "dataType": "System.DateTime"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    v.DisplayName AS [Metric],\n    v.DetailsUrl AS [Metric_URL],\n    v.Status AS [Metric_Status],\n    v.Metric AS [Reading],\n    v.StatusDescription AS [State],\n    v.ApiPoller.LastPollTimestamp AS [Last Poll]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions'\nORDER BY v.DisplayName",
+                    "dataFields": [
+                      {
+                        "id": "Metric",
+                        "label": "Metric",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Metric_URL",
+                        "label": "Metric_URL",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Metric_Status",
+                        "label": "Metric_Status",
+                        "dataType": "System.Int32"
+                      },
+                      {
+                        "id": "Reading",
+                        "label": "Reading",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "State",
+                        "label": "State",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Last Poll",
+                        "label": "Last Poll",
+                        "dataType": "System.DateTime"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_66494ffc-284a-5a53-809c-f391a53978a9",
+                  "label": "Metric",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "EntityLinkFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "status": "Metric_Status",
+                        "vendor": null,
+                        "link": "Metric_URL",
+                        "value": "Metric"
+                      },
+                      "iconFormat": "status",
+                      "entityIcon": null
+                    }
+                  },
+                  "width": 300
+                },
+                {
+                  "id": "column_570562ba-99d7-56b8-a1ef-45572b0c7aa8",
+                  "label": "Reading",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "SimpleNumberFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Reading"
+                      }
+                    }
+                  },
+                  "width": 120
+                },
+                {
+                  "id": "column_0dba90f7-1177-5883-b6c2-15775603dfc1",
+                  "label": "State",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "State"
+                      }
+                    }
+                  },
+                  "width": 120
+                },
+                {
+                  "id": "column_b260664f-3022-5186-8ca5-a212a7076a91",
+                  "label": "Last Poll",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "DatetimeFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Last Poll"
+                      },
+                      "option": 0,
+                      "replaceDate": false
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_66494ffc-284a-5a53-809c-f391a53978a9",
+                "descendantSorting": false
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "proportional",
+      "unique_key": "92eac585-8480-5c72-9c56-cb1379b92df7",
+      "name": "DC Tie Flows",
+      "subtitle": "MW with other grids: negative is power flowing into ERCOT",
+      "description": "The four DC ties the JSON endpoint publishes (DC_E East, DC_N North, DC_L Laredo VFT, DC_R Railroad). Blue is importing, amber is exporting.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 60,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "DC Tie Flows",
+            "subtitle": "MW with other grids: negative is power flowing into ERCOT",
+            "url": "",
+            "description": "The four DC ties the JSON endpoint publishes (DC_E East, DC_N North, DC_L Laredo VFT, DC_R Railroad). Blue is importing, amber is exporting.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "chart": {
+          "providers": {
+            "dataSource": {
+              "providerId": "ProportionalSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    Replace(Replace(v.DisplayName, 'DC Tie Flow ', ''), ' (MW)', '') AS [Tie],\n    v.Metric AS [MW],\n    CASE WHEN v.Metric < 0 THEN '#2e7dd1' ELSE '#e0a82e' END AS [Color],\n    v.DetailsUrl AS [Link]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName LIKE 'DC Tie Flow%'\nORDER BY v.DisplayName",
+                "categoryField": "Tie",
+                "valueField": "MW",
+                "colorMappingField": "Color",
+                "iconMappingField": null,
+                "linkMappingField": "Link",
+                "dataFormat": "custom",
+                "editor": {},
+                "dataFields": [
+                  {
+                    "id": "Tie",
+                    "label": "Tie",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "MW",
+                    "label": "MW",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Color",
+                    "label": "Color",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Link",
+                    "label": "Link",
+                    "dataType": "System.String"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "chart",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    Replace(Replace(v.DisplayName, 'DC Tie Flow ', ''), ' (MW)', '') AS [Tie],\n    v.Metric AS [MW],\n    CASE WHEN v.Metric < 0 THEN '#2e7dd1' ELSE '#e0a82e' END AS [Color],\n    v.DetailsUrl AS [Link]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Grid Conditions' AND v.DisplayName LIKE 'DC Tie Flow%'\nORDER BY v.DisplayName",
+                    "categoryField": "Tie",
+                    "valueField": "MW",
+                    "colorMappingField": "Color",
+                    "iconMappingField": null,
+                    "linkMappingField": "Link",
+                    "dataFormat": "custom",
+                    "editor": {},
+                    "dataFields": [
+                      {
+                        "id": "Tie",
+                        "label": "Tie",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "MW",
+                        "label": "MW",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Color",
+                        "label": "Color",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Link",
+                        "label": "Link",
+                        "dataType": "System.String"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "chartOptions": {
+                "type": "HorizontalBarChart",
+                "legendPlacement": "None",
+                "legendFormatter": {
+                  "componentType": "GenericValueFormatterComponent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "d9ac298d-513c-529d-9115-ca7e28eb21f3",
+      "name": "Ancillary Services",
+      "subtitle": "ERCOT Ancillary Services poller, every five minutes",
+      "description": "Physical Responsive Capability (operating reserves), regulation, non-spin and reserve capacity. The key each value reads is in square brackets in its name.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 300,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Ancillary Services",
+            "subtitle": "ERCOT Ancillary Services poller, every five minutes",
+            "url": "",
+            "description": "Physical Responsive Capability (operating reserves), regulation, non-spin and reserve capacity. The key each value reads is in square brackets in its name.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    v.DisplayName AS [Metric],\n    v.DetailsUrl AS [Metric_URL],\n    v.Status AS [Metric_Status],\n    v.Metric AS [Reading],\n    v.StatusDescription AS [State],\n    v.ApiPoller.LastPollTimestamp AS [Last Poll]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Ancillary Services'\nORDER BY v.DisplayName",
+                "dataFields": [
+                  {
+                    "id": "Metric",
+                    "label": "Metric",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Metric_URL",
+                    "label": "Metric_URL",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Metric_Status",
+                    "label": "Metric_Status",
+                    "dataType": "System.Int32"
+                  },
+                  {
+                    "id": "Reading",
+                    "label": "Reading",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "State",
+                    "label": "State",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Last Poll",
+                    "label": "Last Poll",
+                    "dataType": "System.DateTime"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    v.DisplayName AS [Metric],\n    v.DetailsUrl AS [Metric_URL],\n    v.Status AS [Metric_Status],\n    v.Metric AS [Reading],\n    v.StatusDescription AS [State],\n    v.ApiPoller.LastPollTimestamp AS [Last Poll]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Ancillary Services'\nORDER BY v.DisplayName",
+                    "dataFields": [
+                      {
+                        "id": "Metric",
+                        "label": "Metric",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Metric_URL",
+                        "label": "Metric_URL",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Metric_Status",
+                        "label": "Metric_Status",
+                        "dataType": "System.Int32"
+                      },
+                      {
+                        "id": "Reading",
+                        "label": "Reading",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "State",
+                        "label": "State",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Last Poll",
+                        "label": "Last Poll",
+                        "dataType": "System.DateTime"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_a8cc33a9-2e0d-5a41-bd85-1defb11d53ec",
+                  "label": "Metric",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "EntityLinkFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "status": "Metric_Status",
+                        "vendor": null,
+                        "link": "Metric_URL",
+                        "value": "Metric"
+                      },
+                      "iconFormat": "status",
+                      "entityIcon": null
+                    }
+                  },
+                  "width": 420
+                },
+                {
+                  "id": "column_b0da6862-e5b1-5438-bba6-3c331f1109a8",
+                  "label": "MW",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "SimpleNumberFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Reading"
+                      }
+                    }
+                  },
+                  "width": 120
+                },
+                {
+                  "id": "column_ec4ab8f7-6ea5-5556-a1fd-e0209e530015",
+                  "label": "Last Poll",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "DatetimeFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Last Poll"
+                      },
+                      "option": 0,
+                      "replaceDate": false
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_a8cc33a9-2e0d-5a41-bd85-1defb11d53ec",
+                "descendantSorting": false
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "7e88da65-7665-5bf9-8538-ce283b280061",
+      "name": "Grid Frequency, last 24 hours",
+      "subtitle": "Min, average and max per observation",
+      "description": "Windowed read of Orion.APIPoller.ValueToMonitor.Metrics for the frequency value. A Modern Dashboard has no SWQL time-series widget; this table and PerfStack are the two ways to see history.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 300,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Grid Frequency, last 24 hours",
+            "subtitle": "Min, average and max per observation",
+            "url": "",
+            "description": "Windowed read of Orion.APIPoller.ValueToMonitor.Metrics for the frequency value. A Modern Dashboard has no SWQL time-series widget; this table and PerfStack are the two ways to see history.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT TOP 288\n    m.ObservationTimestamp AS [Observed],\n    m.MinMetric AS [Min Hz],\n    m.AvgMetric AS [Avg Hz],\n    m.MaxMetric AS [Max Hz]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'\n  AND m.ObservationTimestamp > AddHour(-24, GetDate())\nORDER BY m.ObservationTimestamp DESC",
+                "dataFields": [
+                  {
+                    "id": "Observed",
+                    "label": "Observed",
+                    "dataType": "System.DateTime"
+                  },
+                  {
+                    "id": "Min Hz",
+                    "label": "Min Hz",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Avg Hz",
+                    "label": "Avg Hz",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Max Hz",
+                    "label": "Max Hz",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT TOP 288\n    m.ObservationTimestamp AS [Observed],\n    m.MinMetric AS [Min Hz],\n    m.AvgMetric AS [Avg Hz],\n    m.MaxMetric AS [Max Hz]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'\n  AND m.ObservationTimestamp > AddHour(-24, GetDate())\nORDER BY m.ObservationTimestamp DESC",
+                    "dataFields": [
+                      {
+                        "id": "Observed",
+                        "label": "Observed",
+                        "dataType": "System.DateTime"
+                      },
+                      {
+                        "id": "Min Hz",
+                        "label": "Min Hz",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Avg Hz",
+                        "label": "Avg Hz",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Max Hz",
+                        "label": "Max Hz",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_4c8a17ee-9e04-5cff-b9fc-e5b1094f0817",
+                  "label": "Observed",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "DatetimeFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Observed"
+                      },
+                      "option": 0,
+                      "replaceDate": false
+                    }
+                  }
+                },
+                {
+                  "id": "column_92262272-dbce-57ad-b75d-8e79dcc0a176",
+                  "label": "Min Hz",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Min Hz"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_4d091596-253c-57fb-a624-7704c2ef0694",
+                  "label": "Avg Hz",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Avg Hz"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_8989d8f2-1f42-51d4-94e8-485308f96429",
+                  "label": "Max Hz",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Max Hz"
+                      }
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_4c8a17ee-9e04-5cff-b9fc-e5b1094f0817",
+                "descendantSorting": true
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "6fb3b6cf-2c6e-5841-a799-3a9163779d85",
+      "name": "Capacity and Demand, last 24 hours",
+      "subtitle": "Average per observation, with the unused margin",
+      "description": "Demand and capacity observations joined on timestamp. Unused is capacity minus demand, the number the Datadog dashboard charted as Operating Reserves.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 300,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Capacity and Demand, last 24 hours",
+            "subtitle": "Average per observation, with the unused margin",
+            "url": "",
+            "description": "Demand and capacity observations joined on timestamp. Unused is capacity minus demand, the number the Datadog dashboard charted as Operating Reserves.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT TOP 288\n    d.ObservationTimestamp AS [Observed],\n    d.AvgMetric AS [Demand MW],\n    c.AvgMetric AS [Capacity MW],\n    c.AvgMetric - d.AvgMetric AS [Unused MW]\nFROM Orion.APIPoller.ValueToMonitor.Metrics d\nJOIN Orion.APIPoller.ValueToMonitor.Metrics c\n  ON c.ObservationTimestamp = d.ObservationTimestamp\n AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'\n AND c.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\nWHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'\n  AND d.ObservationTimestamp > AddHour(-24, GetDate())\nORDER BY d.ObservationTimestamp DESC",
+                "dataFields": [
+                  {
+                    "id": "Observed",
+                    "label": "Observed",
+                    "dataType": "System.DateTime"
+                  },
+                  {
+                    "id": "Demand MW",
+                    "label": "Demand MW",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Capacity MW",
+                    "label": "Capacity MW",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Unused MW",
+                    "label": "Unused MW",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT TOP 288\n    d.ObservationTimestamp AS [Observed],\n    d.AvgMetric AS [Demand MW],\n    c.AvgMetric AS [Capacity MW],\n    c.AvgMetric - d.AvgMetric AS [Unused MW]\nFROM Orion.APIPoller.ValueToMonitor.Metrics d\nJOIN Orion.APIPoller.ValueToMonitor.Metrics c\n  ON c.ObservationTimestamp = d.ObservationTimestamp\n AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'\n AND c.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\nWHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'\n  AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'\n  AND d.ObservationTimestamp > AddHour(-24, GetDate())\nORDER BY d.ObservationTimestamp DESC",
+                    "dataFields": [
+                      {
+                        "id": "Observed",
+                        "label": "Observed",
+                        "dataType": "System.DateTime"
+                      },
+                      {
+                        "id": "Demand MW",
+                        "label": "Demand MW",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Capacity MW",
+                        "label": "Capacity MW",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Unused MW",
+                        "label": "Unused MW",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_965e0906-620f-5985-bba4-a6adb037c3eb",
+                  "label": "Observed",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "DatetimeFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Observed"
+                      },
+                      "option": 0,
+                      "replaceDate": false
+                    }
+                  }
+                },
+                {
+                  "id": "column_556f00e5-d0ef-5582-bcaa-eac5c3c76af6",
+                  "label": "Demand MW",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Demand MW"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_49aa8f27-9f18-528f-9ac7-c0b84d55dd58",
+                  "label": "Capacity MW",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Capacity MW"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_b8530787-4ab4-5dc0-959a-e14461340eca",
+                  "label": "Unused MW",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Unused MW"
+                      }
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_965e0906-620f-5985-bba4-a6adb037c3eb",
+                "descendantSorting": true
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "proportional",
+      "unique_key": "511c7509-a619-54d5-8794-63c50313a557",
+      "name": "Latest Settlement Point Prices",
+      "subtitle": "$/MWh per hub and load zone, highest first",
+      "description": "Real-time settlement point prices for the latest 15-minute interval, coloured green under $200, amber to $1,000, red above.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 300,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Latest Settlement Point Prices",
+            "subtitle": "$/MWh per hub and load zone, highest first",
+            "url": "",
+            "description": "Real-time settlement point prices for the latest 15-minute interval, coloured green under $200, amber to $1,000, red above.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "chart": {
+          "providers": {
+            "dataSource": {
+              "providerId": "ProportionalSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    Replace(v.DisplayName, ' ($/MWh)', '') AS [Settlement Point],\n    v.Metric AS [Price],\n    CASE\n        WHEN v.Metric >= 1000 THEN '#d13b3b'\n        WHEN v.Metric >= 200 THEN '#e0a82e'\n        ELSE '#3c9a5f'\n    END AS [Color],\n    v.DetailsUrl AS [Link]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Settlement Point Prices'\nORDER BY v.Metric DESC",
+                "categoryField": "Settlement Point",
+                "valueField": "Price",
+                "colorMappingField": "Color",
+                "iconMappingField": null,
+                "linkMappingField": "Link",
+                "dataFormat": "custom",
+                "editor": {},
+                "dataFields": [
+                  {
+                    "id": "Settlement Point",
+                    "label": "Settlement Point",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Price",
+                    "label": "Price",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Color",
+                    "label": "Color",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Link",
+                    "label": "Link",
+                    "dataType": "System.String"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "chart",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    Replace(v.DisplayName, ' ($/MWh)', '') AS [Settlement Point],\n    v.Metric AS [Price],\n    CASE\n        WHEN v.Metric >= 1000 THEN '#d13b3b'\n        WHEN v.Metric >= 200 THEN '#e0a82e'\n        ELSE '#3c9a5f'\n    END AS [Color],\n    v.DetailsUrl AS [Link]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Settlement Point Prices'\nORDER BY v.Metric DESC",
+                    "categoryField": "Settlement Point",
+                    "valueField": "Price",
+                    "colorMappingField": "Color",
+                    "iconMappingField": null,
+                    "linkMappingField": "Link",
+                    "dataFormat": "custom",
+                    "editor": {},
+                    "dataFields": [
+                      {
+                        "id": "Settlement Point",
+                        "label": "Settlement Point",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Price",
+                        "label": "Price",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Color",
+                        "label": "Color",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Link",
+                        "label": "Link",
+                        "dataType": "System.String"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "chartOptions": {
+                "type": "HorizontalBarChart",
+                "legendPlacement": "None",
+                "legendFormatter": {
+                  "componentType": "GenericValueFormatterComponent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "313ec801-da95-5757-a04d-df4894ab288b",
+      "name": "Settlement Point Prices",
+      "subtitle": "ERCOT Settlement Point Prices poller, every 15 minutes",
+      "description": "Every settlement point with its latest price and the poll time.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 300,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Settlement Point Prices",
+            "subtitle": "ERCOT Settlement Point Prices poller, every 15 minutes",
+            "url": "",
+            "description": "Every settlement point with its latest price and the poll time.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    v.DisplayName AS [Metric],\n    v.DetailsUrl AS [Metric_URL],\n    v.Status AS [Metric_Status],\n    v.Metric AS [Reading],\n    v.StatusDescription AS [State],\n    v.ApiPoller.LastPollTimestamp AS [Last Poll]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Settlement Point Prices'\nORDER BY v.DisplayName",
+                "dataFields": [
+                  {
+                    "id": "Metric",
+                    "label": "Metric",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Metric_URL",
+                    "label": "Metric_URL",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Metric_Status",
+                    "label": "Metric_Status",
+                    "dataType": "System.Int32"
+                  },
+                  {
+                    "id": "Reading",
+                    "label": "Reading",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "State",
+                    "label": "State",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Last Poll",
+                    "label": "Last Poll",
+                    "dataType": "System.DateTime"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    v.DisplayName AS [Metric],\n    v.DetailsUrl AS [Metric_URL],\n    v.Status AS [Metric_Status],\n    v.Metric AS [Reading],\n    v.StatusDescription AS [State],\n    v.ApiPoller.LastPollTimestamp AS [Last Poll]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'ERCOT Settlement Point Prices'\nORDER BY v.DisplayName",
+                    "dataFields": [
+                      {
+                        "id": "Metric",
+                        "label": "Metric",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Metric_URL",
+                        "label": "Metric_URL",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Metric_Status",
+                        "label": "Metric_Status",
+                        "dataType": "System.Int32"
+                      },
+                      {
+                        "id": "Reading",
+                        "label": "Reading",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "State",
+                        "label": "State",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Last Poll",
+                        "label": "Last Poll",
+                        "dataType": "System.DateTime"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_11885f05-35b2-51ef-b9cb-61720bb3927e",
+                  "label": "Settlement Point",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "EntityLinkFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "status": "Metric_Status",
+                        "vendor": null,
+                        "link": "Metric_URL",
+                        "value": "Metric"
+                      },
+                      "iconFormat": "status",
+                      "entityIcon": null
+                    }
+                  },
+                  "width": 220
+                },
+                {
+                  "id": "column_459d694c-4a23-5e12-82e7-30cfa7bf5c94",
+                  "label": "$/MWh",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "SimpleNumberFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Reading"
+                      }
+                    }
+                  },
+                  "width": 120
+                },
+                {
+                  "id": "column_300ef78f-5396-5b65-b0ec-4fdcef1d0aa8",
+                  "label": "Last Poll",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "DatetimeFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Last Poll"
+                      },
+                      "option": 0,
+                      "replaceDate": false
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_11885f05-35b2-51ef-b9cb-61720bb3927e",
+                "descendantSorting": false
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "9d3023c8-3851-53c6-855b-044613ad05aa",
+      "name": "Hub Prices, last 6 hours",
+      "subtitle": "HB_HUBAVG, HB_HOUSTON, HB_NORTH and HB_WEST by interval",
+      "description": "Windowed read of the price history for four hubs, newest first.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 300,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Hub Prices, last 6 hours",
+            "subtitle": "HB_HUBAVG, HB_HOUSTON, HB_NORTH and HB_WEST by interval",
+            "url": "",
+            "description": "Windowed read of the price history for four hubs, newest first.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT TOP 96\n    m.ObservationTimestamp AS [Observed],\n    m.ValueToMonitor.DisplayName AS [Settlement Point],\n    m.AvgMetric AS [$/MWh]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'\n  AND m.ValueToMonitor.DisplayName IN ('HB_HUBAVG ($/MWh)', 'HB_HOUSTON ($/MWh)', 'HB_NORTH ($/MWh)', 'HB_WEST ($/MWh)')\n  AND m.ObservationTimestamp > AddHour(-6, GetDate())\nORDER BY m.ObservationTimestamp DESC, m.ValueToMonitor.DisplayName",
+                "dataFields": [
+                  {
+                    "id": "Observed",
+                    "label": "Observed",
+                    "dataType": "System.DateTime"
+                  },
+                  {
+                    "id": "Settlement Point",
+                    "label": "Settlement Point",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "$/MWh",
+                    "label": "$/MWh",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT TOP 96\n    m.ObservationTimestamp AS [Observed],\n    m.ValueToMonitor.DisplayName AS [Settlement Point],\n    m.AvgMetric AS [$/MWh]\nFROM Orion.APIPoller.ValueToMonitor.Metrics m\nWHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Settlement Point Prices'\n  AND m.ValueToMonitor.DisplayName IN ('HB_HUBAVG ($/MWh)', 'HB_HOUSTON ($/MWh)', 'HB_NORTH ($/MWh)', 'HB_WEST ($/MWh)')\n  AND m.ObservationTimestamp > AddHour(-6, GetDate())\nORDER BY m.ObservationTimestamp DESC, m.ValueToMonitor.DisplayName",
+                    "dataFields": [
+                      {
+                        "id": "Observed",
+                        "label": "Observed",
+                        "dataType": "System.DateTime"
+                      },
+                      {
+                        "id": "Settlement Point",
+                        "label": "Settlement Point",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "$/MWh",
+                        "label": "$/MWh",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_71699109-dd1d-5ec1-b2be-7efce29e403e",
+                  "label": "Observed",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "DatetimeFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Observed"
+                      },
+                      "option": 0,
+                      "replaceDate": false
+                    }
+                  }
+                },
+                {
+                  "id": "column_3d7b7d7e-9a58-543d-a47d-2a675e3becbb",
+                  "label": "Settlement Point",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Settlement Point"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_cd349cc5-f330-5af3-8a8b-aab1266abe54",
+                  "label": "$/MWh",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "$/MWh"
+                      }
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_71699109-dd1d-5ec1-b2be-7efce29e403e",
+                "descendantSorting": true
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "ac6ee4ec-fb7c-5658-901c-c9c6c1b551e1",
+      "name": "Nearby Weather",
+      "subtitle": "Fourteen Texas airports via METAR, converted to the Datadog units",
+      "description": "One row per station, pivoted from the per-station values with self-joins on the poller. Knots become MPH and hectopascals become inches of mercury in the query.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 600,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Nearby Weather",
+            "subtitle": "Fourteen Texas airports via METAR, converted to the Datadog units",
+            "url": "",
+            "description": "One row per station, pivoted from the per-station values with self-joins on the poller. Knots become MPH and hectopascals become inches of mercury in the query.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    SubString(t.DisplayName, 1, 4) AS [Station],\n    t.DetailsUrl AS [Station_URL],\n    t.Metric AS [Temp C],\n    Round(t.Metric * 1.8 + 32, 1) AS [Temp F],\n    d.Metric AS [Dewpoint C],\n    Round(w.Metric * 1.15078, 1) AS [Wind MPH],\n    Round(g.Metric * 1.15078, 1) AS [Gust MPH],\n    Round(p.Metric / 33.8639, 2) AS [Pressure inHg],\n    MinuteDiff(t.ApiPoller.LastPollTimestamp, GetDate()) AS [Age Min]\nFROM Orion.APIPoller.ValueToMonitor t\nLEFT JOIN Orion.APIPoller.ValueToMonitor d ON d.ApiPollerId = t.ApiPollerId AND d.DisplayName = SubString(t.DisplayName, 1, 4) + ' Dewpoint (C)'\nLEFT JOIN Orion.APIPoller.ValueToMonitor w ON w.ApiPollerId = t.ApiPollerId AND w.DisplayName = SubString(t.DisplayName, 1, 4) + ' Wind Speed (kt)'\nLEFT JOIN Orion.APIPoller.ValueToMonitor g ON g.ApiPollerId = t.ApiPollerId AND g.DisplayName = SubString(t.DisplayName, 1, 4) + ' Wind Gust (kt)'\nLEFT JOIN Orion.APIPoller.ValueToMonitor p ON p.ApiPollerId = t.ApiPollerId AND p.DisplayName = SubString(t.DisplayName, 1, 4) + ' Altimeter (hPa)'\nWHERE t.ApiPoller.Name = 'Texas Airport Weather (METAR)' AND t.DisplayName LIKE '% Temperature (C)'\nORDER BY t.DisplayName",
+                "dataFields": [
+                  {
+                    "id": "Station",
+                    "label": "Station",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Station_URL",
+                    "label": "Station_URL",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Temp C",
+                    "label": "Temp C",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Temp F",
+                    "label": "Temp F",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Dewpoint C",
+                    "label": "Dewpoint C",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Wind MPH",
+                    "label": "Wind MPH",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Gust MPH",
+                    "label": "Gust MPH",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Pressure inHg",
+                    "label": "Pressure inHg",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Age Min",
+                    "label": "Age Min",
+                    "dataType": "System.Int32"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    SubString(t.DisplayName, 1, 4) AS [Station],\n    t.DetailsUrl AS [Station_URL],\n    t.Metric AS [Temp C],\n    Round(t.Metric * 1.8 + 32, 1) AS [Temp F],\n    d.Metric AS [Dewpoint C],\n    Round(w.Metric * 1.15078, 1) AS [Wind MPH],\n    Round(g.Metric * 1.15078, 1) AS [Gust MPH],\n    Round(p.Metric / 33.8639, 2) AS [Pressure inHg],\n    MinuteDiff(t.ApiPoller.LastPollTimestamp, GetDate()) AS [Age Min]\nFROM Orion.APIPoller.ValueToMonitor t\nLEFT JOIN Orion.APIPoller.ValueToMonitor d ON d.ApiPollerId = t.ApiPollerId AND d.DisplayName = SubString(t.DisplayName, 1, 4) + ' Dewpoint (C)'\nLEFT JOIN Orion.APIPoller.ValueToMonitor w ON w.ApiPollerId = t.ApiPollerId AND w.DisplayName = SubString(t.DisplayName, 1, 4) + ' Wind Speed (kt)'\nLEFT JOIN Orion.APIPoller.ValueToMonitor g ON g.ApiPollerId = t.ApiPollerId AND g.DisplayName = SubString(t.DisplayName, 1, 4) + ' Wind Gust (kt)'\nLEFT JOIN Orion.APIPoller.ValueToMonitor p ON p.ApiPollerId = t.ApiPollerId AND p.DisplayName = SubString(t.DisplayName, 1, 4) + ' Altimeter (hPa)'\nWHERE t.ApiPoller.Name = 'Texas Airport Weather (METAR)' AND t.DisplayName LIKE '% Temperature (C)'\nORDER BY t.DisplayName",
+                    "dataFields": [
+                      {
+                        "id": "Station",
+                        "label": "Station",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Station_URL",
+                        "label": "Station_URL",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Temp C",
+                        "label": "Temp C",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Temp F",
+                        "label": "Temp F",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Dewpoint C",
+                        "label": "Dewpoint C",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Wind MPH",
+                        "label": "Wind MPH",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Gust MPH",
+                        "label": "Gust MPH",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Pressure inHg",
+                        "label": "Pressure inHg",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Age Min",
+                        "label": "Age Min",
+                        "dataType": "System.Int32"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_83ec9ebd-0012-5ce8-9e6a-64ea785969d4",
+                  "label": "Station",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "LinkFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Station",
+                        "link": "Station_URL"
+                      },
+                      "targetSelf": true
+                    }
+                  },
+                  "width": 100
+                },
+                {
+                  "id": "column_a414c6fd-2b48-52d2-9235-d09f0980e75b",
+                  "label": "Temp C",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Temp C"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_173d11a5-16da-5377-a43c-1fe1f4d3f975",
+                  "label": "Temp F",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Temp F"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_128c44f3-53a9-51e7-8789-1028446add50",
+                  "label": "Dewpoint C",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Dewpoint C"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_93283bb1-4882-5b8d-9324-a49ae3e7ec6b",
+                  "label": "Wind MPH",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Wind MPH"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_b1cda4c1-5bc0-569d-9d19-58e218969621",
+                  "label": "Gust MPH",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Gust MPH"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_c534f03f-806a-5642-ba9c-b320c413d749",
+                  "label": "Pressure inHg",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Pressure inHg"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_8c46f3a5-f65f-5bce-9953-1b753835b978",
+                  "label": "Age Min",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Age Min"
+                      }
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_83ec9ebd-0012-5ce8-9e6a-64ea785969d4",
+                "descendantSorting": false
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "proportional",
+      "unique_key": "c7ca0b7a-9217-5ec1-8f07-117642fa1df3",
+      "name": "Temperature by Airport",
+      "subtitle": "Degrees Celsius, warmest first",
+      "description": "Red at or above 35 C, blue at or below 0 C.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 600,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Temperature by Airport",
+            "subtitle": "Degrees Celsius, warmest first",
+            "url": "",
+            "description": "Red at or above 35 C, blue at or below 0 C.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "chart": {
+          "providers": {
+            "dataSource": {
+              "providerId": "ProportionalSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    SubString(t.DisplayName, 1, 4) AS [Station],\n    t.Metric AS [Temp C],\n    CASE\n        WHEN t.Metric >= 35 THEN '#d13b3b'\n        WHEN t.Metric <= 0 THEN '#2e7dd1'\n        ELSE '#3c9a5f'\n    END AS [Color],\n    t.DetailsUrl AS [Link]\nFROM Orion.APIPoller.ValueToMonitor t\nWHERE t.ApiPoller.Name = 'Texas Airport Weather (METAR)' AND t.DisplayName LIKE '% Temperature (C)'\nORDER BY t.Metric DESC",
+                "categoryField": "Station",
+                "valueField": "Temp C",
+                "colorMappingField": "Color",
+                "iconMappingField": null,
+                "linkMappingField": "Link",
+                "dataFormat": "custom",
+                "editor": {},
+                "dataFields": [
+                  {
+                    "id": "Station",
+                    "label": "Station",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Temp C",
+                    "label": "Temp C",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "Color",
+                    "label": "Color",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Link",
+                    "label": "Link",
+                    "dataType": "System.String"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "chart",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    SubString(t.DisplayName, 1, 4) AS [Station],\n    t.Metric AS [Temp C],\n    CASE\n        WHEN t.Metric >= 35 THEN '#d13b3b'\n        WHEN t.Metric <= 0 THEN '#2e7dd1'\n        ELSE '#3c9a5f'\n    END AS [Color],\n    t.DetailsUrl AS [Link]\nFROM Orion.APIPoller.ValueToMonitor t\nWHERE t.ApiPoller.Name = 'Texas Airport Weather (METAR)' AND t.DisplayName LIKE '% Temperature (C)'\nORDER BY t.Metric DESC",
+                    "categoryField": "Station",
+                    "valueField": "Temp C",
+                    "colorMappingField": "Color",
+                    "iconMappingField": null,
+                    "linkMappingField": "Link",
+                    "dataFormat": "custom",
+                    "editor": {},
+                    "dataFields": [
+                      {
+                        "id": "Station",
+                        "label": "Station",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Temp C",
+                        "label": "Temp C",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "Color",
+                        "label": "Color",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Link",
+                        "label": "Link",
+                        "dataType": "System.String"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "chartOptions": {
+                "type": "HorizontalBarChart",
+                "legendPlacement": "None",
+                "legendFormatter": {
+                  "componentType": "GenericValueFormatterComponent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "kpi",
+      "unique_key": "01d61eea-1e22-5c72-a5e3-21aada8ec6ff",
+      "name": "Outage Reports",
+      "subtitle": "poweroutage.us, experimental: needs an API key",
+      "description": "Counts Texas counties with more than 1,000 customers out. Blank until the PowerOutage.us poller is assigned with a working key.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 600,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Outage Reports",
+            "subtitle": "poweroutage.us, experimental: needs an API key",
+            "url": "",
+            "description": "Counts Texas counties with more than 1,000 customers out. Blank until the PowerOutage.us poller is assigned with a working key.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "tiles": {
+          "properties": {
+            "nodes": [
+              "kpi_95e384f5-4411-54b3-b8ce-d55ea118e418"
+            ]
+          }
+        },
+        "kpi_95e384f5-4411-54b3-b8ce-d55ea118e418": {
+          "id": "kpi_95e384f5-4411-54b3-b8ce-d55ea118e418",
+          "componentType": "KpiComponent",
+          "providers": {
+            "dataSource": {
+              "providerId": "KpiSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT TOP 1 v.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'PowerOutage.us Texas Counties (experimental)' AND v.DisplayName = 'Counties Over 1000 Out'",
+                "dataFields": [
+                  {
+                    "id": "Value",
+                    "label": "Value",
+                    "dataType": "System.Double"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "providerId": "NOVA_KPI_DATASOURCE_ADAPTER",
+              "properties": {
+                "componentId": "kpi_95e384f5-4411-54b3-b8ce-d55ea118e418",
+                "propertyPath": "widgetData",
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT TOP 1 v.Metric AS [Value]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'PowerOutage.us Texas Counties (experimental)' AND v.DisplayName = 'Counties Over 1000 Out'",
+                    "dataFields": [
+                      {
+                        "id": "Value",
+                        "label": "Value",
+                        "dataType": "System.Double"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                },
+                "thresholds": {
+                  "criticalThresholdValue": null,
+                  "warningThresholdValue": null,
+                  "showThresholds": false,
+                  "reversedThresholds": false
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "interactive": false
+            },
+            "widgetData": {
+              "label": "Counties Over 1,000 Out",
+              "backgroundColor": "var(--nui-color-semantic-critical)",
+              "units": "counties"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "650d82c6-8c86-5c55-b339-eea78a7879cb",
+      "name": "Outages by County",
+      "subtitle": "PowerOutage.us Texas Counties poller, experimental",
+      "description": "The tracked counties and the two array counts. Unverified until a key is available; see the template's Description.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 600,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Outages by County",
+            "subtitle": "PowerOutage.us Texas Counties poller, experimental",
+            "url": "",
+            "description": "The tracked counties and the two array counts. Unverified until a key is available; see the template's Description.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    v.DisplayName AS [Metric],\n    v.DetailsUrl AS [Metric_URL],\n    v.Status AS [Metric_Status],\n    v.Metric AS [Reading],\n    v.StatusDescription AS [State],\n    v.ApiPoller.LastPollTimestamp AS [Last Poll]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'PowerOutage.us Texas Counties (experimental)'\nORDER BY v.DisplayName",
+                "dataFields": [
+                  {
+                    "id": "Metric",
+                    "label": "Metric",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Metric_URL",
+                    "label": "Metric_URL",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Metric_Status",
+                    "label": "Metric_Status",
+                    "dataType": "System.Int32"
+                  },
+                  {
+                    "id": "Reading",
+                    "label": "Reading",
+                    "dataType": "System.Double"
+                  },
+                  {
+                    "id": "State",
+                    "label": "State",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Last Poll",
+                    "label": "Last Poll",
+                    "dataType": "System.DateTime"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    v.DisplayName AS [Metric],\n    v.DetailsUrl AS [Metric_URL],\n    v.Status AS [Metric_Status],\n    v.Metric AS [Reading],\n    v.StatusDescription AS [State],\n    v.ApiPoller.LastPollTimestamp AS [Last Poll]\nFROM Orion.APIPoller.ValueToMonitor v\nWHERE v.ApiPoller.Name = 'PowerOutage.us Texas Counties (experimental)'\nORDER BY v.DisplayName",
+                    "dataFields": [
+                      {
+                        "id": "Metric",
+                        "label": "Metric",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Metric_URL",
+                        "label": "Metric_URL",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Metric_Status",
+                        "label": "Metric_Status",
+                        "dataType": "System.Int32"
+                      },
+                      {
+                        "id": "Reading",
+                        "label": "Reading",
+                        "dataType": "System.Double"
+                      },
+                      {
+                        "id": "State",
+                        "label": "State",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Last Poll",
+                        "label": "Last Poll",
+                        "dataType": "System.DateTime"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_167fa140-e6eb-5cb2-ae7b-ec78c5ff4323",
+                  "label": "Metric",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "EntityLinkFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "status": "Metric_Status",
+                        "vendor": null,
+                        "link": "Metric_URL",
+                        "value": "Metric"
+                      },
+                      "iconFormat": "status",
+                      "entityIcon": null
+                    }
+                  },
+                  "width": 260
+                },
+                {
+                  "id": "column_606a3038-639b-53ce-b0ba-33eaaf65f983",
+                  "label": "Reading",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "SimpleNumberFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Reading"
+                      }
+                    }
+                  },
+                  "width": 120
+                },
+                {
+                  "id": "column_315f15e0-5ff9-5c9f-8891-f3d9b24ed1ee",
+                  "label": "State",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "State"
+                      }
+                    }
+                  },
+                  "width": 120
+                },
+                {
+                  "id": "column_7bf29cb8-0335-5fda-b5a0-89a3821eb905",
+                  "label": "Last Poll",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "DatetimeFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Last Poll"
+                      },
+                      "option": 0,
+                      "replaceDate": false
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_167fa140-e6eb-5cb2-ae7b-ec78c5ff4323",
+                "descendantSorting": false
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "table",
+      "unique_key": "55d8381e-c3e2-54c6-8a26-167a7709a2d6",
+      "name": "Metrics Scrapers",
+      "subtitle": "The five API Pollers behind this page and when each last polled",
+      "description": "The equivalent of the Datadog duty-cycle chart: a poller whose Minutes Since Poll keeps growing has stopped.",
+      "private": false,
+      "configuration": {
+        "/": {
+          "providers": {
+            "refresher": {
+              "properties": {
+                "enabled": true,
+                "interval": 300,
+                "overrideDefaultSettings": true
+              }
+            }
+          }
+        },
+        "header": {
+          "properties": {
+            "title": "Metrics Scrapers",
+            "subtitle": "The five API Pollers behind this page and when each last polled",
+            "url": "",
+            "description": "The equivalent of the Datadog duty-cycle chart: a poller whose Minutes Since Poll keeps growing has stopped.",
+            "collapsible": false,
+            "collapsed": true
+          }
+        },
+        "table": {
+          "providers": {
+            "dataSource": {
+              "providerId": "TableSwqlDatasourceService",
+              "properties": {
+                "swql": "SELECT\n    p.Name AS [Poller],\n    p.DetailsUrl AS [Poller_URL],\n    p.Status AS [Poller_Status],\n    p.StatusDescription AS [State],\n    p.LastPollTimestamp AS [Last Poll],\n    MinuteDiff(p.LastPollTimestamp, GetDate()) AS [Minutes Since Poll],\n    p.Node.Caption AS [Assigned To]\nFROM Orion.APIPoller.ApiPoller p\nWHERE p.Name IN ('ERCOT Grid Conditions', 'ERCOT Ancillary Services', 'ERCOT Settlement Point Prices', 'Texas Airport Weather (METAR)', 'PowerOutage.us Texas Counties (experimental)')\nORDER BY p.Name",
+                "dataFields": [
+                  {
+                    "id": "Poller",
+                    "label": "Poller",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Poller_URL",
+                    "label": "Poller_URL",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Poller_Status",
+                    "label": "Poller_Status",
+                    "dataType": "System.Int32"
+                  },
+                  {
+                    "id": "State",
+                    "label": "State",
+                    "dataType": "System.String"
+                  },
+                  {
+                    "id": "Last Poll",
+                    "label": "Last Poll",
+                    "dataType": "System.DateTime"
+                  },
+                  {
+                    "id": "Minutes Since Poll",
+                    "label": "Minutes Since Poll",
+                    "dataType": "System.Int32"
+                  },
+                  {
+                    "id": "Assigned To",
+                    "label": "Assigned To",
+                    "dataType": "System.String"
+                  }
+                ],
+                "type": "hand-edit"
+              }
+            },
+            "adapter": {
+              "properties": {
+                "dataSource": {
+                  "properties": {
+                    "swql": "SELECT\n    p.Name AS [Poller],\n    p.DetailsUrl AS [Poller_URL],\n    p.Status AS [Poller_Status],\n    p.StatusDescription AS [State],\n    p.LastPollTimestamp AS [Last Poll],\n    MinuteDiff(p.LastPollTimestamp, GetDate()) AS [Minutes Since Poll],\n    p.Node.Caption AS [Assigned To]\nFROM Orion.APIPoller.ApiPoller p\nWHERE p.Name IN ('ERCOT Grid Conditions', 'ERCOT Ancillary Services', 'ERCOT Settlement Point Prices', 'Texas Airport Weather (METAR)', 'PowerOutage.us Texas Counties (experimental)')\nORDER BY p.Name",
+                    "dataFields": [
+                      {
+                        "id": "Poller",
+                        "label": "Poller",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Poller_URL",
+                        "label": "Poller_URL",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Poller_Status",
+                        "label": "Poller_Status",
+                        "dataType": "System.Int32"
+                      },
+                      {
+                        "id": "State",
+                        "label": "State",
+                        "dataType": "System.String"
+                      },
+                      {
+                        "id": "Last Poll",
+                        "label": "Last Poll",
+                        "dataType": "System.DateTime"
+                      },
+                      {
+                        "id": "Minutes Since Poll",
+                        "label": "Minutes Since Poll",
+                        "dataType": "System.Int32"
+                      },
+                      {
+                        "id": "Assigned To",
+                        "label": "Assigned To",
+                        "dataType": "System.String"
+                      }
+                    ],
+                    "type": "hand-edit"
+                  }
+                }
+              }
+            }
+          },
+          "properties": {
+            "configuration": {
+              "columns": [
+                {
+                  "id": "column_a28f0568-e8b5-538b-8a27-f4328121c8c8",
+                  "label": "Poller",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "EntityLinkFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "status": "Poller_Status",
+                        "vendor": null,
+                        "link": "Poller_URL",
+                        "value": "Poller"
+                      },
+                      "iconFormat": "status",
+                      "entityIcon": null
+                    }
+                  },
+                  "width": 300
+                },
+                {
+                  "id": "column_a2a63d97-1e08-5ad4-a7f2-f6b947102ac3",
+                  "label": "State",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "State"
+                      }
+                    }
+                  },
+                  "width": 100
+                },
+                {
+                  "id": "column_f496c4ee-790a-5c7f-baec-69c21dce31da",
+                  "label": "Last Poll",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "DatetimeFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Last Poll"
+                      },
+                      "option": 0,
+                      "replaceDate": false
+                    }
+                  }
+                },
+                {
+                  "id": "column_ba9ddd06-afd3-51d7-b8b8-b7865a3c3d07",
+                  "label": "Minutes Since Poll",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Minutes Since Poll"
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "column_77f9f88d-412a-5945-9c83-b4f202aed79c",
+                  "label": "Assigned To",
+                  "isActive": true,
+                  "formatter": {
+                    "componentType": "RawFormatterComponent",
+                    "properties": {
+                      "dataFieldIds": {
+                        "value": "Assigned To"
+                      }
+                    }
+                  }
+                }
+              ],
+              "sorterConfiguration": {
+                "sortBy": "column_a28f0568-e8b5-538b-8a27-f4328121c8c8",
+                "descendantSorting": false
+              },
+              "hasVirtualScroll": true,
+              "searchConfiguration": {
+                "enabled": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "remove": null
+}

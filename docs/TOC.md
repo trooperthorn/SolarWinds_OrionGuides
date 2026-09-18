@@ -15,7 +15,7 @@ Everything in this repository was assembled from resources SolarWinds publishes 
 Guidance for SolarWinds Orion / Observability Self-Hosted, organized by what you are trying to do.
 
 - [Sections](README.md#sections)
-- [Working examples](README.md#working-examples): Runnable code lives outside docs/: ../scripts/swql/ has 224 verified sample queries, ../scripts/powershell/, ../scripts/python/ and ../scripts/curl/ cover the three clients, and ../tools/ explores the schema offline a...
+- [Working examples](README.md#working-examples): Runnable code lives outside docs/: ../scripts/swql/ has 238 verified sample queries, ../scripts/powershell/, ../scripts/python/ and ../scripts/curl/ cover the three clients, and ../tools/ explores the schema offline a...
 - [A note on trust](README.md#a-note-on-trust): Every entity, property, verb and parameter named in these pages was checked against the extracted schema before it was written, and every SWQL example is re-validated on each build.
 
 ## docs/platform/
@@ -1392,6 +1392,19 @@ Sixty questions an operator actually asks, each with a short answer and a query 
 - [When a recipe returns nothing](guides/cookbook.md#when-a-recipe-returns-nothing): Two causes account for nearly all of it, and neither is a problem with the query.
 - [Related pages](guides/cookbook.md#related-pages): than errors - ../reference/entity-index.md to find the entity behind a question this page does not cover
 
+### [An ERCOT Texas power grid dashboard from API Pollers](guides/ercot-grid-dashboard.md)
+
+A public Datadog dashboard, ERCOT (Texas Power Grid) by @danopia, has tracked the Texas grid since the February 2021 winter storm: capacity against demand, frequency, time error, inertia, DC tie flows, ancillary reser...
+
+- [What changed since 2021](guides/ercot-grid-dashboard.md#what-changed-since-2021): The Datadog collector's six sources are the starting point, and three of them no longer exist in the form it read.
+- [Why API Pollers, and the two places they stop](guides/ercot-grid-dashboard.md#why-api-pollers-and-the-two-places-they-stop): An API Poller is the right tool for this because the sources are JSON over HTTPS with no authentication, each value is one number at one path, and the platform then owns the history, the thresholds and the status.
+- [The five pollers](guides/ercot-grid-dashboard.md#the-five-pollers): All five poll GET with an Accept: application/json header and no credential.
+- [Importing and assigning](guides/ercot-grid-dashboard.md#importing-and-assigning): Import each template into the library, then assign it to a node.
+- [The dashboard, row by row](guides/ercot-grid-dashboard.md#the-dashboard-row-by-row): ercot-texas-power-grid.json imports from My Dashboards > Manage Dashboards > Import, and passes tools/check_dashboards.py.
+- [Making it yours](guides/ercot-grid-dashboard.md#making-it-yours): Regenerate every GUID before building on the file, as scripts/dashboards/README.md shows, and the template Guids likewise if you fork a poller template.
+- [What is verified and what is not](guides/ercot-grid-dashboard.md#what-is-verified-and-what-is-not)
+- [See also](guides/ercot-grid-dashboard.md#see-also)
+
 ### [Getting started](guides/getting-started.md)
 
 This page takes you from a machine with nothing installed to two things: a query that returns rows from your own server, and a change that you made through the API and then proved was made.
@@ -1629,6 +1642,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [scheduling.md](reference/unverified.md#schedulingmd): A cron expression without its timezone is ambiguous
 - [building-integrations.md](reference/unverified.md#building-integrationsmd): 3.
 - [cookbook.md](reference/unverified.md#cookbookmd): Rules these queries follow
+- [ercot-grid-dashboard.md](reference/unverified.md#ercot-grid-dashboardmd): What changed since 2021
 - [wireless-heatmaps.md](reference/unverified.md#wireless-heatmapsmd): Writing it
 - [agents.md](reference/unverified.md#agentsmd): Namespaces and how many entities
 - [cloud.md](reference/unverified.md#cloudmd): Tag filters and resource tags are different entities

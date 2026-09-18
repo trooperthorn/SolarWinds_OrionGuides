@@ -1,0 +1,204 @@
+-- Reading API Poller values back out: the ERCOT Texas power grid dashboard
+--
+-- The five API Poller templates in scripts/api-pollers/ (ERCOT Grid Conditions, ERCOT
+-- Ancillary Services, ERCOT Settlement Point Prices, Texas Airport Weather (METAR) and
+-- PowerOutage.us Texas Counties) each store their readings as Orion.APIPoller.ValueToMonitor
+-- rows, one per metric, with the last reading in Metric and the min/avg/max history in
+-- Orion.APIPoller.ValueToMonitor.Metrics. There is no per-poller entity to query; the
+-- poller is reached through the ApiPoller navigation, and a poller is identified by the
+-- Name it was assigned under, which is why every query here filters on that string.
+--
+-- These are the queries behind scripts/dashboards/ercot-texas-power-grid.json, in the
+-- order the widgets appear, plus the queries that confirm an import landed. The guide is
+-- docs/guides/ercot-grid-dashboard.md.
+--
+-- Traps: Metric is the mapped value after any string-to-number rule, so a text value such
+-- as Grid Condition State reads 0 for "normal" and the fallback 5 for anything else. The
+-- Metrics history is a statistics table and grows by one row per value per poll, so window
+-- it. LastPollTimestamp's timezone is not documented in the schema.
+
+
+-- Every value on one poller with its status and the poll time. The table widgets use this
+-- with the poller name changed.
+SELECT
+    v.DisplayName AS [Metric],
+    v.DetailsUrl AS [Metric_URL],
+    v.Status AS [Metric_Status],
+    v.Metric AS [Reading],
+    v.StatusDescription AS [State],
+    v.ApiPoller.LastPollTimestamp AS [Last Poll]
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.ApiPoller.Name = @poller
+ORDER BY v.DisplayName
+
+
+-- One number for a KPI tile: the latest reading of one named value.
+SELECT TOP 1 v.Metric AS [Value]
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND v.DisplayName = 'Grid Frequency (Hz)'
+
+
+-- A derived number: capacity minus demand, two values on the same poller joined on the
+-- poller id. The poller cannot compute this; the query can.
+SELECT TOP 1 c.Metric - d.Metric AS [Value]
+FROM Orion.APIPoller.ValueToMonitor c
+JOIN Orion.APIPoller.ValueToMonitor d ON d.ApiPollerId = c.ApiPollerId
+WHERE c.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND c.DisplayName = 'Total System Capacity (MW)'
+  AND d.DisplayName = 'Actual System Demand (MW)'
+
+
+-- An aggregate over a family of values: net DC tie flow, positive when ERCOT is exporting.
+SELECT SUM(v.Metric) AS [Value]
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND v.DisplayName LIKE 'DC Tie Flow%'
+
+
+-- The highest settlement point price in the latest interval, across all hubs and zones.
+SELECT MAX(v.Metric) AS [Value]
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.ApiPoller.Name = 'ERCOT Settlement Point Prices'
+
+
+-- A proportional (horizontal bar) widget: one row per slice with a label, a value, a
+-- colour and a link. Replace() trims the DisplayName down to the tie name.
+SELECT
+    Replace(Replace(v.DisplayName, 'DC Tie Flow ', ''), ' (MW)', '') AS [Tie],
+    v.Metric AS [MW],
+    CASE WHEN v.Metric < 0 THEN '#2e7dd1' ELSE '#e0a82e' END AS [Color],
+    v.DetailsUrl AS [Link]
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND v.DisplayName LIKE 'DC Tie Flow%'
+ORDER BY v.DisplayName
+
+
+-- History for one value, windowed. A Modern Dashboard has no SWQL time-series widget, so
+-- history is shown as a table (or built in PerfStack); this is the table's query.
+SELECT TOP 288
+    m.ObservationTimestamp AS [Observed],
+    m.MinMetric AS [Min Hz],
+    m.AvgMetric AS [Avg Hz],
+    m.MaxMetric AS [Max Hz]
+FROM Orion.APIPoller.ValueToMonitor.Metrics m
+WHERE m.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND m.ValueToMonitor.DisplayName = 'Grid Frequency (Hz)'
+  AND m.ObservationTimestamp > AddHour(-24, GetDate())
+ORDER BY m.ObservationTimestamp DESC
+
+
+-- Two histories side by side, joined on the observation timestamp, with a derived column.
+SELECT TOP 288
+    d.ObservationTimestamp AS [Observed],
+    d.AvgMetric AS [Demand MW],
+    c.AvgMetric AS [Capacity MW],
+    c.AvgMetric - d.AvgMetric AS [Unused MW]
+FROM Orion.APIPoller.ValueToMonitor.Metrics d
+JOIN Orion.APIPoller.ValueToMonitor.Metrics c
+  ON c.ObservationTimestamp = d.ObservationTimestamp
+ AND c.ValueToMonitor.DisplayName = 'Total System Capacity (MW)'
+ AND c.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
+WHERE d.ValueToMonitor.ApiPoller.Name = 'ERCOT Grid Conditions'
+  AND d.ValueToMonitor.DisplayName = 'Actual System Demand (MW)'
+  AND d.ObservationTimestamp > AddHour(-24, GetDate())
+ORDER BY d.ObservationTimestamp DESC
+
+
+-- Pivoting per-station values into one row per station. The METAR poller names every
+-- value "<ICAO> <metric>", so the temperature rows are the base set and the other four
+-- metrics are self-joined by rebuilding their DisplayName from the station prefix. Units
+-- are converted here rather than in the poller: knots to MPH, hectopascals to inches of
+-- mercury, Celsius to Fahrenheit.
+SELECT
+    SubString(t.DisplayName, 1, 4) AS [Station],
+    t.DetailsUrl AS [Station_URL],
+    t.Metric AS [Temp C],
+    Round(t.Metric * 1.8 + 32, 1) AS [Temp F],
+    d.Metric AS [Dewpoint C],
+    Round(w.Metric * 1.15078, 1) AS [Wind MPH],
+    Round(g.Metric * 1.15078, 1) AS [Gust MPH],
+    Round(p.Metric / 33.8639, 2) AS [Pressure inHg],
+    MinuteDiff(t.ApiPoller.LastPollTimestamp, GetDate()) AS [Age Min]
+FROM Orion.APIPoller.ValueToMonitor t
+LEFT JOIN Orion.APIPoller.ValueToMonitor d ON d.ApiPollerId = t.ApiPollerId AND d.DisplayName = SubString(t.DisplayName, 1, 4) + ' Dewpoint (C)'
+LEFT JOIN Orion.APIPoller.ValueToMonitor w ON w.ApiPollerId = t.ApiPollerId AND w.DisplayName = SubString(t.DisplayName, 1, 4) + ' Wind Speed (kt)'
+LEFT JOIN Orion.APIPoller.ValueToMonitor g ON g.ApiPollerId = t.ApiPollerId AND g.DisplayName = SubString(t.DisplayName, 1, 4) + ' Wind Gust (kt)'
+LEFT JOIN Orion.APIPoller.ValueToMonitor p ON p.ApiPollerId = t.ApiPollerId AND p.DisplayName = SubString(t.DisplayName, 1, 4) + ' Altimeter (hPa)'
+WHERE t.ApiPoller.Name = 'Texas Airport Weather (METAR)'
+  AND t.DisplayName LIKE '% Temperature (C)'
+ORDER BY t.DisplayName
+
+
+-- The pollers themselves: the dashboard's health widget. A poller whose age keeps growing
+-- has stopped, which an API poller does quietly.
+SELECT
+    p.Name AS [Poller],
+    p.DetailsUrl AS [Poller_URL],
+    p.Status AS [Poller_Status],
+    p.StatusDescription AS [State],
+    p.LastPollTimestamp AS [Last Poll],
+    MinuteDiff(p.LastPollTimestamp, GetDate()) AS [Minutes Since Poll],
+    p.Node.Caption AS [Assigned To]
+FROM Orion.APIPoller.ApiPoller p
+WHERE p.Name IN @pollers
+ORDER BY p.Name
+
+
+-- After importing the templates: confirm they are in the library, with the request and
+-- metric counts the file should produce (3/11, 1/14, 1/15, 14/70, 1/10).
+SELECT
+    t.ID,
+    t.DisplayName,
+    t.Guid,
+    t.RequestsCount,
+    t.MetricsCount,
+    t.IsCustom
+FROM Orion.APIPoller.Templates t
+WHERE t.DisplayName LIKE 'ERCOT%'
+   OR t.DisplayName LIKE 'Texas Airport%'
+   OR t.DisplayName LIKE 'PowerOutage%'
+ORDER BY t.DisplayName
+
+
+-- After assigning: which values have never produced a number. A path the platform's
+-- JSONPath does not accept, or a key absent from the response, shows up here.
+SELECT
+    v.ApiPoller.Name AS [Poller],
+    v.DisplayName,
+    v.Path,
+    v.Metric,
+    v.StatusDescription
+FROM Orion.APIPoller.ValueToMonitor v
+WHERE v.ApiPoller.Name IN @pollers
+  AND v.Metric IS NULL
+ORDER BY v.ApiPoller.Name, v.DisplayName
+
+
+-- The SAM fallback template's values, when it is assigned instead of (or alongside) the
+-- Grid Conditions poller: the last poll's named statistics from the two script components.
+SELECT
+    c.ComponentName AS [Component],
+    s.Name AS [Statistic],
+    s.Label,
+    d.NumericData AS [Reading],
+    d.StringData AS [Message],
+    d.TimeStamp
+FROM Orion.APM.DynamicEvidenceCurrent d
+JOIN Orion.APM.DynamicEvidenceColumnSchema s ON s.ColumnSchemaID = d.ColumnSchemaID
+JOIN Orion.APM.Component c ON c.ComponentID = d.ComponentID
+WHERE c.Application.Name = 'ERCOT Real-Time System Conditions (HTML)'
+ORDER BY c.ComponentOrder, s.Name
+
+
+-- And its history, windowed, one row per statistic per poll.
+SELECT TOP 500
+    h.TimeStamp,
+    h.Component.ComponentName AS [Component],
+    h.ColumnName AS [Statistic],
+    h.AvgNumericData AS [Reading]
+FROM Orion.APM.DynamicEvidenceChart h
+WHERE h.Component.Application.Name = 'ERCOT Real-Time System Conditions (HTML)'
+  AND h.TimeStamp > AddHour(-24, GetDate())
+ORDER BY h.TimeStamp DESC, h.ColumnName

@@ -1,0 +1,923 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Template xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Guid>0cfaabbf-b34d-5c06-a5eb-fa353521854d</Guid>
+  <Name>Texas Airport Weather (METAR)</Name>
+  <DisplayName>Texas Airport Weather (METAR)</DisplayName>
+  <Description>Current surface weather at the fourteen Texas airports the 2021 Datadog dashboard charted, from the Aviation Weather Center's JSON data API (aviationweather.gov/api/data/metar), polled every 30 minutes since METARs are hourly. The decoded HTML page the dashboard scraped (aviationweather.gov/metar/data) no longer answers. One request per station, each asking for a single ICAO id, so the response is a one-element array and $.[0] is that station rather than a positional guess. Values are in the API's own units: degrees Celsius, knots and hectopascals; the dashboard converts to MPH and inches of mercury in SWQL (docs/guides/ercot-grid-dashboard.md). wgst is absent from a METAR that reports no gust; what the poller reports for a value whose path does not resolve is unverified here, so if the gust values sit at Unknown on a calm day, delete them rather than the request. Read against the live API on 2026-09-17.</Description>
+  <Created>2026-09-17T00:00:00.0000000Z</Created>
+  <Updated>2026-09-17T00:00:00.0000000Z</Updated>
+  <Version>1</Version>
+  <RequestDetailsCollection>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KABI&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KABI Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KABI Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KABI Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KABI Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KABI Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>0</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KAUS&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KAUS Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KAUS Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KAUS Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KAUS Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KAUS Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>1</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KDFW&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KDFW Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KDFW Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KDFW Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KDFW Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KDFW Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>2</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KEFD&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KEFD Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KEFD Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KEFD Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KEFD Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KEFD Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>3</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KGLS&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KGLS Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KGLS Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KGLS Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KGLS Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KGLS Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>4</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KHOU&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KHOU Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KHOU Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KHOU Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KHOU Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KHOU Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>5</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KIAH&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KIAH Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KIAH Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KIAH Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KIAH Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KIAH Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>6</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KLBX&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KLBX Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLBX Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLBX Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLBX Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLBX Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>7</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KLRD&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KLRD Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLRD Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLRD Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLRD Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLRD Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>8</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KLVJ&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KLVJ Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLVJ Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLVJ Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLVJ Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KLVJ Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>9</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KMAF&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KMAF Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KMAF Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KMAF Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KMAF Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KMAF Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>10</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KSAT&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KSAT Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KSAT Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KSAT Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KSAT Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KSAT Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>11</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KSGR&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KSGR Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KSGR Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KSGR Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KSGR Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KSGR Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>12</RequestDetailsOrder>
+    </RequestDetails>
+    <RequestDetails>
+      <Url>https://aviationweather.gov/api/data/metar?ids=KTKI&amp;format=json</Url>
+      <Body />
+      <HttpVerb>Get</HttpVerb>
+      <RequestHeaders>
+        <RequestHeader>
+          <Name>Accept</Name>
+          <Value>application/json</Value>
+        </RequestHeader>
+      </RequestHeaders>
+      <ValueToMonitorCollection>
+        <ValueToMonitor>
+          <DisplayName>KTKI Temperature (C)</DisplayName>
+          <Path>$.[0].['temp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KTKI Dewpoint (C)</DisplayName>
+          <Path>$.[0].['dewp']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KTKI Wind Speed (kt)</DisplayName>
+          <Path>$.[0].['wspd']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KTKI Wind Gust (kt)</DisplayName>
+          <Path>$.[0].['wgst']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+        <ValueToMonitor>
+          <DisplayName>KTKI Altimeter (hPa)</DisplayName>
+          <Path>$.[0].['altim']</Path>
+          <ThresholdRule>GreaterThan</ThresholdRule>
+          <WarningThresholdValue xsi:nil="true" />
+          <CriticalThresholdValue xsi:nil="true" />
+          <Type>Path</Type>
+          <StringToNumberTransformationRules />
+          <StringToNumberTransformationOtherValues xsi:nil="true" />
+        </ValueToMonitor>
+      </ValueToMonitorCollection>
+      <RequestVariables />
+      <RequestDetailsOrder>13</RequestDetailsOrder>
+    </RequestDetails>
+  </RequestDetailsCollection>
+  <PollingInterval>30</PollingInterval>
+</Template>

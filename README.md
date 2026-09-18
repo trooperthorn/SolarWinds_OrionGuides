@@ -126,12 +126,12 @@ data/
   schema/2026.2/    entities, verbs, relationships, index, manifest
   reference/        SWQL functions, status codes, NetObject types, reconciliation
 scripts/
-  swql/         224 verified sample queries by subject area
+  swql/         238 verified sample queries by subject area
   powershell/   SwisPowerShell examples
   python/       a dependency-light REST client
   curl/         the raw wire protocol
-  dashboards/   an importable Modern Dashboard file, build-validated
-  api-pollers/  an importable API Poller template, build-validated
+  dashboards/   importable Modern Dashboard files, build-validated
+  api-pollers/  importable API Poller templates, build-validated
 apps/
   porter/       a Windows utility that moves configuration between installations over
                 SWIS; every route it uses was verified against the extracted contract

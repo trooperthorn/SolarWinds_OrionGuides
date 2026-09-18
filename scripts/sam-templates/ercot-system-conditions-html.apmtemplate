@@ -1,0 +1,1485 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArrayOfApplicationTemplate xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.solarwinds.com/2007/08/APM">
+	<ApplicationTemplate>
+		<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__DebugLoggingEnabled</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key i:nil="true" />
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__NumberOfLogFilesToKeep</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>30</Value>
+							<ValueType>Integer</ValueType>
+							<Key i:nil="true" />
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Timeout</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>300</Value>
+							<ValueType>Integer</ValueType>
+							<Key i:nil="true" />
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Use64Bit</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key i:nil="true" />
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+		</Settings>
+		<ComponentTemplates>
+			<ComponentTemplate>
+				<ComponentOrder>1</ComponentOrder>
+				<Id>4801</Id>
+				<Name>ERCOT Real-Time System Conditions</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Frequency, time error, BAAL exceedances, demand, net load, capacity, wind, PVGR and inertia, parsed from https://www.ercot.com/content/cdr/html/real_time_system_conditions.html. Argument: conditions</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ExecutionMode</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>LocalHost</Value>
+							<ValueType>Option</ValueType>
+							<Key>ExecutionMode</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ImpersonateForLocalMode</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>ImpersonateForLocalMode</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptArguments</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>conditions</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptArguments</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value># SAM Windows PowerShell Monitor: ERCOT Real-Time System Conditions, read off the HTML page.
+# Argument example: conditions   (or: dcties)
+#
+# Fetches https://www.ercot.com/content/cdr/html/real_time_system_conditions.html on the
+# polling engine (Local Host mode) and turns each label/value row of its table into one
+# named statistic. ERCOT publishes most of these numbers as JSON too, and the API Poller
+# template in scripts/api-pollers/ercot-grid-conditions.apipoller.template reads those;
+# this script exists for the values only the page carries (time error, BAAL exceedances,
+# net load, wind and PVGR output, the DC_S tie) and as the fallback if the API Poller's
+# newest-row paths are not accepted by the platform.
+#
+# Output contract (named pairs, as SAM's own multi-value script templates use):
+#   Message.&lt;Name&gt;: &lt;text&gt;
+#   Statistic.&lt;Name&gt;: &lt;number&gt;
+# Exit 0 = Up, 1 = Down (page unreachable or no rows matched).
+# SAM caps a component at ten pairs, which is why the page is split across two arguments.
+$mode = $args[0]
+if (!$mode) { $mode = 'conditions' }
+$ErrorActionPreference = 'Stop'
+
+# The page label, exactly as ERCOT prints it, to the statistic name the dashboard queries.
+$conditions = @{
+    'Current Frequency'                                          = 'Frequency'
+    'Instantaneous Time Error'                                   = 'Time_Error'
+    'Consecutive BAAL Clock-Minute Exceedances (min)'            = 'BAAL_Exceedances'
+    'Actual System Demand'                                       = 'System_Demand'
+    'Average Net Load'                                           = 'Net_Load'
+    'Total System Capacity (not including Ancillary Services)'   = 'System_Capacity'
+    'Total Wind Output'                                          = 'Wind_Output'
+    'Total PVGR Output'                                          = 'PVGR_Output'
+    'Current System Inertia'                                     = 'System_Inertia'
+}
+$dcties = @{
+    'DC_E (East)'        = 'DC_E'
+    'DC_L (Laredo VFT)'  = 'DC_L'
+    'DC_N (North)'       = 'DC_N'
+    'DC_R (Railroad)'    = 'DC_R'
+    'DC_S (Eagle Pass)'  = 'DC_S'
+}
+$wanted = if ($mode -eq 'dcties') { $dcties } else { $conditions }
+
+try {
+    # Windows PowerShell 5.1 negotiates TLS 1.0 by default and ercot.com refuses it.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $url = 'https://www.ercot.com/content/cdr/html/real_time_system_conditions.html'
+    $html = (Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30).Content
+    $updated = [regex]::Match($html, 'Last Updated:\s*([^&lt;]+)&lt;').Groups[1].Value.Trim()
+    $rows = [regex]::Matches($html, '&lt;td class="tdLeft"&gt;([^&lt;]+)&lt;/td&gt;\s*&lt;td class="labelClassCenter"&gt;([^&lt;]+)&lt;/td&gt;')
+    $emitted = 0
+    foreach ($row in $rows) {
+        $label = $row.Groups[1].Value.Trim()
+        if (-not $wanted.ContainsKey($label)) { continue }
+        $name = $wanted[$label]
+        $value = [double]($row.Groups[2].Value.Trim() -replace ',', '')
+        Write-Host "Message.${name}: $label = $value (ERCOT page updated $updated)"
+        Write-Host "Statistic.${name}: $value"
+        $emitted++
+    }
+    if ($emitted -eq 0) {
+        Write-Host "Message: no matching rows on $url; the page layout has changed"
+        exit 1
+    }
+    exit 0
+} catch {
+    Write-Host "Message: script failed: $($_.Exception.Message)"
+    exit 1
+}
+</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>WrmPort</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>5985</Value>
+							<ValueType>Integer</ValueType>
+							<Key>WrmPort</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>WrmUrlPrefix</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>wsman</Value>
+							<ValueType>String</ValueType>
+							<Key>WrmUrlPrefix</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>WrmUseSSL</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>WrmUseSSL</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>PowerShell</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>1</ID>
+						<Label>Current Frequency (Hz)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>Frequency</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>2</ID>
+						<Label>Current Frequency (Hz)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>Frequency</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>3</ID>
+						<Label>Instantaneous Time Error (s)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>Time_Error</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>4</ID>
+						<Label>Instantaneous Time Error (s)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>Time_Error</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>5</ID>
+						<Label>Consecutive BAAL Clock-Minute Exceedances (min)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>BAAL_Exceedances</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>6</ID>
+						<Label>Consecutive BAAL Clock-Minute Exceedances (min)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>BAAL_Exceedances</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>7</ID>
+						<Label>Actual System Demand (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>System_Demand</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>8</ID>
+						<Label>Actual System Demand (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>System_Demand</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>9</ID>
+						<Label>Average Net Load (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>Net_Load</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>10</ID>
+						<Label>Average Net Load (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>Net_Load</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>11</ID>
+						<Label>Total System Capacity (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>System_Capacity</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>12</ID>
+						<Label>Total System Capacity (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>System_Capacity</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>13</ID>
+						<Label>Total Wind Output (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>Wind_Output</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>14</ID>
+						<Label>Total Wind Output (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>Wind_Output</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>15</ID>
+						<Label>Total PVGR Output (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>PVGR_Output</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>16</ID>
+						<Label>Total PVGR Output (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>PVGR_Output</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>17</ID>
+						<Label>Current System Inertia (MW-s)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>System_Inertia</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4801</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>18</ID>
+						<Label>Current System Inertia (MW-s)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>System_Inertia</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>265</ApplicationTemplateId>
+				<UniqueId>c8775fe3-9480-5da8-857a-70190b302a86</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+			<ComponentTemplate>
+				<ComponentOrder>2</ComponentOrder>
+				<Id>4802</Id>
+				<Name>ERCOT DC Tie Flows</Name>
+				<Settings xmlns:s="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__Disabled</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>False</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>__Disabled</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__CredentialSetId</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>0</Value>
+							<ValueType>String</ValueType>
+							<Key>__CredentialSetId</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserDescription</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>The five DC tie flows in MW (negative is power flowing into ERCOT), parsed from the same page. Argument: dcties</Value>
+							<ValueType>String</ValueType>
+							<Key>__UserDescription</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>__UserNotes</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value></Value>
+							<ValueType>String</ValueType>
+							<Key>__UserNotes</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>CountAsDifference</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>CountAsDifference</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ExecutionMode</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>LocalHost</Value>
+							<ValueType>Option</ValueType>
+							<Key>ExecutionMode</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ImpersonateForLocalMode</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>ImpersonateForLocalMode</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptArguments</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>dcties</Value>
+							<ValueType>String</ValueType>
+							<Key>ScriptArguments</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>ScriptBody</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value># SAM Windows PowerShell Monitor: ERCOT Real-Time System Conditions, read off the HTML page.
+# Argument example: conditions   (or: dcties)
+#
+# Fetches https://www.ercot.com/content/cdr/html/real_time_system_conditions.html on the
+# polling engine (Local Host mode) and turns each label/value row of its table into one
+# named statistic. ERCOT publishes most of these numbers as JSON too, and the API Poller
+# template in scripts/api-pollers/ercot-grid-conditions.apipoller.template reads those;
+# this script exists for the values only the page carries (time error, BAAL exceedances,
+# net load, wind and PVGR output, the DC_S tie) and as the fallback if the API Poller's
+# newest-row paths are not accepted by the platform.
+#
+# Output contract (named pairs, as SAM's own multi-value script templates use):
+#   Message.&lt;Name&gt;: &lt;text&gt;
+#   Statistic.&lt;Name&gt;: &lt;number&gt;
+# Exit 0 = Up, 1 = Down (page unreachable or no rows matched).
+# SAM caps a component at ten pairs, which is why the page is split across two arguments.
+$mode = $args[0]
+if (!$mode) { $mode = 'conditions' }
+$ErrorActionPreference = 'Stop'
+
+# The page label, exactly as ERCOT prints it, to the statistic name the dashboard queries.
+$conditions = @{
+    'Current Frequency'                                          = 'Frequency'
+    'Instantaneous Time Error'                                   = 'Time_Error'
+    'Consecutive BAAL Clock-Minute Exceedances (min)'            = 'BAAL_Exceedances'
+    'Actual System Demand'                                       = 'System_Demand'
+    'Average Net Load'                                           = 'Net_Load'
+    'Total System Capacity (not including Ancillary Services)'   = 'System_Capacity'
+    'Total Wind Output'                                          = 'Wind_Output'
+    'Total PVGR Output'                                          = 'PVGR_Output'
+    'Current System Inertia'                                     = 'System_Inertia'
+}
+$dcties = @{
+    'DC_E (East)'        = 'DC_E'
+    'DC_L (Laredo VFT)'  = 'DC_L'
+    'DC_N (North)'       = 'DC_N'
+    'DC_R (Railroad)'    = 'DC_R'
+    'DC_S (Eagle Pass)'  = 'DC_S'
+}
+$wanted = if ($mode -eq 'dcties') { $dcties } else { $conditions }
+
+try {
+    # Windows PowerShell 5.1 negotiates TLS 1.0 by default and ercot.com refuses it.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $url = 'https://www.ercot.com/content/cdr/html/real_time_system_conditions.html'
+    $html = (Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30).Content
+    $updated = [regex]::Match($html, 'Last Updated:\s*([^&lt;]+)&lt;').Groups[1].Value.Trim()
+    $rows = [regex]::Matches($html, '&lt;td class="tdLeft"&gt;([^&lt;]+)&lt;/td&gt;\s*&lt;td class="labelClassCenter"&gt;([^&lt;]+)&lt;/td&gt;')
+    $emitted = 0
+    foreach ($row in $rows) {
+        $label = $row.Groups[1].Value.Trim()
+        if (-not $wanted.ContainsKey($label)) { continue }
+        $name = $wanted[$label]
+        $value = [double]($row.Groups[2].Value.Trim() -replace ',', '')
+        Write-Host "Message.${name}: $label = $value (ERCOT page updated $updated)"
+        Write-Host "Statistic.${name}: $value"
+        $emitted++
+    }
+    if ($emitted -eq 0) {
+        Write-Host "Message: no matching rows on $url; the page layout has changed"
+        exit 1
+    }
+    exit 0
+} catch {
+    Write-Host "Message: script failed: $($_.Exception.Message)"
+    exit 1
+}
+</Value>
+							<ValueType>External</ValueType>
+							<Key>ScriptBody</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>StatusRollupType</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>Worst</Value>
+							<ValueType>Option</ValueType>
+							<Key>StatusRollupType</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>WrmPort</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>5985</Value>
+							<ValueType>Integer</ValueType>
+							<Key>WrmPort</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>WrmUrlPrefix</s:Key>
+						<s:Value>
+							<Required>true</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>wsman</Value>
+							<ValueType>String</ValueType>
+							<Key>WrmUrlPrefix</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+					<s:KeyValueOfstringSettingValueyR_SGpLPx>
+						<s:Key>WrmUseSSL</s:Key>
+						<s:Value>
+							<Required>false</Required>
+							<SettingLevel>Template</SettingLevel>
+							<Value>false</Value>
+							<ValueType>Boolean</ValueType>
+							<Key>WrmUseSSL</Key>
+						</s:Value>
+					</s:KeyValueOfstringSettingValueyR_SGpLPx>
+				</Settings>
+				<Type>PowerShell</Type>
+				<Thresholds />
+				<EvidenceType>None</EvidenceType>
+				<CategoryDisplayName></CategoryDisplayName>
+				<ComponentCategoryId i:nil="true" />
+				<DynamicColumnSettings>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>19</ID>
+						<Label>DC_E East (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_E</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>20</ID>
+						<Label>DC_E East (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_E</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>21</ID>
+						<Label>DC_L Laredo VFT (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_L</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>22</ID>
+						<Label>DC_L Laredo VFT (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_L</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>23</ID>
+						<Label>DC_N North (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_N</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>24</ID>
+						<Label>DC_N North (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_N</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>25</ID>
+						<Label>DC_R Railroad (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_R</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>26</ID>
+						<Label>DC_R Railroad (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_R</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform />
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>27</ID>
+						<Label>DC_S Eagle Pass (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_S</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>String</Type>
+					</DynamicEvidenceColumnSchema>
+					<DynamicEvidenceColumnSchema>
+						<Cells />
+						<ComponentID>-1</ComponentID>
+						<ComponentTemplateID>4802</ComponentTemplateID>
+						<DataTransform>
+							<CommonFormulaOptions>0</CommonFormulaOptions>
+							<TransformExpression></TransformExpression>
+						</DataTransform>
+						<DataTransformOverridden>false</DataTransformOverridden>
+						<Disabled>false</Disabled>
+						<ID>28</ID>
+						<Label>DC_S Eagle Pass (MW)</Label>
+						<LabelOverridden>false</LabelOverridden>
+						<Name>DC_S</Name>
+						<ParentID>-1</ParentID>
+						<Threshold>
+							<AreHigherValuesBetter>false</AreHigherValuesBetter>
+							<BaselineApplyError></BaselineApplyError>
+							<ComputeBaseline>true</ComputeBaseline>
+							<CriticalFormula></CriticalFormula>
+							<CriticalLevel>1.7976931348623157E+308</CriticalLevel>
+							<CriticalPolls>1</CriticalPolls>
+							<CriticalPollsInterval>1</CriticalPollsInterval>
+							<IsForParentComponent>false</IsForParentComponent>
+							<IsForTemplate>false</IsForTemplate>
+							<MaxValue>100</MaxValue>
+							<Name></Name>
+							<WarnLevel>1.7976931348623157E+308</WarnLevel>
+							<WarningFormula></WarningFormula>
+							<WarningPolls>1</WarningPolls>
+							<WarningPollsInterval>1</WarningPollsInterval>
+							<ThresholdOperator>Greater</ThresholdOperator>
+						</Threshold>
+						<ThresholdOverridden>false</ThresholdOverridden>
+						<Type>Numeric</Type>
+					</DynamicEvidenceColumnSchema>
+				</DynamicColumnSettings>
+				<VisibilityMode>Visible</VisibilityMode>
+				<ShortName></ShortName>
+				<ApplicationItemType></ApplicationItemType>
+				<ApplicationTemplateId>265</ApplicationTemplateId>
+				<UniqueId>20a90310-6bc1-56ed-bcde-dedcfe3192e3</UniqueId>
+				<ComponentCategoryName i:nil="true" />
+				<IsApplicationItemSpecific>false</IsApplicationItemSpecific>
+			</ComponentTemplate>
+		</ComponentTemplates>
+		<DeletedComponentTemplates />
+		<Id>265</Id>
+		<Name>ERCOT Real-Time System Conditions (HTML)</Name>
+		<IsMockTemplate>false</IsMockTemplate>
+		<Description>Fallback for the ERCOT Grid Conditions API Poller template (scripts/api-pollers/ercot-grid-conditions.apipoller.template): reads the same real-time numbers off ERCOT's Real-Time System Conditions HTML page with a PowerShell script run on the polling engine, for the values the JSON endpoints do not carry (Instantaneous Time Error, BAAL exceedances, Average Net Load, wind and PVGR output, the DC_S tie) and as the route to take if the API Poller's [-1:] slice paths turn out not to be supported. See docs/guides/ercot-grid-dashboard.md.
+
+Prerequisites: outbound HTTPS from the polling engine to www.ercot.com. No credential is needed; assign to the polling engine's own node.</Description>
+		<Tags>
+			<TagInfo>
+				<Name>ERCOT</Name>
+				<TemplateID>265</TemplateID>
+			</TagInfo>
+			<TagInfo>
+				<Name>PowerShell</Name>
+				<TemplateID>265</TemplateID>
+			</TagInfo>
+			<TagInfo>
+				<Name>HTTP</Name>
+				<TemplateID>265</TemplateID>
+			</TagInfo>
+		</Tags>
+		<Created>2026-09-17T00:00:00.0000000Z</Created>
+		<LastModified>2026-09-17T00:00:00.0000000Z</LastModified>
+		<CustomApplicationType i:nil="true" />
+		<Version>6.2.774.0</Version>
+		<ViewID>0</ViewID>
+		<ViewXml i:nil="true" />
+		<ModuleVersion xmlns:d="http://schemas.datacontract.org/2004/07/System">
+			<d:_Build>0</d:_Build>
+			<d:_Major>2026</d:_Major>
+			<d:_Minor>4</d:_Minor>
+			<d:_Revision>0</d:_Revision>
+		</ModuleVersion>
+		<UniqueId>f0761f31-c2a5-52d1-9de8-008f7b00aadf</UniqueId>
+	</ApplicationTemplate>
+</ArrayOfApplicationTemplate>

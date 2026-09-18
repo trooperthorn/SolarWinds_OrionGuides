@@ -7,6 +7,8 @@ Importable dashboard exports for SolarWinds Observability Self-Hosted's Modern D
 | --- | --- |
 | [minimal-dashboard.json](minimal-dashboard.json) | One KPI tile and one table, against stock entities only |
 
+| [ercot-texas-power-grid.json](ercot-texas-power-grid.json) | A KPI row, seven tables, three horizontal bar charts and a poller health table over the values the five ERCOT and weather API Poller templates in [../api-pollers/](../api-pollers/) store; every query reads `Orion.APIPoller.ValueToMonitor` or its `Metrics` history. Walked through widget by widget in [docs/guides/ercot-grid-dashboard.md](../../docs/guides/ercot-grid-dashboard.md) |
+
 The format itself is documented in
 [../../docs/webui/modern-dashboards.md](../../docs/webui/modern-dashboards.md), and how to
 produce one — by hand, from a script, or by prompting an AI system — in
