@@ -11,3 +11,7 @@ __pycache__/
 # Porter (WPF app) build output
 apps/porter/**/bin/
 apps/porter/**/obj/
+
+# DashboardPorter (WPF app) build output
+apps/dashboard-porter/**/bin/
+apps/dashboard-porter/**/obj/

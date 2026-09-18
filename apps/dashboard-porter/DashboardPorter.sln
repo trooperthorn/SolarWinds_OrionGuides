@@ -1,0 +1,16 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DashboardPorter", "DashboardPorter\DashboardPorter.csproj", "{9C41D8B2-6F7A-4E5C-8A1B-2D3E4F5A6B7C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9C41D8B2-6F7A-4E5C-8A1B-2D3E4F5A6B7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9C41D8B2-6F7A-4E5C-8A1B-2D3E4F5A6B7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9C41D8B2-6F7A-4E5C-8A1B-2D3E4F5A6B7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9C41D8B2-6F7A-4E5C-8A1B-2D3E4F5A6B7C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
