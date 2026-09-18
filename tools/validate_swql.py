@@ -414,6 +414,80 @@ def queries_from_dashboard(path: str) -> list[tuple[str, str]]:
     return out
 
 
+# --------------------------------------------------------------------------------------
+# Grafana: the data source plugin in apps/grafana-swis-datasource/ and its dashboards
+# --------------------------------------------------------------------------------------
+
+# The plugin's backend expands these into bound-parameter references before the statement
+# reaches SWIS, and Grafana expands dashboard variables in the browser. Rewriting them the
+# same way here means the validator checks the statement SWIS will actually see, rather
+# than refusing everything that carries a macro.
+GRAFANA_TIME_FILTER_RE = re.compile(r"\$__timeFilter\(\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\)")
+GRAFANA_TIME_FROM_RE = re.compile(r"\$__timeFrom\(\s*\)")
+GRAFANA_TIME_TO_RE = re.compile(r"\$__timeTo\(\s*\)")
+# ${node}, ${node:csv}, $node. Each becomes a bound parameter of the same name, which is
+# what the value is at runtime: a literal substituted into the statement.
+GRAFANA_VARIABLE_RE = re.compile(r"\$\{(\w+)(?::\w+)?\}|\$(\w+)\b")
+
+
+def rewrite_grafana_macros(swql: str) -> str:
+    out = GRAFANA_TIME_FILTER_RE.sub(lambda m: f"{m.group(1)} >= @__timeFrom AND {m.group(1)} <= @__timeTo", swql)
+    out = GRAFANA_TIME_FROM_RE.sub("@__timeFrom", out)
+    out = GRAFANA_TIME_TO_RE.sub("@__timeTo", out)
+    return GRAFANA_VARIABLE_RE.sub(lambda m: "@" + (m.group(1) or m.group(2)), out)
+
+
+def queries_from_grafana_dashboard(path: str) -> list[tuple[str, str]]:
+    """Pull the SWQL out of a Grafana dashboard export.
+
+    A Grafana dashboard keeps its queries under panels[].targets[].swql (nested one level
+    deeper inside a row panel), and its variable queries under templating.list[].query.
+    Only targets that carry a `swql` key are this plugin's; other data sources' targets are
+    left alone.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return []
+    if not isinstance(doc, dict) or "panels" not in doc:
+        return []
+
+    out: list[tuple[str, str]] = []
+
+    def panels(nodes, trail):
+        for i, panel in enumerate(nodes or []):
+            if not isinstance(panel, dict):
+                continue
+            here = f"{trail}/panels[{i}]"
+            for j, target in enumerate(panel.get("targets") or []):
+                if isinstance(target, dict) and isinstance(target.get("swql"), str):
+                    out.append((f"{path}#{here}/targets[{j}]", rewrite_grafana_macros(target["swql"])))
+            panels(panel.get("panels"), here)
+
+    panels(doc.get("panels"), "")
+    for i, var in enumerate((doc.get("templating") or {}).get("list") or []):
+        query = var.get("query") if isinstance(var, dict) else None
+        if isinstance(query, dict) and isinstance(query.get("swql"), str):
+            out.append((f"{path}#templating[{i}]", rewrite_grafana_macros(query["swql"])))
+    return out
+
+
+# A template literal holding a statement: the plugin's example queries are written this way.
+TS_TEMPLATE_RE = re.compile(r"`(\s*SELECT\b[^`]*?\bFROM\b[^`]*?)`", re.I | re.S)
+
+
+def queries_from_typescript(path: str) -> list[tuple[str, str]]:
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        text = fh.read()
+    out = []
+    for i, m in enumerate(TS_TEMPLATE_RE.finditer(text), 1):
+        block = m.group(1).strip()
+        if STARTS_WITH_SELECT_RE.match(block):
+            out.append((f"{path}#template-{i}", rewrite_grafana_macros(block)))
+    return out
+
+
 def queries_from_swql(path: str) -> list[tuple[str, str]]:
     """A .swql file may hold several queries separated by blank-line-delimited comments."""
     text = open(path, encoding="utf-8", errors="replace").read()
@@ -489,13 +563,15 @@ def queries_from_path(path: str) -> list[tuple[str, str]]:
     if path.endswith(".swql") or path.endswith(".sql"):
         return queries_from_swql(path)
     if path.endswith(".json"):
-        return queries_from_dashboard(path)
+        return queries_from_dashboard(path) or queries_from_grafana_dashboard(path)
+    if path.endswith((".ts", ".tsx")) and os.sep + "node_modules" + os.sep not in path:
+        return queries_from_typescript(path)
     return []
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("paths", nargs="*", help=".swql, .md, .ps1, .py, .sh, dashboard .json, directories, or - for stdin")
+    ap.add_argument("paths", nargs="*", help=".swql, .md, .ps1, .py, .sh, .ts, dashboard .json (Modern Dashboard or Grafana), directories, or - for stdin")
     ap.add_argument("--docs", action="append", default=[], help="directory to scan for ```sql blocks")
     ap.add_argument("--version", default=DEFAULT_VERSION)
     ap.add_argument("--strict", action="store_true", help="treat warnings as failures")

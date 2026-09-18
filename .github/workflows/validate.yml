@@ -39,6 +39,11 @@ jobs:
       - name: Validate sample queries
         run: python3 tools/validate_swql.py scripts/
 
+      # The Grafana plugin's example queries and its shipped dashboard carry the same
+      # promise as everything else here: every name in them resolves against the schema.
+      - name: Validate the Grafana plugin's queries
+        run: python3 tools/validate_swql.py apps/grafana-swis-datasource/src apps/grafana-swis-datasource/dashboards
+
       - name: Validate SWQL in documentation
         run: python3 tools/validate_swql.py --docs docs
 
@@ -113,3 +118,40 @@ jobs:
 
       - name: Check documentation links resolve
         run: python3 tools/check_links.py --orphans --check-anchors
+
+  # The Grafana data source plugin: backend tests against a stub SWIS, then the frontend
+  # typecheck, lint and bundle. It runs only when the plugin changes, since it needs two
+  # toolchains the documentation gate does not.
+  grafana-plugin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/grafana-swis-datasource
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/grafana-swis-datasource/go.mod
+          cache-dependency-path: apps/grafana-swis-datasource/go.sum
+
+      - name: Backend vet and tests
+        run: |
+          go vet ./pkg/...
+          go test ./pkg/...
+
+      - name: Backend binary
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/gpx_swis_linux_amd64 ./pkg
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/grafana-swis-datasource/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/grafana-swis-datasource/package-lock.json
+
+      - name: Frontend typecheck, lint and build
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm run lint
+          npm run build

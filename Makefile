@@ -22,14 +22,15 @@ FROM ?= 2026.1
 TO ?= $(VERSION)
 DIFF_SCRATCH ?= .schema-versions
 
-.PHONY: all data docs-reference docs-index schema-diff test validate check clean sdk help
+.PHONY: all data docs-reference docs-index schema-diff test validate check clean sdk help grafana-plugin
 
 help:
 	@echo "make data            rebuild data/ from the OrionSDK docs (VERSION=$(VERSION))"
 	@echo "make docs-reference  regenerate the generated tables in docs/reference/"
 	@echo "make docs-index      regenerate docs/TOC.md and llms-full.txt, and check llms.txt"
 	@echo "make test            run the toolchain unit tests"
-	@echo "make validate        check sample queries and docs code blocks against the schema"
+	@echo "make validate        check sample queries, the Grafana plugin's queries, and docs code blocks"
+	@echo "make grafana-plugin  build and test the Grafana data source plugin (needs Go and Node)"
 	@echo "make check           tests + queries + data + names + counts + verbs + links"
 	@echo "make schema-diff     compare two versions (FROM=2025.4 TO=2026.2)"
 	@echo "make clean           remove $(SDK_DIR)"
@@ -90,6 +91,7 @@ schema-diff: sdk
 
 validate:
 	@$(PYTHON) tools/validate_swql.py scripts/ --quiet
+	@$(PYTHON) tools/validate_swql.py apps/grafana-swis-datasource/src apps/grafana-swis-datasource/dashboards --quiet
 	@$(PYTHON) tools/validate_swql.py --docs docs --quiet
 
 test:
@@ -106,6 +108,14 @@ check: test validate
 	@$(PYTHON) tools/check_links.py --orphans --check-anchors
 	@$(PYTHON) tools/build_llms_index.py --check
 	@$(PYTHON) tools/check_gate.py
+
+# The Grafana data source plugin under apps/. Its SWQL is validated by `make validate`
+# without either toolchain; this target is the full build the plugin's own README describes.
+grafana-plugin:
+	@cd apps/grafana-swis-datasource && go vet ./pkg/... && go test ./pkg/...
+	@cd apps/grafana-swis-datasource && npm ci --no-audit --no-fund && npm run typecheck && npm run lint && npm run build
+	@cd apps/grafana-swis-datasource && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/gpx_swis_linux_amd64 ./pkg
+	@echo "plugin built into apps/grafana-swis-datasource/dist/"
 
 clean:
 	@rm -rf $(SDK_DIR) $(DIFF_SCRATCH)
