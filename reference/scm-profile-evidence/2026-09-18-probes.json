@@ -1,0 +1,28 @@
+{
+  "runtime": "PowerShell 7.6.5 on Windows",
+  "method": "Select-String on inert synthetic files only; not the supplied collector",
+  "fixtures": {
+    "class-present.jar": "ZIP_DEFLATED entry org/apache/logging/log4j/core/lookup/JndiLookup.class containing synthetic placeholder; not executable",
+    "nested.jar": "ZIP_DEFLATED lib/inner.jar containing class-present.jar bytes",
+    "regex-false-positive.jar": "Plain UTF-8 text JndiLookupXclass; intentionally not a valid ZIP"
+  },
+  "original_pattern": "JndiLookup.class",
+  "literal_variant": "Same pattern with -SimpleMatch",
+  "results": [
+    {
+      "File": "class-present.jar",
+      "OriginalPatternMatched": true,
+      "LiteralPatternMatched": true
+    },
+    {
+      "File": "nested.jar",
+      "OriginalPatternMatched": false,
+      "LiteralPatternMatched": false
+    },
+    {
+      "File": "regex-false-positive.jar",
+      "OriginalPatternMatched": true,
+      "LiteralPatternMatched": false
+    }
+  ]
+}

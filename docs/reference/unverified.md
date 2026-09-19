@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**302 statements across 74 pages.**
+**305 statements across 75 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -610,6 +610,20 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Historical-source limitation](../modules/scm-policy-portability-audit.md#historical-source-limitation)**
 
 - The archive itself was unavailable, so its precise contained release was not verified.
+
+## [scm-profile-portability-audit.md](../modules/scm-profile-portability-audit.md)
+
+**[Published provenance](../modules/scm-profile-portability-audit.md#published-provenance)**
+
+- Its attachment returned HTTP 403 when downloaded, so byte identity with the supplied file is unverified.
+
+**[Parser and import/export requirements](../modules/scm-profile-portability-audit.md#parser-and-importexport-requirements)**
+
+- Target acceptance of alternative spellings remains unverified.
+
+**[Guidance for AI authors and importers](../modules/scm-profile-portability-audit.md#guidance-for-ai-authors-and-importers)**
+
+- Target imports, output rendering, identity conflict behavior, and live assessment accuracy remain unverified.
 
 ## [scm.md](../modules/scm.md)
 

@@ -18,6 +18,9 @@ regardless of licensing, see [../platform/modules.md](../platform/modules.md).
 The [SCM policy portability audit](scm-policy-portability-audit.md) compares three
 policy exports with official source content and documents parser/import requirements.
 
+The [SCM profile portability audit](scm-profile-portability-audit.md) examines three
+PowerShell collection profiles, nested JSON settings, and coverage limitations.
+
 ## The modules
 
 Entity counts are exact for the 2026.2 extraction in

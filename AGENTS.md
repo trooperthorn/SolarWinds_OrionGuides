@@ -287,3 +287,14 @@ Use `tools/audit_dashboard_identities.py` to flag repeated keys with different d
 and report identical sharing separately. New dashboard names and `reference: false` do
 not establish isolation. Independent copies need new widget identities and remapped
 placements; deliberate updates preserve identities. Never replace all GUIDs blindly.
+
+## SCM collection profile checks
+
+Before generating or importing `.scm-profile` content, read
+`docs/modules/scm-profile-portability-audit.md`. JSON collection profiles are separate
+from tagged-YAML compliance policies. Detect the byte encoding, parse the outer JSON,
+then parse the `profileElements[].settings` JSON string. Its `path` may be PowerShell
+source. Preserve null versus absent fields, script escaping, and profile/element identity
+separately. Do not execute source scripts during parsing. A class-name match is candidate
+evidence, and an empty or incomplete scan is not a compliance pass. Require stable output,
+explicit collection scope, and target validation of identity and output behavior.

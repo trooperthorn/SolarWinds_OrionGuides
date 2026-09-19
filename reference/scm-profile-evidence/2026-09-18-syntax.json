@@ -1,0 +1,37 @@
+{
+  "runtime": "PowerShell 7.6.5 on Windows",
+  "method": "System.Management.Automation.Language.Parser.ParseFile; no script execution",
+  "results": [
+    {
+      "File": "CVE-2021-44228.decoded.ps1",
+      "SyntaxErrors": 0,
+      "Commands": [
+        "Get-PSDrive",
+        "Select-Object",
+        "Get-ChildItem",
+        "Select-String",
+        "Select-Object",
+        "Sort-Object",
+        "Write-Host",
+        "Write-Host"
+      ]
+    },
+    {
+      "File": "Scheduled_Task_Profile.decoded.ps1",
+      "SyntaxErrors": 0,
+      "Commands": [
+        "Get-ScheduledTask",
+        "Where-Object"
+      ]
+    },
+    {
+      "File": "Utility_Folder_Versions.decoded.ps1",
+      "SyntaxErrors": 0,
+      "Commands": [
+        "Get-ChildItem",
+        "Sort-Object",
+        "Select-Object"
+      ]
+    }
+  ]
+}

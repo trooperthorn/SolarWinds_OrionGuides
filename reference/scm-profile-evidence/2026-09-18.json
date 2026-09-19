@@ -1,0 +1,121 @@
+{
+  "audit_date": "2026-09-18",
+  "execution": "inert parsing only; no original scripts executed",
+  "repository_baseline": "aec7d463c937d3a85e99ef00dcaa9590c88ab337",
+  "provenance": "Employee authorship reported by owner; export versions and individual authors unverified",
+  "profiles": [
+    {
+      "source": "Utility_Folder_Versions.scm-profile",
+      "member": null,
+      "source_sha256": "36e8a971064b5a838ed1562d2ad6f9c31a08f0762a20b56fff85b0b49d433820",
+      "member_sha256": "36e8a971064b5a838ed1562d2ad6f9c31a08f0762a20b56fff85b0b49d433820",
+      "bytes": 1894,
+      "encoding": "UTF-16LE BOM",
+      "outer_fields": {
+        "version": 1,
+        "name": "Utility Folder Versions",
+        "description": "Monitors the versions of the files in the Utility Folder",
+        "uniqueId": "a1b45b5f-dbe0-43cb-82e0-f532a536d9d5",
+        "templateMappingRules": null
+      },
+      "elements": [
+        {
+          "pointer": "/profileElements/0",
+          "fields": {
+            "type": "powershell",
+            "displayAlias": "File Versions",
+            "description": "This script will query a defined folder and subfolders for EXE files and extract their full path and version numbers.",
+            "settings": "{\"path\":\"$Executables = Get-ChildItem -Path C:\\\\UTILS -Filter *.exe -Recurse -File\\n$Executables | Sort-Object -Property Name | Select-Object -Property Name, FullName, @{ Name = \\\"ProductVersion\\\"; Expression = { $_.VersionInfo.ProductVersion } }, @{ Name = \\\"FileVersion\\\"; Expression = { $_.VersionInfo.FileVersion } }\",\"pollingfrequency\":\"0.0:30:0.0\",\"pollingtimeout\":\"0.0:3:0.0\"}"
+          },
+          "decoded_settings": {
+            "path": "$Executables = Get-ChildItem -Path C:\\UTILS -Filter *.exe -Recurse -File\n$Executables | Sort-Object -Property Name | Select-Object -Property Name, FullName, @{ Name = \"ProductVersion\"; Expression = { $_.VersionInfo.ProductVersion } }, @{ Name = \"FileVersion\"; Expression = { $_.VersionInfo.FileVersion } }",
+            "pollingfrequency": "0.0:30:0.0",
+            "pollingtimeout": "0.0:3:0.0"
+          },
+          "script_utf8_sha256": "899722c973849dfa5242124e553afea9a90fe49f1fbee0b0354bfa54b83f381c",
+          "newline_count": 1,
+          "literal_backslash_n_count": 0,
+          "settings_structural_roundtrip": true
+        }
+      ],
+      "json_structural_roundtrip": true
+    },
+    {
+      "source": "CVE-2021-44228.scm-profile",
+      "member": null,
+      "source_sha256": "928a003bfdafa823f6f732f7e0a896d790299a600d58dbffc4ed19f6d1468cd4",
+      "member_sha256": "928a003bfdafa823f6f732f7e0a896d790299a600d58dbffc4ed19f6d1468cd4",
+      "bytes": 3022,
+      "encoding": "UTF-16LE BOM",
+      "outer_fields": {
+        "version": null,
+        "name": "CVE-2021-44228",
+        "description": "SolarWinds Announcement: https://www.solarwinds.com/trust-center/security-advisories/cve-2021-44228",
+        "uniqueId": "56ec984f-b8a7-44b3-80b2-09cc7e98829e",
+        "builtIn": false,
+        "templateMappingRules": null
+      },
+      "elements": [
+        {
+          "pointer": "/profileElements/0",
+          "fields": {
+            "type": "powershell",
+            "displayAlias": "Jar File Check",
+            "description": "Checks for all JAR files which have a reference to the 'JndiLookup.class' which is known to be affected by the CVE\n\nNote: Servers with extremely large drives (number of files) may require additional time for the polling timeout.",
+            "settings": "{\"path\":\"# Get a list of all the local drives on the Machine\\n$Drives = Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Root\\n# Search each drive for all JAR files ('*.jar')\\n$JarFiles = Get-ChildItem -Path $Drives -File -Recurse -Include \\\"*.jar\\\" -Force -ErrorAction SilentlyContinue\\n# Search through the contents of all these files for the JndiLookup class.\\n$Results = $JarFiles | Select-String -Pattern 'JndiLookup.class' | Select-Object -Property Path -Unique | Sort-Object -Property Path\\nif ( $Results ) {\\n   Write-Host \\\"Possibly affected JAR files found at:\\\"\\n   $Results\\n}\\nelse {\\n   Write-Host \\\"No matching JAR files found.\\\"\\n}\",\"pollingfrequency\":\"0.12:0:0.0\",\"pollingtimeout\":\"0.0:30:0.0\"}",
+            "uniqueId": null
+          },
+          "decoded_settings": {
+            "path": "# Get a list of all the local drives on the Machine\n$Drives = Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Root\n# Search each drive for all JAR files ('*.jar')\n$JarFiles = Get-ChildItem -Path $Drives -File -Recurse -Include \"*.jar\" -Force -ErrorAction SilentlyContinue\n# Search through the contents of all these files for the JndiLookup class.\n$Results = $JarFiles | Select-String -Pattern 'JndiLookup.class' | Select-Object -Property Path -Unique | Sort-Object -Property Path\nif ( $Results ) {\n   Write-Host \"Possibly affected JAR files found at:\"\n   $Results\n}\nelse {\n   Write-Host \"No matching JAR files found.\"\n}",
+            "pollingfrequency": "0.12:0:0.0",
+            "pollingtimeout": "0.0:30:0.0"
+          },
+          "script_utf8_sha256": "0337e7110614f4c6cd2232efd2bfe65a436e01f23ca0ad9623bd2db41751e38d",
+          "newline_count": 12,
+          "literal_backslash_n_count": 0,
+          "settings_structural_roundtrip": true
+        }
+      ],
+      "json_structural_roundtrip": true
+    },
+    {
+      "source": "scheduled-task-profile.zip",
+      "member": "Scheduled_Task_Profile.scm-profile",
+      "source_sha256": "39d3215f2671c19a5dcde0d1a1ab1ffebea554f1958e82a7f78d2069f80f5a13",
+      "member_sha256": "f51b8739365b300a04edf812fe000440f3517ec2076fd970a5d8839dd507affe",
+      "bytes": 892,
+      "encoding": "UTF-16LE BOM",
+      "outer_fields": {
+        "version": null,
+        "name": "Scheduled Task Profile",
+        "description": "",
+        "uniqueId": "ce741ac1-d041-49cb-bb86-613ef130b6bf",
+        "builtIn": false,
+        "templateMappingRules": null
+      },
+      "elements": [
+        {
+          "pointer": "/profileElements/0",
+          "fields": {
+            "type": "powershell",
+            "displayAlias": "Tasks Name",
+            "description": null,
+            "settings": "{\"path\":\"Get-ScheduledTask | Where-Object { $_.TaskPath -notlike \\\"\\\\Microsoft\\\\*\\\" }\",\"pollingfrequency\":\"0.0:5:0.0\",\"pollingtimeout\":\"0.0:1:0.0\"}",
+            "uniqueId": null
+          },
+          "decoded_settings": {
+            "path": "Get-ScheduledTask | Where-Object { $_.TaskPath -notlike \"\\Microsoft\\*\" }",
+            "pollingfrequency": "0.0:5:0.0",
+            "pollingtimeout": "0.0:1:0.0"
+          },
+          "script_utf8_sha256": "9fb96f1c187a87c87dce739a884e3114357a32161cd1f615caf53abcab18a311",
+          "newline_count": 0,
+          "literal_backslash_n_count": 0,
+          "settings_structural_roundtrip": true
+        }
+      ],
+      "json_structural_roundtrip": true
+    }
+  ],
+  "distinct_profile_ids": 3
+}

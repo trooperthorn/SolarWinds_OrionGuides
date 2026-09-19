@@ -14,6 +14,10 @@ match each element's settings on that machine, and every subsequent change to on
 lands as a row of **element metadata**, optionally with the content itself. A **baseline**
 pins one moment per node as the comparison point.
 
+For concrete import/export and collection pitfalls, see the
+[three-profile portability audit](scm-profile-portability-audit.md). It covers file
+versions, Log4j candidate detection, and scheduled-task configuration.
+
 ## Namespace and size
 
 SCM contributes **23 entities**, all under `Orion.SCM.`, and 10 verbs across three of

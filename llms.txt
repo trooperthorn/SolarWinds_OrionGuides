@@ -126,6 +126,7 @@ Per-product deep dives. An entity only exists if its module is licensed and inst
 | [docs/modules/hardware-health.md](docs/modules/hardware-health.md) | Hardware sensors |
 | [docs/modules/scm.md](docs/modules/scm.md) | Server Configuration Monitor |
 | [docs/modules/scm-policy-portability-audit.md](docs/modules/scm-policy-portability-audit.md) | Three SCM policies and 333 rules: tagged YAML graphs, DISA legacy identity crosswalk, status translations, dependencies, and converter gaps |
+| [docs/modules/scm-profile-portability-audit.md](docs/modules/scm-profile-portability-audit.md) | Three PowerShell collection profiles: UTF-16 nested JSON, identities, detector limits, and runtime acceptance checks |
 | [docs/modules/scm-compliance-policies.md](docs/modules/scm-compliance-policies.md) | SCM compliance policies: the policy format, rules, and how to move one between servers |
 | [docs/modules/cloud.md](docs/modules/cloud.md) | AWS, Azure and GCP monitoring |
 | [docs/modules/agents.md](docs/modules/agents.md) | The SolarWinds agent |

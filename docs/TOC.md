@@ -764,6 +764,19 @@ The supplied SCM policies contain authored collection and evaluation logic that 
 - [Verified gaps in the current conversion tool](modules/scm-policy-portability-audit.md#verified-gaps-in-the-current-conversion-tool): The existing Python path correctly reads each supplied UTF-16 file and its preview counts 18, 79, and 236 top-level rules.
 - [Field mapping and import acceptance contract](modules/scm-policy-portability-audit.md#field-mapping-and-import-acceptance-contract): The documented 2026.2 verbs are ExportPolicy(policyId) returning a YAML string and ImportPolicy(yaml) returning a numeric policy ID on Orion.PolicyEngine.Policy.
 
+### [SCM PowerShell profiles: portability, coverage, and parser improvements](modules/scm-profile-portability-audit.md)
+
+These three employee-authored profiles are collection definitions for configuration change monitoring.
+
+- [Evidence and inventory](modules/scm-profile-portability-audit.md#evidence-and-inventory): Machine-readable evidence preserves input hashes, source fields, field absence versus null, decoded settings, script fingerprints, and JSON round-trip checks.
+- [Published provenance](modules/scm-profile-portability-audit.md#published-provenance): The Utility Folder Versions THWACK article describes the same purpose and links a matching filename.
+- [Parser and import/export requirements](modules/scm-profile-portability-audit.md#parser-and-importexport-requirements): all three examples.
+- [Utility Folder Versions: what it sees and misses](modules/scm-profile-portability-audit.md#utility-folder-versions-what-it-sees-and-misses): The script recursively discovers *.exe under a hard-coded folder, sorts by Name, and selects Name, FullName, ProductVersion, and FileVersion.
+- [CVE-2021-44228: a candidate finder, not a vulnerability verdict](modules/scm-profile-portability-audit.md#cve-2021-44228-a-candidate-finder-not-a-vulnerability-verdict): The script enumerates filesystem PowerShell drive roots, recursively searches for JARs, and runs Select-String -Pattern 'JndiLookup.class'.
+- [Scheduled Task Profile: identity, configuration, and runtime are different](modules/scm-profile-portability-audit.md#scheduled-task-profile-identity-configuration-and-runtime-are-different): The decoded script is:
+- [Shared output contract and live acceptance tests](modules/scm-profile-portability-audit.md#shared-output-contract-and-live-acceptance-tests): SCM monitors changes in collected script output, as described in profile element types.
+- [Guidance for AI authors and importers](modules/scm-profile-portability-audit.md#guidance-for-ai-authors-and-importers): Route these JSON collection profiles separately from the SCM compliance policies and the earlier tagged-YAML audit.
+
 ### [SCM: Server Configuration Monitor](modules/scm.md)
 
 Server Configuration Monitor watches the configuration of servers the way NCM watches the configuration of network devices: it collects files, registry keys, script output and query results from monitored nodes on a s...
@@ -1733,6 +1746,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [sam.md](reference/unverified.md#sammd): Gotchas
 - [scm-compliance-policies.md](reference/unverified.md#scm-compliance-policiesmd): The SWIS round trip (2026.2, verified)
 - [scm-policy-portability-audit.md](reference/unverified.md#scm-policy-portability-auditmd): Policy inventory and intentional coverage limits
+- [scm-profile-portability-audit.md](reference/unverified.md#scm-profile-portability-auditmd): Published provenance
 - [scm.md](reference/unverified.md#scmmd): Profiles
 - [srm.md](reference/unverified.md#srmmd): Providers
 - [vman.md](reference/unverified.md#vmanmd): Hosts, clusters, datacenters and vCenters
