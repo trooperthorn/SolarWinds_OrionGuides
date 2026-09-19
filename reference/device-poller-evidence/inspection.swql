@@ -1,0 +1,51 @@
+-- Read-only inspection; use @nodeId for one node. TOP 1000 is a cap, not paging.
+SELECT TOP 1000
+    t.TechnologyID, t.Name, t.Enabled
+FROM Orion.DeviceStudio.Technologies t
+ORDER BY t.Name
+
+SELECT TOP 1000
+    p.PollerID, p.Name, p.TechnologyID,
+    p.Technology.Name AS TechnologyName,
+    p.Priority, p.Enabled, p.TechnologyPollingID,
+    tp.TechnologyID AS TechnologyPollingTechnologyID
+FROM Orion.DeviceStudio.Pollers p
+LEFT JOIN Orion.TechnologyPolling tp
+    ON tp.TechnologyPollingID = p.TechnologyPollingID
+ORDER BY p.Name, p.PollerID
+
+SELECT TOP 1000
+    a.ID, a.PollerID, a.NetObjectType, a.NetObjectID,
+    a.Enabled AS AssignmentEnabled,
+    a.Poller.Name AS PollerName,
+    a.Poller.Enabled AS PollerEnabled,
+    a.Poller.Technology.Enabled AS TechnologyEnabled
+FROM Orion.DeviceStudio.PollerAssignments a
+WHERE a.NetObjectType = 'N' AND a.NetObjectID = @nodeId
+ORDER BY a.Poller.Name, a.ID
+
+-- Stored fields may already have been overridden; compare with a fresh SNMP GET.
+SELECT TOP 1
+    n.NodeID, n.Caption, n.Vendor, n.MachineType, n.SysObjectID
+FROM Orion.Nodes n
+WHERE n.NodeID = @nodeId
+
+SELECT TOP 1000
+    a.InstanceID, a.TechnologyPollingID, a.TargetEntity, a.Enabled
+FROM Orion.TechnologyPollingAssignments a
+WHERE a.TargetEntity = 'Orion.Nodes' AND a.InstanceID = @nodeId
+ORDER BY a.TechnologyPollingID
+
+-- Check the actual target release; absence of a public verb is not an import endpoint.
+SELECT TOP 1000
+    e.FullName, e.CanCreate, e.CanUpdate, e.CanDelete, e.CanInvoke
+FROM Metadata.Entity e
+WHERE e.FullName LIKE 'Orion.DeviceStudio.%'
+ORDER BY e.FullName
+
+SELECT TOP 1000
+    v.Entity.FullName AS EntityName, v.Name, v.CanInvoke, v.IsInternal, v.Summary
+FROM Metadata.Verb v
+WHERE v.Entity.FullName LIKE 'Orion.DeviceStudio.%'
+   OR v.Entity.FullName = 'Orion.TechnologyPollingAssignments'
+ORDER BY v.Entity.FullName, v.Name

@@ -40,9 +40,10 @@ ten of twenty-one.
 | [check_links.py](check_links.py) | A relative link or #anchor that no longer resolves |
 | [check_dashboards.py](check_dashboards.py) | A shipped Modern Dashboard file that breaks one of the format's invariants |
 | [audit_dashboard_identities.py](audit_dashboard_identities.py) | Repeated dashboard/widget identities across JSON and ZIP files, conflicting definitions and unresolved placements |
+| [audit_device_pollers.py](audit_device_pollers.py) | Nested Device Studio XML inventory, name references, repeated identities, and semantic review prompts |
 | [check_api_poller_templates.py](check_api_poller_templates.py) | A shipped API Poller template that breaks the export format, or hides unknown values |
 | [check_gate.py](check_gate.py) | A check above that has stopped checking, by seeding errors it must catch |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 222 tests |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 226 tests |
 
 `check_gate.py` is the one that watches the others. A checker that quietly stops reading
 what it claims to read still exits zero, which makes it indistinguishable from a working
@@ -165,3 +166,15 @@ Every tool returns the same JSON that `schema_query.py --json` prints, because i
 the same functions. `read_doc` is limited to the documentation, the sample scripts, the
 reference data and the root guides; it will not read the tools, the schema JSON, or
 anything outside the repository.
+
+## Device Studio export auditor
+
+`audit_device_pollers.py` reads one or more `.poller` files and writes JSON to stdout.
+It performs no SNMP calls, imports, or expression execution. Quote paths containing
+spaces. Exit 0 means parsing completed, not that the poller is safe to deploy; inspect
+unresolved references and review notes. Exit 2 indicates malformed or unreadable input.
+The 10 MB input limit and UTF-8/UTF-16 decoder are audit-tool limits, not product limits.
+Same-ID files with different bytes require comparison; the tool does not label whitespace
+or namespace-prefix differences as proven semantic conflicts. Missing/null mappings and
+raw embedded XML are retained. See the
+[export audit](../docs/polling/device-studio-export-audit.md) for interpretation.

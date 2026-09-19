@@ -33,6 +33,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_reference_data
 import check_dashboards
 import audit_dashboard_identities
+import audit_device_pollers
+from pathlib import Path
+import tempfile
 import diff_schema
 import validate_swql
 from schema_query import Schema
@@ -2102,6 +2105,51 @@ class TestDashboardIdentityAudit(unittest.TestCase):
             "data": {"dashboards": [{"unique_key": "page", "widgets": [{"unique_key": "missing"}]}],
                      "widgets": []}}], [])
         self.assertEqual(result["summary"]["unresolved_placements"], 1)
+
+
+class TestDevicePollerAudit(unittest.TestCase):
+    def evidence(self):
+        path = Path(ROOT) / 'reference/device-poller-evidence/2026-09-18.json'
+        return json.loads(path.read_text(encoding='utf-8'))
+
+    def test_nested_xml_is_decoded_without_evaluating_constants(self):
+        record = next(p for p in self.evidence()['pollers'] if p['file'] == 'Ubiquiti Vendor Name.poller')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'fixture.poller'
+            # Raw nested XML remains a text value in the surrounding document.
+            import xml.etree.ElementTree as ET
+            ns = audit_device_pollers.NS
+            root = ET.Element('{' + ns + '}Poller')
+            ET.SubElement(root, '{' + ns + '}PollerID').text = record['metadata']['PollerID']
+            configs = ET.SubElement(root, '{' + ns + '}Configs')
+            for key, value in record['configs'].items():
+                pair = ET.SubElement(configs, 'KeyValueOfanyTypeanyType')
+                ET.SubElement(pair, 'Key').text = key
+                ET.SubElement(pair, 'Value').text = value['raw_xml']
+            path.write_bytes(ET.tostring(root, encoding='utf-8'))
+            result = audit_device_pollers.audit(path)
+            self.assertEqual(result['unresolved_references'], [])
+            self.assertTrue(any('constant string' in n for n in result['review_notes']))
+            self.assertEqual(result['transforms'][0]['expression'], "'Ubiquiti'")
+
+    def test_doctype_and_entity_declarations_rejected(self):
+        for text in ['<!DOCTYPE a><a/>', '<!ENTITY a "x"><a/>']:
+            with self.assertRaises(ValueError):
+                audit_device_pollers.parse_xml(text)
+
+    def test_unmapped_output_is_not_an_empty_mapping(self):
+        import xml.etree.ElementTree as ET
+        ns = audit_device_pollers.NS
+        absent = ET.fromstring('<OutputProperty xmlns="' + ns + '"><Name>Vendor</Name></OutputProperty>')
+        self.assertIsNone(audit_device_pollers.output_property(absent)['mapping'])
+        self.assertNotIn('Mapping', [audit_device_pollers.local(c.tag) for c in absent])
+
+    def test_utf16_bom_and_duplicate_source_identity_evidence(self):
+        self.assertEqual(audit_device_pollers.decode('<Poller/>'.encode('utf-16')), '<Poller/>')
+        duplicates = self.evidence()['duplicate_poller_ids']
+        self.assertEqual(len(duplicates), 1)
+        self.assertTrue(duplicates[0]['byte_identical'])
+        self.assertEqual(len(duplicates[0]['files']), 2)
 
 
 if __name__ == "__main__":

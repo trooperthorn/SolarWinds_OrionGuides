@@ -1,14 +1,16 @@
 # Device Studio pollers
 
-Device Studio is the console feature for building a vendor-specific poller without writing an
-OID by hand. You pick a technology, describe what to collect, and the result is a poller that
+Device Studio is the console feature for building a vendor-specific poller by selecting or defining
+OIDs, transforming their results, and mapping technology outputs. The result is a poller that
 can be assigned to nodes like any other — except that it lives in its own three entities and
 none of the queries in [standard-pollers.md](standard-pollers.md) can see it.
 
-Everything here is **read-only through SWIS**. None of the three entities declares any
-operations, so a poller is built in the console and this API tells you what exists and what it
-is assigned to. That is still the useful half: it answers "what is this node actually
-collecting" when the answer is not in `Orion.Pollers`.
+The three Device Studio entities provide read-only inspection in the published 2026.2
+contract; no Device Studio import/export verbs were found there. Separately,
+[technology polling](technology-polling.md) publishes assignment verbs, whose applicability
+to a Device Studio poller requires a verified TechnologyPollingID bridge and live testing.
+See the [twelve-export audit](device-studio-export-audit.md) for the XML authoring contract,
+matching limits, import/export boundary, and [complete field mappings](device-studio-export-mappings.md).
 
 ## The three entities
 
@@ -150,9 +152,9 @@ See [technology-polling.md](technology-polling.md) for what is on the other side
 
 ## Gotchas
 
-**Nothing here is writable.** All three entities declare no operations, so a Device Studio
-poller cannot be created, assigned, enabled or deleted through SWIS. Automation can report on
-them and nothing more.
+**These entities do not expose a write or import/export contract.** Use the console
+for established Device Studio import/export workflows. Do not extrapolate this to every
+related entity: technology-assignment verbs exist, but do not import poller definitions.
 
 **`NetObjectType` and `NetObjectID` collide with `Orion.Pollers`.** Same column names, same
 values, unrelated tables. Always name the entity you mean.

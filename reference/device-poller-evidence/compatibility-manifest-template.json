@@ -1,0 +1,85 @@
+{
+  "manifest_format": "research-proposal-1",
+  "is_solarwinds_import_format": false,
+  "purpose": "Sidecar evidence for a future Device Studio poller; never import this JSON as a poller",
+  "target": {
+    "vendor_display": null,
+    "product_family": null,
+    "model": null,
+    "hardware_revision": null,
+    "firmware_or_os": null,
+    "snmp_daemon_and_version": null,
+    "snmp_protocol_version": null,
+    "enabled_mib_modules": [],
+    "solarwinds_platform_version": null,
+    "npm_version": null
+  },
+  "identity": {
+    "requested_oid": "1.3.6.1.2.1.1.2.0",
+    "returned_oid": null,
+    "returned_asn1_type": null,
+    "returned_value": null,
+    "stored_node_sysobjectid": null,
+    "intended_vendor_display_override": null,
+    "raw_identity_must_be_preserved": true
+  },
+  "poller": {
+    "file_sha256": null,
+    "poller_id": null,
+    "technology_id_from_target": null,
+    "technology_name_from_target": null,
+    "technology_polling_id_from_target": null,
+    "operation_intent": "new-independent-poller | deliberate-update",
+    "source_pollers": [],
+    "existing_active_collector": null,
+    "automatic_discovery_approved_after_negative_tests": false
+  },
+  "source_observations": [
+    {
+      "source_name": null,
+      "requested_oid": null,
+      "method": "GET | GETNEXT | GETTABLE",
+      "returned_oid": null,
+      "asn1_type": null,
+      "value": null,
+      "table_index": null,
+      "unit": null,
+      "sample_window": null,
+      "timestamp_utc": null,
+      "mib_source_url": null,
+      "mib_version_and_hash": null,
+      "device_cli_or_ui_comparison": null,
+      "error_or_missing_state": null
+    }
+  ],
+  "output_contract": [
+    {
+      "field_name": null,
+      "source_or_expression": null,
+      "output_type": null,
+      "semantic_unit": null,
+      "is_constant": false,
+      "constant_rationale": null,
+      "missing_data_behavior": null
+    }
+  ],
+  "validation": {
+    "structural": "not-tested",
+    "vendor_mib_semantics": "not-tested",
+    "live_positive_model": "not-tested",
+    "live_negative_models": "not-tested",
+    "getnext_subtree_validation": "not-tested",
+    "competing_native_poller": "not-tested",
+    "competing_custom_poller": "not-tested",
+    "optional_unmapped_fields": "not-tested",
+    "table_more_than_five_rows": "not-tested",
+    "reboot_and_index_stability": "not-tested",
+    "import_reexport_identity": "not-tested",
+    "rollback": "not-tested"
+  },
+  "notes": [
+    "Do not store SNMP community strings, passwords, or SNMPv3 keys in this manifest.",
+    "Unknown or inaccessible data must not become numeric zero or a healthy result.",
+    "A sysObjectID observation is not an implemented inventory predicate; document the actual matching mechanism."
+  ]
+}

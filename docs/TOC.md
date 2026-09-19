@@ -1124,6 +1124,7 @@ Creating an object does not monitor it.
 - [The one gotcha that spans all five](polling/README.md#the-one-gotcha-that-spans-all-five): Every system distinguishes an assignment that does not exist from one that exists and is switched off, and the second passes every "does this object have pollers" check while collecting nothing.
 - [The pages](polling/README.md#the-pages)
 - [Related pages](polling/README.md#related-pages): pick the interface, look the names up, write the SELECT first - ../automation/node-management.md for creating the node a poller attaches to - ../automation/discovery.md for network sonar and list resources - ../automa...
+- [Device Studio export evidence](polling/README.md#device-studio-export-evidence): The twelve-poller audit explains matching, nested XML, identity handling, semantic defects, and the SWIS boundary.
 
 ### [A worked API Poller: the UniFi Network Integration API](polling/api-poller-unifi-network.md)
 
@@ -1167,16 +1168,48 @@ An API poller collects metrics by calling an HTTP endpoint and reading values ou
 - [Practical notes](polling/api-pollers.md#practical-notes): Building a poller by writing Orion.APIPoller.ApiPoller, then its RequestDetails, then the headers, then the values to monitor is four levels of rows that have to be consistent, and it needs admin.
 - [See also](polling/api-pollers.md#see-also): first-hand against the UniFi Network Integration API: the credential, a three-request variable chain, and what that chaining cannot express - api-poller-vendor-templates.md for the Type values, blank thresholds and as...
 
+### [Device Studio: matching, output contracts, and twelve-poller audit](polling/device-studio-export-audit.md)
+
+Device Studio supplies replacement collectors for defined SolarWinds technologies.
+
+- [Deliverables and evidence](polling/device-studio-export-audit.md#deliverables-and-evidence): embedded configuration XML, inventory checks, sources, formulas, mappings, and duplicates.
+- [1. Device identification and vendor lookup](polling/device-studio-export-audit.md#1-device-identification-and-vendor-lookup): Read the instance 1.3.6.1.2.1.1.2.0 to obtain sysObjectID.
+- [2. Matching, discovery, and activation](polling/device-studio-export-audit.md#2-matching-discovery-and-activation): SolarWinds describes discovery opt-in as testing the poller on newly added nodes.
+- [3. Technology contracts and what they cannot add](polling/device-studio-export-audit.md#3-technology-contracts-and-what-they-cannot-add): SolarWinds documents Node Details, CPU & Memory, and Multi CPU & Memory authoring.
+- [4. Import format and parser design](polling/device-studio-export-audit.md#4-import-format-and-parser-design): Each file is a namespaced XML Poller, declaring UTF-8.
+- [5. Findings by supplied poller](polling/device-studio-export-audit.md#5-findings-by-supplied-poller): Both Vendor Name files share PollerID 03c50328-2821-4b38-82b7-09714846aebf and the same SHA-256.
+- [6. Formulas and preview behavior](polling/device-studio-export-audit.md#6-formulas-and-preview-behavior): Device Studio expressions are a separate language from SWQL and PowerShell.
+- [7. SWIS inspection and import/export boundary](polling/device-studio-export-audit.md#7-swis-inspection-and-importexport-boundary): The three Device Studio entities are queryable in the repository's 2026.2 contract and declare no CRUD/import verbs.
+- [8. Building Ubiquiti and pfSense support next](polling/device-studio-export-audit.md#8-building-ubiquiti-and-pfsense-support-next): Build a model/firmware/SNMP-agent compatibility matrix before producing importable files.
+- [9. Evidence needed and acceptance matrix](polling/device-studio-export-audit.md#9-evidence-needed-and-acceptance-matrix): For each target family, retain a redacted read-only walk from the SolarWinds polling path, including requested/returned OIDs, ASN.1 types, scalar instances, table indices, errors, firmware, SNMP daemon/version, and ti...
+
+### [Device poller field mappings](polling/device-studio-export-mappings.md)
+
+Generated from the twelve supplied exports.
+
+- [Fortigate E.poller](polling/device-studio-export-mappings.md#fortigate-epoller): PollerID: 9d109dc6-6bb1-42da-bb74-7a2ea796b6f5.
+- [Ubiquiti Wireless APs.poller](polling/device-studio-export-mappings.md#ubiquiti-wireless-apspoller): PollerID: d8916856-b1ee-43a3-b66e-4665495f0ef8.
+- [Synology NAS.poller](polling/device-studio-export-mappings.md#synology-naspoller): PollerID: 46430070-dd86-4f36-8a8b-b0f06491c8a9.
+- [Juniper J2320.poller](polling/device-studio-export-mappings.md#juniper-j2320poller): PollerID: 5d2405b7-83f8-4654-9408-8096820282fe.
+- [Brocade VDX 6940.poller](polling/device-studio-export-mappings.md#brocade-vdx-6940poller): PollerID: aac3637a-c846-4931-a43a-abb65b7df688.
+- [Socomec-UPS.poller](polling/device-studio-export-mappings.md#socomec-upspoller): PollerID: 4e6b791a-20a4-4f34-a3dc-e11f4ad2d24f.
+- [Ubiquiti Vendor Name (1).poller](polling/device-studio-export-mappings.md#ubiquiti-vendor-name-1poller): PollerID: 03c50328-2821-4b38-82b7-09714846aebf.
+- [Ubiquiti Vendor Name.poller](polling/device-studio-export-mappings.md#ubiquiti-vendor-namepoller): PollerID: 03c50328-2821-4b38-82b7-09714846aebf.
+- [APRESIA_AEOS.poller](polling/device-studio-export-mappings.md#apresia_aeospoller): PollerID: 7dec53ec-2392-4cbc-93b6-4fce4a62c9ea.
+- [APRESIA_AMIOS.poller](polling/device-studio-export-mappings.md#apresia_amiospoller): PollerID: 829828ec-bc91-4ffb-bf20-c0df1857c8a0.
+- [ApresiaLight.poller](polling/device-studio-export-mappings.md#apresialightpoller): PollerID: 3c790d3c-0520-49cf-806b-6528e7c33696.
+- [Sonicwall Details.poller](polling/device-studio-export-mappings.md#sonicwall-detailspoller): PollerID: 3b4f2ac1-43a2-4e30-9704-c15c8ba602dd.
+
 ### [Device Studio pollers](polling/device-studio.md)
 
-Device Studio is the console feature for building a vendor-specific poller without writing an OID by hand.
+Device Studio is the console feature for building a vendor-specific poller by selecting or defining OIDs, transforming their results, and mapping technology outputs.
 
 - [The three entities](polling/device-studio.md#the-three-entities): They form a straight chain.
 - [The technologies](polling/device-studio.md#the-technologies): Three columns, and Enabled is the one worth noticing: a technology that is switched off takes its pollers with it, so a poller can be Enabled = TRUE and collecting nothing because the technology above it is not.
 - [The poller definitions](polling/device-studio.md#the-poller-definitions): Vendor and Tags are how the console groups these, and Author is the closest thing to a record of who built one — worth selecting before deleting anything in the console, since the API cannot.
 - [The assignments](polling/device-studio.md#the-assignments): NetObjectType and NetObjectID are the same two columns Orion.Pollers uses, holding the same values — N and a node id, I and an interface id.
 - [TechnologyID is a GUID here and a string elsewhere](polling/device-studio.md#technologyid-is-a-guid-here-and-a-string-elsewhere): Orion.DeviceStudio.Pollers carries two ids that look like they point into the neighbouring technology polling system, and only one of them does:
-- [Gotchas](polling/device-studio.md#gotchas): All three entities declare no operations, so a Device Studio poller cannot be created, assigned, enabled or deleted through SWIS.
+- [Gotchas](polling/device-studio.md#gotchas): Use the console for established Device Studio import/export workflows.
 - [Related pages](polling/device-studio.md#related-pages): TechnologyPollingID joins to - standard-pollers.md for the Orion.Pollers system these share NetObjectType and NetObjectID with - ../reference/netobject-types.md for the prefixes - ../swql/joins-and-navigation.md for n...
 
 ### [How node status is calculated](polling/node-status-calculation.md)
@@ -1756,6 +1789,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [api-poller-unifi-network.md](reference/unverified.md#api-poller-unifi-networkmd): The base path depends on how Network is deployed
 - [api-poller-vendor-templates.md](reference/unverified.md#api-poller-vendor-templatesmd): Three Type values, from real exports
 - [api-pollers.md](reference/unverified.md#api-pollersmd): The poller
+- [device-studio-export-audit.md](reference/unverified.md#device-studio-export-auditmd): 1.
 - [device-studio.md](reference/unverified.md#device-studiomd): The poller definitions
 - [node-status-calculation.md](reference/unverified.md#node-status-calculationmd): 2.
 - [standard-pollers.md](reference/unverified.md#standard-pollersmd): Interfaces: discover, then add with default pollers

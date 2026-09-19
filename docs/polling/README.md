@@ -115,3 +115,9 @@ have to be true.
 - [../platform/architecture.md](../platform/architecture.md) for polling engines and where a
   poller actually runs
 - [../reference/netobject-types.md](../reference/netobject-types.md) for the NetObject prefixes
+
+## Device Studio export evidence
+
+The [twelve-poller audit](device-studio-export-audit.md) explains matching, nested XML,
+identity handling, semantic defects, and the SWIS boundary. Its
+[field mappings](device-studio-export-mappings.md) preserve every supplied source and output.

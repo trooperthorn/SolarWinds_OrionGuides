@@ -1,0 +1,39 @@
+{
+  "audit_date": "2026-09-18",
+  "repository_baseline": "e92f5b094cfe4a58c358e6d1c17e5cc2ba71c5ed",
+  "scope": "Offline source audit and repository integration; original exports unchanged; no live imports or SNMP calls",
+  "checks": {
+    "source_hashes_rechecked": 12,
+    "outer_xml_documents_parsed": 12,
+    "nested_xml_documents_parsed": 24,
+    "distinct_poller_ids": 11,
+    "inventory_operations": 48,
+    "distinct_source_oids": 34,
+    "transform_expressions": 20,
+    "unresolved_output_or_formula_names": 0,
+    "undefined_output_tables": 0,
+    "duplicate_source_or_transform_names": 0,
+    "swql_queries_validated": 7,
+    "swql_errors": 0,
+    "swql_warnings": 0,
+    "malformed_or_dtd_entity_probes_rejected": 3,
+    "local_deliverable_links": "passed"
+  },
+  "not_tested": [
+    "Live SNMP or device performance",
+    "Device Studio formula evaluation",
+    "Import/export and identity overwrite behavior",
+    "Discovery/assignment precedence",
+    "Vendor semantics for every supplied OID"
+  ],
+  "duplicate_files": [
+    {
+      "poller_id": "03c50328-2821-4b38-82b7-09714846aebf",
+      "files": [
+        "Ubiquiti Vendor Name (1).poller",
+        "Ubiquiti Vendor Name.poller"
+      ],
+      "byte_identical": true
+    }
+  ]
+}

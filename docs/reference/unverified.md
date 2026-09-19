@@ -8,7 +8,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 
 The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
 
-**305 statements across 75 pages.**
+**308 statements across 76 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -811,6 +811,20 @@ Read this before relying on this repository for something load-bearing. If you h
 **[See also](../polling/api-pollers.md#see-also)**
 
 - [api-poller-unifi-network.md](../polling/api-poller-unifi-network.md) for a poller built and verified first-hand against the UniFi Network Integration API: the credential, a three-request variable chain, and what that chaining cannot express - [api-poller-vendor-templates.md](../polling/api-poller-vendor-templates.md) for the `Type` values, blank thresholds and assign-time URL parameters seen in SolarWinds' own ship...
+
+## [device-studio-export-audit.md](../polling/device-studio-export-audit.md)
+
+**[1. Device identification and vendor lookup](../polling/device-studio-export-audit.md#1-device-identification-and-vendor-lookup)**
+
+- Its present path, contents, and update behavior were not verified; this audit does not recommend editing that file or changing global vendor mappings.
+
+**[4. Import format and parser design](../polling/device-studio-export-audit.md#4-import-format-and-parser-design)**
+
+- Each has Version 2; its exact serialization-version semantics remain unverified, and it is not evidence of a SolarWinds release.
+
+**[8. Building Ubiquiti and pfSense support next](../polling/device-studio-export-audit.md#8-building-ubiquiti-and-pfsense-support-next)**
+
+- These are standard MIB candidates, not verified support claims for the user's future target.
 
 ## [device-studio.md](../polling/device-studio.md)
 

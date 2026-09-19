@@ -165,6 +165,8 @@ Five separate polling systems that share no entities and reuse each other's colu
 | [docs/polling/node-status-calculation.md](docs/polling/node-status-calculation.md) | How node status is calculated, why `Status` and `PolledStatus` differ, and where the reason is stored |
 | [docs/polling/universal-device-pollers.md](docs/polling/universal-device-pollers.md) | UnDPs: an SNMP OID you defined yourself |
 | [docs/polling/device-studio.md](docs/polling/device-studio.md) | The read-only `Orion.DeviceStudio.*` entities |
+| [docs/polling/device-studio-export-audit.md](docs/polling/device-studio-export-audit.md) | Twelve poller exports: matching, XML authoring, semantic validation, and SWIS import/export limits |
+| [docs/polling/device-studio-export-mappings.md](docs/polling/device-studio-export-mappings.md) | Every audited poller source OID, formula, output mapping, and file hash |
 | [docs/polling/technology-polling.md](docs/polling/technology-polling.md) | Technology polling and the declarative poller templates |
 | [docs/polling/api-pollers.md](docs/polling/api-pollers.md) | Collecting from an HTTP endpoint |
 | [docs/polling/api-poller-unifi-network.md](docs/polling/api-poller-unifi-network.md) | A worked, verified API Poller against the UniFi Network Integration API: API-key auth, a three-request variable chain, and what chaining cannot express |

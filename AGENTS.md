@@ -298,3 +298,14 @@ source. Preserve null versus absent fields, script escaping, and profile/element
 separately. Do not execute source scripts during parsing. A class-name match is candidate
 evidence, and an empty or incomplete scan is not a compliance pass. Require stable output,
 explicit collection scope, and target validation of identity and output behavior.
+
+## Device Studio authoring and API boundary
+
+Read `docs/polling/device-studio-export-audit.md` before creating or modifying `.poller`
+files. Preserve outer and embedded XML namespaces, QName bindings, output contracts,
+and references. Use `tools/audit_device_pollers.py` for inert inventory; it does not
+certify formulas or live compatibility. Distinguish reported sysObjectID, vendor display,
+OID-existence matching, and enabled assignments. Never replace SysObjectId with a brand
+name or infer measured memory from constants. Preserve TechnologyID when forking a poller.
+No Device Studio import/export verb is established by the 2026.2 catalogue. Use documented
+UI workflows and target metadata; related technology-assignment verbs are not import APIs.
