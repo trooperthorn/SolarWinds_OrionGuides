@@ -356,8 +356,9 @@ are readable but not addressable, which has three practical consequences:
    nothing to pass. This is separate from, and additional to, the official caveat that "there
    may be entity types that do not support this interface or provide only limited support due
    to technical or design reasons."
-2. **They cannot be the target of a saved reference.** Alerts, reports and group definitions
-   store URIs, so an entity with no URI cannot be referenced from one.
+2. **A blank URI cannot serve as a URI-addressed reference.** This does not prevent
+   a report or custom-query widget from selecting or aggregating these rows. Check the
+   specific feature's targeting contract before ruling out its use.
 3. **`BulkUpdate` and `BulkDelete` cannot touch them**, for the same reason. See
    [bulk-operations.md](../swis/bulk-operations.md).
 

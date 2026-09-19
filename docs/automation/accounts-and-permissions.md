@@ -697,8 +697,8 @@ ORDER BY a.LastLogin
 
 `DayDiff(a, b)` counts from `a` to `b`, so the argument order here yields a positive age.
 `LastLogin` is a `System.DateTime` and this comparison is in server-local time; see
-[../swql/date-and-time.md](../swql/date-and-time.md) for why mixing `GetUtcDate()` with the
-`AddX` functions produces the wrong offset.
+[../swql/date-and-time.md](../swql/date-and-time.md) for the selected-value offset issue
+and the separate need to establish a column's time basis.
 
 ### Change volume per account
 

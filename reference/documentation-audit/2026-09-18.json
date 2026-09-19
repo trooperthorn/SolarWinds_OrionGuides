@@ -1,0 +1,1326 @@
+{
+  "review_date": "2026-09-18",
+  "baseline_commit": "135480f265ac91cb065e5f06c5733730273ebe52",
+  "scope": "All baseline tracked .md and .txt files, excluding generated llms-full.txt duplication. Code, binary source artifacts, and external sources inspected selectively; not all independently verified.",
+  "inventory_count": 144,
+  "authored_or_supporting_count": 135,
+  "generated_count": 9,
+  "external_links": "Selected primary sources rechecked; not an exhaustive external link crawl.",
+  "runtime_validation": "No live SolarWinds tests performed in this audit.",
+  "files": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/inaccuracy.md",
+      "generated": false,
+      "baseline_bytes": 1176,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 0,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "generated": false,
+      "baseline_bytes": 685,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 4,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "generated": false,
+      "baseline_bytes": 950,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 6,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "AGENTS.md",
+      "generated": false,
+      "baseline_bytes": 17141,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 32,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "CLAUDE.md",
+      "generated": false,
+      "baseline_bytes": 543,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 4,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "generated": false,
+      "baseline_bytes": 8727,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 14,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "README.md",
+      "generated": false,
+      "baseline_bytes": 13291,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 17,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "apps/dashboard-porter/README.md",
+      "generated": false,
+      "baseline_bytes": 8703,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 29,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "apps/disa-stig-conversion-tool/README.md",
+      "generated": false,
+      "baseline_bytes": 24193,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 68,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "apps/grafana-swis-datasource/.config/README.md",
+      "generated": false,
+      "baseline_bytes": 5403,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 4,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "apps/grafana-swis-datasource/CHANGELOG.md",
+      "generated": false,
+      "baseline_bytes": 268,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 0,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "apps/grafana-swis-datasource/README.md",
+      "generated": false,
+      "baseline_bytes": 16923,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 29,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "apps/grafana-swis-datasource/provisioning/README.md",
+      "generated": false,
+      "baseline_bytes": 876,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 1,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "apps/porter/README.md",
+      "generated": false,
+      "baseline_bytes": 15259,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 42,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "data/README.md",
+      "generated": false,
+      "baseline_bytes": 3850,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 5,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "data/schema/2026.2/README.md",
+      "generated": false,
+      "baseline_bytes": 1185,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 1,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/README.md",
+      "generated": false,
+      "baseline_bytes": 2847,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 7,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/TOC.md",
+      "generated": true,
+      "baseline_bytes": 228547,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 349,
+      "disposition": "generated_data_or_index",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/README.md",
+      "generated": false,
+      "baseline_bytes": 14671,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 21,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/accounts-and-permissions.md",
+      "generated": false,
+      "baseline_bytes": 32399,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 47,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/alerts.md",
+      "generated": false,
+      "baseline_bytes": 54142,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 56,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/credential-integration.md",
+      "generated": false,
+      "baseline_bytes": 16280,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 33,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/credentials.md",
+      "generated": false,
+      "baseline_bytes": 31113,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 33,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/custom-properties.md",
+      "generated": false,
+      "baseline_bytes": 29312,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 34,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/dependencies.md",
+      "generated": false,
+      "baseline_bytes": 18403,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 17,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/disa-stig-import.md",
+      "generated": false,
+      "baseline_bytes": 9763,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 26,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/discovery.md",
+      "generated": false,
+      "baseline_bytes": 47128,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 50,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/events-and-auditing.md",
+      "generated": false,
+      "baseline_bytes": 31346,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 24,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/high-availability.md",
+      "generated": false,
+      "baseline_bytes": 43923,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 68,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/maintenance-mode.md",
+      "generated": false,
+      "baseline_bytes": 22615,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 26,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/node-management.md",
+      "generated": false,
+      "baseline_bytes": 31632,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 30,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/report-definitions.md",
+      "generated": false,
+      "baseline_bytes": 25351,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 34,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/reporting.md",
+      "generated": false,
+      "baseline_bytes": 33127,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 48,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/automation/scheduling.md",
+      "generated": false,
+      "baseline_bytes": 14529,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 14,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/guides/building-integrations.md",
+      "generated": false,
+      "baseline_bytes": 40217,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 71,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/guides/cookbook.md",
+      "generated": false,
+      "baseline_bytes": 46144,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 60,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/guides/ercot-grid-dashboard.md",
+      "generated": false,
+      "baseline_bytes": 43134,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 72,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/guides/getting-started.md",
+      "generated": false,
+      "baseline_bytes": 24135,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 41,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/guides/layer2-switching-dashboard.md",
+      "generated": false,
+      "baseline_bytes": 11964,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 11,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/guides/soc2-dashboard-10k-nodes.md",
+      "generated": false,
+      "baseline_bytes": 13468,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 11,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/guides/troubleshooting.md",
+      "generated": false,
+      "baseline_bytes": 37894,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 69,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/guides/webview-embedding-and-node-mapping.md",
+      "generated": false,
+      "baseline_bytes": 10337,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 12,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/guides/wireless-heatmaps.md",
+      "generated": false,
+      "baseline_bytes": 24843,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 55,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/README.md",
+      "generated": false,
+      "baseline_bytes": 11583,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 15,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/agents.md",
+      "generated": false,
+      "baseline_bytes": 55510,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 60,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/cloud.md",
+      "generated": false,
+      "baseline_bytes": 44290,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 58,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/dpa.md",
+      "generated": false,
+      "baseline_bytes": 36177,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 39,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/hardware-health.md",
+      "generated": false,
+      "baseline_bytes": 25652,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 27,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/ipam.md",
+      "generated": false,
+      "baseline_bytes": 56753,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 57,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/log-analyzer.md",
+      "generated": false,
+      "baseline_bytes": 41727,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 57,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/ncm-compliance-portability-audit.md",
+      "generated": false,
+      "baseline_bytes": 34515,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 61,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/ncm-compliance-reports.md",
+      "generated": false,
+      "baseline_bytes": 11639,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 25,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/ncm-device-templates.md",
+      "generated": false,
+      "baseline_bytes": 16040,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 26,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/ncm.md",
+      "generated": false,
+      "baseline_bytes": 75174,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 101,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/npm.md",
+      "generated": false,
+      "baseline_bytes": 47291,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 47,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/nta.md",
+      "generated": false,
+      "baseline_bytes": 49010,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 67,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/qoe.md",
+      "generated": false,
+      "baseline_bytes": 32195,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 53,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/sam-citrix-hypervisor-template.md",
+      "generated": false,
+      "baseline_bytes": 23995,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 38,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/sam-templates.md",
+      "generated": false,
+      "baseline_bytes": 37836,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 58,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/sam-udp-port-exhaustion-template.md",
+      "generated": false,
+      "baseline_bytes": 12831,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 23,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/sam.md",
+      "generated": false,
+      "baseline_bytes": 44606,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 42,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/scm-compliance-policies.md",
+      "generated": false,
+      "baseline_bytes": 9750,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 18,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/scm-policy-portability-audit.md",
+      "generated": false,
+      "baseline_bytes": 20876,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 37,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/scm-profile-portability-audit.md",
+      "generated": false,
+      "baseline_bytes": 15086,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 22,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/scm.md",
+      "generated": false,
+      "baseline_bytes": 22901,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 35,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/srm.md",
+      "generated": false,
+      "baseline_bytes": 54184,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 67,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/udt.md",
+      "generated": false,
+      "baseline_bytes": 44946,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 63,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/vman.md",
+      "generated": false,
+      "baseline_bytes": 53687,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 72,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/vnqm.md",
+      "generated": false,
+      "baseline_bytes": 64186,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 75,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/modules/wpm.md",
+      "generated": false,
+      "baseline_bytes": 52352,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 63,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/platform/README.md",
+      "generated": false,
+      "baseline_bytes": 7924,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 10,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/platform/architecture.md",
+      "generated": false,
+      "baseline_bytes": 22864,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 29,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/platform/modules.md",
+      "generated": false,
+      "baseline_bytes": 24196,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 20,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/platform/versions-and-naming.md",
+      "generated": false,
+      "baseline_bytes": 13342,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 20,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/README.md",
+      "generated": false,
+      "baseline_bytes": 6897,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 16,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/api-poller-unifi-network.md",
+      "generated": false,
+      "baseline_bytes": 19932,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 48,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/api-poller-vendor-templates.md",
+      "generated": false,
+      "baseline_bytes": 13369,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 32,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/api-pollers.md",
+      "generated": false,
+      "baseline_bytes": 30786,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 40,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/device-studio-export-audit.md",
+      "generated": false,
+      "baseline_bytes": 26902,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 45,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/device-studio-export-mappings.md",
+      "generated": false,
+      "baseline_bytes": 11486,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 1,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/device-studio.md",
+      "generated": false,
+      "baseline_bytes": 6901,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 13,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/node-status-calculation.md",
+      "generated": false,
+      "baseline_bytes": 17225,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 35,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/standard-pollers.md",
+      "generated": false,
+      "baseline_bytes": 37609,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 50,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/technology-polling.md",
+      "generated": false,
+      "baseline_bytes": 12665,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 24,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/polling/universal-device-pollers.md",
+      "generated": false,
+      "baseline_bytes": 5867,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 2,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/README.md",
+      "generated": false,
+      "baseline_bytes": 11854,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 25,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/entity-index.md",
+      "generated": true,
+      "baseline_bytes": 217177,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 152,
+      "disposition": "generated_data_or_index",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/glossary.md",
+      "generated": false,
+      "baseline_bytes": 27469,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 37,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/netobject-types.md",
+      "generated": true,
+      "baseline_bytes": 13175,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 104,
+      "disposition": "generated_data_or_index",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/schema-changes-2025.4-to-2026.2.md",
+      "generated": true,
+      "baseline_bytes": 12610,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 2,
+      "disposition": "generated_data_or_index",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/schema-changes-2026.1-to-2026.2.md",
+      "generated": true,
+      "baseline_bytes": 9163,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 2,
+      "disposition": "generated_data_or_index",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/status-codes.md",
+      "generated": true,
+      "baseline_bytes": 4631,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 11,
+      "disposition": "generated_data_or_index",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/swql-function-index.md",
+      "generated": true,
+      "baseline_bytes": 11601,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 7,
+      "disposition": "generated_data_or_index",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/unverified.md",
+      "generated": true,
+      "baseline_bytes": 84769,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 276,
+      "disposition": "generated_data_or_index",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/reference/verb-index.md",
+      "generated": true,
+      "baseline_bytes": 165291,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 158,
+      "disposition": "generated_data_or_index",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/schema/README.md",
+      "generated": false,
+      "baseline_bytes": 14214,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 19,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/schema/entity-model.md",
+      "generated": false,
+      "baseline_bytes": 24088,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 44,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/schema/key-entities.md",
+      "generated": false,
+      "baseline_bytes": 67803,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 55,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/schema/netobject-types.md",
+      "generated": false,
+      "baseline_bytes": 14005,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 19,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/schema/relationships.md",
+      "generated": false,
+      "baseline_bytes": 22651,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 26,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/schema/status-codes.md",
+      "generated": false,
+      "baseline_bytes": 22315,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 38,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/schema/using-the-data.md",
+      "generated": false,
+      "baseline_bytes": 25603,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 46,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/README.md",
+      "generated": false,
+      "baseline_bytes": 10612,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 19,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/bulk-operations.md",
+      "generated": false,
+      "baseline_bytes": 6954,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 10,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/connecting.md",
+      "generated": false,
+      "baseline_bytes": 12713,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 22,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/crud.md",
+      "generated": false,
+      "baseline_bytes": 14868,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 23,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/invoke-at-scale.md",
+      "generated": false,
+      "baseline_bytes": 19508,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 51,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/invoke-verbs.md",
+      "generated": false,
+      "baseline_bytes": 49285,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 47,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/metadata-introspection.md",
+      "generated": false,
+      "baseline_bytes": 22650,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 21,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/rest-api.md",
+      "generated": false,
+      "baseline_bytes": 17194,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 21,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/uris.md",
+      "generated": false,
+      "baseline_bytes": 15071,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 23,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swis/verb-catalog.md",
+      "generated": false,
+      "baseline_bytes": 42179,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 55,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swql/README.md",
+      "generated": false,
+      "baseline_bytes": 12161,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 18,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swql/date-and-time.md",
+      "generated": false,
+      "baseline_bytes": 29398,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 44,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swql/functions.md",
+      "generated": false,
+      "baseline_bytes": 42252,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 51,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swql/gotchas.md",
+      "generated": false,
+      "baseline_bytes": 45109,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 78,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swql/joins-and-navigation.md",
+      "generated": false,
+      "baseline_bytes": 31006,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 30,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swql/language-reference.md",
+      "generated": false,
+      "baseline_bytes": 31124,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 47,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/swql/performance.md",
+      "generated": false,
+      "baseline_bytes": 35097,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 64,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/README.md",
+      "generated": false,
+      "baseline_bytes": 5967,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 8,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/custom-query-call-queries.md",
+      "generated": false,
+      "baseline_bytes": 25214,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 21,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/custom-query-widget.md",
+      "generated": false,
+      "baseline_bytes": 13396,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 26,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/modern-dashboard-2026-4-export-audit.md",
+      "generated": false,
+      "baseline_bytes": 22970,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 32,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/modern-dashboard-authoring.md",
+      "generated": false,
+      "baseline_bytes": 23128,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 49,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/modern-dashboard-widget-identity-audit.md",
+      "generated": false,
+      "baseline_bytes": 12742,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 30,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/modern-dashboards.md",
+      "generated": false,
+      "baseline_bytes": 39590,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 98,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/ncm-change-template-language.md",
+      "generated": false,
+      "baseline_bytes": 21660,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 40,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/ncm-change-templates.md",
+      "generated": false,
+      "baseline_bytes": 15962,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 28,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/perfstack.md",
+      "generated": false,
+      "baseline_bytes": 13764,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 25,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/variables-reference.md",
+      "generated": false,
+      "baseline_bytes": 25601,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 71,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/variables-undocumented.md",
+      "generated": false,
+      "baseline_bytes": 9092,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 16,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "docs/webui/variables.md",
+      "generated": false,
+      "baseline_bytes": 13653,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 18,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "llms.txt",
+      "generated": false,
+      "baseline_bytes": 22638,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 30,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "scripts/README.md",
+      "generated": false,
+      "baseline_bytes": 4367,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 6,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "scripts/api-pollers/README.md",
+      "generated": false,
+      "baseline_bytes": 8461,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 14,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "scripts/api-pollers/vendor-examples/README.md",
+      "generated": false,
+      "baseline_bytes": 3271,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 3,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "scripts/curl/README.md",
+      "generated": false,
+      "baseline_bytes": 1524,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 4,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "scripts/dashboards/README.md",
+      "generated": false,
+      "baseline_bytes": 4307,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 10,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "scripts/powershell/README.md",
+      "generated": false,
+      "baseline_bytes": 1884,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 1,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "scripts/python/README.md",
+      "generated": false,
+      "baseline_bytes": 1856,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 2,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "scripts/sam-templates/README.md",
+      "generated": false,
+      "baseline_bytes": 4179,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 4,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "scripts/swql/README.md",
+      "generated": false,
+      "baseline_bytes": 4650,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 3,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "tools/README.md",
+      "generated": false,
+      "baseline_bytes": 10440,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 10,
+      "disposition": "targeted_context_review_and_revision",
+      "claim_by_claim_verification": false
+    },
+    {
+      "path": "tools/entity-reference-allowlist.txt",
+      "generated": false,
+      "baseline_bytes": 2529,
+      "screening": "wording_version_uncertainty",
+      "flagged_line_count": 1,
+      "disposition": "screened_no_revision",
+      "claim_by_claim_verification": false
+    }
+  ],
+  "validation": {
+    "command": "make check",
+    "environment": "WSL, Python 3, local jq runtime",
+    "result": "passed",
+    "unit_tests": 228,
+    "swql_checks": 1586,
+    "swql_errors": 0,
+    "swql_warnings": 0,
+    "seeded_errors_caught": 10,
+    "seeded_errors_total": 10,
+    "internal_markdown_links_checked": 3522,
+    "docs_pages_indexed": 116,
+    "marked_uncertainty_statements": 310,
+    "marked_uncertainty_pages": 75,
+    "live_solarwinds_tests": false,
+    "application_builds": false,
+    "scope_notes": "Static validation only; configured skips and unresolved schema targets remain reported by the gate."
+  }
+}

@@ -16,6 +16,11 @@ rest of the wireless model — controllers, access points, radios, clients, rogu
 overlapping wireless families to use. Worked queries for everything below are in
 [../../scripts/swql/17-wireless-heatmaps.swql](../../scripts/swql/17-wireless-heatmaps.swql).
 
+When following Network Atlas instructions, check the
+[release support notes](../platform/versions-and-naming.md#release-specific-support-notes).
+Network Atlas deprecation does not by itself prove equivalent heatmap support in
+Intelligent Maps; that migration's feature parity is unverified here.
+
 ## Where the data comes from
 
 Three sources feed a map, and they are not equivalent.

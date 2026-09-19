@@ -9,6 +9,19 @@ script that unmanages nodes before a change window and remanages them afterwards
 platform may already be doing that on a plan, and the two will fight. Check before you
 build.
 
+## Release-specific scheduling behavior
+
+SolarWinds deprecated the Windows Unmanage Scheduling Utility in 2026.2 and directs new
+schedules to the console's Manage Schedules page. This is a product workflow change,
+not a removal of the SWIS entities listed below. See
+[release support notes](../platform/versions-and-naming.md#release-specific-support-notes).
+
+The base 2026.2 release has a documented issue where maintenance schedules stop executing
+after the Module Engine service restarts. The
+[2026.2.2 release notes](https://documentation.solarwinds.com/en/success_center/orionplatform/content/release_notes/solarwinds_platform_2026-2-2_release_notes.htm)
+list the fix under case 02159789. Record the full patch version during diagnosis; an
+enabled schedule row alone does not prove that the schedule executed.
+
 ## The entities
 
 | Entity | Holds | Size |

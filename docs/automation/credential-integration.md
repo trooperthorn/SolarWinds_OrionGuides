@@ -356,8 +356,10 @@ practical cost of the inconsistency.
 
 ## Gotchas
 
-**A credential id is not a foreign key.** 25 of the 28 columns have nothing behind them.
-Deleting a credential leaves them pointing at a row that is gone, silently.
+**A credential-id column is not proof of a declared relationship.** 25 of the 28 columns
+lack a navigation in this extract. This does not establish database constraints or
+cascade behavior. **Unverified:** deletion may be rejected, cleaned up, or leave stale
+references depending on the feature. Inventory consumers before deleting a credential.
 
 **Four spellings.** `CredentialID`, `CredentialId`, `CredentialsId`, `CredentialsID`.
 

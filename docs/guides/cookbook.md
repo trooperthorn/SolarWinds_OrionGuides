@@ -59,7 +59,8 @@ Each of these prevents a specific failure rather than being a house style:
   queryable on every managed object even though those entities do not declare it.
 - **The right clock on each side of a time comparison.** A column whose name ends in `Utc`,
   such as `Orion.AuditingEvents.TimeLoggedUtc`, belongs next to `GetUtcDate()`.
-  `Orion.Events.EventTime` documents itself as local time and belongs next to `GetDate()`.
+  `Orion.Events.EventTime` describes local display; confirm its queried time basis.
+  The event examples below assume local values.
   Most other date columns, including `Orion.AlertActive.TriggeredDateTime`,
   `Orion.AlertHistory.TimeStamp` and `Cirrus.ConfigArchive.DownloadTime`, carry **no
   documented timezone in the schema and are unverified here**: measure them once on your own
@@ -327,7 +328,7 @@ ORDER BY si.Ranking, c.Application.Node.Caption, c.ComponentOrder
 
 ### 13. What changed state in the last hour?
 
-`Orion.Events` records what the platform observed. `EventTime` is local, so it is compared
+`Orion.Events` records what the platform observed. This example assumes local `EventTime`, so it is compared
 against `GetDate()`.
 
 ```sql

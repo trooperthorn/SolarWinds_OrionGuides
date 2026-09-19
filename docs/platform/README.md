@@ -69,18 +69,14 @@ guessing produces queries that fail with an unhelpful error at runtime.
 | REST base path | `/SolarWinds/InformationService/v3/Json` |
 | Scheme | `https` only |
 | REST port, 2023.1 and later | 17774 |
-| REST port through 2022.4.1 | 17778 (deprecated) |
+| Legacy REST port | 17778; deprecated in 2023.1, default listener stops in 2024.2 |
 | SOAP / net.tcp port | 17777 |
 | Generic REST paths | `/Query` (GET and POST), `/{uri}` (CRUD), `/BulkUpdate`, `/BulkDelete` |
 | Per-entity REST paths | `/Create/{Entity}`, `/Invoke/{Entity}/{Verb}` |
 
-The port change is the single most common cause of "the API used to work and now it does
-not". SolarWinds documents it in the SDK's
-[REST page](https://solarwinds.github.io/OrionSDK/docs/rest/):
-
-> Orion Platform had been using port 17778 for REST communication until the 2022.4.1
-> release. This changed in the 2023.1 release where the REST endpoint can be found on port
-> 17774 and port 17778 is deprecated and will be removed in a future release.
+For the distinction between the 2023.1 endpoint introduction and the 2024.2 listener
+change, see [connecting.md](../swis/connecting.md#endpoints-and-ports). A failed
+connection alone does not establish a version or port problem.
 
 One more rule that shapes every automation you will write: **the query interface is
 read-only**. `SELECT` through `/Query` cannot insert, update, or delete anything. Changes

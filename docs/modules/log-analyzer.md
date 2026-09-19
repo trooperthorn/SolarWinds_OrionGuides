@@ -33,9 +33,8 @@ as mandatory rather than as a good habit, and prefer
 without re-running the scan. See [../swql/performance.md](../swql/performance.md).
 
 `DateTime` is stored in UTC. Build the window in UTC too, and read
-[../swql/date-and-time.md](../swql/date-and-time.md) first: `GetUtcDate()` combined with
-`AddHour` and friends produces wrong offsets, because those compile to a timezone-blind
-`DATEADD`.
+[../swql/date-and-time.md](../swql/date-and-time.md) for the distinction between selected
+value serialization, predicate behavior, and exact elapsed UTC windows.
 
 ## Namespace and how many entities
 

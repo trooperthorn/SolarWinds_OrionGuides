@@ -4,11 +4,11 @@
 
 # What this repository does not verify
 
-Everything in these guides was checked against the extracted SolarWinds schema before it was written, and every SWQL statement is re-checked on each build. Some things cannot be checked that way: behaviour that only a running server exhibits, values that are installation data rather than schema, and the handful of places where SolarWinds' own documentation and their published contract disagree.
+This index extracts explicit uncertainty markers from authored pages under docs/. Static schema and example checks do not verify every prose claim, runtime behavior, or compatibility with a particular installation.
 
-The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
+The extractor recognizes selected phrases and explicit labels such as **Unverified:**, **Unknown:**, **Unconfirmed:**, **Not tested:**, and **Runtime validation required:**. It skips generated pages, headings, and fenced code. Absence from this index does not mean a claim is verified; app and script READMEs are outside its collection scope. See [the documentation audit](documentation-audit-2026-09-18.md) for coverage and evidence rules.
 
-**308 statements across 76 pages.**
+**310 statements across 75 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -35,12 +35,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - `IsNull(column, 0) <> 0` covers both ways an unused slot can be represented, because whether an empty slot holds `0` or `NULL` is not recorded in the schema.
 
-## [alerts.md](../automation/alerts.md)
-
-**[What is not verified here](../automation/alerts.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [credential-integration.md](../automation/credential-integration.md)
 
 **[`Orion.CredentialRelation` is the mechanism nobody mentions](../automation/credential-integration.md#orioncredentialrelation-is-the-mechanism-nobody-mentions)**
@@ -55,6 +49,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Reading it means a verb call per credential — `Orion.SRM.BusinessLayer.GetCredential` is one path, though whether it reports the flag for credentials SRM did not create is **unverified here**.
 
+**[Gotchas](../automation/credential-integration.md#gotchas)**
+
+- **Unverified:** deletion may be rejected, cleaned up, or leave stale references depending on the feature.
+
 ## [credentials.md](../automation/credentials.md)
 
 **[Credential types](../automation/credentials.md#credential-types)**
@@ -68,6 +66,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Credentials cannot be read back](../automation/credentials.md#credentials-cannot-be-read-back)**
 
 - What a query against them actually returns is runtime behaviour and is **not verified here**.
+
+**[Never hard-code a secret into a script](../automation/credentials.md#never-hard-code-a-secret-into-a-script)**
+
+- **Unverified:** deletion and cleanup behavior differs by consumer and is not established by the absence of a schema relationship; check references before and after any replacement.
 
 ## [custom-properties.md](../automation/custom-properties.md)
 
@@ -116,19 +118,19 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - **Both are unverified here.** Check `Metadata.VerbArgument.XmlTemplate` on your own server.
 
-**[What is not verified here](../automation/discovery.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [events-and-auditing.md](../automation/events-and-auditing.md)
+
+**[`Orion.Events.EventTime` is local](../automation/events-and-auditing.md#orioneventseventtime-is-local)**
+
+- **Unverified:** the time basis exposed by the target provider.
+
+**[`Orion.AuditingEvents.TimeLoggedUtc` is UTC](../automation/events-and-auditing.md#orionauditingeventstimeloggedutc-is-utc)**
+
+- **Unverified:** the source does not establish that the same issue changes predicate evaluation on every release.
 
 **[Down and back up, in one row](../automation/events-and-auditing.md#down-and-back-up-in-one-row)**
 
 - The timezone of `DateTimeFrom` is not documented in the schema, so measure it the same way before building a report on it.
-
-**[What is not verified here](../automation/events-and-auditing.md#what-is-not-verified-here)**
-
-- ## What is not verified here
 
 ## [high-availability.md](../automation/high-availability.md)
 
@@ -237,6 +239,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Practical constraints](../automation/reporting.md#practical-constraints)**
 
+- **Mind the timezone functions.** The SDK documents an offset issue with selected `AddX(..., GetUtcDate())` values; its effect on predicates is unverified here.
 - `Orion.AlertHistory.TimeStamp` and `Orion.ResponseTime.DateTime` carry **no documented timezone** and are unverified here, so measure them once on your own server with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before you write a narrow window against either.
 
 **[Alert volume by definition](../automation/reporting.md#alert-volume-by-definition)**
@@ -341,6 +344,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [wireless-heatmaps.md](../guides/wireless-heatmaps.md)
 
+**[Wireless heat maps](../guides/wireless-heatmaps.md#wireless-heat-maps)**
+
+- Network Atlas deprecation does not by itself prove equivalent heatmap support in Intelligent Maps; that migration's feature parity is unverified here.
+
 **[Writing it](../guides/wireless-heatmaps.md#writing-it)**
 
 - `fileType` for `InsertFile`, and the `ScaleUnit` byte enumeration, are installation data rather than schema and are **not recorded in the published schema**; both are unverified here.
@@ -405,19 +412,11 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - It appears neither in the rendered schema for 2026.2 nor in the Swagger contract for 2026.2, both of which this repository extracts from, so it is **not verified here**.
 
-**[What is not verified here](../modules/cloud.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [dpa.md](../modules/dpa.md)
 
 **[The wait-time entities](../modules/dpa.md#the-wait-time-entities)**
 
 - See the names in NormalizedDataDimension class." That class is not in the extracted data, so treat the exact strings as **unverified** and read them off your own server before hard-coding one:
-
-**[What is not verified here](../modules/dpa.md#what-is-not-verified-here)**
-
-- ## What is not verified here
 
 ## [hardware-health.md](../modules/hardware-health.md)
 
@@ -434,6 +433,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Just looking, not claiming](../modules/ipam.md#just-looking-not-claiming)**
 
 - It appears in the rendered schema pages with **no parameters and an unknown return type**, and it is absent from the 2026.2 Swagger contract entirely, so its signature is **unverified here**.
+
+**[Adding a subnet](../modules/ipam.md#adding-a-subnet)**
+
+- **Unverified:** the accepted range on a current release and whether CRUD and verb paths share a limit.
 
 **[Bulk import: the spreadsheet has no verb](../modules/ipam.md#bulk-import-the-spreadsheet-has-no-verb)**
 
@@ -471,10 +474,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether an import replaces, merges or skips a rule whose `Id` already exists remains **not stated in the schema and unverified here**.
 
-**[What is not verified here](../modules/log-analyzer.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [ncm-compliance-portability-audit.md](../modules/ncm-compliance-portability-audit.md)
 
 **[Report, policy, rule, and requirement are different identities](../modules/ncm-compliance-portability-audit.md#report-policy-rule-and-requirement-are-different-identities)**
@@ -499,10 +498,6 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Import and export through SWIS](../modules/ncm-device-templates.md#import-and-export-through-swis)**
 
 - Which the platform reads when they disagree is **not documented and unverified here** — set both to the same values, and treat the columns as what auto-detection matches on.
-
-**[What this repository has not verified](../modules/ncm-device-templates.md#what-this-repository-has-not-verified)**
-
-- ## What this repository has not verified
 
 ## [ncm.md](../modules/ncm.md)
 
@@ -553,10 +548,6 @@ Read this before relying on this repository for something load-bearing. If you h
 - The schema does not say what distinguishes a setting from a property, and no valid names are enumerated, so both are **unverified** in content.
 - Given that the two deployment verbs are `DeployLocalTrafficProbe` and `DeploySpanPortProbe`, it is a reasonable guess that `Mode` distinguishes those two deployment styles, but that is an inference and is **not verified** by the schema.
 
-**[What is not verified here](../modules/qoe.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [sam-templates.md](../modules/sam-templates.md)
 
 **[The root is an array](../modules/sam-templates.md#the-root-is-an-array)**
@@ -588,6 +579,10 @@ Read this before relying on this repository for something load-bearing. If you h
 - Whether `ImportTemplate` rejects, replaces or duplicates a template whose `UniqueId` already exists is **not documented and unverified here**.
 
 ## [sam.md](../modules/sam.md)
+
+**[Application availability over the last week](../modules/sam.md#application-availability-over-the-last-week)**
+
+- This example assumes UTC for `TimeStamp`; that column's time basis is **unverified here**.
 
 **[Gotchas](../modules/sam.md#gotchas)**
 
@@ -634,7 +629,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The profile round trip](../modules/scm.md#the-profile-round-trip)**
 
 - Which format the verb actually expects is **unverified** here; export from your own server and look before hand-writing one.
-- **Unverified:** the internal structure of the exported profile document is not documented in this repository — no real console export was available to parse, so this page cannot give it the field-by-field treatment [sam-templates.md](../modules/sam-templates.md) and [ncm-device-templates.md](../modules/ncm-device-templates.md) give their formats.
+- **Unverified:** live import, identity conflicts, and evaluation behavior still require a target-version export/import/read-back test.
 
 **[Assignment and polling](../modules/scm.md#assignment-and-polling)**
 
@@ -702,15 +697,11 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - They are listed in [what is not verified here](../modules/vnqm.md#what-is-not-verified-here) with a query that shows you the observed range on your own server.
 
-**[What is not verified here](../modules/vnqm.md#what-is-not-verified-here)**
+## [architecture.md](../platform/architecture.md)
 
-- ## What is not verified here
+**[The polling job engine](../platform/architecture.md#the-polling-job-engine)**
 
-## [wpm.md](../modules/wpm.md)
-
-**[What is not verified here](../modules/wpm.md#what-is-not-verified-here)**
-
-- ## What is not verified here
+- For engine health, use the following documented metrics; access to other internal scheduling details is unverified here.
 
 ## [modules.md](../platform/modules.md)
 
@@ -743,10 +734,6 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Exporting it](../polling/api-poller-unifi-network.md#exporting-it)**
 
 - Until an export is read, **the file-level representation of the substitution is unverified here**, which is the same gap the Citrix sketch is blocked on.
-
-**[What is unverified here](../polling/api-poller-unifi-network.md#what-is-unverified-here)**
-
-- ## What is unverified here
 
 ## [api-poller-vendor-templates.md](../polling/api-poller-vendor-templates.md)
 
@@ -892,6 +879,17 @@ Read this before relying on this repository for something load-bearing. If you h
 - And `CredentialID` appears here as well as in the verb's own argument list, with nothing in the schema saying which wins — that is unverified here, so set one deliberately rather than both.
 - `CacheStorageScope` and the fields of `MacroValue` beyond `Key`, `Value`, `Values` and `IsExpandable` are **not described in the published schema** and are unverified here.
 
+## [documentation-audit-2026-09-18.md](documentation-audit-2026-09-18.md)
+
+**[Evidence rules for AI answers](documentation-audit-2026-09-18.md#evidence-rules-for-ai-answers)**
+
+- Use **Unverified:** for a material unresolved claim.
+- Reserve **Unknown:** and **Not tested:** for explicit evidence labels; a status enum named Unknown is not itself an uncertainty claim.
+
+**[Unresolved areas and how to close them](documentation-audit-2026-09-18.md#unresolved-areas-and-how-to-close-them)**
+
+- **Unverified:** these runtime outcomes remain unresolved by this documentation audit.
+
 ## [glossary.md](glossary.md)
 
 **[Element](glossary.md#element)**
@@ -917,6 +915,11 @@ Read this before relying on this repository for something load-bearing. If you h
 - Which of the two applies cannot be verified from the schema alone, so ask your own server before concluding they are gone:
 
 ## [status-codes.md](../schema/status-codes.md)
+
+**[The table](../schema/status-codes.md#the-table)**
+
+- 0 — **Unknown** — 495 — Has not been polled yet since being added to the system or coming out of Unmanaged status. For IP SLA operations: when we could not contact the router to collect the results of the IP SLA operation.
+- 19 — **Unconfirmed** — 270 — -
 
 **[Resolving status on a live server](../schema/status-codes.md#resolving-status-on-a-live-server)**
 
@@ -967,7 +970,11 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Where the trap does not reach](../swql/date-and-time.md#where-the-trap-does-not-reach)**
 
-- That reading is an inference from the generated T-SQL above and is **unverified** here.
+- **Unverified:** whether the selected-value issue also affects a particular server-side predicate.
+
+**[Which columns are UTC and which are local](../swql/date-and-time.md#which-columns-are-utc-and-which-are-local)**
+
+- Their time basis is **unverified here** unless a feature-specific source establishes it.
 
 **[`DateTime` literals and parameters](../swql/date-and-time.md#datetime-literals-and-parameters)**
 
@@ -1041,12 +1048,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether SWIS actually reuses a plan across executions of the same parameterised query is **unverified** here; you can test it on your own server by running the same query with different parameter values and comparing the timings reported by `WITH QUERYSTATS`.
 
-## [README.md](../webui/README.md)
-
-**[A caveat that applies to the whole section](../webui/README.md#a-caveat-that-applies-to-the-whole-section)**
-
-- UI conventions are reported, sourced and marked unverified.
-
 ## [custom-query-call-queries.md](../webui/custom-query-call-queries.md)
 
 **[Call Queries: VNQM call detail widgets](../webui/custom-query-call-queries.md#call-queries-vnqm-call-detail-widgets)**
@@ -1063,7 +1064,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[What is not verified here](../webui/custom-query-call-queries.md#what-is-not-verified-here)**
 
-- ## What is not verified here
 - Everything in [the three query boxes](../webui/custom-query-call-queries.md#the-three-query-boxes) about how the widget runs its auto-hide and search queries and substitutes `${SEARCH_STRING}` is reported from practice and **unverified here**; SolarWinds documents the fields but not the behaviour. - That the widget renders a `NULL` link value as plain text is **unverified here**. - The queries validate against the 2026.2 schema bu...
 
 ## [custom-query-widget.md](../webui/custom-query-widget.md)

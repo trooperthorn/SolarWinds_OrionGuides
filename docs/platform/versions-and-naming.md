@@ -1,8 +1,7 @@
 # Versions and Naming
 
-The product has been renamed twice. The API has not been renamed at all. Understanding
-that gap is the difference between reading SolarWinds documentation fluently and being
-permanently confused by it.
+Product names, platform releases, module versions, and API namespaces are separate.
+Use the installed release and live metadata to determine compatibility.
 
 ## The naming history
 
@@ -31,6 +30,24 @@ product-name change and not a technology change. The SDK documentation set has n
 renamed to match, so you will not find the phrase in it; that absence is the point. If you
 search SolarWinds' documentation site for a feature and land on a page titled with any of
 these three names, you are in the right place.
+
+## Release-specific support notes
+
+Reviewed 2026-09-18 against the
+[2026.2 release notes](https://documentation.solarwinds.com/en/success_center/orionplatform/content/release_notes/solarwinds_platform_2026-2_release_notes.htm):
+
+| Item | Documented status | Consequence for generated guidance |
+| --- | --- | --- |
+| Windows Server 2016 | Deprecated in 2026.2; supported in that release | Do not present a historical SCM STIG profile as proof of platform host support |
+| SQL Server 2016 | Deprecated in 2025.2; still supported in 2026.2 | Check target-release system requirements before recommending deployment |
+| Unmanage Scheduling Utility | Deprecated in 2026.2 | Use the web console Manage Schedules page for new tasks; HA standby Windows schedules need manual recreation |
+| Network Atlas | Deprecated since 2020.2; still supported in 2026.2 | Prefer Intelligent Maps for new work; map import is documented from 2024.2 |
+| Apache Mesos and Kubernetes 1.16-1.22 monitoring | Deprecated | Existing entities are not evidence of continued product support |
+
+Deprecation, removal, end of engineering, and end of support are distinct. The public
+schema baseline remains **2026.2**; this is not a claim that 2026.2 is the latest release.
+A supplied export labeled 2026.4 does not establish a published schema or support policy
+for that version. Recheck release-specific notes when generating upgrade advice.
 
 ## Why "Orion" is still everywhere in the API
 

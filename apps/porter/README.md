@@ -1,7 +1,7 @@
 # Porter
 
 A Windows utility that moves SolarWinds Observability Self-Hosted configuration between
-installations over the SWIS API. **v0.2 implements eight areas end-to-end** behind one
+installations over the SWIS API. **v0.2 provides eight configuration providers** behind one
 generic Connect → Direction → Constellation → Select/Stage → Run workflow: Modern
 Dashboards, Alerts, Reports, SAM Templates, WPM Recordings, NCM Device Templates,
 Nodes + Custom Properties, and NCM Compliance Reports. Every area is a provider behind
@@ -24,8 +24,9 @@ dotnet publish Porter\Porter.csproj -c Release -r win-x64 --self-contained true 
 The executable lands in `Porter\bin\Release\net8.0-windows\win-x64\publish\Porter.exe` —
 a single file, no runtime install needed on the target machine (air-gap friendly).
 
-**Elevation:** `app.manifest` bakes `requireAdministrator` into the binary (DISA STIG
-requirement). Windows refuses an un-elevated launch; the exe carries the UAC shield.
+**Elevation:** `app.manifest` requests `requireAdministrator`. This is an application
+design choice, not a substantiated universal DISA STIG requirement. No benchmark, version,
+or rule ID is cited for that earlier claim. The executable requests UAC elevation.
 
 ## The v0.1 verification round-trip
 
@@ -49,7 +50,8 @@ requirement). Windows refuses an un-elevated launch; the exe carries the UAC shi
    Every file is validated locally before any API call (envelope, placements,
    duplicate widget keys, the SWQL-stored-twice check).
 4. Pick the collision policy: **Skip** (skips are reported by name) or **Import as copy**
-   (all GUIDs regenerated, renamed "… (Copy)", new names shown in the results).
+   (dashboard and widget identity keys remapped, dashboards renamed "… (Copy)").
+   Embedded object GUIDs are preserved; see the identity limits below.
 5. Dry run first if you like — full validation plus collision checks, zero writes.
 6. Import. The dashboards verb returns void, so Porter verifies each import by re-querying
    the dashboard `unique_key` and reports the new DashboardIDs.
@@ -62,6 +64,30 @@ every connection that is accepted via a pin — so a pre-planted pin cannot act 
 Encrypted packages are assembled entirely in memory: plaintext never touches the
 destination disk. Hostile input is bounded — 64 MB per dashboard file or zip entry
 (counted as it decompresses, since a zip's directory can lie), 256 MB per package.
+
+## Identity and verification limits
+
+Code review on 2026-09-18 found these limits; this review did not perform a live import:
+
+- Collision queries inspect dashboard keys in `Orion.Dashboards.Instances`. They do not
+  inventory all target widget identities, so a different dashboard can still reuse a
+  widget key. "Skip" is not complete protection against shared-widget changes.
+- `AsCopy` builds one old-to-new key map per input document. Duplicate old widget keys
+  remain duplicate after remapping; it does not split conflicting definitions or provide
+  an explicit per-dashboard sharing policy. Embedded GUIDs are not all regenerated.
+- Local duplicate-widget findings are warnings. Inspect them before import. A dry run
+  covers the implemented validation and collision checks, not every server-side conflict.
+- Post-import dashboard-key lookup establishes that matching dashboard rows exist. It
+  does not verify every resource property, query result, rendered widget, or whether an
+  existing dashboard's shared widget changed.
+
+Before using these tools for modified shared dashboards, follow the
+[widget identity audit](../../docs/webui/modern-dashboard-widget-identity-audit.md).
+Required follow-up: target widget inventory, package-wide identity comparison, explicit
+sharing/isolation choice, and content-level read-back. These are documented gaps, not
+features implemented by this documentation update.
+
+Source: [DashboardsArea.cs](Porter/Areas/DashboardsArea.cs), [DashboardValidator.cs](Porter/Areas/DashboardValidator.cs), and [DashboardsProvider.cs](Porter/Areas/DashboardsProvider.cs).
 
 ## What is deliberately NOT here
 
@@ -232,7 +258,7 @@ error sentence stay plain. For the record:
 
 ```text
 Porter/
-├─ app.manifest            requireAdministrator (STIG)
+├─ app.manifest            requireAdministrator (application elevation setting)
 ├─ Core/                   SwisSession (REST), cert pinning, JSONL log, package writer, AES-GCM
 ├─ Areas/                  AreaProvider contract + registry · one provider per area · validators
 └─ Views/                  Connect · Mode · Area · Export · Import · Run · PasswordDialog

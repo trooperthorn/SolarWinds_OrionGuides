@@ -61,7 +61,7 @@ symptom is a report that looks plausible and is wrong.
 | Parent | `NodeID`, a monitored node | `StorageArrayID`, and usually a pool and a vServer |
 | Capacity columns | `VolumeSize`, `VolumeSpaceUsed`, `VolumeSpaceAvailable`, `VolumePercentUsed` | `CapacityTotal`, `CapacityAllocated`, `CapacityFree`, `CapacityUsedPercentage`, `CapacityFileSystem` |
 | NetObject prefix | `V` | `SMV` |
-| Comes from | The platform core, always present | Storage Resource Monitor, only when licensed |
+| Comes from | Platform node-volume monitoring | SRM provider; confirm installation, licensing, and live metadata separately |
 
 Both entities have a `VolumeID` integer and both are about "a volume", which is exactly why
 the mistake is easy. Two independent id spaces called `VolumeID` in the same database means

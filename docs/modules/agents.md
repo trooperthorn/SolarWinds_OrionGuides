@@ -1,6 +1,6 @@
 # Agents: the SolarWinds agent
 
-Every other way the platform collects data is a **pull from the outside**. A polling engine
+Remote SNMP, WMI, and ICMP polling starts outside the monitored machine. A polling engine
 opens SNMP, WMI or ICMP to a device and asks it questions. That works until something sits
 between the engine and the device: a NAT boundary, a firewall that only allows outbound
 traffic, a cloud subnet with no route back, a Windows host where remote WMI is disabled by

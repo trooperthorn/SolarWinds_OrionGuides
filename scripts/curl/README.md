@@ -11,7 +11,9 @@ the problem is your code.
 ```bash
 export SWIS_HOST=orion.example.com
 export SWIS_USER=admin
-export SWIS_PASSWORD='...'      # exported, never inline, so it stays out of shell history
+read -r -s -p 'SWIS password: ' SWIS_PASSWORD
+printf '\n'
+export SWIS_PASSWORD
 
 ./swis-rest-examples.sh query-basic
 ./swis-rest-examples.sh query-parameterized
@@ -19,7 +21,9 @@ export SWIS_PASSWORD='...'      # exported, never inline, so it stays out of she
 ./swis-rest-examples.sh invoke-pollnow 42
 ```
 
-Run it with no arguments for the full command list.
+Read the password interactively as above; typing `export SWIS_PASSWORD=secret` would
+put the literal in shell history. Environment variables are not a secret store. Run
+`unset SWIS_PASSWORD` after use. Run the script with no arguments for the command list.
 
 ## Endpoint facts
 

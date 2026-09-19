@@ -8,11 +8,6 @@ servers that name them. When two devices claim the same address, or a DHCP scope
 another, or forward and reverse DNS disagree, IPAM records it as a conflict rather than
 leaving you to notice.
 
-That reconciliation is the point. Every other module in the platform tells you about
-things it is monitoring. IPAM tells you about address space you own whether anything is
-plugged into it or not, which is why it is the module people use to answer "can I have an
-address" and "who took this one".
-
 ## Namespaces and how many entities
 
 IPAM contributes **77 entities**, all under a bare `IPAM.` prefix with no `Orion.` in front
@@ -574,10 +569,12 @@ New-SwisObject $swis -EntityType 'IPAM.Subnet' -Properties @{
 }
 ```
 
-SolarWinds documents `Address` and `CIDR` as the only required properties, `CIDR` and
-`AddressMask` as non-editable after creation, and for IPv4 **`CIDR` must be greater than 21
-and no more than 32**. A `/16` cannot be created as an `IPAM.Subnet`; that is what supernets
-are for.
+The historical [IPAM 4.7 API page](https://solarwinds.github.io/OrionSDK/docs/ipam-4-7-api/)
+lists `Address` and `CIDR` as required and describes IPv4 CRUD creation as accepting
+prefix lengths greater than 21 through 32. The same page's verb example uses /21.
+**Unverified:** the accepted range on a current release and whether CRUD and verb paths
+share a limit. Do not generalize this old CRUD note into a universal ban on /16 subnets.
+Test the intended creation route on the target version.
 
 ### Populating addresses inside a large subnet
 

@@ -11,7 +11,7 @@ the rest guard.
 | [build_schema_data.py](build_schema_data.py) | Extract the SWIS schema from the OrionSDK sources into JSON |
 | [build_reference_data.py](build_reference_data.py) | Merge the SWQL function reference with the examples workbook |
 | [build_reference_docs.py](build_reference_docs.py) | Generate the enumerated tables in `docs/reference/` |
-| [build_unverified_index.py](build_unverified_index.py) | Collect every statement the guides decline to assert into one page |
+| [build_unverified_index.py](build_unverified_index.py) | Index explicit uncertainty markers in authored docs (not exhaustive) |
 | [build_llms_index.py](build_llms_index.py) | Generate `docs/TOC.md` and `llms-full.txt` from the pages, and check `llms.txt` lists every page |
 
 **Use**
@@ -43,7 +43,7 @@ ten of twenty-one.
 | [audit_device_pollers.py](audit_device_pollers.py) | Nested Device Studio XML inventory, name references, repeated identities, and semantic review prompts |
 | [check_api_poller_templates.py](check_api_poller_templates.py) | A shipped API Poller template that breaks the export format, or hides unknown values |
 | [check_gate.py](check_gate.py) | A check above that has stopped checking, by seeding errors it must catch |
-| [test_tools.py](test_tools.py) | Regressions in the judgement above: 226 tests |
+| [test_tools.py](test_tools.py) | Regressions in the judgement above: 228 tests |
 
 `check_gate.py` is the one that watches the others. A checker that quietly stops reading
 what it claims to read still exits zero, which makes it indistinguishable from a working

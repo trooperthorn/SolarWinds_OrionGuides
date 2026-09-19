@@ -90,7 +90,8 @@ ORDER BY FullName
 
 Property-level support is available too. `Metadata.Property` carries `CanCreate`, `CanRead`
 and `CanUpdate` per property, which is how you find out that a property is readable but not
-settable before your update silently does nothing:
+settable before attempting an unsupported write. The error or handling of a read-only
+property is runtime behavior, not established by the metadata flag:
 
 ```sql
 SELECT Name, Type, IsKey, IsNullable, CanCreate, CanRead, CanUpdate

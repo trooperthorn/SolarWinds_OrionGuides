@@ -246,13 +246,14 @@ Runnable code lives outside `docs/`:
 
 ## Where this repository is uncertain
 
-[docs/reference/unverified.md](docs/reference/unverified.md) collects every statement the
-guides decline to assert, gathered from the pages themselves so it cannot drift from them.
+[docs/reference/unverified.md](docs/reference/unverified.md) indexes explicit uncertainty
+markers in authored docs. It is not exhaustive and excludes app/script READMEs.
 It covers what the schema does not record: behaviour only a running server exhibits,
 values that are installation data rather than schema, and places where SolarWinds' own
 documentation and their published contract disagree. Read it before answering something
 load-bearing from this repository alone, and when a question lands on one of those points,
-say it is unverified here and give the `Metadata.*` query that settles it.
+say it is unverified and give the metadata query or controlled runtime test needed.
+Metadata cannot settle every behavior question.
 
 ## When this repository is not the authority
 
@@ -268,9 +269,10 @@ number of arguments and sends them into the wrong slots.
 
 ## A note on trust
 
-Every entity, property, verb and parameter named in these pages was checked against the
-extracted schema before it was written, and every SWQL example is re-validated on each
-build. Where a claim could not be verified, it says so rather than asserting quietly.
+Static checks cover configured schema references, examples, and files; they do not prove
+every prose assertion or runtime behavior. Use the
+[documentation audit and evidence rules](docs/reference/documentation-audit-2026-09-18.md)
+for review scope, corrected claims, and unresolved validation needs.
 
 The version documented here is **2026.2**. The schema changes between releases and also
 depends on which modules are licensed, so for a specific server the authority is that

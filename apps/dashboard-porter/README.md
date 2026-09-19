@@ -27,37 +27,15 @@ with it — Release builds carry no debug symbols. On first launch it self-extra
 per-version cache (native libraries plus the compressed bundle above); nothing is written
 next to the exe itself, so it can be run straight from a USB stick or a read-only share.
 
-The size is a direct, measured result of a few things the `.csproj` does, none of which
-change behavior — see the comments there for the details:
+The project enables single-file compression, English satellite resources, and no
+Release debug symbols. The size figures above describe an earlier build, not a size
+contract. Native AOT and trimming remain disabled in the project. A successful publish
+is not evidence that the elevated GUI, authentication, or imports work on a target PC.
+See [DashboardPorter.csproj](DashboardPorter/DashboardPorter.csproj) for the actual settings.
 
-- **`net10.0-windows` over `net8.0-windows`** — .NET 10's self-contained WindowsDesktop
-  deployment stopped copying the WinForms assembly family (`System.Windows.Forms.dll` and
-  its Design/Primitives satellites) for a WPF-only app that never sets `UseWindowsForms`.
-  That's ~22 MB gone for free, confirmed by direct testing (untrimmed .NET 8 publish: 162
-  MB; untrimmed .NET 10 publish: 125 MB).
-- **`EnableCompressionInSingleFile`** — the officially supported single-file bundler
-  compression, not IL trimming. It packs the same set of files smaller on disk and
-  decompresses once per build version into a cache, not on every launch.
-- **`SatelliteResourceLanguages=en`** — this is an English-only tool with no localization
-  planned, so the ~16 MB of translated framework resource assemblies (cs/de/es/fr/it/ja/
-  ko/pl/pt-BR/ru/tr/zh-Hans/zh-Hant) never ship.
-- **`DebugType=none`** on Release — no `.pdb`, no bundled native PDB reader.
-
-**Deliberately not done:** Native AOT and IL trimming (`PublishAot`/`PublishTrimmed`) are
-both blocked by the SDK for WPF apps (`NETSDK1168`) on .NET 8 and .NET 10 alike — no
-supported override exists. There is an internal, underscore-prefixed escape hatch
-(`_SuppressWpfTrimError`) that forces trimming through anyway; testing confirmed it does
-**not** trim WPF's own assemblies (they're hard-excluded from the linker), it only shrinks
-already-small BCL libraries, and it ran with zero trim-safety warnings despite this app
-using reflection-based `JsonSerializer.Serialize` in `Core/` — meaning the linker silently
-skipped analyzing our own code rather than confirming it's safe. That risk can only be
-resolved by actually launching the built exe, which requires the UAC elevation this app's
-manifest demands; that isn't something a non-interactive build step can verify. It stays
-off.
-
-**Elevation:** `app.manifest` bakes `requireAdministrator` into the binary (DISA STIG
-requirement, matching Porter). Windows refuses an un-elevated launch; the exe carries the
-UAC shield.
+**Elevation:** `app.manifest` requests `requireAdministrator`, matching Porter. This is
+an application design choice. The earlier DISA STIG attribution had no benchmark/version
+or rule ID and is unverified; it is not a general compliance requirement.
 
 ## Using it
 
@@ -77,7 +55,8 @@ UAC shield.
    files, the `.zip`, or the `.zip.aes` package. Every file is validated locally before any
    API call (envelope, placements, duplicate widget keys, the SWQL-stored-twice check).
 4. Pick the collision policy: **Skip** (skips are reported by name) or **Import as copy**
-   (all GUIDs regenerated, renamed "… (Copy)", new names shown in the results).
+   (dashboard and widget identity keys remapped, dashboards renamed "… (Copy)").
+   Embedded object GUIDs are preserved; see the identity limits below.
 5. Dry run first if you like — full validation plus collision checks, zero writes.
 6. Import. The dashboards verb returns void, so DashboardPorter verifies each import by
    re-querying the dashboard `unique_key` and reports the new DashboardIDs.
@@ -90,6 +69,30 @@ junction/symlink, and logs every connection that is accepted via a pin — so a 
 pin cannot act silently. Encrypted packages are assembled entirely in memory: plaintext
 never touches the destination disk. Hostile input is bounded — 64 MB per dashboard file or
 zip entry (counted as it decompresses, since a zip's directory can lie), 256 MB per package.
+
+## Identity and verification limits
+
+Code review on 2026-09-18 found these limits; this review did not perform a live import:
+
+- Collision queries inspect dashboard keys in `Orion.Dashboards.Instances`. They do not
+  inventory all target widget identities, so a different dashboard can still reuse a
+  widget key. "Skip" is not complete protection against shared-widget changes.
+- `AsCopy` builds one old-to-new key map per input document. Duplicate old widget keys
+  remain duplicate after remapping; it does not split conflicting definitions or provide
+  an explicit per-dashboard sharing policy. Embedded GUIDs are not all regenerated.
+- Local duplicate-widget findings are warnings. Inspect them before import. A dry run
+  covers the implemented validation and collision checks, not every server-side conflict.
+- Post-import dashboard-key lookup establishes that matching dashboard rows exist. It
+  does not verify every resource property, query result, rendered widget, or whether an
+  existing dashboard's shared widget changed.
+
+Before using these tools for modified shared dashboards, follow the
+[widget identity audit](../../docs/webui/modern-dashboard-widget-identity-audit.md).
+Required follow-up: target widget inventory, package-wide identity comparison, explicit
+sharing/isolation choice, and content-level read-back. These are documented gaps, not
+features implemented by this documentation update.
+
+Source: [DashboardsCore.cs](DashboardPorter/Core/DashboardsCore.cs).
 
 ## What is deliberately NOT here
 
@@ -132,7 +135,7 @@ left unchanged and flagged in the run report for manual review.
 
 ```text
 DashboardPorter/
-├─ app.manifest            requireAdministrator (STIG)
+├─ app.manifest            requireAdministrator (application elevation setting)
 ├─ Core/                   SwisSession (REST), cert pinning, JSONL log, package writer, AES-GCM,
 │                          and the Modern Dashboards export/import/validate/copy logic
 └─ Views/                  Connect · Export/Import (tabbed) · Run · PasswordDialog

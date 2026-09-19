@@ -666,8 +666,8 @@ FROM Orion.Nodes n
 Dates come back as ISO 8601 strings. The offset they carry depends on how the value was
 produced, and this is not cosmetic. In SolarWinds' own worked example, `GETUTCDATE()`
 serialises as `2024-05-17T10:37:27.8070000Z` while `DateAdd(minute,-10,GETUTCDATE())` in the
-same row serialises as `2024-05-17T10:27:27.8070000-05:00`, because T-SQL `DATEADD` discards
-the UTC-ness of its input and the server stamps its own offset on the way out. Read
+same row serialises as `2024-05-17T10:27:27.8070000-05:00`. This demonstrates a selected
+value serialization issue, not a proven change to every date predicate. Read
 [date-and-time.md](date-and-time.md) before writing any time-bounded query.
 
 Bind dates as parameters rather than formatting literals, so the client library's date type

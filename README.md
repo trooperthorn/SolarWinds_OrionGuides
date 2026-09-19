@@ -22,8 +22,9 @@ So this repository:
   automations and AI systems can read directly.
 - **Documents every Invoke verb with its parameters**, in order, with the required right
   and the exact call syntax for REST, PowerShell, and Python.
-- **Provides sample queries that are verified**, not aspirational. Every SWQL statement in
-  this repository is checked against the schema on every build.
+- **Statically checks sample queries** against the bundled schema within the validator's
+  supported grammar and configured scope. This does not establish live execution,
+  permissions, returned data, or widget rendering.
 
 ## Start here
 
@@ -161,6 +162,9 @@ and entities that have since been renamed. The build proposes the successor wher
 identify one, which is how `Orion.NPM.UCSBlades` resolves to `Orion.UCS.Blades` and
 `Orion.VIM.LUNs` to `Orion.VIM.Luns`.
 
+See the [documentation audit and evidence rules](docs/reference/documentation-audit-2026-09-18.md)
+for corrected claims, source boundaries, and unresolved runtime questions.
+
 ## Version coverage
 
 The checked-in data documents platform version **2026.2**. The schema changes between
@@ -203,7 +207,7 @@ checks eleven things:
 | Check | Catches |
 | --- | --- |
 | `audit_device_pollers.py` | Inspect nested Device Studio exports, references, and repeated identities without importing |
-| `test_tools.py` | Regressions in the tools' own judgement, across 226 tests |
+| `test_tools.py` | Regressions in the tools' own judgement, across 228 tests |
 | `validate_swql.py` | A query naming an entity, property, column or navigation that does not exist |
 | `check_data.py` | Extraction that degraded quietly, and reference pages that fell behind |
 | `check_entity_references.py` | An invented entity, member, NetObject prefix, right or type member, or a wrong property type |

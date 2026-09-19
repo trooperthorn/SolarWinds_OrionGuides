@@ -327,7 +327,7 @@ A named, typed value on an entity, such as `Orion.Nodes.Caption`. Properties are
 down the entity tree, so a member declared on `System.Entity` or `System.ManagedEntity` is
 queryable on every descendant even though it is not listed on that descendant's own page.
 Some are readable but not writable, which `Metadata.Property.CanUpdate` will tell you
-before an update silently changes nothing. See
+before attempting an unsupported update; the flag does not specify its error behavior. See
 [../schema/entity-model.md](../schema/entity-model.md).
 
 ## QoE

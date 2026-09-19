@@ -1,8 +1,8 @@
 # Contributing
 
-The value of this repository is that its facts are checkable. A guide someone has to
-verify against a live server before trusting is worth much less than one they can rely on,
-so most of the rules below are about keeping that property.
+Contributions must distinguish published contracts, source documentation, observed exports,
+and live behavior. State the source and version for a claim; explain what remains unknown.
+See [the evidence rules](docs/reference/documentation-audit-2026-09-18.md).
 
 ## The one rule
 
@@ -26,12 +26,12 @@ thing to avoid, not uncertainty itself.
 
 ## What may be added
 
-Only material SolarWinds publishes on the public internet, or that a contributor wrote
-themselves against the published API. Nothing from a SolarWinds support case, partner
-portal, internal document, or any non-public channel, and no method of reaching a
-SolarWinds system beyond the documented, customer-facing API. That boundary is what lets
-the repository be shared without qualification, and a pull request that crosses it will
-be declined regardless of how useful the content is.
+Use public vendor documentation, contributor-authored work against the published API,
+and owner-authorized exports or derived evidence with explicit provenance. Do not imply
+that a supplied customer export is an official vendor contract. Do not add restricted
+vendor material from support cases, partner portals, or internal documents, or methods
+of access beyond the documented customer-facing API. Owner authorization for an export
+does not grant permission to republish unrelated restricted material.
 
 ## Before you open a pull request
 
@@ -39,11 +39,11 @@ be declined regardless of how useful the content is.
 make check
 ```
 
-That runs two things. `make validate` parses every `.swql` file in `scripts/` and every
-` ```sql ` block in `docs/`, resolves each dotted reference through the schema including
-inherited members, and fails on anything that does not exist. `tools/check_data.py` then
-verifies that extraction has not quietly degraded: count floors, required core entities,
-and three hand-verified verb signatures.
+The gate runs tool tests, static SWQL checks, data/reference consistency checks, selected
+command examples, dashboard and API Poller validation, internal links and anchors,
+generated-index checks, and mutation checks of the gate itself. See the `check` target
+in [Makefile](Makefile) for its current scope. These checks do not execute queries against
+a live SolarWinds server, validate every Markdown assertion, or build all applications.
 
 To check one query while you are writing it:
 
@@ -56,7 +56,7 @@ echo "SELECT n.Caption, n.Engine.ServerName FROM Orion.Nodes n" | python3 tools/
 | Path | Contents | Edit by hand? |
 | --- | --- | --- |
 | `docs/platform/`, `docs/swis/`, `docs/swql/`, `docs/schema/`, `docs/automation/`, `docs/polling/`, `docs/webui/` | Written guides | Yes |
-| `docs/reference/` | Generated enumerations | **No**, run `make docs-reference` |
+| `docs/reference/` | Generated enumerations plus authored audit/reference pages | Check the banner: regenerate generated pages; edit authored pages |
 | `docs/TOC.md`, `llms-full.txt` | Generated from the pages under `docs/` | **No**, run `make docs-index` |
 | `llms.txt` | The page-level index AI systems read first | Yes, and add every new page to it |
 | `data/` | Extracted schema and reference data | **No**, run `make data` |
@@ -69,7 +69,7 @@ build, so fix the generator instead. That is usually the better fix anyway: it c
 every row rather than one.
 
 One of them is generated from the prose rather than from `data/`:
-`docs/reference/unverified.md` collects every statement the guides mark as unverified. If
+`docs/reference/unverified.md` indexes recognized uncertainty markers in authored docs. If
 your change adds, removes or rewords one of those, regenerate it in the same commit:
 
 ```bash

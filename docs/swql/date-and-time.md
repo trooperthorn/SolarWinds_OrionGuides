@@ -1,189 +1,77 @@
 # SWQL date and time
 
-Time-bounded queries are where SWQL most often returns a confident wrong answer. The query
-compiles, the result set is the right shape, the timestamps look plausible, and the window is
-off by the number of hours between the SQL Server and UTC.
-
-This page explains why that happens, gives the corrected patterns, and covers the whole date
-and time surface: which function reads which clock, how the `AddX` and `XDiff` families
-behave, what `DateTrunc` will and will not truncate, and how to write "the last 24 hours" so
-that it means the last 24 hours.
-
-The per-function signatures and observed results live in [functions.md](functions.md). This
-page is about combining them correctly.
+A date query has three separate concerns: the column's time basis, arithmetic used for
+the filter, and how the returned timestamp is serialized or displayed. Check each before
+changing a query because its chart appears several hours off.
 
 ## The short version
 
-1. **Assume the column you are filtering holds UTC**, whatever the timezone of the SQL Server,
-   the Orion server or your browser. `Orion.Events.EventTime` is the documented exception. If a
-   window comes back wrong, measure the column rather than guessing (see
-   [Which columns are UTC](#which-columns-are-utc-and-which-are-local)).
-2. **Never wrap `GetUtcDate()` directly in an `AddX` function.** `AddMinute(-10,
-   GetUtcDate())` returns a value stamped with the SQL Server's local offset, not `Z`.
-3. **Do the arithmetic in local time and convert at the end**:
-   `ToUtc(AddMinute(-10, ToLocal(GetUtcDate())))`, or equivalently
-   `ToUtc(AddMinute(-10, GetDate()))`.
-4. **Bucket with `DateTrunc` or `Downsample`**, never by grouping on a raw timestamp.
-5. **Bind dates as parameters** instead of formatting literals into the query text.
-6. **Put the arithmetic on the constant side of the comparison**, not around the column.
-
-Everything below is why.
+1. Establish the queried column's time basis. `System.DateTime` alone does not declare UTC.
+2. Keep filtering and presentation separate. A local hour label is not a chronological key.
+3. SolarWinds documents an offset problem when selecting `AddX(..., GetUtcDate())`.
+   Its suggested workaround is local arithmetic followed by `ToUtc`.
+4. For an exact elapsed interval, prefer fixed UTC start/end parameters calculated by
+   a timezone-aware client. Local calendar arithmetic can cross a daylight-saving change.
+5. Aggregate with `DateTrunc` or `Downsample`; retain a full bucket timestamp for sorting.
+6. Apply the window to the timestamp column directly and bound the result size.
 
 ## How a SWQL date query actually runs
 
-SWIS does not evaluate SWQL itself. It translates the query into T-SQL and runs it against
-the Orion database, then serialises the rows back to the client. SolarWinds publishes the
-generated T-SQL for a date query on its
-[possible issues](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/)
-page:
-
-```text
-SET DATEFIRST 7;
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-SELECT [T1].[EngineID] AS C1, [T1].[ServerName] AS C2, [T1].[IP] AS C3, [T1].[ServerType] AS C4,
-       GETUTCDATE() AS C5,
-       DateAdd(minute,-10,GETUTCDATE()) AS C6,
-       DateAdd(second,-10,GETUTCDATE()) AS C7,
-       DateAdd(millisecond,-10000,GETUTCDATE()) AS C8,
-       DateAdd(hour,-10,GETUTCDATE()) AS C9
-FROM dbo.Engines AS T1
-WHERE [T1].[ServerType] = 'Primary'
-```
-
-Three things in that fragment matter for the rest of this page:
-
-- **`SET DATEFIRST 7`** makes Sunday the first day of the week, which is what `Week(d)` and
-  `DateTrunc('week', d)` inherit.
-- **`ADDMINUTE`, `ADDSECOND` and the rest all become `DateAdd`.** There is no SWIS-side date
-  library doing anything clever; the SWQL name is a thin alias over
-  [T-SQL `DATEADD`](https://learn.microsoft.com/en-us/sql/t-sql/functions/dateadd-transact-sql).
-- **`DATEADD` is timezone blind.** In SolarWinds' words: "By definition, this function
-  doesn't work with time zone offset at all, so it doesn't know that we want the time zone to
-  be UTC by `GetUtcDate()` and it counts as it is in the local time zone."
+The SDK's [date-function issue](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/)
+shows a SWQL query translated into T-SQL, followed by serialization to the client.
+That example is evidence about its execution path, not every module's query provider.
 
 ## The trap: `GetUtcDate()` plus `AddX`
 
-Run that query and look at what comes back over the wire. This is SolarWinds' own recorded
-response, trimmed to the date columns:
-
-```xml
-<row>
-  <c4>2024-05-17T10:37:27.8070000Z</c4>
-  <c5>2024-05-17T10:27:27.8070000-05:00</c5>
-  <c6>2024-05-17T10:37:17.8070000-05:00</c6>
-  <c7>2024-05-17T10:37:17.8070000-05:00</c7>
-  <c8>2024-05-17T00:37:27.8070000-05:00</c8>
-</row>
-```
-
-`c4` is `GETUTCDATE()` and it is correctly labelled `Z`. Every other column went through
-`DateAdd` and came back labelled `-05:00`, the SQL Server's own offset.
-
-Look closely at what is wrong, because it is subtler than "the value is incorrect":
-
-- **The clock arithmetic is right.** `c5` reads `10:27:27`, which is exactly ten minutes
-  before `c4`'s `10:37:27`.
-- **The offset label is wrong.** `10:27:27-05:00` is the instant `15:27:27Z`. As a point in
-  time, `c5` is five hours *after* `c4`, not ten minutes before it.
-
-So the damage is done at the boundary, not in the calculation. `DATEADD` receives a UTC
-value, does correct arithmetic on the numbers, and hands back a plain `datetime` with no
-timezone attached. SQL Server then stamps it with the server's own offset on the way out, and
-SWIS serialises whatever it was given.
-
-What happens next depends on the client. SolarWinds notes that "SWQL Studio will convert the
-values with the offset to the time zone of the machine where it is running and values in UTC
-stay the same." Any client that honours the offset, which includes most JSON and .NET date
-parsers, does the same. So the value shifts by the SQL Server's UTC offset, and it shifts
-silently.
-
-This is why a dashboard built on `AddDay(-1, GetUtcDate())` looks fine in a datacenter that
-runs UTC and is wrong by five, seven or eleven hours everywhere else.
+The published example returns `GetUtcDate()` with `Z`, but calculated `AddX` columns
+with the SQL Server's local offset. A client interpreting that offset reads a different
+instant. This is a demonstrated **selected-value serialization problem**. It does not
+by itself prove that a `WHERE` comparison inside the server selects the wrong rows.
+The issue page does not identify all affected or fixed product versions.
 
 ## The fix: convert, add, convert back
 
-Convert the value into the timezone `DATEADD` is going to assume anyway, do the arithmetic
-there, then convert the result back. SolarWinds' corrected query, verbatim from the same
-page:
-
-```sql
-SELECT
-    EngineID,
-    ServerName,
-    IP,
-    ServerType,
-    GETUTCDATE() AS [Time_Now],
-    TOUTC(ADDMINUTE(-10, TOLOCAL(GETUTCDATE()))) AS [Time_Past_Minute],
-    TOUTC(ADDSECOND(-10, TOLOCAL(GETUTCDATE()))) AS [Time_Past_Second],
-    TOUTC(ADDMILLISECOND(-10000, TOLOCAL(GETUTCDATE()))) AS [Time_Past_Milliseond],
-    TOUTC(ADDHOUR(-10, TOLOCAL(GETUTCDATE()))) AS [Time_Past_Hour]
-FROM Orion.Engines
-WHERE ServerType = 'Primary'
-WITH LOGS
-```
-
-The rule generalises to `ToUtc(AddX(n, ToLocal(<utc value>)))`. SolarWinds states it as: "If
-you are using `AddMinute` etc. functions you need to first convert the value to the local
-time of the MSSQL server and then convert the result back to UTC time."
-
-### The shorter equivalent
-
-SolarWinds' headline recommendation on the same page is simpler: "leverage the `GETDATE()`
-function first to perform any time modifications and then use the `TOUTC()` function at the
-end if you are in another timezone."
+SolarWinds recommends the following selected-value pattern:
 
 ```sql
 SELECT TOP 1
-    ToUtc(AddMinute(-10, GetDate())) AS TenMinutesAgoUtc,
-    ToUtc(AddDay(-1, GetDate()))     AS OneDayAgoUtc,
-    ToUtc(AddDay(-7, GetDate()))     AS SevenDaysAgoUtc
+    GetUtcDate() AS UtcNow,
+    ToUtc(AddMinute(-10, ToLocal(GetUtcDate()))) AS EarlierUtc
 FROM Orion.Engines
 ```
 
-`GetDate()` already returns the SQL Server's local time, so `ToLocal(GetUtcDate())` and
-`GetDate()` are the same instant and this form saves one conversion. Both shapes appear in
-SolarWinds' own documentation and both are correct.
+### The shorter equivalent
 
-One caveat that applies to both: "local" means the SQL Server's timezone. It is not
-necessarily the Orion application server's timezone, and it is definitely not the timezone of
-whoever is reading the report. If your SQL Server, your Orion server and your users are in
-three different timezones, the conversions here get you a correct instant, and presenting it
-in the reader's timezone is the client's job.
+The same source also recommends using `GetDate()` before the arithmetic:
+
+```sql
+SELECT TOP 1
+    ToUtc(AddMinute(-10, GetDate())) AS EarlierUtc
+FROM Orion.Engines
+```
+
+Treat this as the documented serialization workaround. It is not a guarantee that
+subtracting one local calendar day always means 24 elapsed hours. Test the server's
+local conversions around daylight-saving transitions before relying on that equivalence.
 
 ### Where the trap does not reach
 
-If both sides of a comparison stay inside SQL Server, the arithmetic is done on plain
-`datetime` values and the offset labelling never comes into it, so a predicate such as
-`WHERE TimeLoggedUtc >= AddDay(-1, GetUtcDate())` should be comparing what you meant even
-though selecting that same expression would return a mislabelled value. That reading is an
-inference from the generated T-SQL above and is **unverified** here.
+**Unverified:** whether the selected-value issue also affects a particular server-side
+predicate. The source demonstrates the select list, not a filtered result set.
 
-SolarWinds' worked example demonstrates the corruption in the select list only, and nothing
-in the published material says how the offset is handled inside a predicate. To settle it on
-your own server, count the same UTC column twice with the two bounds and compare:
-
-```sql
-SELECT
-    Count(a.AuditEventID) AS ViaGetUtcDate
-FROM Orion.AuditingEvents a
-WHERE a.TimeLoggedUtc >= AddDay(-1, GetUtcDate())
-```
-
-against the same query with `ToUtc(AddDay(-1, GetDate()))` as the bound. Identical counts mean
-the predicate position was never affected on your version; different counts, by roughly your
-UTC offset's worth of rows, mean it was.
-
-Until you have run that, it is exactly the kind of gap not worth betting a report on. Use the
-convert-add-convert-back form everywhere: it is correct in both positions, it costs one extra
-function call, and it means you never have to remember which position you are in.
+To investigate, fix one instant and compare event IDs and boundary timestamps using
+client-supplied UTC parameters against the candidate expression. Capture raw responses,
+server/client timezones, release, and rows near both boundaries. Equal counts alone do
+not establish equivalence: two different windows can contain the same number of rows.
+Avoid testing against a moving `now` across separate queries.
 
 ## The four functions that read or move the clock
 
 | Function | Returns | Notes |
 |:---|:---|:---|
-| `GetDate()` | Current time in **local time at the Orion server** | "Time derived from SQL Server time zone settings" |
+| `GetDate()` | Current server-local time | Official reference derives it from SQL Server timezone settings; do not assume browser time |
 | `GetUtcDate()` | Current time in **UTC** | The official reference attaches an explicit warning to this one |
-| `ToLocal(d)` | `d` converted to **local time on the Orion server** | The inbound half of the fix |
+| `ToLocal(d)` | `d` converted to server-local time | Confirm the observed offset when database and application servers use different zones |
 | `ToUtc(d)` | `d` converted to **UTC** | The outbound half of the fix |
 
 The four runs recorded in the community workbook were made minutes apart on one server, and
@@ -207,9 +95,9 @@ offset immediately, and it is worth doing before you write anything time sensiti
 
 ## Which columns are UTC and which are local
 
-**Assume UTC.** Datetime values are almost always stored in UTC, regardless of the SQL Server's
-timezone, the SolarWinds server's timezone, or the browser's. Local time is a rendering applied
-on the way out, not how the value sits in the database.
+**Do not infer storage or query semantics from the type alone.** A practitioner reports
+that most platform timestamps are UTC. Treat that as a working hypothesis for an
+undocumented column, not a verified property of every provider.
 
 *Source: reported from practice by a long-time SolarWinds administrator.*
 
@@ -219,9 +107,8 @@ schema that says "this column is UTC", and:
 - **1301 properties** in the 2026.2 schema are typed `System.DateTime`.
 - **128 of them have `Utc` in the property name** — `Orion.AuditingEvents.TimeLoggedUtc`,
   `Orion.Nodes.LastSystemUpTimePollUtc`, `Orion.APM.WindowsEvent.TimeGeneratedUtc`,
-  `Orion.CPUMultiLoad.TimeStampUTC`. **The suffix is emphasis, not a distinction.** It marks
-  columns whose authors chose to be explicit; it does not imply the other 1173 are local.
-  Reading it as a distinguishing marker is the mistake this section exists to prevent.
+  `Orion.CPUMultiLoad.TimeStampUTC`. The suffix is evidence of UTC intent; its absence does not establish local time
+  for the other 1173 properties.
 - **Nine of them say UTC in their description**, and for six of those the name does not, so
   the description is the only signal you get. `Orion.VIM.TriggeredAlarmState.Timestamp` is
   one: "The timestamp in UTC indicating when the alarm was fired."
@@ -231,8 +118,8 @@ schema that says "this column is UTC", and:
 
 Everything else carries no statement either way — `Orion.Nodes.LastBoot`,
 `Orion.Nodes.NextPoll`, `Orion.Engines.KeepAlive`, `Orion.AlertActive.TriggeredDateTime`,
-`Orion.CPULoad.DateTime`. Treat those as UTC, which is what the practitioner rule above says
-and what the samples in this repository behave as: SolarWinds' own NetPath query carries the
+`Orion.CPULoad.DateTime`. Their time basis is **unverified here** unless a feature-specific
+source establishes it. Many repository examples assume UTC: SolarWinds' own NetPath query carries the
 comment *"ExecutedAt is stored in UTC, so we use `GETUTCDATE() - 1` to get last 24 hours only"*
 for a column whose name says nothing.
 
@@ -250,7 +137,7 @@ Measurement is still worth the minute it costs when a query's window looks wrong
 UTC rule, and it is heavily queried, so it deserves care rather than a ruling.
 
 **The word to notice is "displayed".** A value stored in UTC and rendered in local time is
-exactly what the platform-wide rule predicts, and would make the description a statement about
+consistent with the practitioner observation, and would make the description a statement about
 presentation rather than storage. A value genuinely stored in server-local time is the other
 reading, and would make this a real exception.
 
@@ -282,10 +169,13 @@ FROM Orion.Engines e
 WHERE e.ServerType = 'Primary'
 ```
 
-Whichever of the last two columns is near zero identifies the clock the column is stored on.
-The other will be off by your UTC offset in minutes. `MinutesSinceKeepAlive` is a computed
-property SWIS provides on the same entity, so it gives you an independent third opinion for
-free.
+A near-zero difference suggests the queried value uses that clock; it does not prove the
+physical database storage format. A stale poll, clock skew, a UTC-configured server, or a
+provider conversion can make the comparison inconclusive. Compare a known event instant
+and inspect the raw API timestamp as well as the UI.
+When the probe is conclusive, the other difference should reflect the local offset.
+`MinutesSinceKeepAlive` supplies additional context, but it does not prove the storage
+representation or validate timestamps on unrelated entities.
 
 For a column that is not continuously updated, cause a write you can time yourself. Acknowledge
 an event, unmanage and remanage a test node, or trigger a test alert, then look at the
@@ -443,9 +333,9 @@ GROUP BY DateTrunc('day', e.EventTime)
 ORDER BY EventDay
 ```
 
-`Orion.Events.EventTime` is one of the few date columns documented as local, and `GetDate()`
-is local, so this pair is consistent with no conversion. That is not luck, it is the point:
-match the clock of the bound to the clock of the column, every time.
+This example assumes that the queried `EventTime` uses local time. Confirm that assumption
+as described above; its schema description concerns display. Match the bound to the
+time basis observed on the target provider.
 
 Repeating the `DateTrunc` expression in `GROUP BY` rather than naming the alias is the
 portable form. Aliases in `GROUP BY` are not documented for SWQL.
@@ -483,12 +373,14 @@ timestamp `TimeStampUTC`.
 
 ## Relative time filtering
 
-These are the patterns worth memorising. Each one puts all the arithmetic on the constant
-side of the comparison and leaves the column bare, which matters for more than tidiness: the
-expression on the right is evaluated once, while wrapping the column in a function forces the
-generated T-SQL to evaluate it for every row and gives up any chance of an index seek on the
-timestamp. On a statistics table with tens of millions of rows that is the difference between
-a query and an outage.
+The examples below retain the historical "last 24 hours" headings for existing links,
+but their `AddDay(-1, GetDate())` expression means a previous local calendar day. Around
+a daylight-saving transition, that can differ from 24 elapsed hours. For exact elapsed
+windows use [parameterised windows](#parameterised-windows) with UTC bounds calculated
+outside SWQL. Confirm each column's time basis before selecting an example.
+
+Leaving the column bare can help efficient filtering. Actual plans depend on the provider
+and indexes; this repository has not measured a universal index-seek guarantee.
 
 ### Last 24 hours, column stored in local time
 

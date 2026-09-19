@@ -7,10 +7,9 @@ instances exist, what state they are in, what their volumes are doing, what they
 model is account, then region, then resource, and it repeats three times, once per provider.
 
 It is also the largest single family in the schema. **148 entities under `Orion.Cloud.`**,
-more than [SAM](sam.md) or [NPM](npm.md) contribute, and it is not a module you buy
-separately: cloud monitoring is a platform capability rather than a licensed product with
-its own prefix table. That size comes from breadth rather than depth. Most of the 148 are
-one service type plus its statistics entity, repeated across the provider catalogue.
+more than [SAM](sam.md) or [NPM](npm.md) contribute. Namespace size does not establish
+license entitlement. Check the installed product/tier and
+[cloud monitoring requirements](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-cloud-requirements.htm). Most of these entities represent a service type or its statistics.
 
 ## Namespace and how it divides
 
@@ -726,7 +725,7 @@ ORDER BY i.Name
 ### 7. IO trend for cloud instances over a window
 
 `Orion.Cloud.InstanceStatistics` inherits from `System.StatisticsEntity`, so it has
-`ObservationTimestamp` and it grows without bound. It always gets a time predicate.
+`ObservationTimestamp`. Bound the time window; size depends on collection and retention.
 
 ```sql
 SELECT TOP 100

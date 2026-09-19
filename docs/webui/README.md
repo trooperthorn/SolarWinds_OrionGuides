@@ -1,32 +1,22 @@
 # The web console
 
-Most of this repository is about SWIS: the API, the schema, and automating against them. This
-section is about the other interface — the web console that SolarWinds Observability
-Self-Hosted presents to its users — and specifically about the parts of it that take SWQL and
-are not documented anywhere official.
-
-That is a narrower subject than "how to use the console", and deliberately so. Navigating the
-UI is covered by SolarWinds' product documentation and needs no help from here. What has no
-documentation is the set of conventions the console applies to a query you give it: column
-names that are read as instructions, URL shapes that link one view to another, values that are
-rendered as images rather than text. Those are discoverable only from community threads, and
-they are what this section collects.
+This section covers query-driven widgets, dashboard export structure, variables, and
+console links. Evidence comes from SolarWinds product documentation, supplied exports,
+and attributed community reports. A convention absent from the SWIS schema can still
+be documented by an authoritative product source.
 
 ## A caveat that applies to the whole section
 
-**The schema cannot confirm any of it.** Everywhere else in this repository, a claim is
-checked against the extracted contract before it is written down, and `make check` fails if it
-drifts. The console's behaviour is not in the contract. A directive name, a console URL, an
-icon path — none of these appear in `data/`, so nothing here can verify that the widget still
-reads `[_LinkFor_X]` or that `/Orion/NetPerfMon/NodeDetails.aspx` still exists.
+Schema checks can establish referenced entities and properties within the validator's
+scope. They cannot establish URL availability, widget rendering, access-control behavior,
+or the importer's identity-conflict rules. Keep those separate from syntax validation.
+The 2026.4 export audit preserves observed configuration and reports gaps against the
+older 2026.2 public schema; it does not certify exported queries on a target server.
 
-What *is* verified is everything a query touches: every entity, property and function named on
-these pages is checked against 2026.2 like any other page here, and the queries are run
-through `tools/validate_swql.py`. The versioned 2026.4 export audit is an explicit exception:
-it preserves observed configuration as evidence and reports gaps against the older schema;
-it does not certify its exported queries. Static checks do not prove runtime behavior. UI conventions are
-reported, sourced and marked unverified. Read
-[../reference/unverified.md](../reference/unverified.md) for the collected list.
+Use the [evidence rules](../reference/documentation-audit-2026-09-18.md) and
+[unverified index](../reference/unverified.md). Attribute community observations to their
+source and version instead of presenting them as either universal facts or worthless
+because they are not schema facts.
 
 ## The pages
 

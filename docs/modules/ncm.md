@@ -122,7 +122,8 @@ NCM keeps its own node table, and it is not `Orion.Nodes`.
 | Rights | `read` and `invoke` for everyone; `update` requires `manageNodes`, plus the NCM role stated in each verb summary |
 
 Joining the two id spaces wrongly is the single most common NCM query bug, and it fails
-silently: a GUID never equals an integer, so the query returns nothing and no error.
+because the identifiers have different meanings and types. Depending on provider
+conversion behavior, this can return no matches or raise an error; neither is a valid join.
 [`../swql/language-reference.md`](../swql/language-reference.md#full-outer-join) says the same
 thing from the SWQL side.
 
@@ -1342,9 +1343,9 @@ bridge. `AddNodeToNCM(coreNodeId)` and `AddNodes(coreNodeIds)` take Orion intege
 `Cirrus.ConfigArchive.GetInterfaceConfigSnippets(coreNodeId)` are back to Orion integers.
 There is no rule to memorise. Check the verb.
 
-**Joining on the wrong id returns nothing and no error.** A GUID never equals an integer, so
-`ON cn.NodeID = n.NodeID` between `Cirrus.Nodes` and `Orion.Nodes` produces an empty result
-that looks exactly like "no data". This is the most common NCM query bug there is.
+**Join the documented identifier domains.** A GUID and an integer ID are not interchangeable;
+`ON cn.NodeID = n.NodeID` compares different identifier domains. A provider may reject
+the comparison or return no matches. Use the documented platform-node bridge.
 
 **SolarWinds' own `NCM.ExecuteScript.ps1` sample does not run against 2026.2.** It calls
 `Cirrus.ConfigArchive.Execute` and polls `Cirrus.TransferQueue`. Neither the verb nor the

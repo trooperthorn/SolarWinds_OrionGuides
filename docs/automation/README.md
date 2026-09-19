@@ -236,8 +236,9 @@ service account sees fewer rows than your admin session, that is the first thing
   that will not coerce to the declared type, or a property name that does not exist on the
   entity. SWIS returns its error text in a JSON `Message` field, so surface it rather than
   swallowing it.
-- **A connection failure** on port 17778 means you are on the deprecated port. REST is
-  **17774** from platform release 2023.1 onward. See
+- **A connection failure** does not identify its cause. Check the service, listener,
+  firewall, and installed release. Use REST **17774** on 2023.1+; the default 17778
+  listener stops in 2024.2. See
   [../swis/connecting.md](../swis/connecting.md).
 
 ## Validate your SWQL before you ship it

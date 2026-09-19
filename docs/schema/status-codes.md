@@ -1,8 +1,7 @@
 # Status codes
 
-Every monitored object in Orion carries a status, and it is stored as an integer. The web
-console paints it as a coloured icon, but a query returns the raw number, so any report,
-alert or automation has to map that number back to something a person can act on.
+Many monitored entities expose numeric status values. Their meaning depends on the
+entity and property; use the correct status domain before mapping a value to a label.
 
 The schema says so itself. `System.DashboardEntity` declares `Status` as `System.Int32`
 with this summary:
@@ -20,7 +19,10 @@ vocabulary apply where.
 
 ## The table
 
-26 status codes.
+26 status codes, extracted from the community workbook identified in
+[data provenance](../../data/README.md). The accompanying entity/property checks use
+2026.2, but the workbook rows are not a fresh vendor-certified 2026.2 enumeration.
+Query the target server for its current names and rankings.
 
 | Status | Name | Rank | Meaning |
 | ---: | --- | ---: | --- |
@@ -240,8 +242,8 @@ FROM Orion.StatusInfo s
 ORDER BY s.Ranking
 ```
 
-That query is also the answer to "is this list current for my version". It costs nothing
-and it is authoritative for your server, where this page is authoritative only for 2026.2.
+That query reads the target server's shared status names and rankings. The static table
+is a community reference; it does not certify every module-specific enum or release.
 
 ### Joining status to a name
 

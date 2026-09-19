@@ -273,9 +273,9 @@ update in SWIS.
 Polling work is scheduled and executed as jobs on the assigned engine. The job engine is a
 service running on each engine, and it is not exposed as a SWIS entity: searching the
 2026.2 schema for "JobEngine" turns up only `Cirrus.NCM_JobEngineNCMJobs`, an NCM job
-queue, and nothing representing the engine itself. So you cannot query the scheduler
-directly. What you can query are the two numbers it produces, and they answer two
-different questions.
+queue, and nothing representing the engine itself under that search term. This does not
+prove that every scheduler API is absent. For engine health, use the following documented
+metrics; access to other internal scheduling details is unverified here.
 
 **Is this engine keeping up?** `PollingCompletion` on `Orion.Engines` is a percentage of
 configured jobs completed on schedule. The SDK documentation says it should stay in the

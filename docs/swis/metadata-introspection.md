@@ -196,7 +196,8 @@ ORDER BY p.Entity.FullName
 ```
 
 What is actually settable, which is how you find out that a property is readable but not
-writable **before** your update silently changes nothing:
+writable before attempting a write. A false flag does not document whether a particular
+server rejects or ignores that input:
 
 ```sql
 SELECT p.Name, p.Type, p.CanCreate, p.CanUpdate

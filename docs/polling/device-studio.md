@@ -128,7 +128,8 @@ technology polling system, and only one of them does:
 `Orion.TechnologyPolling` has a `TechnologyID` of its own and it is a **`System.String`**, not
 a GUID. Same property name, different entity, different type, different id space — so joining
 `Orion.DeviceStudio.Pollers.TechnologyID` to `Orion.TechnologyPolling.TechnologyID` is
-comparing a GUID against a string and returns nothing, silently.
+comparing different identifier domains. It may return no matches or a conversion
+error; an empty result is not a guaranteed failure mode.
 
 `TechnologyPollingID` is the column that actually bridges the two systems, and it is not a
 declared relationship, so it has to be written as an explicit join:

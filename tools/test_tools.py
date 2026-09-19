@@ -1300,6 +1300,25 @@ class TestUnverifiedIndex(unittest.TestCase):
 
         cls.mod = build_unverified_index
 
+    def test_explicit_uncertainty_labels_without_generic_unknown_matches(self):
+        for label in ("Unknown", "Unconfirmed", "Not tested", "Runtime validation required"):
+            self.assertTrue(self.mod.MARKER_RE.search(f"**{label}:** Import behavior."))
+        self.assertFalse(self.mod.MARKER_RE.search("Status 0 means Unknown."))
+
+    def test_headings_and_fenced_examples_are_not_claims(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            page = os.path.join(tmp, "sample.md")
+            with open(page, "w", encoding="utf-8") as fh:
+                fh.write("## What is not verified here\n\n"
+                         "**Unverified:** Duplicate import behavior.\n\n"
+                         "```text\n**Unknown:** Example text.\n```\n")
+            found = self.mod.collect(tmp)
+            entries = [entry for values in found.values() for entry in values]
+            self.assertEqual(len(entries), 1)
+            self.assertEqual(entries[0][0], "What is not verified here")
+            self.assertIn("Duplicate import", entries[0][1])
+
     def test_bold_label_form_is_recognised(self):
         # "**Unverified.** The standard SQL spelling..." marks a whole claim rather than
         # qualifying one inside a sentence, and only the sentence forms were read before.

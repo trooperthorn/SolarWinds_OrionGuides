@@ -511,10 +511,10 @@ produce yesterday's output and last month's.
 **Always bound the result set.** `TOP n` or `WITH ROWS a TO b`. An unbounded query against a
 large installation is a genuine production risk, not a style preference.
 
-**Mind the timezone functions.** `GetUtcDate()` combined with `AddDay` and friends produces the
-wrong offset, because those compile to T-SQL `DATEADD`, which is timezone blind. The correct
-shape is `ToUtc(AddDay(-30, GetDate()))` for a UTC column and `AddDay(-30, GetDate())` for a
-local one. Which columns are which matters, and the schema only tells you for some of them:
+**Mind the timezone functions.** The SDK documents an offset issue with selected
+`AddX(..., GetUtcDate())` values; its effect on predicates is unverified here. See the
+[date guide](../swql/date-and-time.md) before assuming local arithmetic represents an
+exact elapsed UTC interval. Which columns are which matters, and the schema only tells you for some of them:
 `Orion.AuditingEvents.TimeLoggedUtc` says UTC in its name, and `Orion.Events.EventTime`
 documents itself as local. `Orion.AlertHistory.TimeStamp` and `Orion.ResponseTime.DateTime`
 carry **no documented timezone** and are unverified here, so measure them once on your own

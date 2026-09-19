@@ -225,6 +225,9 @@ WITH ROWS 1 TO 500 WITH TOTALROWS
 Always pair `WITH ROWS` with an `ORDER BY`. Without a deterministic sort there is no
 guarantee that page 2 continues where page 1 stopped, and you can silently skip or duplicate
 rows. `ORDER BY` on the key property (`NodeID` here) is the safe default.
+A stable sort does not create a snapshot: concurrent inserts, deletes, and updates can
+still move rows between offset-based pages. For an export, fix the time window and
+use a stable key/checkpoint with overlap and deduplication where the source permits it.
 
 A paging loop then looks like this:
 

@@ -24,7 +24,7 @@ python3 tools/schema_query.py show Orion.AuditingEvents
 
 | Entity | Answers | Key | Time column |
 |:---|:---|:---|:---|
-| `Orion.Events` | What the platform observed | `EventID` | `EventTime`, **local** |
+| `Orion.Events` | What the platform observed | `EventID` | `EventTime`; schema says displayed in local time |
 | `Orion.EventTypes` | What an event type integer means | `EventType` | none |
 | `Orion.AuditingEvents` | What a person or client did | `AuditEventID` | `TimeLoggedUtc`, **UTC** |
 | `Orion.AuditingActionTypes` | What an audit action type integer means | `ActionTypeID` | none |
@@ -263,42 +263,26 @@ This is where these two entities differ and where the errors are silent.
 
 ### `Orion.Events.EventTime` is local
 
-The schema description is explicit: "Date and time when the event occurred, displayed in
-local time." "Local" here means the SQL Server's timezone, which is not necessarily the Orion
-application server's and is definitely not the reader's. So the last 24 hours of events is:
-
-```sql
-WHERE e.EventTime >= AddDay(-1, GetDate())
-```
-
-`GetDate()` already returns the SQL Server's local time, so both sides of the comparison are
-on the same clock and no conversion is needed.
+The historical heading above is retained for existing links. The schema says displayed
+in local time; it does not distinguish storage from presentation. **Unverified:** the
+time basis exposed by the target provider. The local-bound examples on this page assume
+it is local; compare a known event instant with the raw query response before using them.
+See [the EventTime ambiguity](../swql/date-and-time.md#the-eventtime-exception).
 
 ### `Orion.AuditingEvents.TimeLoggedUtc` is UTC
 
-The name ends in `Utc`, which is the most reliable signal the schema gives. So the last 24
-hours of audit entries is **not** `AddDay(-1, GetUtcDate())`:
-
-```sql
-WHERE a.TimeLoggedUtc >= ToUtc(AddDay(-1, GetDate()))
-```
-
-The reason is the single most consequential SWQL gotcha, and it is worth restating here
-because time-bounded audit queries are exactly where it bites. SWIS compiles `AddDay` into
-T-SQL `DATEADD`, and SolarWinds documents that `DATEADD` "doesn't work with time zone offset
-at all". Hand it a UTC value and it does correct arithmetic, then hands back a plain
-`datetime` that SQL Server stamps with the **server's own offset** on the way out. The clock
-arithmetic is right and the label is wrong, so the value silently shifts by your UTC offset.
-
-SolarWinds' recommended shape is: do the arithmetic in local time, convert at the end.
-`ToUtc(AddDay(-1, GetDate()))` is that shape. Full treatment, with SolarWinds' own recorded
-before-and-after output, is in [../swql/date-and-time.md](../swql/date-and-time.md).
+`TimeLoggedUtc` identifies UTC intent. The examples use local arithmetic followed by
+`ToUtc`, following the SDK's selected-value workaround. **Unverified:** the source does
+not establish that the same issue changes predicate evaluation on every release. For
+exact elapsed intervals, pass fixed UTC boundaries calculated by the client. See
+[date-and-time.md](../swql/date-and-time.md) for diagnostic limits and daylight saving.
 
 Two more rules that apply to both entities:
 
 - **Put the arithmetic on the constant side.** `WHERE e.EventTime >= AddDay(-1, GetDate())`,
-  never `WHERE AddDay(1, e.EventTime) >= GetDate()`. Wrapping the column defeats the index
-  and turns a fast query into a table scan on a table that grows without bound.
+  rather than `WHERE AddDay(1, e.EventTime) >= GetDate()`. Wrapping the column can
+  hinder efficient filtering; actual plans depend on the
+  provider and indexes. Data retention does not replace a bounded query.
 - **Always bound the window.** `Orion.Events` and `Orion.AuditingEvents` are among the
   largest tables in the database. An unbounded `SELECT` against either is how a reporting
   script takes the web console down. Use `TOP` as well, as a second seat belt.
@@ -734,11 +718,10 @@ not affect alerting. There is no verb to unacknowledge an event, unlike alerts, 
 
 ## Things that go wrong
 
-- **Comparing `TimeLoggedUtc` against `AddDay(-1, GetUtcDate())`.** The arithmetic is right,
-  the offset label is wrong, and the window silently shifts by your UTC offset. Use
-  `ToUtc(AddDay(-1, GetDate()))`.
-- **Comparing `EventTime` against a UTC constant.** `EventTime` is documented as local. Use
-  `GetDate()`.
+- **Inferring a predicate bug from a displayed offset.** The SDK demonstrates a selected
+  value issue; test filter boundaries independently. See the date guide.
+- **Assuming `EventTime` storage from its description.** The schema says displayed in local
+  time. Confirm query behavior with a known event before choosing a local or UTC bound.
 - **Selecting `Orion.Events.TimeStamp` as a date.** It is a `System.Byte[]` row-version
   column. `EventTime` is the date.
 - **Guessing that the navigation property is `EventTypes`.** It is `EventTypeProperties`.
@@ -752,10 +735,10 @@ not affect alerting. There is no verb to unacknowledge an event, unlike alerts, 
 - **Answering "who changed this" from `Orion.Events`.** It records what the platform observed,
   not who acted. `AccountID` only exists on `Orion.AuditingEvents`.
 - **Reading a blank `AccountID` as unknown.** It means the system did it, not a person.
-- **Unbounded queries.** Both tables grow without limit. Always constrain by time and add
+- **Unbounded queries.** Retention and traffic determine table size. Constrain by time and add
   `TOP`.
 - **Wrapping the column in the date arithmetic.** `WHERE AddDay(1, e.EventTime) >= GetDate()`
-  scans the whole table. Put the arithmetic on the constant side.
+  can hinder index use. Put the arithmetic on the constant side and measure actual plans.
 - **Assuming "no events" means "nothing happened".** An unmanaged node produces none. Check
   `UnManaged`, `UnManageFrom` and `UnManageUntil`.
 - **A service account seeing fewer rows than you do.** Account limitations filter query

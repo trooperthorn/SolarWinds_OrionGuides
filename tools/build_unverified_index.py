@@ -1,18 +1,8 @@
 #!/usr/bin/env python3
-"""Collect every statement the documentation marks as unverified into one page.
+"""Index explicitly marked uncertainty in authored documentation under docs/.
 
-The rule this repository is written to is that a claim which could not be checked says
-so rather than being asserted quietly or dropped. That produces a lot of small honest
-admissions scattered across sixty pages, which is the right place for them when you are
-reading that page and the wrong place when you want to know, overall, where the edges are.
-
-This gathers them. The result is the page to read before trusting this repository for
-something load-bearing, and the working list for anyone with a live server who wants to
-close a gap.
-
-    python tools/build_unverified_index.py
-
-Writes docs/reference/unverified.md. Regenerate with `make docs-reference`.
+This is a wording-based index, not an exhaustive detector of unsupported claims.
+Run `python tools/build_unverified_index.py` or `make docs-reference`.
 """
 
 from __future__ import annotations
@@ -33,9 +23,10 @@ MARKER_RE = re.compile(
     # spelling, but it appears in no SolarWinds documentation page". This is how a page
     # marks a whole claim rather than qualifying one inside a sentence, and reading only
     # the sentence forms meant those never reached the index.
-    r"|\*\*unverified[.:]?\*\*"
+    r"|\*\*(?:unverified|unknown|unconfirmed|not tested|runtime validation required)[.:]?\*\*"
     r"|\bcould not (?:be )?verif\w+\b"
     r"|\bcannot (?:be )?verif\w+\b"
+    r"|\bnot (?:verified|tested) (?:here|on a live server|against a live server)\b"
     r"|\bnot verified\b"
     r"|\bno(?:t)? (?:documented|recorded) (?:anywhere )?in the (?:published )?schema\b",
     re.I,
@@ -163,6 +154,10 @@ def collect(docs_root: str) -> dict[str, list[tuple[str, str]]]:
             seen = set()
 
             for para in re.split(r"\n\s*\n", text):
+                # Headings provide context; they are not unresolved claims themselves.
+                para = HEADING_RE.sub("", para).strip()
+                if not para:
+                    continue
                 # Test the flattened form: the prose is hard-wrapped, so a marker phrase
                 # such as "not recorded in the published schema" is routinely split across
                 # a line break and a literal space in the pattern will not match it.
@@ -206,15 +201,15 @@ def render(found: dict[str, list[tuple[str, str]]]) -> str:
         "",
         "# What this repository does not verify",
         "",
-        "Everything in these guides was checked against the extracted SolarWinds schema "
-        "before it was written, and every SWQL statement is re-checked on each build. Some "
-        "things cannot be checked that way: behaviour that only a running server exhibits, "
-        "values that are installation data rather than schema, and the handful of places "
-        "where SolarWinds' own documentation and their published contract disagree.",
+        "This index extracts explicit uncertainty markers from authored pages under docs/. "
+        "Static schema and example checks do not verify every prose claim, runtime behavior, "
+        "or compatibility with a particular installation.",
         "",
-        "The rule is that those say so rather than being asserted quietly or dropped. This "
-        "page collects every such statement in one place, because an admission is in the "
-        f"right place on its page and the wrong place when you want the whole picture.",
+        "The extractor recognizes selected phrases and explicit labels such as **Unverified:**, "
+        "**Unknown:**, **Unconfirmed:**, **Not tested:**, and **Runtime validation required:**. "
+        "It skips generated pages, headings, and fenced code. Absence from this index does "
+        "not mean a claim is verified; app and script READMEs are outside its collection scope. "
+        "See [the documentation audit](documentation-audit-2026-09-18.md) for coverage and evidence rules.",
         "",
         f"**{total} statements across {len(found)} pages.**",
         "",

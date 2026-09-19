@@ -706,9 +706,9 @@ ORDER BY AVG(st.PercentAvailability)
 ```
 
 `ToUtc(AddDay(-7, GetDate()))` rather than a bare `AddDay(-7, GetDate())` is deliberate.
-`TimeStamp` states no timezone in the schema, so the platform-wide rule applies — assume the
-column holds UTC — and an unwrapped `AddDay(-7, GetDate())` is a local-time value that
-silently shifts the window by the SQL Server's UTC offset. See
+This example assumes UTC for `TimeStamp`; that column's time basis is **unverified here**.
+Confirm it on the target before relying on this window, and use UTC parameters when
+exact elapsed duration matters. See
 [../swql/date-and-time.md](../swql/date-and-time.md).
 
 ### Component thresholds as currently applied

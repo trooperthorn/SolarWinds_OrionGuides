@@ -228,8 +228,9 @@ the schema. What is **not** verified is the difference between them: the publish
 schema carries no summary text for either property, and neither the OrionSDK documentation nor
 any SolarWinds sample script in this repository's sources explains it.
 
-So do not guess, and do not let a report guess for you. Two queries settle it on your server in
-under a minute.
+The following queries show current combinations; a snapshot does not prove the causal
+relationship. See [node status calculation](../polling/node-status-calculation.md) for
+official feature behavior and the remaining unverified mappings to SWIS properties.
 
 Where do they disagree, and what else is true of those nodes?
 
@@ -277,41 +278,29 @@ documentation, "Textual information about the status of this entity".
 
 ## 4. UTC, DATEADD and the timestamp that quietly shifts
 
-This one has its own page, [date-and-time.md](date-and-time.md), because it is the trap that
-produces the most convincing wrong numbers. The short version:
-
-SWIS translates SWQL into T-SQL and runs it on the Orion SQL Server. `AddMinute`, `AddHour`,
-`AddDay` and the rest compile to T-SQL `DATEADD`, which has no concept of a timezone offset. If
-you feed it the result of `GetUtcDate()`, SQL Server returns the adjusted value stamped with
-**its own local offset**, not UTC. SolarWinds documents this, shows the generated T-SQL and the
-serialised response, and gives the fix on the
-[possible issues](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/)
-page:
-
-> If you are using `AddMinute` etc. functions you need to first convert the value to the local
-> time of the MSSQL server and then convert the result back to UTC time.
-
-So `ToUtc(AddMinute(-10, ToLocal(GetUtcDate())))`, not `AddMinute(-10, GetUtcDate())`.
+The SDK's [date-function issue](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/)
+demonstrates selected `AddX(..., GetUtcDate())` values returned with a local offset. Its
+workaround is `ToUtc(AddMinute(-10, ToLocal(GetUtcDate())))`. See
+[date-and-time.md](date-and-time.md) for the evidence scope and diagnostic procedure.
 
 Two related facts that catch people out separately:
 
-- **Timestamps are almost always UTC**, whatever the timezone of the SQL Server, the Orion
-  server or your browser. `Orion.Nodes.LastSystemUpTimePollUtc` says so in its name, but the
-  128 columns named that way are being explicit rather than being different — the other 1173
-  `System.DateTime` properties are UTC too. The documented exception is
-  `Orion.Events.EventTime`, "displayed in local time", and whether that describes storage or
-  only rendering is unresolved. See
-  [date-and-time.md](date-and-time.md#which-columns-are-utc-and-which-are-local).
-- **The SQL Server, the Orion server and your workstation can all be in different timezones.**
-  The value that arrives at your client has been through all three. `WITH LOGS` (documented, in
-  SolarWinds' own example above) is the cheapest way to see what SWIS actually sent.
+- **The timestamp type does not specify a timezone.** A UTC suffix or a feature-specific
+  source provides evidence; do not infer UTC for all other `System.DateTime` properties.
+  `Orion.Events.EventTime` says displayed in local time, which does not settle storage
+  versus rendering. See [date-and-time.md](date-and-time.md#which-columns-are-utc-and-which-are-local).
+- **Serialization and filtering are different questions.** The SDK example shows returned
+  values. Predicate behavior and daylight-saving boundaries need separate validation.
+  Record raw results and server/client zones; query logs alone do not prove UI rendering.
 
 ## 5. NULL, IsNull, and the rows that disappear instead of going null
 
-### 5.1 `= NULL` is always false
+<a id="51--null-is-always-false"></a>
 
-Nothing equals NULL, including NULL. `WHERE n.Location = NULL` returns zero rows on every
-server forever, and it does not error. Use `IS NULL` and `IS NOT NULL`, both of which appear in
+### 5.1 `= NULL` does not match rows
+
+A comparison with NULL evaluates to UNKNOWN rather than TRUE or FALSE. A WHERE clause
+keeps only TRUE, so `WHERE n.Location = NULL` does not select missing locations. Use `IS NULL` and `IS NOT NULL`, both of which appear in
 SolarWinds' own PowerShell samples (`WHERE ParentID IS NULL` in `func_ModernDashboards.ps1`,
 `WHERE pm.Engine.EngineId IS NOT NULL` in `HA.PoolOperations.ps1`).
 

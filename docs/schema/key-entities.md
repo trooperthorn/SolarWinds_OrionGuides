@@ -788,7 +788,7 @@ relationships, 1 verb.
 | Property | Type | Summary from the schema |
 | --- | --- | --- |
 | `EventID` | `System.Int32` | Unique identifier for the event record |
-| `EventTime` | `System.DateTime` | When the event occurred, **displayed in local time** — the documented exception to the platform's UTC default. See [../swql/date-and-time.md](../swql/date-and-time.md#the-eventtime-exception) |
+| `EventTime` | `System.DateTime` | When the event occurred, **displayed in local time** — query/storage semantics require confirmation. See [../swql/date-and-time.md](../swql/date-and-time.md#the-eventtime-exception) |
 | `EventType` | `System.Int32` | Numeric identifier referencing the type of event from `Orion.EventTypes` |
 | `Message` | `System.String` | Descriptive message or details |
 | `Acknowledged` | `System.Boolean` | Whether an administrator has acknowledged it |
@@ -799,9 +799,8 @@ relationships, 1 verb.
 | `NetObjectType` | `System.String` | Inherited. The prefix, in its own column |
 | `NetworkNode` | `System.Int32` | Inherited. The related node id |
 
-`EventTime` being local and `TimeStamp` being a byte array are both traps. Use `GetDate()`
-arithmetic against `EventTime`, not `GetUtcDate()`, and never try to sort by `TimeStamp`
-expecting chronology. See [../swql/date-and-time.md](../swql/date-and-time.md).
+Confirm the time basis of `EventTime` before choosing a local or UTC bound. `TimeStamp`
+is a byte array, so do not sort it expecting event chronology. See [../swql/date-and-time.md](../swql/date-and-time.md).
 
 ### Navigations
 
@@ -866,9 +865,9 @@ entity from `Orion.Events` with a different shape and a different time base.
 | `NetworkNode` | `System.Int32` | The related node |
 | `DetailsUrl`, `DisplayName` | `System.String` | Presentation |
 
-The UTC suffix on `TimeLoggedUtc` is the whole warning. Filtering it with
-`AddDay(-7, GetUtcDate())` produces a value stamped with the SQL Server's local offset,
-which silently shifts your window. Write `ToUtc(AddDay(-7, GetDate()))` instead. See
+`TimeLoggedUtc` identifies UTC intent. Distinguish the SDK's selected-value offset issue
+from predicate behavior; do not infer a shifted window solely from a displayed timestamp.
+For exact elapsed windows, use fixed UTC parameters. See
 [../swql/date-and-time.md](../swql/date-and-time.md).
 
 ### Navigations

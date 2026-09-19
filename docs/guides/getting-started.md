@@ -46,7 +46,7 @@ the query above does not filter on `TRUE`. See
 | Port | Protocol | Status | Used by |
 |:---|:---|:---|:---|
 | 17774 | HTTPS (REST/JSON) | Current, from platform release 2023.1 onward | `curl`, Python `orionsdk`, any HTTP client |
-| 17778 | HTTPS (REST/JSON) | Deprecated. Was the REST port through 2022.4.1 | Legacy scripts, older SWQL Studio "over HTTPS" mode |
+| 17778 | HTTPS (REST/JSON) | Deprecated. Legacy REST endpoint; deprecated in 2023.1; default listener removed in 2024.2 | Legacy scripts, older SWQL Studio "over HTTPS" mode |
 | 17777 | net.tcp (SOAP) | Current | SWQL Studio, `SwisPowerShell` |
 
 The full endpoint and authentication reference is
@@ -220,7 +220,7 @@ failure happened: TCP, TLS, or HTTP.
 
 | What you see | Layer | Likely cause |
 |:---|:---|:---|
-| `Connection refused`, `No connection could be made` on 17774 | TCP | The server is on 2022.4.1 or earlier, where REST was on 17778 |
+| `Connection refused`, `No connection could be made` on 17774 | TCP | Check the service, listener, firewall, and version; pre-2023.1 uses 17778 |
 | `Connection refused` on 17778 | TCP | The server is on 2023.1 or later. Use 17774 |
 | The connection hangs and eventually times out | TCP | A firewall is dropping rather than rejecting. A rejected port answers immediately |
 | `certificate verify failed`, `unable to get local issuer certificate`, `SSL: CERTIFICATE_VERIFY_FAILED` | TLS | The self-signed certificate is not trusted by this client. Trust it, do not disable verification |

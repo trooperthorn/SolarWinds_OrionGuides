@@ -406,10 +406,10 @@ NCMLicenseStatus -> Cirrus.NCMNodeLicenseStatus
 NodeProperties -> NCM.NodeProperties
 ```
 
-**Detecting which modules are installed.** An entity only exists when its module is
-installed, so a navigation whose target entity is missing from a server tells you the module
-is not there. Compare the edge list against `Metadata.Entity` on the server and the
-difference is the module inventory. See
+**Checking available providers.** Compare the edge list with live `Metadata.Entity` to
+identify targets the server exposes. A missing target can reflect release or provider
+registration differences; it does not alone prove a module is uninstalled. Entity
+presence also does not establish a license entitlement. See
 [modules/README.md](../modules/README.md).
 
 Remember that the edge list describes the schema, not the data. An edge from `Orion.Nodes` to

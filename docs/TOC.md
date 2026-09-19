@@ -16,7 +16,7 @@ Guidance for SolarWinds Orion / Observability Self-Hosted, organized by what you
 
 - [Sections](README.md#sections)
 - [Working examples](README.md#working-examples): Runnable code lives outside docs/: ../scripts/swql/ has 239 verified sample queries, ../scripts/powershell/, ../scripts/python/ and ../scripts/curl/ cover the three clients, and ../tools/ explores the schema offline a...
-- [A note on trust](README.md#a-note-on-trust): Every entity, property, verb and parameter named in these pages was checked against the extracted schema before it was written, and every SWQL example is re-validated on each build.
+- [A note on trust](README.md#a-note-on-trust): The build checks extracted data consistency, recognized schema references, selected command examples, and SWQL within its supported grammar and configured paths.
 
 ## docs/platform/
 
@@ -27,7 +27,7 @@ This section explains what the product actually is, how a deployment is put toge
 - [What the product is](platform/README.md#what-the-product-is): SolarWinds sells a self-hosted monitoring suite that you install on your own Windows servers against your own SQL Server database.
 - [How to navigate this section](platform/README.md#how-to-navigate-this-section)
 - [The numbers, for the version documented here](platform/README.md#the-numbers-for-the-version-documented-here): This repository documents SWIS schema version 2026.2.
-- [The API surface in one table](platform/README.md#the-api-surface-in-one-table): The port change is the single most common cause of "the API used to work and now it does not".
+- [The API surface in one table](platform/README.md#the-api-surface-in-one-table): For the distinction between the 2023.1 endpoint introduction and the 2024.2 listener change, see connecting.md.
 - [Your first query](platform/README.md#your-first-query): Every SWIS deployment has polling engines, so this query works on any server and tells you something immediately useful:
 - [Verify before you trust](platform/README.md#verify-before-you-trust): Entity names, property names, and verb signatures differ between platform versions and between servers with different modules installed.
 - [Where to go after this section](platform/README.md#where-to-go-after-this-section)
@@ -74,9 +74,10 @@ The platform is one installation with one database and one API, but the data mod
 
 ### [Versions and Naming](platform/versions-and-naming.md)
 
-The product has been renamed twice.
+Product names, platform releases, module versions, and API namespaces are separate.
 
 - [The naming history](platform/versions-and-naming.md#the-naming-history): You can watch the first rename happen in SolarWinds' own SDK documentation.
+- [Release-specific support notes](platform/versions-and-naming.md#release-specific-support-notes): Reviewed 2026-09-18 against the 2026.2 release notes:
 - [Why "Orion" is still everywhere in the API](platform/versions-and-naming.md#why-orion-is-still-everywhere-in-the-api): Renaming a product is a marketing decision.
 - [How version numbers work](platform/versions-and-naming.md#how-version-numbers-work): Platform versions are year.release, sometimes with a patch component:
 - [The SDK publishes a schema per version](platform/versions-and-naming.md#the-sdk-publishes-a-schema-per-version): SolarWinds publishes full SWIS schema documentation for each platform version.
@@ -252,19 +253,19 @@ SWQL is the query language of the SolarWinds Information Service.
 
 ### [SWQL date and time](swql/date-and-time.md)
 
-Time-bounded queries are where SWQL most often returns a confident wrong answer.
+A date query has three separate concerns: the column's time basis, arithmetic used for the filter, and how the returned timestamp is serialized or displayed.
 
-- [The short version](swql/date-and-time.md#the-short-version): the Orion server or your browser.
-- [How a SWQL date query actually runs](swql/date-and-time.md#how-a-swql-date-query-actually-runs): SWIS does not evaluate SWQL itself.
-- [The trap: GetUtcDate() plus AddX](swql/date-and-time.md#the-trap-getutcdate-plus-addx): Run that query and look at what comes back over the wire.
-- [The fix: convert, add, convert back](swql/date-and-time.md#the-fix-convert-add-convert-back): Convert the value into the timezone DATEADD is going to assume anyway, do the arithmetic there, then convert the result back.
+- [The short version](swql/date-and-time.md#the-short-version): Its suggested workaround is local arithmetic followed by ToUtc.
+- [How a SWQL date query actually runs](swql/date-and-time.md#how-a-swql-date-query-actually-runs): The SDK's date-function issue shows a SWQL query translated into T-SQL, followed by serialization to the client.
+- [The trap: GetUtcDate() plus AddX](swql/date-and-time.md#the-trap-getutcdate-plus-addx): The published example returns GetUtcDate() with Z, but calculated AddX columns with the SQL Server's local offset.
+- [The fix: convert, add, convert back](swql/date-and-time.md#the-fix-convert-add-convert-back): SolarWinds recommends the following selected-value pattern:
 - [The four functions that read or move the clock](swql/date-and-time.md#the-four-functions-that-read-or-move-the-clock): The four runs recorded in the community workbook were made minutes apart on one server, and together they show the shape clearly:
-- [Which columns are UTC and which are local](swql/date-and-time.md#which-columns-are-utc-and-which-are-local): Datetime values are almost always stored in UTC, regardless of the SQL Server's timezone, the SolarWinds server's timezone, or the browser's.
+- [Which columns are UTC and which are local](swql/date-and-time.md#which-columns-are-utc-and-which-are-local): A practitioner reports that most platform timestamps are UTC.
 - [The AddX family](swql/date-and-time.md#the-addx-family): Nine functions, and for eight of them one shape: the count comes first, the date second.
 - [The XDiff family](swql/date-and-time.md#the-xdiff-family): Eight functions, all of the form XDiff(a, b): how much later b is than a, rounded to the nearest whole unit.
 - [DateTrunc and its dateparts](swql/date-and-time.md#datetrunc-and-its-dateparts): DateTrunc('datepart', d) returns d with everything finer than datepart zeroed.
 - [Downsample for arbitrary buckets](swql/date-and-time.md#downsample-for-arbitrary-buckets): Downsample(d, p) rounds the timestamp d to the period p, so '00:15:00' gives 15 minute buckets.
-- [Relative time filtering](swql/date-and-time.md#relative-time-filtering): These are the patterns worth memorising.
+- [Relative time filtering](swql/date-and-time.md#relative-time-filtering): The examples below retain the historical "last 24 hours" headings for existing links, but their AddDay(-1, GetDate()) expression means a previous local calendar day.
 - [DateTime literals and parameters](swql/date-and-time.md#datetime-literals-and-parameters): A string is converted to a date automatically when the context needs a date.
 - [A checklist before you save a time-bounded query](swql/date-and-time.md#a-checklist-before-you-save-a-time-bounded-query): ToLocal and the whole thing in ToUtc.
 - [See also](swql/date-and-time.md#see-also): recorded version baseline, plus the rest of the function library.
@@ -292,8 +293,8 @@ A SWQL error is cheap.
 - [1. The empty result set is usually a permissions answer](swql/gotchas.md#1-the-empty-result-set-is-usually-a-permissions-answer): Start here, because it is the single most common wrong conclusion drawn from a SWQL result.
 - [2. Status is an integer, and the integer means different things on different entities](swql/gotchas.md#2-status-is-an-integer-and-the-integer-means-different-things-on-different-entities): Status is declared on System.DashboardEntity, and its own schema summary is the warning:
 - [3. Status versus PolledStatus on Orion.Nodes](swql/gotchas.md#3-status-versus-polledstatus-on-orionnodes): Both properties exist on Orion.Nodes and both are System.Int32.
-- [4. UTC, DATEADD and the timestamp that quietly shifts](swql/gotchas.md#4-utc-dateadd-and-the-timestamp-that-quietly-shifts): This one has its own page, date-and-time.md, because it is the trap that produces the most convincing wrong numbers.
-- [5. NULL, IsNull, and the rows that disappear instead of going null](swql/gotchas.md#5-null-isnull-and-the-rows-that-disappear-instead-of-going-null): Nothing equals NULL, including NULL.
+- [4. UTC, DATEADD and the timestamp that quietly shifts](swql/gotchas.md#4-utc-dateadd-and-the-timestamp-that-quietly-shifts): The SDK's date-function issue demonstrates selected AddX(..., GetUtcDate()) values returned with a local offset.
+- [5. NULL, IsNull, and the rows that disappear instead of going null](swql/gotchas.md#5-null-isnull-and-the-rows-that-disappear-instead-of-going-null): <a id="51--null-is-always-false"></a>
 - [6. To-many navigation multiplies rows and poisons aggregates](swql/gotchas.md#6-to-many-navigation-multiplies-rows-and-poisons-aggregates): Orion.Nodes.Interfaces is a System.Hosting relationship in the source-to-target direction, which means one node leads to many interfaces.
 - [7. Averaging statistics rows without Weight](swql/gotchas.md#7-averaging-statistics-rows-without-weight): System.StatisticsEntity is the base type for 236 entities in 2026.2, and it declares three properties that most people never notice.
 - [8. Entities that look like the same thing and are not](swql/gotchas.md#8-entities-that-look-like-the-same-thing-and-are-not): Four real pairs from the 2026.2 schema.
@@ -439,9 +440,9 @@ The schema does not only record what properties an entity has.
 
 ### [Status codes](schema/status-codes.md)
 
-Every monitored object in Orion carries a status, and it is stored as an integer.
+Many monitored entities expose numeric status values.
 
-- [The table](schema/status-codes.md#the-table): 26 status codes.
+- [The table](schema/status-codes.md#the-table): 26 status codes, extracted from the community workbook identified in data provenance.
 - [What Rank is for](schema/status-codes.md#what-rank-is-for): Rank orders severity so that a parent object can compute a status from its children.
 - [Which statuses apply to what](schema/status-codes.md#which-statuses-apply-to-what): The descriptions carry this information, and getting it wrong produces filters that can never match.
 - [Resolving status on a live server](schema/status-codes.md#resolving-status-on-a-live-server): Orion.StatusInfo is the lookup table, and it exists in 2026.2 with 12 properties, all readable by everyone:
@@ -475,7 +476,7 @@ The platform is one installation, one database, and one API, but the data model 
 
 ### [Agents: the SolarWinds agent](modules/agents.md)
 
-Every other way the platform collects data is a pull from the outside.
+Remote SNMP, WMI, and ICMP polling starts outside the monitored machine.
 
 - [When to use an agent instead of SNMP or WMI](modules/agents.md#when-to-use-an-agent-instead-of-snmp-or-wmi): The schema itself tells you most of what the trade is.
 - [Namespaces and how many entities](modules/agents.md#namespaces-and-how-many-entities): Agent management contributes 16 entities, all under Orion.AgentManagement..
@@ -935,7 +936,7 @@ The platform has a shared credential store, and not every module uses it.
 - [Module by module](automation/credential-integration.md#module-by-module): Orion.IpSla.AxlConnectionInfo, Orion.IpSla.CliConnectionInfo and Orion.IpSla.FtpConnectionInfo each carry NodeID and a CredentialID, and:
 - [Auditing what you have](automation/credential-integration.md#auditing-what-you-have): Every credential and what claims to use it, as far as the declared graph goes:
 - [What can actually be synced](automation/credential-integration.md#what-can-actually-be-synced): That last row is the one that makes central storage worth the effort.
-- [Gotchas](automation/credential-integration.md#gotchas): 25 of the 28 columns have nothing behind them.
+- [Gotchas](automation/credential-integration.md#gotchas): 25 of the 28 columns lack a navigation in this extract.
 - [See also](automation/credential-integration.md#see-also): the whole Invoke risk surface - ../modules/vnqm.md, ../modules/ipam.md, ../modules/srm.md, ../modules/vman.md — the modules themselves - ../modules/ncm.md — connection profiles, NCM's own answer - ../swql/gotchas.md —...
 
 ### [Credentials](automation/credentials.md)
@@ -1019,7 +1020,7 @@ Two different questions look the same at three in the morning:
 - [Investigation 2: which nodes went down overnight](automation/events-and-auditing.md#investigation-2-which-nodes-went-down-overnight): There is no "node down" boolean to filter on.
 - [Investigation 3: who unmanaged this node](automation/events-and-auditing.md#investigation-3-who-unmanaged-this-node): This is the archetypal audit question, and it has three levels of precision.
 - [Acknowledging events](automation/events-and-auditing.md#acknowledging-events): One argument, and it is an array, so this is the PowerShell case that needs the leading-comma idiom:
-- [Things that go wrong](automation/events-and-auditing.md#things-that-go-wrong): the offset label is wrong, and the window silently shifts by your UTC offset.
+- [Things that go wrong](automation/events-and-auditing.md#things-that-go-wrong): value issue; test filter boundaries independently.
 - [What is not verified here](automation/events-and-auditing.md#what-is-not-verified-here)
 - [Related pages](automation/events-and-auditing.md#related-pages)
 
@@ -1103,6 +1104,7 @@ A report exports from Reports > Manage Reports > Export/Import as one XML docume
 
 Two related capabilities let the platform do something later without anyone driving it: scheduled tasks, which run an action on a recurring frequency, and maintenance plans, which open a maintenance window at a planne...
 
+- [Release-specific scheduling behavior](automation/scheduling.md#release-specific-scheduling-behavior): SolarWinds deprecated the Windows Unmanage Scheduling Utility in 2026.2 and directs new schedules to the console's Manage Schedules page.
 - [The entities](automation/scheduling.md#the-entities): Only Orion.Frequencies declares verbs, and they exist for a reason covered below.
 - [What is scheduled right now](automation/scheduling.md#what-is-scheduled-right-now): The first query to run, and the one that answers "is something already doing this":
 - [Tasks that are failing or disabled](automation/scheduling.md#tasks-that-are-failing-or-disabled): A scheduled task that is switched off looks identical to one that never existed, from the point of view of the work not getting done:
@@ -1271,9 +1273,9 @@ A universal device poller, or UnDP, is an SNMP OID you defined yourself.
 
 ### [The web console](webui/README.md)
 
-Most of this repository is about SWIS: the API, the schema, and automating against them.
+This section covers query-driven widgets, dashboard export structure, variables, and console links.
 
-- [A caveat that applies to the whole section](webui/README.md#a-caveat-that-applies-to-the-whole-section): Everywhere else in this repository, a claim is checked against the extracted contract before it is written down, and make check fails if it drifts.
+- [A caveat that applies to the whole section](webui/README.md#a-caveat-that-applies-to-the-whole-section): Schema checks can establish referenced entities and properties within the validator's scope.
 - [The pages](webui/README.md#the-pages): custom-query-widget.md and modern-dashboards.md cover two separate widget systems, not an old and a new version of the same one: a Modern Dashboard widget cannot be placed on a classic dashboard, in either direction —...
 - [Where these come from](webui/README.md#where-these-come-from): Community material, chiefly THWACK, which is where the conventions on these pages were worked out and written down by the people who found them.
 - [See also](webui/README.md#see-also): prefixes that appear in console URLs - ../automation/accounts-and-permissions.md for why two users can see different rows in the same widget - ../guides/webview-embedding-and-node-mapping.md for embedding an external...
@@ -1606,8 +1608,20 @@ Lookup tables.
 - [Reading a whole page is rarely the fast path](reference/README.md#reading-a-whole-page-is-rarely-the-fast-path): Each page is an enumeration, which makes it the right tool for browsing, for diffing, and for answering "what else is there".
 - [The written page](reference/README.md#the-written-page): glossary.md defines the vocabulary: SWIS, SWQL, entity, verb, NetObject, element, rollup, unmanaged, the module acronyms and the three product names.
 - [Two more generators](reference/README.md#two-more-generators): Two more of the pages in this directory are generated, by two more generators, from two more kinds of source.
+- [Documentation review](reference/README.md#documentation-review): documentation-audit-2026-09-18.md records the repository-wide screening scope, corrected claims, evidence rules, and unresolved runtime questions.
 - [Regenerating everything](reference/README.md#regenerating-everything): make data VERSION=2025.4 documents a different release.
 - [When the answer is not here](reference/README.md#when-the-answer-is-not-here): This directory documents one platform version, and the schema varies with the release and with which modules are licensed and installed.
+
+### [Documentation audit and evidence rules: 2026-09-18](reference/documentation-audit-2026-09-18.md)
+
+This audit corrects stale and overconfident guidance, reduces repeated explanations, and makes unresolved behavior easier for people and AI systems to identify.
+
+- [Coverage and limits](reference/documentation-audit-2026-09-18.md#coverage-and-limits): The baseline inventory contains 144 tracked Markdown/text files, excluding the generated llms-full.txt duplicate.
+- [Evidence rules for AI answers](reference/documentation-audit-2026-09-18.md#evidence-rules-for-ai-answers): Use Unverified: for a material unresolved claim.
+- [Findings addressed](reference/documentation-audit-2026-09-18.md#findings-addressed)
+- [Primary sources rechecked](reference/documentation-audit-2026-09-18.md#primary-sources-rechecked): Accessed 2026-09-18.
+- [Unresolved areas and how to close them](reference/documentation-audit-2026-09-18.md#unresolved-areas-and-how-to-close-them): these runtime outcomes remain unresolved by this documentation audit.
+- [Validation boundary](reference/documentation-audit-2026-09-18.md#validation-boundary): The repository's make check is the acceptance gate for this change.
 
 ### [Entity index](reference/entity-index.md)
 
@@ -1742,16 +1756,15 @@ Status is stored as an integer on every monitored entity.
 
 ### [What this repository does not verify](reference/unverified.md)
 
-Everything in these guides was checked against the extracted SolarWinds schema before it was written, and every SWQL statement is re-checked on each build.
+This index extracts explicit uncertainty markers from authored pages under docs/.
 
 - [accounts-and-permissions.md](reference/unverified.md#accounts-and-permissionsmd): AccountType
-- [alerts.md](reference/unverified.md#alertsmd): What is not verified here
 - [credential-integration.md](reference/unverified.md#credential-integrationmd): Orion.CredentialRelation is the mechanism nobody mentions
 - [credentials.md](reference/unverified.md#credentialsmd): Credential types
 - [custom-properties.md](reference/unverified.md#custom-propertiesmd): The one structural fact to hold on to
 - [dependencies.md](reference/unverified.md#dependenciesmd): How a dependency is expressed
 - [discovery.md](reference/unverified.md#discoverymd): Phase 1b: the interfaces plugin configuration
-- [events-and-auditing.md](reference/unverified.md#events-and-auditingmd): Down and back up, in one row
+- [events-and-auditing.md](reference/unverified.md#events-and-auditingmd): Orion.Events.EventTime is local
 - [high-availability.md](reference/unverified.md#high-availabilitymd): High availability
 - [maintenance-mode.md](reference/unverified.md#maintenance-modemd): Recipe: bulk unmanage driven by a query
 - [node-management.md](reference/unverified.md#node-managementmd): The properties to set on create
@@ -1762,7 +1775,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [cookbook.md](reference/unverified.md#cookbookmd): Rules these queries follow
 - [ercot-grid-dashboard.md](reference/unverified.md#ercot-grid-dashboardmd): What changed since 2021
 - [webview-embedding-and-node-mapping.md](reference/unverified.md#webview-embedding-and-node-mappingmd): The coordinate itself lives in a separate entity, not a custom property
-- [wireless-heatmaps.md](reference/unverified.md#wireless-heatmapsmd): Writing it
+- [wireless-heatmaps.md](reference/unverified.md#wireless-heatmapsmd): Wireless heat maps
 - [agents.md](reference/unverified.md#agentsmd): Namespaces and how many entities
 - [cloud.md](reference/unverified.md#cloudmd): Tag filters and resource tags are different entities
 - [dpa.md](reference/unverified.md#dpamd): The wait-time entities
@@ -1776,7 +1789,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [nta.md](reference/unverified.md#ntamd): Lookup entities
 - [qoe.md](reference/unverified.md#qoemd): Applications are the centre of the model
 - [sam-templates.md](reference/unverified.md#sam-templatesmd): The root is an array
-- [sam.md](reference/unverified.md#sammd): Gotchas
+- [sam.md](reference/unverified.md#sammd): Application availability over the last week
 - [scm-compliance-policies.md](reference/unverified.md#scm-compliance-policiesmd): The SWIS round trip (2026.2, verified)
 - [scm-policy-portability-audit.md](reference/unverified.md#scm-policy-portability-auditmd): Policy inventory and intentional coverage limits
 - [scm-profile-portability-audit.md](reference/unverified.md#scm-profile-portability-auditmd): Published provenance
@@ -1784,7 +1797,7 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [srm.md](reference/unverified.md#srmmd): Providers
 - [vman.md](reference/unverified.md#vmanmd): Hosts, clusters, datacenters and vCenters
 - [vnqm.md](reference/unverified.md#vnqmmd): IP SLA operations
-- [wpm.md](reference/unverified.md#wpmmd): What is not verified here
+- [architecture.md](reference/unverified.md#architecturemd): The polling job engine
 - [modules.md](reference/unverified.md#modulesmd): DPA: Database Performance Analyzer
 - [api-poller-unifi-network.md](reference/unverified.md#api-poller-unifi-networkmd): The base path depends on how Network is deployed
 - [api-poller-vendor-templates.md](reference/unverified.md#api-poller-vendor-templatesmd): Three Type values, from real exports
@@ -1794,11 +1807,12 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [node-status-calculation.md](reference/unverified.md#node-status-calculationmd): 2.
 - [standard-pollers.md](reference/unverified.md#standard-pollersmd): Interfaces: discover, then add with default pollers
 - [technology-polling.md](reference/unverified.md#technology-pollingmd): What technologies exist
+- [documentation-audit-2026-09-18.md](reference/unverified.md#documentation-audit-2026-09-18md): Evidence rules for AI answers
 - [glossary.md](reference/unverified.md#glossarymd): Element
 - [entity-model.md](reference/unverified.md#entity-modelmd): The tree is rooted at System.Entity
 - [key-entities.md](reference/unverified.md#key-entitiesmd): Orion.AlertStatus
 - [netobject-types.md](reference/unverified.md#netobject-typesmd): Entries that no longer resolve in 2026.2
-- [status-codes.md](reference/unverified.md#status-codesmd): Resolving status on a live server
+- [status-codes.md](reference/unverified.md#status-codesmd): The table
 - [invoke-at-scale.md](reference/unverified.md#invoke-at-scalemd): Authorization is thinner than it looks
 - [invoke-verbs.md](reference/unverified.md#invoke-verbsmd): How arguments are serialised
 - [metadata-introspection.md](reference/unverified.md#metadata-introspectionmd): How they connect
@@ -1808,7 +1822,6 @@ Everything in these guides was checked against the extracted SolarWinds schema b
 - [gotchas.md](reference/unverified.md#gotchasmd): SWQL gotchas
 - [language-reference.md](reference/unverified.md#language-referencemd): How this page marks its evidence
 - [performance.md](reference/unverified.md#performancemd): 9.
-- [README.md](reference/unverified.md#readmemd): A caveat that applies to the whole section
 - [custom-query-call-queries.md](reference/unverified.md#custom-query-call-queriesmd): Call Queries: VNQM call detail widgets
 - [custom-query-widget.md](reference/unverified.md#custom-query-widgetmd): Where the link value comes from
 - [modern-dashboard-authoring.md](reference/unverified.md#modern-dashboard-authoringmd): The ?filters= grammar

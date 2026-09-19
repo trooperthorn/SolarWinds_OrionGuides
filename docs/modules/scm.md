@@ -247,12 +247,14 @@ contradiction to flag: the parameter is named `profileJson` while the verb's sum
 "Imports policy profile from YAML". Which format the verb actually expects is
 **unverified** here; export from your own server and look before hand-writing one.
 
-**Unverified:** the internal structure of the exported profile document is not documented
-in this repository — no real console export was available to parse, so this page cannot
-give it the field-by-field treatment [sam-templates.md](sam-templates.md) and
-[ncm-device-templates.md](ncm-device-templates.md) give their formats. The reliable path
-is `ExportProfile` against a profile on your own server; round-trip it through
-`ImportProfile` on a test server before editing anything inside.
+Three supplied `.scm-profile` exports now have a field-level audit in
+[scm-profile-portability-audit.md](scm-profile-portability-audit.md). The observed JSON
+uses a `__type`-tagged object graph. SCM compliance policy exports use a separate tagged
+YAML format covered in [scm-policy-portability-audit.md](scm-policy-portability-audit.md).
+These samples replace the earlier statement that no exports were available. They do not
+settle the `ImportPolicyProfile` JSON/YAML naming conflict or prove acceptance of an edited
+file on every release. **Unverified:** live import, identity conflicts, and evaluation
+behavior still require a target-version export/import/read-back test.
 
 ### Assignment and polling
 

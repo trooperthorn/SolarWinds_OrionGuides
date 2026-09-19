@@ -7,6 +7,10 @@ inherited properties, `UnManaged`, `UnManageFrom` and `UnManageUntil`.
 The mechanics are simple. The parts that go wrong are the argument format, the timezone, and
 choosing unmanage when you actually wanted alert suppression.
 
+For recurring maintenance, also check
+[scheduling release notes](scheduling.md#release-specific-scheduling-behavior), including
+the 2026.2 utility deprecation and the service-restart issue fixed in 2026.2.2.
+
 ## What unmanaging does, and what it costs
 
 An unmanaged object is not polled. SolarWinds' own

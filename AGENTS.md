@@ -23,6 +23,16 @@ The owner-supplied SCM policy audit in `docs/modules/scm-policy-portability-audi
 adds three tagged-YAML exports and source comparisons. Their historical STIG labels
 do not identify an SCM release, and offline parsing does not certify live evaluation.
 
+## Evidence and uncertainty
+
+Use [the documentation audit](docs/reference/documentation-audit-2026-09-18.md) for
+source/version boundaries. A schema signature establishes a contract, not successful
+execution. Export samples establish observed structure, not importer behavior. Static
+validation is not a live test. Missing metadata is not proof that no feature exists.
+Use **Unverified:** for an unresolved claim, explain the missing evidence, and state
+how to test it. Do not promote a practitioner observation into a universal guarantee.
+When updating an audit, search older overview pages for statements it supersedes.
+
 ## Finding your way around
 
 - `llms.txt` at the root is the page-level index: every page, one line each, in reading
@@ -183,8 +193,9 @@ Two smaller gaps worth knowing:
 
 - The documented version here is **2026.2**. Other versions have different schemas.
 - SWIS REST base path: `/SolarWinds/InformationService/v3/Json`, HTTPS only.
-- Port **17774** for REST from platform release 2023.1 onward. Port 17778 was the REST
-  port through 2022.4.1 and is deprecated. Port 17777 is the SOAP/net.tcp endpoint.
+- REST **17774** is documented from 2023.1. Port 17778 was deprecated in 2023.1;
+  its default listener stops in 2024.2. Port 17777 is SOAP/net.tcp. See
+  `docs/swis/connecting.md` for the distinct introduction and migration dates.
 - The query interface is **read-only**. Changes go through CRUD or through Invoke verbs.
 - Invoke arguments are **positional**. Names appear in documentation and in the Swagger
   contract, but never on the wire, so argument order is the entire contract.
@@ -231,10 +242,11 @@ to check their own server over guessing on their behalf.
 - Bound result sets. `TOP n`, or `WITH ROWS a TO b WITH TOTALROWS` for paging.
 - Always time-bound queries against statistics, events, and history entities. They are
   the largest tables on the system.
-- Status is an integer. Join `Orion.StatusInfo` to get a name a human can read.
-- `GetUtcDate()` combined with the `AddX` functions produces wrong offsets, because
-  those compile to T-SQL `DATEADD`, which is timezone blind. Convert to local, add,
-  then convert back. See `docs/swql/date-and-time.md`.
+- Check the entity's status domain before joining `Orion.StatusInfo`; module-specific
+  enums can reuse the same integers with different meanings.
+- The SDK demonstrates an offset problem for selected `AddX(..., GetUtcDate())` values.
+  Do not assert that every WHERE predicate is affected. Distinguish serialization,
+  predicate semantics, and daylight-saving arithmetic; see `docs/swql/date-and-time.md`.
 
 ## Writing automations
 

@@ -15,8 +15,14 @@ There are two transports into SWIS, and they listen on different ports.
 | Port | Protocol | Status | Used by |
 |:---|:---|:---|:---|
 | 17774 | HTTPS (REST/JSON) | Current, from platform release 2023.1 onward | curl, Python `orionsdk`, any HTTP client |
-| 17778 | HTTPS (REST/JSON) | **Deprecated.** Was the REST port through 2022.4.1, will be removed in a future release | Legacy scripts, older SWQL Studio "over HTTPS" mode |
+| 17778 | HTTPS (REST/JSON) | **Deprecated.** Legacy REST endpoint; deprecated in 2023.1; stops listening by default in 2024.2 | Legacy scripts, older SWQL Studio "over HTTPS" mode |
 | 17777 | net.tcp (SOAP) | Current | SWQL Studio, `SwisPowerShell` (`Connect-Swis`) |
+
+The SDK documents 17774 starting in 2023.1. The
+[2024.2 release advisory](https://documentation.solarwinds.com/en/success_center/sam/content/release_notes/sam_2024-2_release_notes.htm)
+separately dates the default switch and cessation of the 17778 listener to 2024.2.
+Do not interpret the older SDK phrase "will be removed" as proof that 17778 remains
+available on a newer installation. Check the installed release, listener, and firewall.
 
 The REST base path is:
 
@@ -292,7 +298,7 @@ Orion connection as unverified and test it on your own server before relying on 
 
 | Symptom | Likely cause |
 |:---|:---|
-| Connection refused on 17774 | Server is on 2022.4.1 or earlier; try 17778 |
+| Connection refused on 17774 | Check listener, service, firewall, and release; pre-2023.1 servers use 17778 |
 | Connection refused on 17778 | Server is on 2023.1 or later; use 17774 |
 | TLS verification failure | Self-signed certificate not trusted by the client; see above |
 | 401 Unauthorized | Wrong credentials, or the Orion account is disabled |

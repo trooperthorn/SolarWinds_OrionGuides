@@ -39,10 +39,12 @@ validates SWQL.
 
 ## A note on trust
 
-Every entity, property, verb and parameter named in these pages was checked against the
-extracted schema before it was written, and every SWQL example is re-validated on each
-build. Where a claim could not be verified, it says so rather than asserting quietly; see
-[reference/unverified.md](reference/unverified.md).
+The build checks extracted data consistency, recognized schema references, selected
+command examples, and SWQL within its supported grammar and configured paths. It is not
+a live-server test or a proof of every prose claim. Use the
+[evidence rules and audit](reference/documentation-audit-2026-09-18.md) to distinguish
+contract facts, export observations, runtime evidence, and unresolved assumptions.
+[reference/unverified.md](reference/unverified.md) collects explicitly marked gaps.
 
 The version documented here is **2026.2**. The schema changes between releases and also
 depends on which modules are licensed, so for a specific server the authority is that

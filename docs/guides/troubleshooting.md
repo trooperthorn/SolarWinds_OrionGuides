@@ -41,7 +41,7 @@ script that used to work. The REST endpoint moved.
 | Port | Protocol | Status | Used by |
 |:---|:---|:---|:---|
 | 17774 | HTTPS (REST/JSON) | Current, from platform release 2023.1 onward | `curl`, Python `orionsdk`, any HTTP client |
-| 17778 | HTTPS (REST/JSON) | Deprecated. Was the REST port through 2022.4.1 | Legacy scripts, SWQL Studio's "Orion (v3) over HTTPS" mode |
+| 17778 | HTTPS (REST/JSON) | Deprecated. Legacy REST endpoint; deprecated in 2023.1; default listener removed in 2024.2 | Legacy scripts, SWQL Studio's "Orion (v3) over HTTPS" mode |
 | 17777 | net.tcp (SOAP) | Current | SWQL Studio, `SwisPowerShell` |
 
 The failure mode is what makes this worth checking first: a request to a port that no longer
@@ -382,7 +382,7 @@ can disagree with the licensing page and both be right. Rule this out first, not
 
 **2. A filter that excludes more than you meant.** The usual suspects: `UnManaged = FALSE`
 removing objects in a maintenance window; `Status <> 1` not meaning "broken", because `9` is
-Unmanaged and `11` is External; `= NULL`, which is always false and needs `IS NULL`; and a
+Unmanaged and `11` is External; `= NULL`, which evaluates to UNKNOWN and does not pass a WHERE filter (use `IS NULL`); and a
 to-one navigation in the `SELECT` list quietly acting as an inner join, so rows whose parent
 is missing disappear rather than coming back with nulls.
 

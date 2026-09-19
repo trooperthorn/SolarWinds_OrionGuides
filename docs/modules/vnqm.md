@@ -363,8 +363,8 @@ Its 23 properties cover identity (`CcmName`, `ClusterName`, `ClusterNodeID`, `Ve
 `UtcOffsetMinutes` deserves a sentence on its own. A call manager reports call detail records
 in its own local time, and VNQM records the offset rather than normalising, so any
 cross-cluster comparison of call times has to account for it. See
-[../swql/date-and-time.md](../swql/date-and-time.md) before writing that arithmetic, because
-the obvious approach with `GetUtcDate()` and the `AddX` functions produces wrong offsets.
+[../swql/date-and-time.md](../swql/date-and-time.md) before writing that arithmetic; the
+SDK's selected-value offset issue is not proof that every time predicate is affected.
 
 Thirteen entities hang off `CCMMonitoring` as hosted children, which is the fastest way to
 see the shape of this half of the module:

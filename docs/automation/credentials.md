@@ -470,7 +470,9 @@ the script is written, and it is the one that turns a repository into a credenti
   `admin`. See [accounts-and-permissions.md](accounts-and-permissions.md).
 - **Rotate through `Update*` rather than delete-and-recreate.** Updating keeps the same `ID`,
   so every relation, discovery profile and node reference keeps working. Deleting and
-  recreating gives you a new id and silently orphans everything that pointed at the old one.
+  recreating can change its identity. **Unverified:** deletion and cleanup behavior differs
+  by consumer and is not established by the absence of a schema relationship; check
+  references before and after any replacement.
 
 If a secret has already been committed somewhere, treat rotating it as the fix. Removing the
 commit is not.

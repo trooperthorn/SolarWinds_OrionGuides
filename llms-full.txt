@@ -39,6 +39,16 @@ The owner-supplied SCM policy audit in `docs/modules/scm-policy-portability-audi
 adds three tagged-YAML exports and source comparisons. Their historical STIG labels
 do not identify an SCM release, and offline parsing does not certify live evaluation.
 
+## Evidence and uncertainty
+
+Use [the documentation audit](docs/reference/documentation-audit-2026-09-18.md) for
+source/version boundaries. A schema signature establishes a contract, not successful
+execution. Export samples establish observed structure, not importer behavior. Static
+validation is not a live test. Missing metadata is not proof that no feature exists.
+Use **Unverified:** for an unresolved claim, explain the missing evidence, and state
+how to test it. Do not promote a practitioner observation into a universal guarantee.
+When updating an audit, search older overview pages for statements it supersedes.
+
 ## Finding your way around
 
 - `llms.txt` at the root is the page-level index: every page, one line each, in reading
@@ -199,8 +209,9 @@ Two smaller gaps worth knowing:
 
 - The documented version here is **2026.2**. Other versions have different schemas.
 - SWIS REST base path: `/SolarWinds/InformationService/v3/Json`, HTTPS only.
-- Port **17774** for REST from platform release 2023.1 onward. Port 17778 was the REST
-  port through 2022.4.1 and is deprecated. Port 17777 is the SOAP/net.tcp endpoint.
+- REST **17774** is documented from 2023.1. Port 17778 was deprecated in 2023.1;
+  its default listener stops in 2024.2. Port 17777 is SOAP/net.tcp. See
+  `docs/swis/connecting.md` for the distinct introduction and migration dates.
 - The query interface is **read-only**. Changes go through CRUD or through Invoke verbs.
 - Invoke arguments are **positional**. Names appear in documentation and in the Swagger
   contract, but never on the wire, so argument order is the entire contract.
@@ -247,10 +258,11 @@ to check their own server over guessing on their behalf.
 - Bound result sets. `TOP n`, or `WITH ROWS a TO b WITH TOTALROWS` for paging.
 - Always time-bound queries against statistics, events, and history entities. They are
   the largest tables on the system.
-- Status is an integer. Join `Orion.StatusInfo` to get a name a human can read.
-- `GetUtcDate()` combined with the `AddX` functions produces wrong offsets, because
-  those compile to T-SQL `DATEADD`, which is timezone blind. Convert to local, add,
-  then convert back. See `docs/swql/date-and-time.md`.
+- Check the entity's status domain before joining `Orion.StatusInfo`; module-specific
+  enums can reuse the same integers with different meanings.
+- The SDK demonstrates an offset problem for selected `AddX(..., GetUtcDate())` values.
+  Do not assert that every WHERE predicate is affected. Distinguish serialization,
+  predicate semantics, and daylight-saving arithmetic; see `docs/swql/date-and-time.md`.
 
 ## Writing automations
 
@@ -355,8 +367,9 @@ So this repository:
   automations and AI systems can read directly.
 - **Documents every Invoke verb with its parameters**, in order, with the required right
   and the exact call syntax for REST, PowerShell, and Python.
-- **Provides sample queries that are verified**, not aspirational. Every SWQL statement in
-  this repository is checked against the schema on every build.
+- **Statically checks sample queries** against the bundled schema within the validator's
+  supported grammar and configured scope. This does not establish live execution,
+  permissions, returned data, or widget rendering.
 
 ## Start here
 
@@ -494,6 +507,9 @@ and entities that have since been renamed. The build proposes the successor wher
 identify one, which is how `Orion.NPM.UCSBlades` resolves to `Orion.UCS.Blades` and
 `Orion.VIM.LUNs` to `Orion.VIM.Luns`.
 
+See the [documentation audit and evidence rules](docs/reference/documentation-audit-2026-09-18.md)
+for corrected claims, source boundaries, and unresolved runtime questions.
+
 ## Version coverage
 
 The checked-in data documents platform version **2026.2**. The schema changes between
@@ -536,7 +552,7 @@ checks eleven things:
 | Check | Catches |
 | --- | --- |
 | `audit_device_pollers.py` | Inspect nested Device Studio exports, references, and repeated identities without importing |
-| `test_tools.py` | Regressions in the tools' own judgement, across 226 tests |
+| `test_tools.py` | Regressions in the tools' own judgement, across 228 tests |
 | `validate_swql.py` | A query naming an entity, property, column or navigation that does not exist |
 | `check_data.py` | Extraction that degraded quietly, and reference pages that fell behind |
 | `check_entity_references.py` | An invented entity, member, NetObject prefix, right or type member, or a wrong property type |
@@ -647,10 +663,12 @@ validates SWQL.
 
 ## A note on trust
 
-Every entity, property, verb and parameter named in these pages was checked against the
-extracted schema before it was written, and every SWQL example is re-validated on each
-build. Where a claim could not be verified, it says so rather than asserting quietly; see
-[reference/unverified.md](reference/unverified.md).
+The build checks extracted data consistency, recognized schema references, selected
+command examples, and SWQL within its supported grammar and configured paths. It is not
+a live-server test or a proof of every prose claim. Use the
+[evidence rules and audit](reference/documentation-audit-2026-09-18.md) to distinguish
+contract facts, export observations, runtime evidence, and unresolved assumptions.
+[reference/unverified.md](reference/unverified.md) collects explicitly marked gaps.
 
 The version documented here is **2026.2**. The schema changes between releases and also
 depends on which modules are licensed, so for a specific server the authority is that
@@ -732,18 +750,14 @@ guessing produces queries that fail with an unhelpful error at runtime.
 | REST base path | `/SolarWinds/InformationService/v3/Json` |
 | Scheme | `https` only |
 | REST port, 2023.1 and later | 17774 |
-| REST port through 2022.4.1 | 17778 (deprecated) |
+| Legacy REST port | 17778; deprecated in 2023.1, default listener stops in 2024.2 |
 | SOAP / net.tcp port | 17777 |
 | Generic REST paths | `/Query` (GET and POST), `/{uri}` (CRUD), `/BulkUpdate`, `/BulkDelete` |
 | Per-entity REST paths | `/Create/{Entity}`, `/Invoke/{Entity}/{Verb}` |
 
-The port change is the single most common cause of "the API used to work and now it does
-not". SolarWinds documents it in the SDK's
-[REST page](https://solarwinds.github.io/OrionSDK/docs/rest/):
-
-> Orion Platform had been using port 17778 for REST communication until the 2022.4.1
-> release. This changed in the 2023.1 release where the REST endpoint can be found on port
-> 17774 and port 17778 is deprecated and will be removed in a future release.
+For the distinction between the 2023.1 endpoint introduction and the 2024.2 listener
+change, see [connecting.md](../swis/connecting.md#endpoints-and-ports). A failed
+connection alone does not establish a version or port problem.
 
 One more rule that shapes every automation you will write: **the query interface is
 read-only**. `SELECT` through `/Query` cannot insert, update, or delete anything. Changes
@@ -1099,9 +1113,9 @@ update in SWIS.
 Polling work is scheduled and executed as jobs on the assigned engine. The job engine is a
 service running on each engine, and it is not exposed as a SWIS entity: searching the
 2026.2 schema for "JobEngine" turns up only `Cirrus.NCM_JobEngineNCMJobs`, an NCM job
-queue, and nothing representing the engine itself. So you cannot query the scheduler
-directly. What you can query are the two numbers it produces, and they answer two
-different questions.
+queue, and nothing representing the engine itself under that search term. This does not
+prove that every scheduler API is absent. For engine health, use the following documented
+metrics; access to other internal scheduling details is unverified here.
 
 **Is this engine keeping up?** `PollingCompletion` on `Orion.Engines` is a percentage of
 configured jobs completed on schedule. The SDK documentation says it should stay in the
@@ -1892,9 +1906,8 @@ FILE: docs/platform/versions-and-naming.md
 
 # Versions and Naming
 
-The product has been renamed twice. The API has not been renamed at all. Understanding
-that gap is the difference between reading SolarWinds documentation fluently and being
-permanently confused by it.
+Product names, platform releases, module versions, and API namespaces are separate.
+Use the installed release and live metadata to determine compatibility.
 
 ## The naming history
 
@@ -1923,6 +1936,24 @@ product-name change and not a technology change. The SDK documentation set has n
 renamed to match, so you will not find the phrase in it; that absence is the point. If you
 search SolarWinds' documentation site for a feature and land on a page titled with any of
 these three names, you are in the right place.
+
+## Release-specific support notes
+
+Reviewed 2026-09-18 against the
+[2026.2 release notes](https://documentation.solarwinds.com/en/success_center/orionplatform/content/release_notes/solarwinds_platform_2026-2_release_notes.htm):
+
+| Item | Documented status | Consequence for generated guidance |
+| --- | --- | --- |
+| Windows Server 2016 | Deprecated in 2026.2; supported in that release | Do not present a historical SCM STIG profile as proof of platform host support |
+| SQL Server 2016 | Deprecated in 2025.2; still supported in 2026.2 | Check target-release system requirements before recommending deployment |
+| Unmanage Scheduling Utility | Deprecated in 2026.2 | Use the web console Manage Schedules page for new tasks; HA standby Windows schedules need manual recreation |
+| Network Atlas | Deprecated since 2020.2; still supported in 2026.2 | Prefer Intelligent Maps for new work; map import is documented from 2024.2 |
+| Apache Mesos and Kubernetes 1.16-1.22 monitoring | Deprecated | Existing entities are not evidence of continued product support |
+
+Deprecation, removal, end of engineering, and end of support are distinct. The public
+schema baseline remains **2026.2**; this is not a claim that 2026.2 is the latest release.
+A supplied export labeled 2026.4 does not establish a published schema or support policy
+for that version. Recheck release-specific notes when generating upgrade advice.
 
 ## Why "Orion" is still everywhere in the API
 
@@ -2597,8 +2628,14 @@ There are two transports into SWIS, and they listen on different ports.
 | Port | Protocol | Status | Used by |
 |:---|:---|:---|:---|
 | 17774 | HTTPS (REST/JSON) | Current, from platform release 2023.1 onward | curl, Python `orionsdk`, any HTTP client |
-| 17778 | HTTPS (REST/JSON) | **Deprecated.** Was the REST port through 2022.4.1, will be removed in a future release | Legacy scripts, older SWQL Studio "over HTTPS" mode |
+| 17778 | HTTPS (REST/JSON) | **Deprecated.** Legacy REST endpoint; deprecated in 2023.1; stops listening by default in 2024.2 | Legacy scripts, older SWQL Studio "over HTTPS" mode |
 | 17777 | net.tcp (SOAP) | Current | SWQL Studio, `SwisPowerShell` (`Connect-Swis`) |
+
+The SDK documents 17774 starting in 2023.1. The
+[2024.2 release advisory](https://documentation.solarwinds.com/en/success_center/sam/content/release_notes/sam_2024-2_release_notes.htm)
+separately dates the default switch and cessation of the 17778 listener to 2024.2.
+Do not interpret the older SDK phrase "will be removed" as proof that 17778 remains
+available on a newer installation. Check the installed release, listener, and firewall.
 
 The REST base path is:
 
@@ -2874,7 +2911,7 @@ Orion connection as unverified and test it on your own server before relying on 
 
 | Symptom | Likely cause |
 |:---|:---|
-| Connection refused on 17774 | Server is on 2022.4.1 or earlier; try 17778 |
+| Connection refused on 17774 | Check listener, service, firewall, and release; pre-2023.1 servers use 17778 |
 | Connection refused on 17778 | Server is on 2023.1 or later; use 17774 |
 | TLS verification failure | Self-signed certificate not trusted by the client; see above |
 | 401 Unauthorized | Wrong credentials, or the Orion account is disabled |
@@ -2984,7 +3021,8 @@ ORDER BY FullName
 
 Property-level support is available too. `Metadata.Property` carries `CanCreate`, `CanRead`
 and `CanUpdate` per property, which is how you find out that a property is readable but not
-settable before your update silently does nothing:
+settable before attempting an unsupported write. The error or handling of a read-only
+property is runtime behavior, not established by the metadata flag:
 
 ```sql
 SELECT Name, Type, IsKey, IsNullable, CanCreate, CanRead, CanUpdate
@@ -5041,7 +5079,8 @@ ORDER BY p.Entity.FullName
 ```
 
 What is actually settable, which is how you find out that a property is readable but not
-writable **before** your update silently changes nothing:
+writable before attempting a write. A false flag does not document whether a particular
+server rejects or ignores that input:
 
 ```sql
 SELECT p.Name, p.Type, p.CanCreate, p.CanUpdate
@@ -5667,6 +5706,9 @@ WITH ROWS 1 TO 500 WITH TOTALROWS
 Always pair `WITH ROWS` with an `ORDER BY`. Without a deterministic sort there is no
 guarantee that page 2 continues where page 1 stopped, and you can silently skip or duplicate
 rows. `ORDER BY` on the key property (`NodeID` here) is the safe default.
+A stable sort does not create a snapshot: concurrent inserts, deletes, and updates can
+still move rows between offset-based pages. For an export, fix the time window and
+use a stable key/checkpoint with overlap and deduplication where the source permits it.
 
 A paging loop then looks like this:
 
@@ -7168,190 +7210,78 @@ FILE: docs/swql/date-and-time.md
 
 # SWQL date and time
 
-Time-bounded queries are where SWQL most often returns a confident wrong answer. The query
-compiles, the result set is the right shape, the timestamps look plausible, and the window is
-off by the number of hours between the SQL Server and UTC.
-
-This page explains why that happens, gives the corrected patterns, and covers the whole date
-and time surface: which function reads which clock, how the `AddX` and `XDiff` families
-behave, what `DateTrunc` will and will not truncate, and how to write "the last 24 hours" so
-that it means the last 24 hours.
-
-The per-function signatures and observed results live in [functions.md](functions.md). This
-page is about combining them correctly.
+A date query has three separate concerns: the column's time basis, arithmetic used for
+the filter, and how the returned timestamp is serialized or displayed. Check each before
+changing a query because its chart appears several hours off.
 
 ## The short version
 
-1. **Assume the column you are filtering holds UTC**, whatever the timezone of the SQL Server,
-   the Orion server or your browser. `Orion.Events.EventTime` is the documented exception. If a
-   window comes back wrong, measure the column rather than guessing (see
-   [Which columns are UTC](#which-columns-are-utc-and-which-are-local)).
-2. **Never wrap `GetUtcDate()` directly in an `AddX` function.** `AddMinute(-10,
-   GetUtcDate())` returns a value stamped with the SQL Server's local offset, not `Z`.
-3. **Do the arithmetic in local time and convert at the end**:
-   `ToUtc(AddMinute(-10, ToLocal(GetUtcDate())))`, or equivalently
-   `ToUtc(AddMinute(-10, GetDate()))`.
-4. **Bucket with `DateTrunc` or `Downsample`**, never by grouping on a raw timestamp.
-5. **Bind dates as parameters** instead of formatting literals into the query text.
-6. **Put the arithmetic on the constant side of the comparison**, not around the column.
-
-Everything below is why.
+1. Establish the queried column's time basis. `System.DateTime` alone does not declare UTC.
+2. Keep filtering and presentation separate. A local hour label is not a chronological key.
+3. SolarWinds documents an offset problem when selecting `AddX(..., GetUtcDate())`.
+   Its suggested workaround is local arithmetic followed by `ToUtc`.
+4. For an exact elapsed interval, prefer fixed UTC start/end parameters calculated by
+   a timezone-aware client. Local calendar arithmetic can cross a daylight-saving change.
+5. Aggregate with `DateTrunc` or `Downsample`; retain a full bucket timestamp for sorting.
+6. Apply the window to the timestamp column directly and bound the result size.
 
 ## How a SWQL date query actually runs
 
-SWIS does not evaluate SWQL itself. It translates the query into T-SQL and runs it against
-the Orion database, then serialises the rows back to the client. SolarWinds publishes the
-generated T-SQL for a date query on its
-[possible issues](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/)
-page:
-
-```text
-SET DATEFIRST 7;
-SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
-SELECT [T1].[EngineID] AS C1, [T1].[ServerName] AS C2, [T1].[IP] AS C3, [T1].[ServerType] AS C4,
-       GETUTCDATE() AS C5,
-       DateAdd(minute,-10,GETUTCDATE()) AS C6,
-       DateAdd(second,-10,GETUTCDATE()) AS C7,
-       DateAdd(millisecond,-10000,GETUTCDATE()) AS C8,
-       DateAdd(hour,-10,GETUTCDATE()) AS C9
-FROM dbo.Engines AS T1
-WHERE [T1].[ServerType] = 'Primary'
-```
-
-Three things in that fragment matter for the rest of this page:
-
-- **`SET DATEFIRST 7`** makes Sunday the first day of the week, which is what `Week(d)` and
-  `DateTrunc('week', d)` inherit.
-- **`ADDMINUTE`, `ADDSECOND` and the rest all become `DateAdd`.** There is no SWIS-side date
-  library doing anything clever; the SWQL name is a thin alias over
-  [T-SQL `DATEADD`](https://learn.microsoft.com/en-us/sql/t-sql/functions/dateadd-transact-sql).
-- **`DATEADD` is timezone blind.** In SolarWinds' words: "By definition, this function
-  doesn't work with time zone offset at all, so it doesn't know that we want the time zone to
-  be UTC by `GetUtcDate()` and it counts as it is in the local time zone."
+The SDK's [date-function issue](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/)
+shows a SWQL query translated into T-SQL, followed by serialization to the client.
+That example is evidence about its execution path, not every module's query provider.
 
 ## The trap: `GetUtcDate()` plus `AddX`
 
-Run that query and look at what comes back over the wire. This is SolarWinds' own recorded
-response, trimmed to the date columns:
-
-```xml
-<row>
-  <c4>2024-05-17T10:37:27.8070000Z</c4>
-  <c5>2024-05-17T10:27:27.8070000-05:00</c5>
-  <c6>2024-05-17T10:37:17.8070000-05:00</c6>
-  <c7>2024-05-17T10:37:17.8070000-05:00</c7>
-  <c8>2024-05-17T00:37:27.8070000-05:00</c8>
-</row>
-```
-
-`c4` is `GETUTCDATE()` and it is correctly labelled `Z`. Every other column went through
-`DateAdd` and came back labelled `-05:00`, the SQL Server's own offset.
-
-Look closely at what is wrong, because it is subtler than "the value is incorrect":
-
-- **The clock arithmetic is right.** `c5` reads `10:27:27`, which is exactly ten minutes
-  before `c4`'s `10:37:27`.
-- **The offset label is wrong.** `10:27:27-05:00` is the instant `15:27:27Z`. As a point in
-  time, `c5` is five hours *after* `c4`, not ten minutes before it.
-
-So the damage is done at the boundary, not in the calculation. `DATEADD` receives a UTC
-value, does correct arithmetic on the numbers, and hands back a plain `datetime` with no
-timezone attached. SQL Server then stamps it with the server's own offset on the way out, and
-SWIS serialises whatever it was given.
-
-What happens next depends on the client. SolarWinds notes that "SWQL Studio will convert the
-values with the offset to the time zone of the machine where it is running and values in UTC
-stay the same." Any client that honours the offset, which includes most JSON and .NET date
-parsers, does the same. So the value shifts by the SQL Server's UTC offset, and it shifts
-silently.
-
-This is why a dashboard built on `AddDay(-1, GetUtcDate())` looks fine in a datacenter that
-runs UTC and is wrong by five, seven or eleven hours everywhere else.
+The published example returns `GetUtcDate()` with `Z`, but calculated `AddX` columns
+with the SQL Server's local offset. A client interpreting that offset reads a different
+instant. This is a demonstrated **selected-value serialization problem**. It does not
+by itself prove that a `WHERE` comparison inside the server selects the wrong rows.
+The issue page does not identify all affected or fixed product versions.
 
 ## The fix: convert, add, convert back
 
-Convert the value into the timezone `DATEADD` is going to assume anyway, do the arithmetic
-there, then convert the result back. SolarWinds' corrected query, verbatim from the same
-page:
-
-```sql
-SELECT
-    EngineID,
-    ServerName,
-    IP,
-    ServerType,
-    GETUTCDATE() AS [Time_Now],
-    TOUTC(ADDMINUTE(-10, TOLOCAL(GETUTCDATE()))) AS [Time_Past_Minute],
-    TOUTC(ADDSECOND(-10, TOLOCAL(GETUTCDATE()))) AS [Time_Past_Second],
-    TOUTC(ADDMILLISECOND(-10000, TOLOCAL(GETUTCDATE()))) AS [Time_Past_Milliseond],
-    TOUTC(ADDHOUR(-10, TOLOCAL(GETUTCDATE()))) AS [Time_Past_Hour]
-FROM Orion.Engines
-WHERE ServerType = 'Primary'
-WITH LOGS
-```
-
-The rule generalises to `ToUtc(AddX(n, ToLocal(<utc value>)))`. SolarWinds states it as: "If
-you are using `AddMinute` etc. functions you need to first convert the value to the local
-time of the MSSQL server and then convert the result back to UTC time."
-
-### The shorter equivalent
-
-SolarWinds' headline recommendation on the same page is simpler: "leverage the `GETDATE()`
-function first to perform any time modifications and then use the `TOUTC()` function at the
-end if you are in another timezone."
+SolarWinds recommends the following selected-value pattern:
 
 ```sql
 SELECT TOP 1
-    ToUtc(AddMinute(-10, GetDate())) AS TenMinutesAgoUtc,
-    ToUtc(AddDay(-1, GetDate()))     AS OneDayAgoUtc,
-    ToUtc(AddDay(-7, GetDate()))     AS SevenDaysAgoUtc
+    GetUtcDate() AS UtcNow,
+    ToUtc(AddMinute(-10, ToLocal(GetUtcDate()))) AS EarlierUtc
 FROM Orion.Engines
 ```
 
-`GetDate()` already returns the SQL Server's local time, so `ToLocal(GetUtcDate())` and
-`GetDate()` are the same instant and this form saves one conversion. Both shapes appear in
-SolarWinds' own documentation and both are correct.
+### The shorter equivalent
 
-One caveat that applies to both: "local" means the SQL Server's timezone. It is not
-necessarily the Orion application server's timezone, and it is definitely not the timezone of
-whoever is reading the report. If your SQL Server, your Orion server and your users are in
-three different timezones, the conversions here get you a correct instant, and presenting it
-in the reader's timezone is the client's job.
+The same source also recommends using `GetDate()` before the arithmetic:
+
+```sql
+SELECT TOP 1
+    ToUtc(AddMinute(-10, GetDate())) AS EarlierUtc
+FROM Orion.Engines
+```
+
+Treat this as the documented serialization workaround. It is not a guarantee that
+subtracting one local calendar day always means 24 elapsed hours. Test the server's
+local conversions around daylight-saving transitions before relying on that equivalence.
 
 ### Where the trap does not reach
 
-If both sides of a comparison stay inside SQL Server, the arithmetic is done on plain
-`datetime` values and the offset labelling never comes into it, so a predicate such as
-`WHERE TimeLoggedUtc >= AddDay(-1, GetUtcDate())` should be comparing what you meant even
-though selecting that same expression would return a mislabelled value. That reading is an
-inference from the generated T-SQL above and is **unverified** here.
+**Unverified:** whether the selected-value issue also affects a particular server-side
+predicate. The source demonstrates the select list, not a filtered result set.
 
-SolarWinds' worked example demonstrates the corruption in the select list only, and nothing
-in the published material says how the offset is handled inside a predicate. To settle it on
-your own server, count the same UTC column twice with the two bounds and compare:
-
-```sql
-SELECT
-    Count(a.AuditEventID) AS ViaGetUtcDate
-FROM Orion.AuditingEvents a
-WHERE a.TimeLoggedUtc >= AddDay(-1, GetUtcDate())
-```
-
-against the same query with `ToUtc(AddDay(-1, GetDate()))` as the bound. Identical counts mean
-the predicate position was never affected on your version; different counts, by roughly your
-UTC offset's worth of rows, mean it was.
-
-Until you have run that, it is exactly the kind of gap not worth betting a report on. Use the
-convert-add-convert-back form everywhere: it is correct in both positions, it costs one extra
-function call, and it means you never have to remember which position you are in.
+To investigate, fix one instant and compare event IDs and boundary timestamps using
+client-supplied UTC parameters against the candidate expression. Capture raw responses,
+server/client timezones, release, and rows near both boundaries. Equal counts alone do
+not establish equivalence: two different windows can contain the same number of rows.
+Avoid testing against a moving `now` across separate queries.
 
 ## The four functions that read or move the clock
 
 | Function | Returns | Notes |
 |:---|:---|:---|
-| `GetDate()` | Current time in **local time at the Orion server** | "Time derived from SQL Server time zone settings" |
+| `GetDate()` | Current server-local time | Official reference derives it from SQL Server timezone settings; do not assume browser time |
 | `GetUtcDate()` | Current time in **UTC** | The official reference attaches an explicit warning to this one |
-| `ToLocal(d)` | `d` converted to **local time on the Orion server** | The inbound half of the fix |
+| `ToLocal(d)` | `d` converted to server-local time | Confirm the observed offset when database and application servers use different zones |
 | `ToUtc(d)` | `d` converted to **UTC** | The outbound half of the fix |
 
 The four runs recorded in the community workbook were made minutes apart on one server, and
@@ -7375,9 +7305,9 @@ offset immediately, and it is worth doing before you write anything time sensiti
 
 ## Which columns are UTC and which are local
 
-**Assume UTC.** Datetime values are almost always stored in UTC, regardless of the SQL Server's
-timezone, the SolarWinds server's timezone, or the browser's. Local time is a rendering applied
-on the way out, not how the value sits in the database.
+**Do not infer storage or query semantics from the type alone.** A practitioner reports
+that most platform timestamps are UTC. Treat that as a working hypothesis for an
+undocumented column, not a verified property of every provider.
 
 *Source: reported from practice by a long-time SolarWinds administrator.*
 
@@ -7387,9 +7317,8 @@ schema that says "this column is UTC", and:
 - **1301 properties** in the 2026.2 schema are typed `System.DateTime`.
 - **128 of them have `Utc` in the property name** — `Orion.AuditingEvents.TimeLoggedUtc`,
   `Orion.Nodes.LastSystemUpTimePollUtc`, `Orion.APM.WindowsEvent.TimeGeneratedUtc`,
-  `Orion.CPUMultiLoad.TimeStampUTC`. **The suffix is emphasis, not a distinction.** It marks
-  columns whose authors chose to be explicit; it does not imply the other 1173 are local.
-  Reading it as a distinguishing marker is the mistake this section exists to prevent.
+  `Orion.CPUMultiLoad.TimeStampUTC`. The suffix is evidence of UTC intent; its absence does not establish local time
+  for the other 1173 properties.
 - **Nine of them say UTC in their description**, and for six of those the name does not, so
   the description is the only signal you get. `Orion.VIM.TriggeredAlarmState.Timestamp` is
   one: "The timestamp in UTC indicating when the alarm was fired."
@@ -7399,8 +7328,8 @@ schema that says "this column is UTC", and:
 
 Everything else carries no statement either way — `Orion.Nodes.LastBoot`,
 `Orion.Nodes.NextPoll`, `Orion.Engines.KeepAlive`, `Orion.AlertActive.TriggeredDateTime`,
-`Orion.CPULoad.DateTime`. Treat those as UTC, which is what the practitioner rule above says
-and what the samples in this repository behave as: SolarWinds' own NetPath query carries the
+`Orion.CPULoad.DateTime`. Their time basis is **unverified here** unless a feature-specific
+source establishes it. Many repository examples assume UTC: SolarWinds' own NetPath query carries the
 comment *"ExecutedAt is stored in UTC, so we use `GETUTCDATE() - 1` to get last 24 hours only"*
 for a column whose name says nothing.
 
@@ -7418,7 +7347,7 @@ Measurement is still worth the minute it costs when a query's window looks wrong
 UTC rule, and it is heavily queried, so it deserves care rather than a ruling.
 
 **The word to notice is "displayed".** A value stored in UTC and rendered in local time is
-exactly what the platform-wide rule predicts, and would make the description a statement about
+consistent with the practitioner observation, and would make the description a statement about
 presentation rather than storage. A value genuinely stored in server-local time is the other
 reading, and would make this a real exception.
 
@@ -7450,10 +7379,13 @@ FROM Orion.Engines e
 WHERE e.ServerType = 'Primary'
 ```
 
-Whichever of the last two columns is near zero identifies the clock the column is stored on.
-The other will be off by your UTC offset in minutes. `MinutesSinceKeepAlive` is a computed
-property SWIS provides on the same entity, so it gives you an independent third opinion for
-free.
+A near-zero difference suggests the queried value uses that clock; it does not prove the
+physical database storage format. A stale poll, clock skew, a UTC-configured server, or a
+provider conversion can make the comparison inconclusive. Compare a known event instant
+and inspect the raw API timestamp as well as the UI.
+When the probe is conclusive, the other difference should reflect the local offset.
+`MinutesSinceKeepAlive` supplies additional context, but it does not prove the storage
+representation or validate timestamps on unrelated entities.
 
 For a column that is not continuously updated, cause a write you can time yourself. Acknowledge
 an event, unmanage and remanage a test node, or trigger a test alert, then look at the
@@ -7611,9 +7543,9 @@ GROUP BY DateTrunc('day', e.EventTime)
 ORDER BY EventDay
 ```
 
-`Orion.Events.EventTime` is one of the few date columns documented as local, and `GetDate()`
-is local, so this pair is consistent with no conversion. That is not luck, it is the point:
-match the clock of the bound to the clock of the column, every time.
+This example assumes that the queried `EventTime` uses local time. Confirm that assumption
+as described above; its schema description concerns display. Match the bound to the
+time basis observed on the target provider.
 
 Repeating the `DateTrunc` expression in `GROUP BY` rather than naming the alias is the
 portable form. Aliases in `GROUP BY` are not documented for SWQL.
@@ -7651,12 +7583,14 @@ timestamp `TimeStampUTC`.
 
 ## Relative time filtering
 
-These are the patterns worth memorising. Each one puts all the arithmetic on the constant
-side of the comparison and leaves the column bare, which matters for more than tidiness: the
-expression on the right is evaluated once, while wrapping the column in a function forces the
-generated T-SQL to evaluate it for every row and gives up any chance of an index seek on the
-timestamp. On a statistics table with tens of millions of rows that is the difference between
-a query and an outage.
+The examples below retain the historical "last 24 hours" headings for existing links,
+but their `AddDay(-1, GetDate())` expression means a previous local calendar day. Around
+a daylight-saving transition, that can differ from 24 elapsed hours. For exact elapsed
+windows use [parameterised windows](#parameterised-windows) with UTC bounds calculated
+outside SWQL. Confirm each column's time basis before selecting an example.
+
+Leaving the column bare can help efficient filtering. Actual plans depend on the provider
+and indexes; this repository has not measured a universal index-seek guarantee.
 
 ### Last 24 hours, column stored in local time
 
@@ -9453,8 +9387,9 @@ the schema. What is **not** verified is the difference between them: the publish
 schema carries no summary text for either property, and neither the OrionSDK documentation nor
 any SolarWinds sample script in this repository's sources explains it.
 
-So do not guess, and do not let a report guess for you. Two queries settle it on your server in
-under a minute.
+The following queries show current combinations; a snapshot does not prove the causal
+relationship. See [node status calculation](../polling/node-status-calculation.md) for
+official feature behavior and the remaining unverified mappings to SWIS properties.
 
 Where do they disagree, and what else is true of those nodes?
 
@@ -9502,41 +9437,29 @@ documentation, "Textual information about the status of this entity".
 
 ## 4. UTC, DATEADD and the timestamp that quietly shifts
 
-This one has its own page, [date-and-time.md](date-and-time.md), because it is the trap that
-produces the most convincing wrong numbers. The short version:
-
-SWIS translates SWQL into T-SQL and runs it on the Orion SQL Server. `AddMinute`, `AddHour`,
-`AddDay` and the rest compile to T-SQL `DATEADD`, which has no concept of a timezone offset. If
-you feed it the result of `GetUtcDate()`, SQL Server returns the adjusted value stamped with
-**its own local offset**, not UTC. SolarWinds documents this, shows the generated T-SQL and the
-serialised response, and gives the fix on the
-[possible issues](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/)
-page:
-
-> If you are using `AddMinute` etc. functions you need to first convert the value to the local
-> time of the MSSQL server and then convert the result back to UTC time.
-
-So `ToUtc(AddMinute(-10, ToLocal(GetUtcDate())))`, not `AddMinute(-10, GetUtcDate())`.
+The SDK's [date-function issue](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/)
+demonstrates selected `AddX(..., GetUtcDate())` values returned with a local offset. Its
+workaround is `ToUtc(AddMinute(-10, ToLocal(GetUtcDate())))`. See
+[date-and-time.md](date-and-time.md) for the evidence scope and diagnostic procedure.
 
 Two related facts that catch people out separately:
 
-- **Timestamps are almost always UTC**, whatever the timezone of the SQL Server, the Orion
-  server or your browser. `Orion.Nodes.LastSystemUpTimePollUtc` says so in its name, but the
-  128 columns named that way are being explicit rather than being different — the other 1173
-  `System.DateTime` properties are UTC too. The documented exception is
-  `Orion.Events.EventTime`, "displayed in local time", and whether that describes storage or
-  only rendering is unresolved. See
-  [date-and-time.md](date-and-time.md#which-columns-are-utc-and-which-are-local).
-- **The SQL Server, the Orion server and your workstation can all be in different timezones.**
-  The value that arrives at your client has been through all three. `WITH LOGS` (documented, in
-  SolarWinds' own example above) is the cheapest way to see what SWIS actually sent.
+- **The timestamp type does not specify a timezone.** A UTC suffix or a feature-specific
+  source provides evidence; do not infer UTC for all other `System.DateTime` properties.
+  `Orion.Events.EventTime` says displayed in local time, which does not settle storage
+  versus rendering. See [date-and-time.md](date-and-time.md#which-columns-are-utc-and-which-are-local).
+- **Serialization and filtering are different questions.** The SDK example shows returned
+  values. Predicate behavior and daylight-saving boundaries need separate validation.
+  Record raw results and server/client zones; query logs alone do not prove UI rendering.
 
 ## 5. NULL, IsNull, and the rows that disappear instead of going null
 
-### 5.1 `= NULL` is always false
+<a id="51--null-is-always-false"></a>
 
-Nothing equals NULL, including NULL. `WHERE n.Location = NULL` returns zero rows on every
-server forever, and it does not error. Use `IS NULL` and `IS NOT NULL`, both of which appear in
+### 5.1 `= NULL` does not match rows
+
+A comparison with NULL evaluates to UNKNOWN rather than TRUE or FALSE. A WHERE clause
+keeps only TRUE, so `WHERE n.Location = NULL` does not select missing locations. Use `IS NULL` and `IS NOT NULL`, both of which appear in
 SolarWinds' own PowerShell samples (`WHERE ParentID IS NULL` in `func_ModernDashboards.ps1`,
 `WHERE pm.Engine.EngineId IS NOT NULL` in `HA.PoolOperations.ps1`).
 
@@ -11703,8 +11626,8 @@ FROM Orion.Nodes n
 Dates come back as ISO 8601 strings. The offset they carry depends on how the value was
 produced, and this is not cosmetic. In SolarWinds' own worked example, `GETUTCDATE()`
 serialises as `2024-05-17T10:37:27.8070000Z` while `DateAdd(minute,-10,GETUTCDATE())` in the
-same row serialises as `2024-05-17T10:27:27.8070000-05:00`, because T-SQL `DATEADD` discards
-the UTC-ness of its input and the server stamps its own offset on the way out. Read
+same row serialises as `2024-05-17T10:27:27.8070000-05:00`. This demonstrates a selected
+value serialization issue, not a proven change to every date predicate. Read
 [date-and-time.md](date-and-time.md) before writing any time-bounded query.
 
 Bind dates as parameters rather than formatting literals, so the client library's date type
@@ -12189,7 +12112,7 @@ declare a timestamp column of their own, and the name is not consistent. Six nam
 | `Orion.Netflow.FlowsByApplication` | `TimeStamp` |
 | `Orion.APM.HistoricalCPULoad` | `Date` ("The date of poll") |
 | `Orion.AlertHistory` | `TimeStamp` |
-| `Orion.Events` | `EventTime` (the one column documented as local rather than the UTC default) |
+| `Orion.Events` | `EventTime` (documented as local display; confirm queried time basis) |
 
 The last two are in the table because they are time-series in practice, not because they are
 statistics entities. `Orion.AlertHistory` inherits straight from `System.Entity` and
@@ -13370,8 +13293,9 @@ are readable but not addressable, which has three practical consequences:
    nothing to pass. This is separate from, and additional to, the official caveat that "there
    may be entity types that do not support this interface or provide only limited support due
    to technical or design reasons."
-2. **They cannot be the target of a saved reference.** Alerts, reports and group definitions
-   store URIs, so an entity with no URI cannot be referenced from one.
+2. **A blank URI cannot serve as a URI-addressed reference.** This does not prevent
+   a report or custom-query widget from selecting or aggregating these rows. Check the
+   specific feature's targeting contract before ruling out its use.
 3. **`BulkUpdate` and `BulkDelete` cannot touch them**, for the same reason. See
    [bulk-operations.md](../swis/bulk-operations.md).
 
@@ -14328,7 +14252,7 @@ relationships, 1 verb.
 | Property | Type | Summary from the schema |
 | --- | --- | --- |
 | `EventID` | `System.Int32` | Unique identifier for the event record |
-| `EventTime` | `System.DateTime` | When the event occurred, **displayed in local time** — the documented exception to the platform's UTC default. See [../swql/date-and-time.md](../swql/date-and-time.md#the-eventtime-exception) |
+| `EventTime` | `System.DateTime` | When the event occurred, **displayed in local time** — query/storage semantics require confirmation. See [../swql/date-and-time.md](../swql/date-and-time.md#the-eventtime-exception) |
 | `EventType` | `System.Int32` | Numeric identifier referencing the type of event from `Orion.EventTypes` |
 | `Message` | `System.String` | Descriptive message or details |
 | `Acknowledged` | `System.Boolean` | Whether an administrator has acknowledged it |
@@ -14339,9 +14263,8 @@ relationships, 1 verb.
 | `NetObjectType` | `System.String` | Inherited. The prefix, in its own column |
 | `NetworkNode` | `System.Int32` | Inherited. The related node id |
 
-`EventTime` being local and `TimeStamp` being a byte array are both traps. Use `GetDate()`
-arithmetic against `EventTime`, not `GetUtcDate()`, and never try to sort by `TimeStamp`
-expecting chronology. See [../swql/date-and-time.md](../swql/date-and-time.md).
+Confirm the time basis of `EventTime` before choosing a local or UTC bound. `TimeStamp`
+is a byte array, so do not sort it expecting event chronology. See [../swql/date-and-time.md](../swql/date-and-time.md).
 
 ### Navigations
 
@@ -14406,9 +14329,9 @@ entity from `Orion.Events` with a different shape and a different time base.
 | `NetworkNode` | `System.Int32` | The related node |
 | `DetailsUrl`, `DisplayName` | `System.String` | Presentation |
 
-The UTC suffix on `TimeLoggedUtc` is the whole warning. Filtering it with
-`AddDay(-7, GetUtcDate())` produces a value stamped with the SQL Server's local offset,
-which silently shifts your window. Write `ToUtc(AddDay(-7, GetDate()))` instead. See
+`TimeLoggedUtc` identifies UTC intent. Distinguish the SDK's selected-value offset issue
+from predicate behavior; do not infer a shifted window solely from a displayed timestamp.
+For exact elapsed windows, use fixed UTC parameters. See
 [../swql/date-and-time.md](../swql/date-and-time.md).
 
 ### Navigations
@@ -15606,10 +15529,10 @@ NCMLicenseStatus -> Cirrus.NCMNodeLicenseStatus
 NodeProperties -> NCM.NodeProperties
 ```
 
-**Detecting which modules are installed.** An entity only exists when its module is
-installed, so a navigation whose target entity is missing from a server tells you the module
-is not there. Compare the edge list against `Metadata.Entity` on the server and the
-difference is the module inventory. See
+**Checking available providers.** Compare the edge list with live `Metadata.Entity` to
+identify targets the server exposes. A missing target can reflect release or provider
+registration differences; it does not alone prove a module is uninstalled. Entity
+presence also does not establish a license entitlement. See
 [modules/README.md](../modules/README.md).
 
 Remember that the edge list describes the schema, not the data. An edge from `Orion.Nodes` to
@@ -15711,9 +15634,8 @@ FILE: docs/schema/status-codes.md
 
 # Status codes
 
-Every monitored object in Orion carries a status, and it is stored as an integer. The web
-console paints it as a coloured icon, but a query returns the raw number, so any report,
-alert or automation has to map that number back to something a person can act on.
+Many monitored entities expose numeric status values. Their meaning depends on the
+entity and property; use the correct status domain before mapping a value to a label.
 
 The schema says so itself. `System.DashboardEntity` declares `Status` as `System.Int32`
 with this summary:
@@ -15731,7 +15653,10 @@ vocabulary apply where.
 
 ## The table
 
-26 status codes.
+26 status codes, extracted from the community workbook identified in
+[data provenance](../../data/README.md). The accompanying entity/property checks use
+2026.2, but the workbook rows are not a fresh vendor-certified 2026.2 enumeration.
+Query the target server for its current names and rankings.
 
 | Status | Name | Rank | Meaning |
 | ---: | --- | ---: | --- |
@@ -15951,8 +15876,8 @@ FROM Orion.StatusInfo s
 ORDER BY s.Ranking
 ```
 
-That query is also the answer to "is this list current for my version". It costs nothing
-and it is authoritative for your server, where this page is authoritative only for 2026.2.
+That query reads the target server's shared status names and rankings. The static table
+is a community reference; it does not certify every module-specific enum or release.
 
 ### Joining status to a name
 
@@ -17064,7 +16989,7 @@ FILE: docs/modules/agents.md
 
 # Agents: the SolarWinds agent
 
-Every other way the platform collects data is a **pull from the outside**. A polling engine
+Remote SNMP, WMI, and ICMP polling starts outside the monitored machine. A polling engine
 opens SNMP, WMI or ICMP to a device and asks it questions. That works until something sits
 between the engine and the device: a NAT boundary, a firewall that only allows outbound
 traffic, a cloud subnet with no route back, a Windows host where remote WMI is disabled by
@@ -18191,10 +18116,9 @@ instances exist, what state they are in, what their volumes are doing, what they
 model is account, then region, then resource, and it repeats three times, once per provider.
 
 It is also the largest single family in the schema. **148 entities under `Orion.Cloud.`**,
-more than [SAM](sam.md) or [NPM](npm.md) contribute, and it is not a module you buy
-separately: cloud monitoring is a platform capability rather than a licensed product with
-its own prefix table. That size comes from breadth rather than depth. Most of the 148 are
-one service type plus its statistics entity, repeated across the provider catalogue.
+more than [SAM](sam.md) or [NPM](npm.md) contribute. Namespace size does not establish
+license entitlement. Check the installed product/tier and
+[cloud monitoring requirements](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-cloud-requirements.htm). Most of these entities represent a service type or its statistics.
 
 ## Namespace and how it divides
 
@@ -18910,7 +18834,7 @@ ORDER BY i.Name
 ### 7. IO trend for cloud instances over a window
 
 `Orion.Cloud.InstanceStatistics` inherits from `System.StatisticsEntity`, so it has
-`ObservationTimestamp` and it grows without bound. It always gets a time predicate.
+`ObservationTimestamp`. Bound the time window; size depends on collection and retention.
 
 ```sql
 SELECT TOP 100
@@ -20484,11 +20408,6 @@ servers that name them. When two devices claim the same address, or a DHCP scope
 another, or forward and reverse DNS disagree, IPAM records it as a conflict rather than
 leaving you to notice.
 
-That reconciliation is the point. Every other module in the platform tells you about
-things it is monitoring. IPAM tells you about address space you own whether anything is
-plugged into it or not, which is why it is the module people use to answer "can I have an
-address" and "who took this one".
-
 ## Namespaces and how many entities
 
 IPAM contributes **77 entities**, all under a bare `IPAM.` prefix with no `Orion.` in front
@@ -21050,10 +20969,12 @@ New-SwisObject $swis -EntityType 'IPAM.Subnet' -Properties @{
 }
 ```
 
-SolarWinds documents `Address` and `CIDR` as the only required properties, `CIDR` and
-`AddressMask` as non-editable after creation, and for IPv4 **`CIDR` must be greater than 21
-and no more than 32**. A `/16` cannot be created as an `IPAM.Subnet`; that is what supernets
-are for.
+The historical [IPAM 4.7 API page](https://solarwinds.github.io/OrionSDK/docs/ipam-4-7-api/)
+lists `Address` and `CIDR` as required and describes IPv4 CRUD creation as accepting
+prefix lengths greater than 21 through 32. The same page's verb example uses /21.
+**Unverified:** the accepted range on a current release and whether CRUD and verb paths
+share a limit. Do not generalize this old CRUD note into a universal ban on /16 subnets.
+Test the intended creation route on the target version.
 
 ### Populating addresses inside a large subnet
 
@@ -21635,9 +21556,8 @@ as mandatory rather than as a good habit, and prefer
 without re-running the scan. See [../swql/performance.md](../swql/performance.md).
 
 `DateTime` is stored in UTC. Build the window in UTC too, and read
-[../swql/date-and-time.md](../swql/date-and-time.md) first: `GetUtcDate()` combined with
-`AddHour` and friends produces wrong offsets, because those compile to a timezone-blind
-`DATEADD`.
+[../swql/date-and-time.md](../swql/date-and-time.md) for the distinction between selected
+value serialization, predicate behavior, and exact elapsed UTC windows.
 
 ## Namespace and how many entities
 
@@ -23534,7 +23454,8 @@ NCM keeps its own node table, and it is not `Orion.Nodes`.
 | Rights | `read` and `invoke` for everyone; `update` requires `manageNodes`, plus the NCM role stated in each verb summary |
 
 Joining the two id spaces wrongly is the single most common NCM query bug, and it fails
-silently: a GUID never equals an integer, so the query returns nothing and no error.
+because the identifiers have different meanings and types. Depending on provider
+conversion behavior, this can return no matches or raise an error; neither is a valid join.
 [`../swql/language-reference.md`](../swql/language-reference.md#full-outer-join) says the same
 thing from the SWQL side.
 
@@ -24754,9 +24675,9 @@ bridge. `AddNodeToNCM(coreNodeId)` and `AddNodes(coreNodeIds)` take Orion intege
 `Cirrus.ConfigArchive.GetInterfaceConfigSnippets(coreNodeId)` are back to Orion integers.
 There is no rule to memorise. Check the verb.
 
-**Joining on the wrong id returns nothing and no error.** A GUID never equals an integer, so
-`ON cn.NodeID = n.NodeID` between `Cirrus.Nodes` and `Orion.Nodes` produces an empty result
-that looks exactly like "no data". This is the most common NCM query bug there is.
+**Join the documented identifier domains.** A GUID and an integer ID are not interchangeable;
+`ON cn.NodeID = n.NodeID` compares different identifier domains. A provider may reject
+the comparison or return no matches. Use the documented platform-node bridge.
 
 **SolarWinds' own `NCM.ExecuteScript.ps1` sample does not run against 2026.2.** It calls
 `Cirrus.ConfigArchive.Execute` and polls `Cirrus.TransferQueue`. Neither the verb nor the
@@ -29472,9 +29393,9 @@ ORDER BY AVG(st.PercentAvailability)
 ```
 
 `ToUtc(AddDay(-7, GetDate()))` rather than a bare `AddDay(-7, GetDate())` is deliberate.
-`TimeStamp` states no timezone in the schema, so the platform-wide rule applies — assume the
-column holds UTC — and an unwrapped `AddDay(-7, GetDate())` is a local-time value that
-silently shifts the window by the SQL Server's UTC offset. See
+This example assumes UTC for `TimeStamp`; that column's time basis is **unverified here**.
+Confirm it on the target before relying on this window, and use UTC parameters when
+exact elapsed duration matters. See
 [../swql/date-and-time.md](../swql/date-and-time.md).
 
 ### Component thresholds as currently applied
@@ -30627,12 +30548,14 @@ contradiction to flag: the parameter is named `profileJson` while the verb's sum
 "Imports policy profile from YAML". Which format the verb actually expects is
 **unverified** here; export from your own server and look before hand-writing one.
 
-**Unverified:** the internal structure of the exported profile document is not documented
-in this repository — no real console export was available to parse, so this page cannot
-give it the field-by-field treatment [sam-templates.md](sam-templates.md) and
-[ncm-device-templates.md](ncm-device-templates.md) give their formats. The reliable path
-is `ExportProfile` against a profile on your own server; round-trip it through
-`ImportProfile` on a test server before editing anything inside.
+Three supplied `.scm-profile` exports now have a field-level audit in
+[scm-profile-portability-audit.md](scm-profile-portability-audit.md). The observed JSON
+uses a `__type`-tagged object graph. SCM compliance policy exports use a separate tagged
+YAML format covered in [scm-policy-portability-audit.md](scm-policy-portability-audit.md).
+These samples replace the earlier statement that no exports were available. They do not
+settle the `ImportPolicyProfile` JSON/YAML naming conflict or prove acceptance of an edited
+file on every release. **Unverified:** live import, identity conflicts, and evaluation
+behavior still require a target-version export/import/read-back test.
 
 ### Assignment and polling
 
@@ -30892,7 +30815,7 @@ symptom is a report that looks plausible and is wrong.
 | Parent | `NodeID`, a monitored node | `StorageArrayID`, and usually a pool and a vServer |
 | Capacity columns | `VolumeSize`, `VolumeSpaceUsed`, `VolumeSpaceAvailable`, `VolumePercentUsed` | `CapacityTotal`, `CapacityAllocated`, `CapacityFree`, `CapacityUsedPercentage`, `CapacityFileSystem` |
 | NetObject prefix | `V` | `SMV` |
-| Comes from | The platform core, always present | Storage Resource Monitor, only when licensed |
+| Comes from | Platform node-volume monitoring | SRM provider; confirm installation, licensing, and live metadata separately |
 
 Both entities have a `VolumeID` integer and both are about "a volume", which is exactly why
 the mistake is easy. Two independent id spaces called `VolumeID` in the same database means
@@ -34365,8 +34288,8 @@ Its 23 properties cover identity (`CcmName`, `ClusterName`, `ClusterNodeID`, `Ve
 `UtcOffsetMinutes` deserves a sentence on its own. A call manager reports call detail records
 in its own local time, and VNQM records the offset rather than normalising, so any
 cross-cluster comparison of call times has to account for it. See
-[../swql/date-and-time.md](../swql/date-and-time.md) before writing that arithmetic, because
-the obvious approach with `GetUtcDate()` and the `AddX` functions produces wrong offsets.
+[../swql/date-and-time.md](../swql/date-and-time.md) before writing that arithmetic; the
+SDK's selected-value offset issue is not proof that every time predicate is affected.
 
 Thirteen entities hang off `CCMMonitoring` as hosted children, which is the fastest way to
 see the shape of this half of the module:
@@ -36438,8 +36361,9 @@ service account sees fewer rows than your admin session, that is the first thing
   that will not coerce to the declared type, or a property name that does not exist on the
   entity. SWIS returns its error text in a JSON `Message` field, so surface it rather than
   swallowing it.
-- **A connection failure** on port 17778 means you are on the deprecated port. REST is
-  **17774** from platform release 2023.1 onward. See
+- **A connection failure** does not identify its cause. Check the service, listener,
+  firewall, and installed release. Use REST **17774** on 2023.1+; the default 17778
+  listener stops in 2024.2. See
   [../swis/connecting.md](../swis/connecting.md).
 
 ## Validate your SWQL before you ship it
@@ -37206,8 +37130,8 @@ ORDER BY a.LastLogin
 
 `DayDiff(a, b)` counts from `a` to `b`, so the argument order here yields a positive age.
 `LastLogin` is a `System.DateTime` and this comparison is in server-local time; see
-[../swql/date-and-time.md](../swql/date-and-time.md) for why mixing `GetUtcDate()` with the
-`AddX` functions produces the wrong offset.
+[../swql/date-and-time.md](../swql/date-and-time.md) for the selected-value offset issue
+and the separate need to establish a column's time basis.
 
 ### Change volume per account
 
@@ -38911,8 +38835,10 @@ practical cost of the inconsistency.
 
 ## Gotchas
 
-**A credential id is not a foreign key.** 25 of the 28 columns have nothing behind them.
-Deleting a credential leaves them pointing at a row that is gone, silently.
+**A credential-id column is not proof of a declared relationship.** 25 of the 28 columns
+lack a navigation in this extract. This does not establish database constraints or
+cascade behavior. **Unverified:** deletion may be rejected, cleaned up, or leave stale
+references depending on the feature. Inventory consumers before deleting a credential.
 
 **Four spellings.** `CredentialID`, `CredentialId`, `CredentialsId`, `CredentialsID`.
 
@@ -39420,7 +39346,9 @@ the script is written, and it is the one that turns a repository into a credenti
   `admin`. See [accounts-and-permissions.md](accounts-and-permissions.md).
 - **Rotate through `Update*` rather than delete-and-recreate.** Updating keeps the same `ID`,
   so every relation, discovery profile and node reference keeps working. Deleting and
-  recreating gives you a new id and silently orphans everything that pointed at the old one.
+  recreating can change its identity. **Unverified:** deletion and cleanup behavior differs
+  by consumer and is not established by the absence of a schema relationship; check
+  references before and after any replacement.
 
 If a secret has already been committed somewhere, treat rotating it as the fix. Removing the
 commit is not.
@@ -42124,7 +42052,7 @@ python3 tools/schema_query.py show Orion.AuditingEvents
 
 | Entity | Answers | Key | Time column |
 |:---|:---|:---|:---|
-| `Orion.Events` | What the platform observed | `EventID` | `EventTime`, **local** |
+| `Orion.Events` | What the platform observed | `EventID` | `EventTime`; schema says displayed in local time |
 | `Orion.EventTypes` | What an event type integer means | `EventType` | none |
 | `Orion.AuditingEvents` | What a person or client did | `AuditEventID` | `TimeLoggedUtc`, **UTC** |
 | `Orion.AuditingActionTypes` | What an audit action type integer means | `ActionTypeID` | none |
@@ -42363,42 +42291,26 @@ This is where these two entities differ and where the errors are silent.
 
 ### `Orion.Events.EventTime` is local
 
-The schema description is explicit: "Date and time when the event occurred, displayed in
-local time." "Local" here means the SQL Server's timezone, which is not necessarily the Orion
-application server's and is definitely not the reader's. So the last 24 hours of events is:
-
-```sql
-WHERE e.EventTime >= AddDay(-1, GetDate())
-```
-
-`GetDate()` already returns the SQL Server's local time, so both sides of the comparison are
-on the same clock and no conversion is needed.
+The historical heading above is retained for existing links. The schema says displayed
+in local time; it does not distinguish storage from presentation. **Unverified:** the
+time basis exposed by the target provider. The local-bound examples on this page assume
+it is local; compare a known event instant with the raw query response before using them.
+See [the EventTime ambiguity](../swql/date-and-time.md#the-eventtime-exception).
 
 ### `Orion.AuditingEvents.TimeLoggedUtc` is UTC
 
-The name ends in `Utc`, which is the most reliable signal the schema gives. So the last 24
-hours of audit entries is **not** `AddDay(-1, GetUtcDate())`:
-
-```sql
-WHERE a.TimeLoggedUtc >= ToUtc(AddDay(-1, GetDate()))
-```
-
-The reason is the single most consequential SWQL gotcha, and it is worth restating here
-because time-bounded audit queries are exactly where it bites. SWIS compiles `AddDay` into
-T-SQL `DATEADD`, and SolarWinds documents that `DATEADD` "doesn't work with time zone offset
-at all". Hand it a UTC value and it does correct arithmetic, then hands back a plain
-`datetime` that SQL Server stamps with the **server's own offset** on the way out. The clock
-arithmetic is right and the label is wrong, so the value silently shifts by your UTC offset.
-
-SolarWinds' recommended shape is: do the arithmetic in local time, convert at the end.
-`ToUtc(AddDay(-1, GetDate()))` is that shape. Full treatment, with SolarWinds' own recorded
-before-and-after output, is in [../swql/date-and-time.md](../swql/date-and-time.md).
+`TimeLoggedUtc` identifies UTC intent. The examples use local arithmetic followed by
+`ToUtc`, following the SDK's selected-value workaround. **Unverified:** the source does
+not establish that the same issue changes predicate evaluation on every release. For
+exact elapsed intervals, pass fixed UTC boundaries calculated by the client. See
+[date-and-time.md](../swql/date-and-time.md) for diagnostic limits and daylight saving.
 
 Two more rules that apply to both entities:
 
 - **Put the arithmetic on the constant side.** `WHERE e.EventTime >= AddDay(-1, GetDate())`,
-  never `WHERE AddDay(1, e.EventTime) >= GetDate()`. Wrapping the column defeats the index
-  and turns a fast query into a table scan on a table that grows without bound.
+  rather than `WHERE AddDay(1, e.EventTime) >= GetDate()`. Wrapping the column can
+  hinder efficient filtering; actual plans depend on the
+  provider and indexes. Data retention does not replace a bounded query.
 - **Always bound the window.** `Orion.Events` and `Orion.AuditingEvents` are among the
   largest tables in the database. An unbounded `SELECT` against either is how a reporting
   script takes the web console down. Use `TOP` as well, as a second seat belt.
@@ -42834,11 +42746,10 @@ not affect alerting. There is no verb to unacknowledge an event, unlike alerts, 
 
 ## Things that go wrong
 
-- **Comparing `TimeLoggedUtc` against `AddDay(-1, GetUtcDate())`.** The arithmetic is right,
-  the offset label is wrong, and the window silently shifts by your UTC offset. Use
-  `ToUtc(AddDay(-1, GetDate()))`.
-- **Comparing `EventTime` against a UTC constant.** `EventTime` is documented as local. Use
-  `GetDate()`.
+- **Inferring a predicate bug from a displayed offset.** The SDK demonstrates a selected
+  value issue; test filter boundaries independently. See the date guide.
+- **Assuming `EventTime` storage from its description.** The schema says displayed in local
+  time. Confirm query behavior with a known event before choosing a local or UTC bound.
 - **Selecting `Orion.Events.TimeStamp` as a date.** It is a `System.Byte[]` row-version
   column. `EventTime` is the date.
 - **Guessing that the navigation property is `EventTypes`.** It is `EventTypeProperties`.
@@ -42852,10 +42763,10 @@ not affect alerting. There is no verb to unacknowledge an event, unlike alerts, 
 - **Answering "who changed this" from `Orion.Events`.** It records what the platform observed,
   not who acted. `AccountID` only exists on `Orion.AuditingEvents`.
 - **Reading a blank `AccountID` as unknown.** It means the system did it, not a person.
-- **Unbounded queries.** Both tables grow without limit. Always constrain by time and add
+- **Unbounded queries.** Retention and traffic determine table size. Constrain by time and add
   `TOP`.
 - **Wrapping the column in the date arithmetic.** `WHERE AddDay(1, e.EventTime) >= GetDate()`
-  scans the whole table. Put the arithmetic on the constant side.
+  can hinder index use. Put the arithmetic on the constant side and measure actual plans.
 - **Assuming "no events" means "nothing happened".** An unmanaged node produces none. Check
   `UnManaged`, `UnManageFrom` and `UnManageUntil`.
 - **A service account seeing fewer rows than you do.** Account limitations filter query
@@ -43786,6 +43697,10 @@ inherited properties, `UnManaged`, `UnManageFrom` and `UnManageUntil`.
 
 The mechanics are simple. The parts that go wrong are the argument format, the timezone, and
 choosing unmanage when you actually wanted alert suppression.
+
+For recurring maintenance, also check
+[scheduling release notes](scheduling.md#release-specific-scheduling-behavior), including
+the 2026.2 utility deprecation and the service-restart issue fixed in 2026.2.2.
 
 ## What unmanaging does, and what it costs
 
@@ -46323,10 +46238,10 @@ produce yesterday's output and last month's.
 **Always bound the result set.** `TOP n` or `WITH ROWS a TO b`. An unbounded query against a
 large installation is a genuine production risk, not a style preference.
 
-**Mind the timezone functions.** `GetUtcDate()` combined with `AddDay` and friends produces the
-wrong offset, because those compile to T-SQL `DATEADD`, which is timezone blind. The correct
-shape is `ToUtc(AddDay(-30, GetDate()))` for a UTC column and `AddDay(-30, GetDate())` for a
-local one. Which columns are which matters, and the schema only tells you for some of them:
+**Mind the timezone functions.** The SDK documents an offset issue with selected
+`AddX(..., GetUtcDate())` values; its effect on predicates is unverified here. See the
+[date guide](../swql/date-and-time.md) before assuming local arithmetic represents an
+exact elapsed UTC interval. Which columns are which matters, and the schema only tells you for some of them:
 `Orion.AuditingEvents.TimeLoggedUtc` says UTC in its name, and `Orion.Events.EventTime`
 documents itself as local. `Orion.AlertHistory.TimeStamp` and `Orion.ResponseTime.DateTime`
 carry **no documented timezone** and are unverified here, so measure them once on your own
@@ -46636,6 +46551,19 @@ Both matter for automation, and for a reason that is easy to miss. If you are wr
 script that unmanages nodes before a change window and remanages them afterwards, the
 platform may already be doing that on a plan, and the two will fight. Check before you
 build.
+
+## Release-specific scheduling behavior
+
+SolarWinds deprecated the Windows Unmanage Scheduling Utility in 2026.2 and directs new
+schedules to the console's Manage Schedules page. This is a product workflow change,
+not a removal of the SWIS entities listed below. See
+[release support notes](../platform/versions-and-naming.md#release-specific-support-notes).
+
+The base 2026.2 release has a documented issue where maintenance schedules stop executing
+after the Module Engine service restarts. The
+[2026.2.2 release notes](https://documentation.solarwinds.com/en/success_center/orionplatform/content/release_notes/solarwinds_platform_2026-2-2_release_notes.htm)
+list the fix under case 02159789. Record the full patch version during diagnosis; an
+enabled schedule row alone does not prove that the schedule executed.
 
 ## The entities
 
@@ -49395,7 +49323,8 @@ technology polling system, and only one of them does:
 `Orion.TechnologyPolling` has a `TechnologyID` of its own and it is a **`System.String`**, not
 a GUID. Same property name, different entity, different type, different id space — so joining
 `Orion.DeviceStudio.Pollers.TechnologyID` to `Orion.TechnologyPolling.TechnologyID` is
-comparing a GUID against a string and returns nothing, silently.
+comparing different identifier domains. It may return no matches or a conversion
+error; an empty result is not a guaranteed failure mode.
 
 `TechnologyPollingID` is the column that actually bridges the two systems, and it is not a
 declared relationship, so it has to be written as an explicit join:
@@ -51112,33 +51041,23 @@ FILE: docs/webui/README.md
 
 # The web console
 
-Most of this repository is about SWIS: the API, the schema, and automating against them. This
-section is about the other interface — the web console that SolarWinds Observability
-Self-Hosted presents to its users — and specifically about the parts of it that take SWQL and
-are not documented anywhere official.
-
-That is a narrower subject than "how to use the console", and deliberately so. Navigating the
-UI is covered by SolarWinds' product documentation and needs no help from here. What has no
-documentation is the set of conventions the console applies to a query you give it: column
-names that are read as instructions, URL shapes that link one view to another, values that are
-rendered as images rather than text. Those are discoverable only from community threads, and
-they are what this section collects.
+This section covers query-driven widgets, dashboard export structure, variables, and
+console links. Evidence comes from SolarWinds product documentation, supplied exports,
+and attributed community reports. A convention absent from the SWIS schema can still
+be documented by an authoritative product source.
 
 ## A caveat that applies to the whole section
 
-**The schema cannot confirm any of it.** Everywhere else in this repository, a claim is
-checked against the extracted contract before it is written down, and `make check` fails if it
-drifts. The console's behaviour is not in the contract. A directive name, a console URL, an
-icon path — none of these appear in `data/`, so nothing here can verify that the widget still
-reads `[_LinkFor_X]` or that `/Orion/NetPerfMon/NodeDetails.aspx` still exists.
+Schema checks can establish referenced entities and properties within the validator's
+scope. They cannot establish URL availability, widget rendering, access-control behavior,
+or the importer's identity-conflict rules. Keep those separate from syntax validation.
+The 2026.4 export audit preserves observed configuration and reports gaps against the
+older 2026.2 public schema; it does not certify exported queries on a target server.
 
-What *is* verified is everything a query touches: every entity, property and function named on
-these pages is checked against 2026.2 like any other page here, and the queries are run
-through `tools/validate_swql.py`. The versioned 2026.4 export audit is an explicit exception:
-it preserves observed configuration as evidence and reports gaps against the older schema;
-it does not certify its exported queries. Static checks do not prove runtime behavior. UI conventions are
-reported, sourced and marked unverified. Read
-[../reference/unverified.md](../reference/unverified.md) for the collected list.
+Use the [evidence rules](../reference/documentation-audit-2026-09-18.md) and
+[unverified index](../reference/unverified.md). Attribute community observations to their
+source and version instead of presenting them as either universal facts or worthless
+because they are not schema facts.
 
 ## The pages
 
@@ -56908,7 +56827,8 @@ Each of these prevents a specific failure rather than being a house style:
   queryable on every managed object even though those entities do not declare it.
 - **The right clock on each side of a time comparison.** A column whose name ends in `Utc`,
   such as `Orion.AuditingEvents.TimeLoggedUtc`, belongs next to `GetUtcDate()`.
-  `Orion.Events.EventTime` documents itself as local time and belongs next to `GetDate()`.
+  `Orion.Events.EventTime` describes local display; confirm its queried time basis.
+  The event examples below assume local values.
   Most other date columns, including `Orion.AlertActive.TriggeredDateTime`,
   `Orion.AlertHistory.TimeStamp` and `Cirrus.ConfigArchive.DownloadTime`, carry **no
   documented timezone in the schema and are unverified here**: measure them once on your own
@@ -57176,7 +57096,7 @@ ORDER BY si.Ranking, c.Application.Node.Caption, c.ComponentOrder
 
 ### 13. What changed state in the last hour?
 
-`Orion.Events` records what the platform observed. `EventTime` is local, so it is compared
+`Orion.Events` records what the platform observed. This example assumes local `EventTime`, so it is compared
 against `GetDate()`.
 
 ```sql
@@ -59195,7 +59115,7 @@ the query above does not filter on `TRUE`. See
 | Port | Protocol | Status | Used by |
 |:---|:---|:---|:---|
 | 17774 | HTTPS (REST/JSON) | Current, from platform release 2023.1 onward | `curl`, Python `orionsdk`, any HTTP client |
-| 17778 | HTTPS (REST/JSON) | Deprecated. Was the REST port through 2022.4.1 | Legacy scripts, older SWQL Studio "over HTTPS" mode |
+| 17778 | HTTPS (REST/JSON) | Deprecated. Legacy REST endpoint; deprecated in 2023.1; default listener removed in 2024.2 | Legacy scripts, older SWQL Studio "over HTTPS" mode |
 | 17777 | net.tcp (SOAP) | Current | SWQL Studio, `SwisPowerShell` |
 
 The full endpoint and authentication reference is
@@ -59369,7 +59289,7 @@ failure happened: TCP, TLS, or HTTP.
 
 | What you see | Layer | Likely cause |
 |:---|:---|:---|
-| `Connection refused`, `No connection could be made` on 17774 | TCP | The server is on 2022.4.1 or earlier, where REST was on 17778 |
+| `Connection refused`, `No connection could be made` on 17774 | TCP | Check the service, listener, firewall, and version; pre-2023.1 uses 17778 |
 | `Connection refused` on 17778 | TCP | The server is on 2023.1 or later. Use 17774 |
 | The connection hangs and eventually times out | TCP | A firewall is dropping rather than rejecting. A rejected port answers immediately |
 | `certificate verify failed`, `unable to get local issuer certificate`, `SSL: CERTIFICATE_VERIFY_FAILED` | TLS | The self-signed certificate is not trusted by this client. Trust it, do not disable verification |
@@ -60464,7 +60384,7 @@ script that used to work. The REST endpoint moved.
 | Port | Protocol | Status | Used by |
 |:---|:---|:---|:---|
 | 17774 | HTTPS (REST/JSON) | Current, from platform release 2023.1 onward | `curl`, Python `orionsdk`, any HTTP client |
-| 17778 | HTTPS (REST/JSON) | Deprecated. Was the REST port through 2022.4.1 | Legacy scripts, SWQL Studio's "Orion (v3) over HTTPS" mode |
+| 17778 | HTTPS (REST/JSON) | Deprecated. Legacy REST endpoint; deprecated in 2023.1; default listener removed in 2024.2 | Legacy scripts, SWQL Studio's "Orion (v3) over HTTPS" mode |
 | 17777 | net.tcp (SOAP) | Current | SWQL Studio, `SwisPowerShell` |
 
 The failure mode is what makes this worth checking first: a request to a port that no longer
@@ -60805,7 +60725,7 @@ can disagree with the licensing page and both be right. Rule this out first, not
 
 **2. A filter that excludes more than you meant.** The usual suspects: `UnManaged = FALSE`
 removing objects in a maintenance window; `Status <> 1` not meaning "broken", because `9` is
-Unmanaged and `11` is External; `= NULL`, which is always false and needs `IS NULL`; and a
+Unmanaged and `11` is External; `= NULL`, which evaluates to UNKNOWN and does not pass a WHERE filter (use `IS NULL`); and a
 to-one navigation in the `SELECT` list quietly acting as an inner join, so rows whose parent
 is missing disappear rather than coming back with nulls.
 
@@ -61548,6 +61468,11 @@ rest of the wireless model — controllers, access points, radios, clients, rogu
 overlapping wireless families to use. Worked queries for everything below are in
 [../../scripts/swql/17-wireless-heatmaps.swql](../../scripts/swql/17-wireless-heatmaps.swql).
 
+When following Network Atlas instructions, check the
+[release support notes](../platform/versions-and-naming.md#release-specific-support-notes).
+Network Atlas deprecation does not by itself prove equivalent heatmap support in
+Intelligent Maps; that migration's feature parity is unverified here.
+
 ## Where the data comes from
 
 Three sources feed a map, and they are not equivalent.
@@ -62013,7 +61938,7 @@ re-derives from one command when the documented platform version changes.
 | [status-codes.md](status-codes.md) | 26 status rows | 4.6 KB | `tools/build_reference_docs.py` | What does status 9 mean, and how does it rank for rollup? |
 | [swql-function-index.md](swql-function-index.md) | 63 functions grouped by category | 12 KB | `tools/build_reference_docs.py` | Does this function exist, what is its signature, and what does a call look like? |
 | [glossary.md](glossary.md) | 55 terms, alphabetical | 26 KB | **Written by hand** | What does this word mean on this platform? |
-| [unverified.md](unverified.md) | Every hedged statement, grouped by page | 39 KB | `tools/build_unverified_index.py` | Where does this repository stop being certain? |
+| [unverified.md](unverified.md) | Explicit uncertainty markers from authored docs, grouped by page | 39 KB | `tools/build_unverified_index.py` | Where does this repository stop being certain? |
 | [schema-changes-2026.1-to-2026.2.md](schema-changes-2026.1-to-2026.2.md) | Change report, risk-classified | 9 KB | `tools/diff_schema.py` | What did this upgrade break? |
 | [schema-changes-2025.4-to-2026.2.md](schema-changes-2025.4-to-2026.2.md) | The same across two releases | 13 KB | `tools/diff_schema.py` | The same question, over a longer jump |
 
@@ -62171,13 +62096,20 @@ more kinds of source. `schema-changes-*.md` is two files, since each documents a
 version pair, which makes eight generated pages in total. They are worth naming
 separately because neither reads `data/` the way the five above do.
 
+## Documentation review
+
+[documentation-audit-2026-09-18.md](documentation-audit-2026-09-18.md) records the
+repository-wide screening scope, corrected claims, evidence rules, and unresolved
+runtime questions. It is authored guidance, not a generated schema enumeration.
+
 ### unverified.md
 
 [unverified.md](unverified.md) is generated by
 [`tools/build_unverified_index.py`](../../tools/build_unverified_index.py) from **the
 documentation itself**, not from `data/`. It scans the authored pages for the phrasings
-this repository uses to hedge a claim and collects them in one place, so the honest
-admissions scattered across sixty pages become a single list of where the edges are.
+this repository uses to qualify a claim. It is a wording-based aid, not a completeness
+guarantee; headings, fenced code, generated pages, and app/script READMEs are outside
+the extracted claims. Absence from the index does not establish verification.
 
 That makes it the one generated page whose content changes when you edit prose. If your
 change adds, removes or rewords an unverified statement, regenerate it in the same commit
@@ -62237,6 +62169,120 @@ ORDER BY Position
 [../swis/metadata-introspection.md](../swis/metadata-introspection.md) covers the whole
 namespace, and [../guides/building-integrations.md](../guides/building-integrations.md)
 shows how to use it to feature-detect at runtime instead of hard-coding a version check.
+
+
+==============================================================================
+FILE: docs/reference/documentation-audit-2026-09-18.md
+==============================================================================
+
+# Documentation audit and evidence rules: 2026-09-18
+
+This audit corrects stale and overconfident guidance, reduces repeated explanations,
+and makes unresolved behavior easier for people and AI systems to identify.
+The starting commit is `135480f265ac91cb065e5f06c5733730273ebe52`.
+
+## Coverage and limits
+
+The baseline inventory contains 144 tracked Markdown/text files, excluding the generated
+`llms-full.txt` duplicate. Nine have generated content; 135 are authored or supporting
+prose. Every inventoried file received a wording/version/uncertainty scan. Selected
+claims were then inspected in context against local code, the 2026.2 schema, supplied
+export audits, or primary documentation. The per-file record is in
+[the coverage manifest](../../reference/documentation-audit/2026-09-18.json).
+
+This is repository-wide screening plus targeted verification, not independent proof of
+every sentence. Generated reference data is checked through the repository gate. Source
+workbooks and historical evidence remain attributed to their original sources. This
+review did not run a SolarWinds server, import packages, execute device checks, rebuild
+all desktop apps, or re-fetch every external link. Pages without edits are not thereby
+certified current. The static schema baseline remains 2026.2.
+
+## Evidence rules for AI answers
+
+| Evidence | What it supports | What it does not establish |
+| --- | --- | --- |
+| Versioned schema/Swagger | Names, types, declared operations, rights, positional signatures | Successful invocation, payload semantics, side effects, installed licenses |
+| Official feature documentation/release notes | Behavior or support stated for the named release and feature | Every release, every provider, or undocumented boundary cases |
+| Supplied export | The exact observed structure, identifiers, values, and relationships | A universal file specification, importer collision behavior, or safe execution |
+| Local source code | What that implementation checks or attempts | That its UI/API calls succeeded on a target installation |
+| Recorded runtime test | Observed result for its version, account, inputs, and environment | Other versions, accounts, devices, or untested failure paths |
+| Community report | An attributed example or practitioner observation | A vendor contract or universal default |
+| Inference | A hypothesis with its reasoning and scope stated | A verified fact |
+
+Use **Unverified:** for a material unresolved claim. State what is unknown, why the
+available evidence does not settle it, and what observation would settle it. Reserve
+**Unknown:** and **Not tested:** for explicit evidence labels; a status enum named
+Unknown is not itself an uncertainty claim. Do not use "always", "never", "silently",
+"safe", or "fully verified" unless the cited evidence supports that scope.
+
+A missing schema relationship does not prove missing database constraints. A missing
+verb does not prove no UI/private implementation exists. An exposed entity does not
+prove a license entitlement. Static validation, import success, content read-back, and
+correct runtime evaluation are separate checks.
+
+## Findings addressed
+
+| ID | Finding | Correction and reference |
+| --- | --- | --- |
+| DOC-01 | REST migration compressed into a single date; connection failure treated as a version diagnosis | Distinguish 17774 introduction in 2023.1 from default 17778 listener cessation in 2024.2; retain service/network alternatives in [connecting](../swis/connecting.md) and troubleshooting |
+| DOC-02 | Selected timestamp offset evidence generalized into a guaranteed predicate bug | Rewrote [date/time](../swql/date-and-time.md), separated serialization from filtering, removed count-only proof, and qualified repeated advice in module/automation pages |
+| DOC-03 | Local calendar subtraction presented as guaranteed elapsed hours | Marked daylight-saving boundaries and recommended fixed UTC parameters for exact elapsed windows; preserved existing heading links |
+| DOC-04 | Missing URI claimed to prohibit reporting; read-only writes claimed to fail silently | Scoped URI restrictions to URI-addressed operations and removed undocumented failure behavior in [entity model](../schema/entity-model.md), CRUD, and metadata guidance |
+| DOC-05 | Missing navigation claimed to prove credential orphaning or module absence | Marked deletion/cascade behavior unverified; separated provider registration, installation, and entitlement in credential and relationship guides |
+| DOC-06 | SCM overview still said no real exports were available | Linked the observed JSON profile and tagged-YAML policy audits in [SCM](../modules/scm.md); preserved the unresolved import-format contract conflict |
+| DOC-07 | Dashboard tools' README overstated identity isolation and read-back | Documented dashboard-only target collision queries, per-document remapping, duplicate warnings, and incomplete resource verification in both [Porter](../../apps/porter/README.md) and [DashboardPorter](../../apps/dashboard-porter/README.md) |
+| DOC-08 | Administrator elevation attributed to an unspecified DISA STIG | Described the manifests as application choices; removed unsupported compliance authority |
+| DOC-09 | Product deprecations and a patch-specific scheduler fix omitted | Added [release support notes](../platform/versions-and-naming.md#release-specific-support-notes) and [scheduling](../automation/scheduling.md#release-specific-scheduling-behavior) guidance |
+| DOC-10 | Community status values described as authoritative for 2026.2 | Restored [status table provenance](../schema/status-codes.md) and distinguished shared status names from module-specific enums |
+| DOC-11 | Historical IPAM CRUD prefix range generalized to every current creation path | Attributed the 4.7 source and marked its conflict with the /21 verb example and current behavior unresolved in [IPAM](../modules/ipam.md) |
+| DOC-12 | Inline exported password claimed to avoid shell history | Replaced it with an interactive read and stated environment-variable limits in [curl examples](../../scripts/curl/README.md) |
+| DOC-13 | Deterministic sorting implied stable pagination during concurrent writes | Added the lack-of-snapshot caveat to [REST paging](../swis/rest-api.md) |
+| DOC-14 | Global claims of exhaustive schema/prose verification; outdated contribution instructions | Updated the root/AI indexes and contribution guide to describe actual check coverage and authorized export evidence |
+| DOC-15 | Uncertainty index collected headings and missed explicit evidence labels | Removed heading-only findings, recognized explicit labels, and added regression tests; documented collection boundaries in [unverified](unverified.md) |
+| DOC-16 | Verbose introductions and repeated universal explanations obscured scope | Shortened date/time, web-console, contribution, IPAM, and app packaging prose while retaining signatures, examples, and provenance |
+| DOC-17 | Namespace presence treated as a licensing answer; polling described as universally pull-based | Scoped cloud/SRM availability claims and corrected the agent introduction |
+
+## Primary sources rechecked
+
+Accessed 2026-09-18. Use the linked pages for their complete version scope.
+
+- [SolarWinds SDK REST reference](https://solarwinds.github.io/OrionSDK/docs/rest/): endpoint introduction and legacy port context.
+- [SAM 2024.2 release advisory](https://documentation.solarwinds.com/en/success_center/sam/content/release_notes/sam_2024-2_release_notes.htm): default 17774 migration and 17778 listener change. Its older deprecation paragraph should be read with that specific advisory.
+- [SDK date-function issue](https://solarwinds.github.io/OrionSDK/docs/swql-functions/possible-issues/): selected-value serialization example and conversion workaround; no predicate comparison experiment or affected-version matrix.
+- [Microsoft DATEADD](https://learn.microsoft.com/en-us/sql/t-sql/functions/dateadd-transact-sql) and [datetimeoffset](https://learn.microsoft.com/en-us/sql/t-sql/data-types/datetimeoffset-transact-sql): arithmetic and timezone type distinctions. These do not establish SWQL provider behavior or add T-SQL syntax to SWQL.
+- [Platform 2026.2 release notes](https://documentation.solarwinds.com/en/success_center/orionplatform/content/release_notes/solarwinds_platform_2026-2_release_notes.htm): product deprecations, separate from schema obsolescence flags.
+- [Platform 2026.2.2 release notes](https://documentation.solarwinds.com/en/success_center/orionplatform/content/release_notes/solarwinds_platform_2026-2-2_release_notes.htm): maintenance-schedule restart fix, case 02159789.
+- [IPAM 4.7 API](https://solarwinds.github.io/OrionSDK/docs/ipam-4-7-api/): historical CRUD restriction and differing verb example.
+- [Cloud monitoring requirements](https://documentation.solarwinds.com/en/success_center/orionplatform/content/core-cloud-requirements.htm): feature-specific prerequisites, including the listed Self-Hosted license for GCP.
+
+Local evidence includes `data/schema/2026.2/`, [data provenance](../../data/README.md),
+[the Makefile](../../Makefile), and the source files linked in the application READMEs.
+No source document's embedded instructions were treated as authorization to execute code.
+
+## Unresolved areas and how to close them
+
+| Area | Evidence still needed |
+| --- | --- |
+| Timestamp semantics | Known event instants, raw timestamps, fixed bounds, and DST boundary tests on the target release/provider |
+| Shared dashboard widgets | Target widget inventory and before/after exported resource comparison, including dashboards outside the import package |
+| SCM policy/profile import | Target-version JSON/YAML acceptance, identity collision tests, assignment and evaluation read-back |
+| NCM/STIG conversion | Full rule semantics and dependency preservation, valid device/config scope, manual-check handling, and evaluation against known passing/failing configs |
+| Device Studio | Export/import acceptance and discovery matching on supported firmware; no published 2026.2 SWIS file import/export contract was established by the earlier audit |
+| Credential deletion | Lab tests for each consumer's deletion guards, cascades, and dangling-reference behavior |
+| IPAM creation limits | Separate CRUD/verb tests for the intended prefix and installed release |
+| UI conventions and licensing | Product-version documentation and target tests; schema presence alone is insufficient |
+| External API templates | Vendor endpoint/auth/schema checks against the actual tenant/version; experimental templates retain that designation |
+
+**Unverified:** these runtime outcomes remain unresolved by this documentation audit.
+The [uncertainty index](unverified.md) retains the narrower per-page questions and probes.
+
+## Validation boundary
+
+The repository's `make check` is the acceptance gate for this change. It checks local
+artifacts and examples, not a connected platform. Review the final audit report for the
+recorded result. Do not translate a green static gate into "tested live" or "all claims
+verified". This update documents application gaps; it does not implement the missing
+importer safeguards or change the shipped applications.
 
 
 ==============================================================================
@@ -64797,7 +64843,7 @@ A named, typed value on an entity, such as `Orion.Nodes.Caption`. Properties are
 down the entity tree, so a member declared on `System.Entity` or `System.ManagedEntity` is
 queryable on every descendant even though it is not listed on that descendant's own page.
 Some are readable but not writable, which `Metadata.Property.CanUpdate` will tell you
-before an update silently changes nothing. See
+before attempting an unsupported update; the flag does not specify its error behavior. See
 [../schema/entity-model.md](../schema/entity-model.md).
 
 ## QoE
@@ -65786,11 +65832,11 @@ FILE: docs/reference/unverified.md
 
 # What this repository does not verify
 
-Everything in these guides was checked against the extracted SolarWinds schema before it was written, and every SWQL statement is re-checked on each build. Some things cannot be checked that way: behaviour that only a running server exhibits, values that are installation data rather than schema, and the handful of places where SolarWinds' own documentation and their published contract disagree.
+This index extracts explicit uncertainty markers from authored pages under docs/. Static schema and example checks do not verify every prose claim, runtime behavior, or compatibility with a particular installation.
 
-The rule is that those say so rather than being asserted quietly or dropped. This page collects every such statement in one place, because an admission is in the right place on its page and the wrong place when you want the whole picture.
+The extractor recognizes selected phrases and explicit labels such as **Unverified:**, **Unknown:**, **Unconfirmed:**, **Not tested:**, and **Runtime validation required:**. It skips generated pages, headings, and fenced code. Absence from this index does not mean a claim is verified; app and script READMEs are outside its collection scope. See [the documentation audit](documentation-audit-2026-09-18.md) for coverage and evidence rules.
 
-**308 statements across 76 pages.**
+**310 statements across 75 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -65817,12 +65863,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - `IsNull(column, 0) <> 0` covers both ways an unused slot can be represented, because whether an empty slot holds `0` or `NULL` is not recorded in the schema.
 
-## [alerts.md](../automation/alerts.md)
-
-**[What is not verified here](../automation/alerts.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [credential-integration.md](../automation/credential-integration.md)
 
 **[`Orion.CredentialRelation` is the mechanism nobody mentions](../automation/credential-integration.md#orioncredentialrelation-is-the-mechanism-nobody-mentions)**
@@ -65837,6 +65877,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Reading it means a verb call per credential — `Orion.SRM.BusinessLayer.GetCredential` is one path, though whether it reports the flag for credentials SRM did not create is **unverified here**.
 
+**[Gotchas](../automation/credential-integration.md#gotchas)**
+
+- **Unverified:** deletion may be rejected, cleaned up, or leave stale references depending on the feature.
+
 ## [credentials.md](../automation/credentials.md)
 
 **[Credential types](../automation/credentials.md#credential-types)**
@@ -65850,6 +65894,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Credentials cannot be read back](../automation/credentials.md#credentials-cannot-be-read-back)**
 
 - What a query against them actually returns is runtime behaviour and is **not verified here**.
+
+**[Never hard-code a secret into a script](../automation/credentials.md#never-hard-code-a-secret-into-a-script)**
+
+- **Unverified:** deletion and cleanup behavior differs by consumer and is not established by the absence of a schema relationship; check references before and after any replacement.
 
 ## [custom-properties.md](../automation/custom-properties.md)
 
@@ -65898,19 +65946,19 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - **Both are unverified here.** Check `Metadata.VerbArgument.XmlTemplate` on your own server.
 
-**[What is not verified here](../automation/discovery.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [events-and-auditing.md](../automation/events-and-auditing.md)
+
+**[`Orion.Events.EventTime` is local](../automation/events-and-auditing.md#orioneventseventtime-is-local)**
+
+- **Unverified:** the time basis exposed by the target provider.
+
+**[`Orion.AuditingEvents.TimeLoggedUtc` is UTC](../automation/events-and-auditing.md#orionauditingeventstimeloggedutc-is-utc)**
+
+- **Unverified:** the source does not establish that the same issue changes predicate evaluation on every release.
 
 **[Down and back up, in one row](../automation/events-and-auditing.md#down-and-back-up-in-one-row)**
 
 - The timezone of `DateTimeFrom` is not documented in the schema, so measure it the same way before building a report on it.
-
-**[What is not verified here](../automation/events-and-auditing.md#what-is-not-verified-here)**
-
-- ## What is not verified here
 
 ## [high-availability.md](../automation/high-availability.md)
 
@@ -66019,6 +66067,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Practical constraints](../automation/reporting.md#practical-constraints)**
 
+- **Mind the timezone functions.** The SDK documents an offset issue with selected `AddX(..., GetUtcDate())` values; its effect on predicates is unverified here.
 - `Orion.AlertHistory.TimeStamp` and `Orion.ResponseTime.DateTime` carry **no documented timezone** and are unverified here, so measure them once on your own server with the `MinuteDiff` probe in [../swql/date-and-time.md](../swql/date-and-time.md#measuring-a-columns-timezone) before you write a narrow window against either.
 
 **[Alert volume by definition](../automation/reporting.md#alert-volume-by-definition)**
@@ -66123,6 +66172,10 @@ Read this before relying on this repository for something load-bearing. If you h
 
 ## [wireless-heatmaps.md](../guides/wireless-heatmaps.md)
 
+**[Wireless heat maps](../guides/wireless-heatmaps.md#wireless-heat-maps)**
+
+- Network Atlas deprecation does not by itself prove equivalent heatmap support in Intelligent Maps; that migration's feature parity is unverified here.
+
 **[Writing it](../guides/wireless-heatmaps.md#writing-it)**
 
 - `fileType` for `InsertFile`, and the `ScaleUnit` byte enumeration, are installation data rather than schema and are **not recorded in the published schema**; both are unverified here.
@@ -66187,19 +66240,11 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - It appears neither in the rendered schema for 2026.2 nor in the Swagger contract for 2026.2, both of which this repository extracts from, so it is **not verified here**.
 
-**[What is not verified here](../modules/cloud.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [dpa.md](../modules/dpa.md)
 
 **[The wait-time entities](../modules/dpa.md#the-wait-time-entities)**
 
 - See the names in NormalizedDataDimension class." That class is not in the extracted data, so treat the exact strings as **unverified** and read them off your own server before hard-coding one:
-
-**[What is not verified here](../modules/dpa.md#what-is-not-verified-here)**
-
-- ## What is not verified here
 
 ## [hardware-health.md](../modules/hardware-health.md)
 
@@ -66216,6 +66261,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Just looking, not claiming](../modules/ipam.md#just-looking-not-claiming)**
 
 - It appears in the rendered schema pages with **no parameters and an unknown return type**, and it is absent from the 2026.2 Swagger contract entirely, so its signature is **unverified here**.
+
+**[Adding a subnet](../modules/ipam.md#adding-a-subnet)**
+
+- **Unverified:** the accepted range on a current release and whether CRUD and verb paths share a limit.
 
 **[Bulk import: the spreadsheet has no verb](../modules/ipam.md#bulk-import-the-spreadsheet-has-no-verb)**
 
@@ -66253,10 +66302,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether an import replaces, merges or skips a rule whose `Id` already exists remains **not stated in the schema and unverified here**.
 
-**[What is not verified here](../modules/log-analyzer.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [ncm-compliance-portability-audit.md](../modules/ncm-compliance-portability-audit.md)
 
 **[Report, policy, rule, and requirement are different identities](../modules/ncm-compliance-portability-audit.md#report-policy-rule-and-requirement-are-different-identities)**
@@ -66281,10 +66326,6 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Import and export through SWIS](../modules/ncm-device-templates.md#import-and-export-through-swis)**
 
 - Which the platform reads when they disagree is **not documented and unverified here** — set both to the same values, and treat the columns as what auto-detection matches on.
-
-**[What this repository has not verified](../modules/ncm-device-templates.md#what-this-repository-has-not-verified)**
-
-- ## What this repository has not verified
 
 ## [ncm.md](../modules/ncm.md)
 
@@ -66335,10 +66376,6 @@ Read this before relying on this repository for something load-bearing. If you h
 - The schema does not say what distinguishes a setting from a property, and no valid names are enumerated, so both are **unverified** in content.
 - Given that the two deployment verbs are `DeployLocalTrafficProbe` and `DeploySpanPortProbe`, it is a reasonable guess that `Mode` distinguishes those two deployment styles, but that is an inference and is **not verified** by the schema.
 
-**[What is not verified here](../modules/qoe.md#what-is-not-verified-here)**
-
-- ## What is not verified here
-
 ## [sam-templates.md](../modules/sam-templates.md)
 
 **[The root is an array](../modules/sam-templates.md#the-root-is-an-array)**
@@ -66370,6 +66407,10 @@ Read this before relying on this repository for something load-bearing. If you h
 - Whether `ImportTemplate` rejects, replaces or duplicates a template whose `UniqueId` already exists is **not documented and unverified here**.
 
 ## [sam.md](../modules/sam.md)
+
+**[Application availability over the last week](../modules/sam.md#application-availability-over-the-last-week)**
+
+- This example assumes UTC for `TimeStamp`; that column's time basis is **unverified here**.
 
 **[Gotchas](../modules/sam.md#gotchas)**
 
@@ -66416,7 +66457,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The profile round trip](../modules/scm.md#the-profile-round-trip)**
 
 - Which format the verb actually expects is **unverified** here; export from your own server and look before hand-writing one.
-- **Unverified:** the internal structure of the exported profile document is not documented in this repository — no real console export was available to parse, so this page cannot give it the field-by-field treatment [sam-templates.md](../modules/sam-templates.md) and [ncm-device-templates.md](../modules/ncm-device-templates.md) give their formats.
+- **Unverified:** live import, identity conflicts, and evaluation behavior still require a target-version export/import/read-back test.
 
 **[Assignment and polling](../modules/scm.md#assignment-and-polling)**
 
@@ -66484,15 +66525,11 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - They are listed in [what is not verified here](../modules/vnqm.md#what-is-not-verified-here) with a query that shows you the observed range on your own server.
 
-**[What is not verified here](../modules/vnqm.md#what-is-not-verified-here)**
+## [architecture.md](../platform/architecture.md)
 
-- ## What is not verified here
+**[The polling job engine](../platform/architecture.md#the-polling-job-engine)**
 
-## [wpm.md](../modules/wpm.md)
-
-**[What is not verified here](../modules/wpm.md#what-is-not-verified-here)**
-
-- ## What is not verified here
+- For engine health, use the following documented metrics; access to other internal scheduling details is unverified here.
 
 ## [modules.md](../platform/modules.md)
 
@@ -66525,10 +66562,6 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Exporting it](../polling/api-poller-unifi-network.md#exporting-it)**
 
 - Until an export is read, **the file-level representation of the substitution is unverified here**, which is the same gap the Citrix sketch is blocked on.
-
-**[What is unverified here](../polling/api-poller-unifi-network.md#what-is-unverified-here)**
-
-- ## What is unverified here
 
 ## [api-poller-vendor-templates.md](../polling/api-poller-vendor-templates.md)
 
@@ -66674,6 +66707,17 @@ Read this before relying on this repository for something load-bearing. If you h
 - And `CredentialID` appears here as well as in the verb's own argument list, with nothing in the schema saying which wins — that is unverified here, so set one deliberately rather than both.
 - `CacheStorageScope` and the fields of `MacroValue` beyond `Key`, `Value`, `Values` and `IsExpandable` are **not described in the published schema** and are unverified here.
 
+## [documentation-audit-2026-09-18.md](documentation-audit-2026-09-18.md)
+
+**[Evidence rules for AI answers](documentation-audit-2026-09-18.md#evidence-rules-for-ai-answers)**
+
+- Use **Unverified:** for a material unresolved claim.
+- Reserve **Unknown:** and **Not tested:** for explicit evidence labels; a status enum named Unknown is not itself an uncertainty claim.
+
+**[Unresolved areas and how to close them](documentation-audit-2026-09-18.md#unresolved-areas-and-how-to-close-them)**
+
+- **Unverified:** these runtime outcomes remain unresolved by this documentation audit.
+
 ## [glossary.md](glossary.md)
 
 **[Element](glossary.md#element)**
@@ -66699,6 +66743,11 @@ Read this before relying on this repository for something load-bearing. If you h
 - Which of the two applies cannot be verified from the schema alone, so ask your own server before concluding they are gone:
 
 ## [status-codes.md](../schema/status-codes.md)
+
+**[The table](../schema/status-codes.md#the-table)**
+
+- 0 — **Unknown** — 495 — Has not been polled yet since being added to the system or coming out of Unmanaged status. For IP SLA operations: when we could not contact the router to collect the results of the IP SLA operation.
+- 19 — **Unconfirmed** — 270 — -
 
 **[Resolving status on a live server](../schema/status-codes.md#resolving-status-on-a-live-server)**
 
@@ -66749,7 +66798,11 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[Where the trap does not reach](../swql/date-and-time.md#where-the-trap-does-not-reach)**
 
-- That reading is an inference from the generated T-SQL above and is **unverified** here.
+- **Unverified:** whether the selected-value issue also affects a particular server-side predicate.
+
+**[Which columns are UTC and which are local](../swql/date-and-time.md#which-columns-are-utc-and-which-are-local)**
+
+- Their time basis is **unverified here** unless a feature-specific source establishes it.
 
 **[`DateTime` literals and parameters](../swql/date-and-time.md#datetime-literals-and-parameters)**
 
@@ -66823,12 +66876,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 - Whether SWIS actually reuses a plan across executions of the same parameterised query is **unverified** here; you can test it on your own server by running the same query with different parameter values and comparing the timings reported by `WITH QUERYSTATS`.
 
-## [README.md](../webui/README.md)
-
-**[A caveat that applies to the whole section](../webui/README.md#a-caveat-that-applies-to-the-whole-section)**
-
-- UI conventions are reported, sourced and marked unverified.
-
 ## [custom-query-call-queries.md](../webui/custom-query-call-queries.md)
 
 **[Call Queries: VNQM call detail widgets](../webui/custom-query-call-queries.md#call-queries-vnqm-call-detail-widgets)**
@@ -66845,7 +66892,6 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[What is not verified here](../webui/custom-query-call-queries.md#what-is-not-verified-here)**
 
-- ## What is not verified here
 - Everything in [the three query boxes](../webui/custom-query-call-queries.md#the-three-query-boxes) about how the widget runs its auto-hide and search queries and substitutes `${SEARCH_STRING}` is reported from practice and **unverified here**; SolarWinds documents the fields but not the behaviour. - That the widget renders a `NULL` link value as plain text is **unverified here**. - The queries validate against the 2026.2 schema bu...
 
 ## [custom-query-widget.md](../webui/custom-query-widget.md)
