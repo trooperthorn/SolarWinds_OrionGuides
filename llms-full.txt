@@ -22895,7 +22895,21 @@ the actual encoding; legacy compatibility behavior needs target-console validati
   config type, source path and a content fingerprint for collision review. Rules carry
   `RuleId`; the later audit finds ten identical shared rules across two reports.
 - `ConfigTypes` restricts which downloaded config type the rules scan (`Any`,
-  `Running`, `Startup`, …). Reports never run against XML-format configs.
+  `Running`, `Startup`, …). The `Favorite` type means the config used as a baseline in
+  NCM 7.8 and earlier.
+- **A policy report cannot be run against a config downloaded in XML format.** That is
+  SolarWinds' own flat statement about the feature, and Palo Alto is the vendor that
+  hits it by default. The failure mode is the dangerous kind: the report imports, caches,
+  and reports no violations, which is indistinguishable from compliance. Confirm the
+  nodes in scope have a text config of the selected type before trusting an empty
+  report.
+- The contract also carries a typed `NodeSelectionCriterias`
+  (`SolarWinds.NCM.Contracts.InformationService.SelectionCriterias`) beside the
+  concatenated `NodeSelectionString`: `SelectionCriteriaType` is one of `AllNodes`,
+  `SelectedNodes`, `WebCriteria` or `DesktopCriteria`, with `AssignedNodesList` for the
+  selected-nodes case and `WebSelectionCriterias` (`Id`, `LogicalCondition`,
+  `SelectedColumn`, `MatchType`, `SelectedValue`) for the picker case. Console exports
+  carry the string form, so match the string when generating import files.
 
 ### PolicyRule — every field, from the samples
 
@@ -22905,13 +22919,14 @@ the actual encoding; legacy compatibility behavior needs target-console validati
 | `RuleName`, `Comments`, `Grouping`, `Owner` | naming and organization |
 | `SimplePatternText` | the pattern, when the rule is simple mode |
 | `PatternType` | `Like` or `Regex` |
+| `Owner` | the rule's author, free text |
 | `PatternMustExist` | `true` = violation when missing; `false` = violation when present |
-| `ErrorLevel` | severity: `0` info, `1` warning, `2` critical |
+| `ErrorLevel` | severity: `0` info, `1` warning, `2` critical. The *names* are editable per server under Settings → All Settings → NCM Settings → Compliance Policy Report Management → Manage Violation Levels, so do not assume a console shows the word "critical" for `2` |
 | `AdvancedMode` | `true` = the test is `MultiLineRulePatterns`, not the simple pattern |
-| `MultiLineRulePatterns` | list of `MultiLineRulePattern` {`Pattern`, `PatternType`, `Criteria`, `Condition`, `BeginBracket`, `EndBracket`} — multi-line/AND-OR matching |
-| `ConfigBlockStart` / `ConfigBlockEnd` / `ConfigBlockPatternType` / `ConfigBlockMustExist` | restrict matching to a config block (e.g. one interface stanza) |
-| `RemediateScript` | Remediation field; some exports store whole STIG narratives here, which are not ready-to-run CLI scripts |
-| `RemediateScriptType` | `CLI`, or a config change template |
+| `MultiLineRulePatterns` | list of `MultiLineRulePattern` — multi-line/AND-OR matching. The contract carries ten members: `Pattern`, `PatternType`, `IsRegEx`, `Criteria`, `Condition`, `BeginBracket`, `EndBracket`, plus `RuleId`, `PatternId` and `FoundMatch`, which the console fills in rather than the author. `Condition` is the `AND`/`OR` joining this pattern to the previous one and the brackets are the grouping parentheses, so `(String1 OR String2) AND String3` is three patterns with a `BeginBracket` on the first and an `EndBracket` on the second |
+| `ConfigBlockStart` / `ConfigBlockEnd` / `ConfigBlockPatternType` / `ConfigBlockMustExist` / `IsConfigBlockPatternRegEx` | restrict matching to a config block (e.g. one interface stanza) |
+| `RemediateScript` | Remediation field; the three original shipped samples carry ready-to-run CLI (`RemediateScriptType` `CLI`) with the STIG's Fix Text, but the [portability audit](ncm-compliance-portability-audit.md)'s 24-file, 415-rule corpus found 413 of them hold prose guidance rather than a script to execute — treat the field's content as unverified per file, not assumed executable |
+| `RemediateScriptType` | `CLI` (commands sent over Telnet/SSH), or a config change template, which runs through the console's template wizard instead |
 | `ExecuteScriptAutomatically` | **the dangerous one** — `true` pushes the remediation to failing devices automatically |
 | `ExecuteRemediationScriptPerBlock`, `ExecuteScriptInConfigMode` | how the script is delivered |
 
@@ -22934,6 +22949,33 @@ entities are read-only. Positional JSON bodies on the REST endpoint.
 | Per-item | `GetPolicy(policyId, exportFlag)` / `GetPolicyRule(ruleId)` / `AddPolicy(policy, importFlag)` / `AddPolicyRule(rule)` |
 | Rule dry run | `TestRule(policyRule, config)` / `TestRuleOnBackedUpConfig(policyRule, configId)` — evaluate an unsaved rule against real config |
 | Activate | `StartCaching(selectedReportsIds)` — an imported report shows nothing until cached; **always pass the specific GUID in the array** (an empty array re-caches every report on the server) |
+| Enable / disable | `UpdateReportStatus(status, selectedReportsIds)` — `status` is the `Enabled`/`Disabled` enum. The field also travels inside the report payload, but this verb is the one that owns it |
+| Undo | `DeletePolicyRules(ruleIds)` / `DeletePolicies(policyIds, deleteChildren)` / `DeletePolicyReports(policyReportIds, deleteChildren)` |
+| Remediation preview | `GenerateRemediationScriptForNodes(nodeIds, reportId, policyId, ruleId, script)` → `{NodeCaption, NodeID, Script}` per node — the per-device expansion of a rule's script template, without running it |
+
+### Patterns, wildcards and testing a rule
+
+Three things about rule patterns are worth knowing before generating them.
+
+- **`Like` patterns are literal by default.** From NCM 2023.1.1 the `*` and `?`
+  wildcards in a simple string pattern only behave as wildcards when the advanced
+  configuration setting `ComplianceRulesWildcardsEnabled` is selected, and it is not
+  selected by default. A generated pattern carrying either character therefore means
+  one thing on a stock server and another on a tuned one. Emitting it as a `Regex` over
+  the escaped literal removes the ambiguity.
+- **Regular expressions are evaluated by the Microsoft .NET engine**, not PCRE, and on
+  a multi-line match NCM reports the *first* line as the violation. A rule written to
+  match exactly the offending line reads far better in the report than one that matches
+  a whole stanza.
+- **`TestRule` is the dry run, and it creates nothing.** `TestRule(policyRule, config)`
+  takes the configuration as text; `TestRuleOnBackedUpConfig(policyRule, configId)`
+  takes the id of a config NCM already holds (`SELECT ConfigID, NodeID, ConfigType,
+  DownloadTime FROM NCM.ConfigArchive`). Both take the same `PolicyRule` contract type
+  `AddPolicyRule` takes, so the wire-format ambiguity below applies to them too, and
+  both need only the WebDownloader role. SolarWinds documents the return as a string
+  and does not document its shape, so treat it as something to read rather than parse.
+  One documented difference between the two: **macros are not expanded for a
+  configuration passed as text**, only for a backed-up config.
 
 Round-trip gotchas:
 
@@ -22973,10 +23015,26 @@ Round-trip gotchas:
   deleteChildren=true)` can rip shared policies out from under other reports —
   default `deleteChildren=false`.
 - `ReportStatus` is the string `Enabled`/`Disabled` in payloads but a boolean in SWQL.
+- **A failed bottom-up import leaves orphans.** Rules are created before the policy that
+  references them and the policy before the report, so a failure at either later step
+  leaves rules in the NCM rules library that nothing points at: invisible in the
+  Compliance view, deleted by nothing, and duplicated by the next attempt. Track the ids
+  as they come back and delete them on failure — with `DeletePolicyRules` and
+  `DeletePolicies`, not `DeletePolicyReports(ids, deleteChildren=true)`, which also
+  reaches children other reports share.
+- **Caching is not only manual.** Beyond `StartCaching` and the console's Update All /
+  Update Selected buttons, the policy cache refreshes daily at 11:55 PM when that job is
+  enabled in Advanced Settings, and a policy report job can be scheduled on a CRON
+  expression. An imported report therefore starts evaluating on its own; import it with
+  `ReportStatus` `Disabled` if it needs review first.
+- Importing an exported definition through the console **does not restore its folder**:
+  the report arrives unassigned to any folder and has to be edited afterwards. The API
+  route sets `Group` directly and does not have this problem.
 - Verify roles per verb rather than inferring them from read/write intent. The published
   2026.2 descriptions for `GetPolicyReport`, `AddPolicyRule`, and `TestRule` name at least
-  WebDownloader when compliance is not restricted to administrators. Target settings
-  and other verbs need their own permission checks.
+  WebDownloader when compliance is not restricted to administrators; the whole compliance
+  verb set can be restricted to admins by a server option, and other verbs need their own
+  permission checks rather than assuming the download/upload split holds everywhere.
 
 ## Porter
 
@@ -29762,10 +29820,15 @@ endpoint; the entity requires `manageNodes` for anything beyond read.
 
 Round-trip gotchas:
 
-- SolarWinds documents that import rejects a policy whose name or unique ID already
-  exists. Preflight both `Name` and `UniqueId`, report the conflict, and preserve the
-  existing policy. Do not treat import as an upsert or automatically delete a collision.
-  [Policy-engine documentation](https://documentation.solarwinds.com/en/success_center/scm/content/scm-monitor-compliance-using-the-scm-policy-engine.htm).
+- `ImportPolicy` always creates; there is no update-by-import. SolarWinds documents
+  that import rejects a policy whose name **or** unique ID already exists
+  ([Policy-engine documentation](https://documentation.solarwinds.com/en/success_center/scm/content/scm-monitor-compliance-using-the-scm-policy-engine.htm)),
+  so both have to be preflighted, not just the name — a generator that derives the
+  uniqueId deterministically from a benchmark will collide on it even after the policy
+  is renamed. The file's `uniqueId` is also how you *recognise* a re-import of the same
+  policy (the `UniqueId` column). Query `Name`/`UniqueId` first, report the conflict,
+  and preserve the existing policy — do not treat import as an upsert or automatically
+  delete a collision.
 - A `builtIn: true` in the file does not make the imported row `BuiltIn` — that column
   is read-only and "true only for policies deployed with the SCM installation"
   (**unverified** for the import path specifically; the column's read-only contract is
@@ -29777,7 +29840,17 @@ Round-trip gotchas:
   `RemediateScript` blocks.
 - Assignment is per node. Nothing evaluates — and `PolicyCompliance` stays empty —
   until the policy is assigned (console: Settings → SCM Settings → Policies) and
-  polled.
+  polled. Once assigned, SolarWinds evaluates an SCM policy **once a day and on
+  demand**, so `PollNowAndEvaluate` is how you avoid waiting a day for a first result.
+- **Disabling a rule is global, never per node.** `Orion.PolicyEngine.Rule.Enabled` is
+  the toggle and `DisableReason` records why, and the console asks for that reason. For
+  generated policies whose rules are manual-review attestations, disabling with a reason
+  is the honest end state for a check an engineer has verified by hand — better than a
+  rule that reports failed forever, and better than deleting it, because the reason
+  stays in the record.
+- `AssignedRule.Status` is `0` unknown, `1` passed, `2` failed, `3` disabled. An
+  unknown status is usually a polling or evaluation error rather than a real result, so
+  read `Orion.PolicyEngine.AssignedRuleError` before reporting it as anything.
 
 ## DISA STIGs, two modules, one repository
 
@@ -40917,6 +40990,14 @@ documents in full. The mapping that works:
   open action item until an engineer writes the real pattern — or a heuristic draft
   pattern lifted from the first config-looking line of the check text, to accelerate
   authoring. Both are honest; silently importing green is not.
+- A drafted pattern carrying `*` or `?` cannot be left as a `Like` pattern. From NCM
+  2023.1.1 those characters are wildcards only when the server's
+  `ComplianceRulesWildcardsEnabled` advanced setting is selected, and it is not
+  selected by default, so the same rule means two different things on two servers.
+  Emit it as a `Regex` over the escaped literal instead.
+- **Check what the STIG's node scope implies.** A policy report cannot evaluate a
+  config downloaded in XML format, which is how Palo Alto devices back up by default,
+  and the result is an empty report rather than an error.
 
 The calls, in order (all on `Cirrus.PolicyReports`, positional JSON bodies). The tiers
 are created bottom-up and linked by ID lists — the one-call nested alternative,
@@ -40934,7 +41015,27 @@ but has been observed in the field creating only the report row over JSON REST:
    checks only that policy/rule counts are nonzero; the audit reproduced a partial tree
    being accepted. Exact verification is a required improvement, not existing behavior.
 6. `StartCaching(selectedReportsIds)` with `[thatGuid]` — the report shows nothing
-   until cached, and an empty array would re-cache every report on the server.
+   until cached, and an empty array would re-cache every report on the server. Skip
+   this and call `UpdateReportStatus('Disabled', [thatGuid])` instead when a large
+   benchmark needs reviewing before it evaluates: the policy cache otherwise refreshes
+   on its own at 11:55 PM daily.
+
+Two things to build in around that sequence, because bottom-up creation is not atomic:
+
+- **Test a rule before importing a hundred of them.**
+  `TestRule(policyRule, config)` evaluates an unsaved rule against configuration text
+  and `TestRuleOnBackedUpConfig(policyRule, configId)` against a config NCM already
+  holds (`SELECT ConfigID, NodeID, ConfigType, DownloadTime FROM NCM.ConfigArchive`).
+  Neither creates anything and both need only WebDownloader. Macros are expanded only
+  on the backed-up-config route.
+- **Roll back a partial import.** Steps 2 to 4 create rules before the policy that
+  references them and the policy before the report, so a failure at step 3 or 4 leaves
+  rules in the library that nothing points at — invisible in the Compliance view and
+  duplicated by the next attempt. Keep the ids as they come back and, on failure,
+  delete them with `DeletePolicyRules(ruleIds)` and
+  `DeletePolicies(policyIds, deleteChildren)` passing `deleteChildren` false, not with
+  `DeletePolicyReports(policyReportIds, deleteChildren)` passing it true, which reaches
+  children other reports share.
 
 ## Path two: server STIGs into SCM
 
@@ -40950,13 +41051,25 @@ the converter's XCCDF ZIP path; select individual policy files until that is imp
 
 The import is one verb, because the file itself is the payload:
 
-1. `SELECT PolicyID FROM Orion.PolicyEngine.Policy WHERE Name = @n` — the verb always
-   creates, so check first.
+1. `SELECT PolicyID, Name, UniqueId FROM Orion.PolicyEngine.Policy WHERE Name = @n OR
+   UniqueId = @u` — the verb always creates, and SolarWinds rejects an import matching
+   an existing policy's name **or** its uniqueId, so check both. A converter that
+   derives the uniqueId from the benchmark collides on it even after a rename, and the
+   server-side rejection is far less legible than a local one.
 2. `Orion.PolicyEngine.Policy.ImportPolicy(yaml)` — the document text verbatim, returns
    the new `PolicyID`.
-3. Assign to nodes (console: Settings → SCM Settings → Policies, or
+3. `SELECT COUNT(RuleID) AS N FROM Orion.PolicyEngine.Rule WHERE PolicyID = @p` — an id
+   coming back is not evidence the rules landed. Read them back the same way the NCM
+   path reads its report back.
+4. Assign to nodes (console: Settings → SCM Settings → Policies, or
    `AssignToEntity(policyId, entityUri, data)` — the URI must be a node) and evaluate
-   with `PollNowAndEvaluate(policyId, entityUri)`.
+   with `PollNowAndEvaluate(policyId, entityUri)`. An assigned policy is otherwise
+   evaluated once a day.
+
+For a converted manual STIG, whose rules are attestations rather than machine checks,
+the end state of a check an engineer has verified by hand is a rule disabled with a
+reason (`Orion.PolicyEngine.Rule.Enabled` and `DisableReason`) rather than one that
+reports failed forever. Disabling is global, never per node.
 
 Audit before importing: the `!scm.powershell` scripts in a policy run on every assigned
 node. Treat a YAML from outside the organisation as executable content.
@@ -40971,16 +41084,24 @@ GUI buildable into a Windows executable:
 ```bash
 python3 apps/disa-stig-conversion-tool/disa_stig_tool.py download U_Cisco_IOS_Router_Y26M07_STIG
 python3 apps/disa-stig-conversion-tool/disa_stig_tool.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip
+python3 apps/disa-stig-conversion-tool/disa_stig_tool.py test U_Cisco_IOS_Router_Y26M07_STIG.zip \
+    --host orion.example.com --user admin --config-id <ConfigID>
 python3 apps/disa-stig-conversion-tool/disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
     --host orion.example.com --user admin
 ```
 
+Its intended safety posture is: nothing auto-executes, name collisions are errors
+rather than merges, caching/evaluation is started for the specific import only, a
+failed import deletes what it created rather than leaving orphaned rules behind, and
+`remove --name … --yes` is the supported way to undo one.
+
 For current serializer and verification limitations, read the
 [implementation findings](../modules/ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter).
-In particular, the XML fallback drops advanced conditions if those are supplied; the
-normal generator currently emits basic rules. Its intended safety posture is: nothing auto-executes, name
-collisions are errors rather than merges, and caching/evaluation is started for the
-specific import only.
+In particular, the XML fallback drops advanced conditions if those are supplied, and the
+normal generator currently emits only basic (sentinel or heuristic) rules rather than
+compiling advanced conditions from DISA prose — the rollback and dry-run additions above
+do not close those gaps, they only make a basic-rule import safer to retry and cheaper to
+check before committing.
 
 
 ==============================================================================

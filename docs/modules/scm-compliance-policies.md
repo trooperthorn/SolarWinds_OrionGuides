@@ -138,10 +138,15 @@ endpoint; the entity requires `manageNodes` for anything beyond read.
 
 Round-trip gotchas:
 
-- SolarWinds documents that import rejects a policy whose name or unique ID already
-  exists. Preflight both `Name` and `UniqueId`, report the conflict, and preserve the
-  existing policy. Do not treat import as an upsert or automatically delete a collision.
-  [Policy-engine documentation](https://documentation.solarwinds.com/en/success_center/scm/content/scm-monitor-compliance-using-the-scm-policy-engine.htm).
+- `ImportPolicy` always creates; there is no update-by-import. SolarWinds documents
+  that import rejects a policy whose name **or** unique ID already exists
+  ([Policy-engine documentation](https://documentation.solarwinds.com/en/success_center/scm/content/scm-monitor-compliance-using-the-scm-policy-engine.htm)),
+  so both have to be preflighted, not just the name — a generator that derives the
+  uniqueId deterministically from a benchmark will collide on it even after the policy
+  is renamed. The file's `uniqueId` is also how you *recognise* a re-import of the same
+  policy (the `UniqueId` column). Query `Name`/`UniqueId` first, report the conflict,
+  and preserve the existing policy — do not treat import as an upsert or automatically
+  delete a collision.
 - A `builtIn: true` in the file does not make the imported row `BuiltIn` — that column
   is read-only and "true only for policies deployed with the SCM installation"
   (**unverified** for the import path specifically; the column's read-only contract is
@@ -153,7 +158,17 @@ Round-trip gotchas:
   `RemediateScript` blocks.
 - Assignment is per node. Nothing evaluates — and `PolicyCompliance` stays empty —
   until the policy is assigned (console: Settings → SCM Settings → Policies) and
-  polled.
+  polled. Once assigned, SolarWinds evaluates an SCM policy **once a day and on
+  demand**, so `PollNowAndEvaluate` is how you avoid waiting a day for a first result.
+- **Disabling a rule is global, never per node.** `Orion.PolicyEngine.Rule.Enabled` is
+  the toggle and `DisableReason` records why, and the console asks for that reason. For
+  generated policies whose rules are manual-review attestations, disabling with a reason
+  is the honest end state for a check an engineer has verified by hand — better than a
+  rule that reports failed forever, and better than deleting it, because the reason
+  stays in the record.
+- `AssignedRule.Status` is `0` unknown, `1` passed, `2` failed, `3` disabled. An
+  unknown status is usually a polling or evaluation error rather than a real result, so
+  read `Orion.PolicyEngine.AssignedRuleError` before reporting it as anything.
 
 ## DISA STIGs, two modules, one repository
 

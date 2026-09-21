@@ -25,7 +25,8 @@ records differences and offline-reproduced limitations. The generated default ru
 - **`disa_stig_tool.ps1`** — Windows PowerShell 5.1+ / PowerShell 7+, built-in .NET
   classes only (no `SwisPowerShell`, no gallery modules). Run it plain for the
   WinForms GUI, or `-Convert -Path <files>` / `-Server … -Path <files>` from the
-  command line.
+  command line. `-ImportDisabled` and `-NoRollback` mirror the Python edition's
+  `--disabled` and `--no-rollback`.
 
 Both GUIs open with a disclaimer — *"This is not built by SolarWinds Inc. or DISA.
 All Code is visible for Code Audit and documentation is available for SWIS calls."* —
@@ -41,7 +42,9 @@ python disa_stig_tool.py          ← no arguments (or a double-click on Windows
 One window: server IP/FQDN + SWIS port, username/password or a **Login with current
 Windows user** checkbox with a **live connection status line** beneath it, a file list
 taking **up to 10 STIG files per batch** (zip, xccdf `.xml`, `.xsl`, SCM
-`.yaml`/`.scm-profile`, or a URL), and the **Compliance target** dropdown. A batch
+`.yaml`/`.scm-profile`, or a URL), the **Compliance target** dropdown, and a
+**Import the NCM report disabled (no caching) so it can be reviewed first** checkbox
+(the CLI's `--disabled` / PowerShell's `-ImportDisabled`). A batch
 imports into **one module only — NCM or SCM, never both**: the first file selected
 locks the module (a notice says so), and files of the other kind are skipped with a
 message rather than misprocessed.
@@ -107,11 +110,33 @@ python3 disa_stig_tool.py download U_Cisco_IOS_Router_Y26M07_STIG
 # 2. See what is inside before touching a server
 python3 disa_stig_tool.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip --rules
 
-# 3. Import: creates the report, its policies and rules, and starts compliance caching
+# 3. Dry-run the generated rules against a real config. Creates nothing on the
+#    server and needs only the WebDownloader role.
 export SWIS_PASSWORD=…
+python3 disa_stig_tool.py test U_Cisco_IOS_Router_Y26M07_STIG.zip \
+    --host orion.example.com --user admin --config-id <ConfigID>
+
+# 4. Import: creates the report, its policies and rules, and starts compliance caching
 python3 disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
     --host orion.example.com --user admin
+
+# and, if it needs undoing
+python3 disa_stig_tool.py remove --name "U_Cisco_IOS_Router_Y26M07_STIG - Cisco_IOS_Router_NDM_STIG" \
+    --host orion.example.com --user admin --yes
 ```
+
+`--disabled` imports the report with `ReportStatus` `Disabled` and skips caching, which
+is what you want for a 92-rule benchmark that still needs tuning: the report exists and
+holds its rules but evaluates nothing until it is switched on. Without it the report
+starts evaluating immediately, and the policy cache refreshes on its own at 11:55 PM
+daily anyway.
+
+`test` takes either `--config-file <path>` (configuration as text) or `--config-id
+<GUID>` (a config NCM already holds — `SELECT ConfigID, NodeID, ConfigType,
+DownloadTime FROM NCM.ConfigArchive ORDER BY DownloadTime DESC`), and `--limit` caps how
+many rules it evaluates (10 by default, `0` for all). Only the backed-up-config route
+expands NCM macros. SolarWinds documents the result as a string without documenting its
+shape, so the tool prints it exactly as the server sent it rather than interpreting it.
 
 Add `--pin-server-cert` to trust the server's own `SolarWinds-Orion` certificate for
 the session (its SHA-256 fingerprint is printed). `convert`/`build` is the offline
@@ -164,7 +189,20 @@ tool is honest about that:
 - **`--mode heuristic`** — seeds each rule with the first config-looking line found in
   the STIG's check text (121 of the 127 Cisco IOS rules get one). These are drafts to
   accelerate rule authoring, not audits — the STIG's examples include sample values
-  (`hostname R1`) that must be reviewed per environment.
+  (`hostname R1`) that must be reviewed per environment. A drafted line containing `*`
+  or `?` is emitted as `PatternType` `Regex` over the escaped literal rather than as a
+  `Like` pattern, because NCM treats those two characters as wildcards only when the
+  server's `ComplianceRulesWildcardsEnabled` advanced setting is on (NCM 2023.1.1 and
+  later, off by default) — a `Like` pattern carrying one would otherwise mean different
+  things on different servers. The escaping is written out explicitly in both editions
+  so they still produce the same bytes.
+
+**Palo Alto and anything else that stores XML.** A policy report cannot be run against
+a configuration downloaded in XML format, which is how Palo Alto devices back up unless
+the config type is changed. The rules import and cache normally and then report nothing
+at all, which reads exactly like compliance, so the tool prints a warning whenever the
+node scope selects those devices. Confirm the nodes have a text config of the selected
+type, or route the benchmark to SCM.
 
 `RuleId` GUIDs are derived deterministically from the DISA rule ID (uuid5), so
 re-importing the same STIG release produces the same rule identities.
@@ -242,7 +280,20 @@ is not accepted by the XCCDF package reader.
   for an operator to review and run per node from the console. The same caution applies
   in reverse to SCM YAML: its `!scm.powershell` scripts run on every assigned node, so
   read them before importing a file from outside the organisation.
-- The importer never updates or deletes: a name collision is an error, not a merge.
+- The importer never updates or deletes an existing report: a name collision is an
+  error, not a merge. `remove --name … --yes` deletes one the tool imported, and leaves
+  its policies and rules alone unless `--delete-children` is given, because that flag
+  also reaches children other reports share.
+- **A failed import cleans up after itself.** The NCM tiers are created bottom-up, so a
+  failure at the policy or report step would otherwise leave every rule already created
+  sitting in the rules library with nothing pointing at it: invisible in the Compliance
+  view, deleted by nothing, and duplicated by the next attempt. The ids are tracked as
+  they come back and deleted in reverse on failure. `--no-rollback` keeps them for
+  diagnosis.
+- **The SCM collision check covers the uniqueId too**, not just the name. SolarWinds
+  rejects an import matching either, and the tool derives the uniqueId deterministically
+  from the benchmark, so a re-import under a new `--name` still collides. Checking
+  locally turns an opaque server error into a legible one.
 - `download` verifies the fetched file is a zip containing at least one XCCDF
   benchmark before reporting success.
 
@@ -264,9 +315,10 @@ My Dashboards → Home → Server Configuration shows per-node, per-rule pass/fa
 
 | Route | Calls, in order |
 | --- | --- |
-| NCM (network STIGs) | Collision check query on `Cirrus.PolicyReports` → wire-format probe with one `AddPolicyRule(rule)` → per report: `AddPolicyRule` per check, `AddPolicy(policy, importFlag)` with the rule-ID list, `AddPolicyReport(report, importFlag)` with the policy-ID list → `GetPolicyReport(reportId, exportFlag)` read-back verification → one `StartCaching([ids])` |
+| NCM (network STIGs) | Collision check query on `Cirrus.PolicyReports` → wire-format probe with one `AddPolicyRule(rule)` → per report: `AddPolicyRule` per check, `AddPolicy(policy, importFlag)` with the rule-ID list, `AddPolicyReport(report, importFlag)` with the policy-ID list → `GetPolicyReport(reportId, exportFlag)` read-back verification → one `StartCaching([ids])`, or `UpdateReportStatus('Disabled', [ids])` with `--disabled`. Any failure in that sequence triggers `DeletePolicyRules` / `DeletePolicies` / `DeletePolicyReports` for what it created |
+| NCM rule dry run (`test`) | Wire-format probe against `TestRule` → `TestRule(rule, configText)` or `TestRuleOnBackedUpConfig(rule, configId)` per rule. Read-only; nothing is created |
 | NCM fallback | Nested `AddPolicyReport(report, importFlag)` in console-export XML; if every wire format is refused, console-importable `.ncm-report.xml` files are written instead |
-| SCM (server STIGs / `.yaml` / `.scm-profile`) | Collision check query on `Orion.PolicyEngine.Policy` → `ImportPolicy(yaml)` per policy |
+| SCM (server STIGs / `.yaml` / `.scm-profile`) | Collision check query on `Orion.PolicyEngine.Policy` by `Name` **and** `UniqueId` → `ImportPolicy(yaml)` per policy → rule-count read-back on `Orion.PolicyEngine.Rule` |
 | Test connection | `Orion.Engines` version query + `Metadata.Entity` counts for the `Cirrus.` and `Orion.PolicyEngine.` namespaces |
 
 Everything the tool needs from the platform, verified against the 2026.2 schema and
@@ -304,6 +356,9 @@ The `Cirrus.Policy*` SWQL entities are read-only; all writes are Invoke verbs on
 | `AddPolicyReport` | `(report, importFlag)` → new report GUID (string) | Last, with `importFlag=false` and `AssignedPoliciesList` carrying the policy GUIDs |
 | `GetPolicyReport` | `(reportId, exportFlag)` with `exportFlag=true` | Read-back verification: the import only reports success once the returned tree holds the expected policies and rules |
 | `StartCaching` | `(selectedReportsIds)` — array of GUID strings | Activation; **always pass the specific GUID** — an empty array re-caches every report on the server |
+| `UpdateReportStatus` | `(status, selectedReportsIds)` — `Enabled`/`Disabled` | `--disabled`: the verb that owns the field, said explicitly rather than trusting the payload to have carried it |
+| `TestRule` / `TestRuleOnBackedUpConfig` | `(policyRule, config)` / `(policyRule, configId)` → string | The `test` command. Creates nothing, needs only WebDownloader, and takes the same contract type `AddPolicyRule` does, so the same wire-format probe applies |
+| `DeletePolicyRules` / `DeletePolicies` / `DeletePolicyReports` | `(ruleIds)` / `(policyIds, deleteChildren)` / `(policyReportIds, deleteChildren)` | Rollback of a failed import, and the `remove` command |
 | `GetPolicy` / `GetPolicyRule` | `(policyId, exportFlag)` / `(ruleId)` | Per-item export |
 
 The tool builds bottom-up (rules → policies → report, linked by ID lists) rather than
@@ -347,12 +402,12 @@ actually filters nodes, e.g. `Criteria: Where ( (Nodes.Vendor = 'Cisco') )`.
 | `RuleId` | string GUID | uuid5 of the DISA rule id (stable across re-imports) |
 | `RuleName`, `Comments`, `Grouping`, `Owner` | string | Name ≤250 chars; comments carry discussion + check text + CCIs |
 | `SimplePatternText` | string | Sentinel or heuristic pattern |
-| `PatternType` | string | `Like` (or `Regex`) |
+| `PatternType` | string | `Like`, or `Regex` when a heuristic pattern carries `*` or `?` (see above). Regular expressions are evaluated by the .NET engine, and NCM reports the first line of a multi-line match as the violation |
 | `PatternMustExist` | boolean | `true` = violation when the pattern is missing |
 | `AdvancedMode` | boolean | `false` — simple pattern, not `MultiLineRulePatterns` |
-| `MultiLineRulePatterns` | array | Empty; members are `{Pattern, PatternType, IsRegEx, Condition, Criteria, BeginBracket, EndBracket}` |
+| `MultiLineRulePatterns` | array | Empty; the contract's ten members are `{Pattern, PatternType, IsRegEx, Condition, Criteria, BeginBracket, EndBracket}` plus `RuleId`, `PatternId` and `FoundMatch`, which the server fills in. `Condition` is the `AND`/`OR` joining a pattern to the previous one and the brackets are the grouping parentheses |
 | `ConfigBlockStart` / `ConfigBlockEnd` / `ConfigBlockPatternType` / `ConfigBlockMustExist` / `IsConfigBlockPatternRegEx` | string/boolean | Unused (`""` / `Like` / `false`) — restricts matching to a config stanza |
-| `ErrorLevel` | number | `0` info, `1` warning, `2` critical |
+| `ErrorLevel` | number | `0` info, `1` warning, `2` critical. The console's *names* for these are editable per server (NCM Settings → Compliance Policy Report Management → Manage Violation Levels), so the words this tool prints may not match what an operator sees |
 | `RemediateScript` | string | The STIG Fix Text |
 | `RemediateScriptType` | string | `CLI` |
 | `ExecuteScriptAutomatically` | boolean | **Always `false`** — `true` pushes remediation to failing devices on its own |
@@ -365,7 +420,7 @@ All verbs live on `Orion.PolicyEngine.Policy`; positional JSON bodies.
 
 | Call | Signature (positional) | Used for |
 | --- | --- | --- |
-| Query | `SELECT PolicyID FROM Orion.PolicyEngine.Policy WHERE Name = @n` | Name-only preflight; add UniqueId checking and full import verification |
+| Query | `SELECT PolicyID, Name, UniqueId, BuiltIn FROM Orion.PolicyEngine.Policy WHERE Name = @n OR UniqueId = @u` | Collision check — `ImportPolicy` always creates, and SolarWinds rejects a match on **either** field |
 | `ImportPolicy` | `(yaml)` → new `PolicyID` (number) | The import; the argument is the `!policy` YAML document text **verbatim** |
 | `ExportPolicy` | `(policyId)` → YAML string | Round-trip/export |
 | `AssignToEntity` | `(policyId, entityUri, data)` | Assignment; the URI must be a Node for SCM policies (`swis://…/Orion/Orion.Nodes/NodeID=42`) |
@@ -375,12 +430,22 @@ All verbs live on `Orion.PolicyEngine.Policy`; positional JSON bodies.
 The tool imports and stops there; assignment and evaluation are console (or
 `AssignToEntity`) steps, because which nodes a STIG applies to is an operator decision.
 
+The tool checks both `Name` and `UniqueId` before importing, then reads the rule count
+back from `Orion.PolicyEngine.Rule`, because `ImportPolicy` returning an id is not by
+itself evidence that the rules landed.
+
 Useful readback entities: `Orion.PolicyEngine.Rule` holds each rule's `DisplayId`
 (the `V-…` number), `Severity` (`100` low / `200` medium / `300` high — the YAML's
 `Low`/`Medium`/`High` words), check/remediation text, and the condition **as YAML text**
 in `ConditionYAML`/`PreconditionYAML`. `Orion.PolicyEngine.AssignedRule.Status` is
 `0` unknown, `1` passed, `2` failed, `3` disabled. `Orion.PolicyEngine.PolicyCompliance`
 is the per-policy rollup for alerting and reporting.
+
+An assigned SCM policy is evaluated once a day and on demand
+(`PollNowAndEvaluate`). For the manual-review rules this tool generates, the end state
+of a check an engineer has verified by hand is a rule **disabled with a reason**
+(`Enabled` plus `DisableReason`) rather than one that reports failed forever — and
+disabling is global, never per node.
 
 ### The policy YAML, in brief
 
