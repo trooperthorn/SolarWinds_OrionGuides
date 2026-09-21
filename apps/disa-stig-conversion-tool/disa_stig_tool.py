@@ -91,6 +91,23 @@ XCCDF_NS = "{http://checklists.nist.gov/xccdf/1.1}"
 
 SEVERITY_TO_ERRORLEVEL = {"high": 2, "medium": 1, "low": 0}
 ERRORLEVEL_NAMES = {2: "critical", 1: "warning", 0: "info"}
+# NCM reads a `Like` pattern literally unless the advanced setting
+# ComplianceRulesWildcardsEnabled is turned on, which it is not by default
+# (NCM 2023.1.1 and later). A pattern carrying * or ? therefore means one thing
+# on a stock server and another on a tuned one, so rules that would be
+# ambiguous are emitted as an escaped Regex instead of a Like.
+WILDCARD_CHARS = "*?"
+# Escaped explicitly rather than with re.escape, because the PowerShell edition
+# has to produce the same bytes and neither re.escape nor [regex]::Escape emits
+# the same set. These are the metacharacters of the .NET engine NCM evaluates
+# regular expressions with.
+REGEX_METACHARACTERS = "\\^$.|?*+()[]{}"
+
+
+def escape_regex(text):
+    """Turn a literal config line into a regex that matches exactly itself."""
+    return "".join(("\\" + ch) if ch in REGEX_METACHARACTERS else ch for ch in text)
+
 
 # Config lines in IOS/NX-OS/JunOS check text tend to open with one of these tokens.
 # Used only by --mode heuristic to seed a draft pattern.
@@ -218,12 +235,17 @@ def scan_scm_policy(text):
     m = re.search(r"^name:\s*(.+)$", text, re.MULTILINE)
     if m:
         name = m.group(1).strip().strip("'\"")
+    unique_id = ""
+    m = re.search(r"^uniqueId:\s*(\S+)", text, re.MULTILINE)
+    if m:
+        unique_id = m.group(1).strip().strip("'\"")
     rules = re.findall(r"^- displayId:\s*(\S+)", text, re.MULTILINE)
     severities = re.findall(r"^\s{2}severity:\s*(\S+)", text, re.MULTILINE)
     counts = {}
     for s in severities:
         counts[s] = counts.get(s, 0) + 1
-    return {"name": name, "rules": rules, "severity_counts": counts}
+    return {"name": name, "uniqueId": unique_id, "rules": rules,
+            "severity_counts": counts}
 
 
 def load_scm_policy(path):
@@ -240,23 +262,54 @@ def load_scm_policy(path):
     return text
 
 
-def import_scm_policy(swis, text):
+def import_scm_policy(swis, text, log=None):
     """Import one SCM policy via Orion.PolicyEngine.Policy.ImportPolicy.
 
-    Returns (policy_id, name). Refuses to import when a same-name policy
-    already exists — this tool never overwrites or duplicates.
+    Returns (policy_id, name). Refuses to import when a policy with the same
+    name **or the same uniqueId** already exists — this tool never overwrites or
+    duplicates, and SolarWinds rejects both collisions server side. Checking the
+    uniqueId matters here because the tool derives it deterministically from the
+    benchmark, so re-importing a STIG under a new --name still collides, and the
+    server-side rejection is far less legible than this one.
+
+    The import is verified by reading the rules back: ImportPolicy returning an
+    id is not by itself evidence that the rules landed.
     """
     info = scan_scm_policy(text)
-    existing = swis.query(
-        "SELECT PolicyID, BuiltIn FROM Orion.PolicyEngine.Policy WHERE Name = @n",
-        {"n": info["name"]}) if info["name"] else []
-    if existing:
-        raise SwisError(f"a policy named \"{info['name']}\" already exists "
-                        f"(PolicyID {existing[0]['PolicyID']}); refusing to duplicate")
+    clauses, params = [], {}
+    if info["name"]:
+        clauses.append("Name = @n")
+        params["n"] = info["name"]
+    if info["uniqueId"]:
+        clauses.append("UniqueId = @u")
+        params["u"] = info["uniqueId"]
+    if clauses:
+        existing = swis.query(
+            "SELECT PolicyID, Name, UniqueId, BuiltIn FROM Orion.PolicyEngine.Policy "
+            "WHERE " + " OR ".join(clauses), params)
+        if existing:
+            hit = existing[0]
+            why = ("the same name" if (hit.get("Name") or "") == info["name"]
+                   else "the same uniqueId")
+            raise SwisError(
+                f"a policy with {why} already exists: \"{hit.get('Name')}\" "
+                f"(PolicyID {hit.get('PolicyID')}, UniqueId {hit.get('UniqueId')}); "
+                "refusing to duplicate. SolarWinds rejects an import that matches "
+                "either field.")
     policy_id = swis.invoke("Orion.PolicyEngine.Policy", "ImportPolicy", text)
     if policy_id is None:
         raise SwisError("No data returned from Orion.PolicyEngine.Policy.ImportPolicy — "
                         "the policy was not created")
+    stored = swis.query("SELECT COUNT(RuleID) AS N FROM Orion.PolicyEngine.Rule "
+                        "WHERE PolicyID = @p", {"p": policy_id})
+    n_stored = (stored[0].get("N") if stored else 0) or 0
+    if not n_stored:
+        raise SwisError(
+            f"No data returned reading rules back for PolicyID {policy_id} — the "
+            "policy row exists but holds no rules, so the import cannot be confirmed. "
+            "Check the account's rights on Orion.PolicyEngine.Policy.")
+    if log:
+        log(f"verified: PolicyID {policy_id} holds {n_stored} rule(s)")
     return policy_id, info["name"]
 
 
@@ -464,6 +517,7 @@ def rule_object(rule, grouping, mode):
     (docs/modules/ncm-compliance-reports.md), not the SWQL column names.
     """
     sentinel = f"STIG-MANUAL-REVIEW-{rule['vuln_id']}"
+    pattern_type = "Like"
     pattern, note = sentinel, (
         "PATTERN NOT SET: this sentinel never matches, so the rule flags every node "
         "as a violation until you replace it with a real pattern for this check."
@@ -475,6 +529,18 @@ def rule_object(rule, grouping, mode):
                 "DRAFT PATTERN extracted automatically from the STIG check text — "
                 "verify it before trusting this rule's results."
             )
+            if any(ch in found for ch in WILDCARD_CHARS):
+                # A Like pattern treats * and ? as wildcards only when the server
+                # has ComplianceRulesWildcardsEnabled turned on, which is off by
+                # default from NCM 2023.1.1. Escaping the text into a Regex makes
+                # the rule mean the same thing on either server.
+                pattern_type = "Regex"
+                pattern = escape_regex(found)
+                note += (" Emitted as an escaped Regex rather than a Like pattern "
+                         "because the extracted text contains * or ?, which a Like "
+                         "pattern only treats as wildcards when the server's "
+                         "ComplianceRulesWildcardsEnabled advanced setting is on "
+                         "(NCM 2023.1.1 and later; off by default).")
 
     comments = "\n\n".join(part for part in (
         f"{rule['vuln_id']} / {rule['rule_id']} / STIG ID {rule['stig_id']}"
@@ -494,7 +560,7 @@ def rule_object(rule, grouping, mode):
         "Comments": comments,
         "Grouping": grouping,
         "SimplePatternText": pattern,
-        "PatternType": "Like",
+        "PatternType": pattern_type,
         "PatternMustExist": True,
         "AdvancedMode": False,
         "MultiLineRulePatterns": [],
@@ -513,6 +579,27 @@ def rule_object(rule, grouping, mode):
         "ExecuteScriptInConfigMode": False,
         "Owner": "DISA STIG Conversion Tool",
     }
+
+
+# SolarWinds documents one flat limit on the whole feature: a policy report
+# cannot be run against a config that was downloaded in XML format. Palo Alto is
+# the vendor that hits it by default, and the failure is silent - the rules
+# import, cache, and then report nothing at all - so it is worth saying out loud
+# before the import rather than after a day of empty results.
+XML_CONFIG_VENDORS = ("palo alto", "paloalto", "panorama")
+
+
+def xml_config_warning(node_where):
+    """A warning string when the node scope selects devices whose configs are XML."""
+    lowered = (node_where or "").lower()
+    if not any(v in lowered for v in XML_CONFIG_VENDORS):
+        return None
+    return ("warning: NCM policy reports cannot be run against configurations "
+            "downloaded in XML format, which is how Palo Alto devices back up unless "
+            "the config type is changed. The report will import and cache normally and "
+            "then report no violations at all, which reads like compliance. Confirm "
+            "those nodes have a text config of the selected type, or route this "
+            "benchmark to SCM instead.")
 
 
 def make_node_selection_string(node_where):
@@ -547,7 +634,7 @@ def make_node_selection_string(node_where):
 
 
 def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vendor = 'Cisco')",
-                  config_type="Any", mode="manual", source_path=None):
+                  config_type="Any", mode="manual", source_path=None, enabled=True):
     """Assemble one PolicyReport contract object per benchmark.
 
     Matching how the console's own exports are structured (one policy per
@@ -586,7 +673,10 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
             "ShowRulesWithoutViolationFlag": True,
             "AssignedPolicies": [policy],
             "AssignedPoliciesList": [policy["PolicyId"]],
-            "ReportStatus": "Enabled",
+            # Disabled is worth having for a large STIG an engineer still has to
+            # tune: the report exists and holds its rules, but evaluates nothing
+            # until it is switched on.
+            "ReportStatus": "Enabled" if enabled else "Disabled",
         })
     return reports
 
@@ -827,6 +917,107 @@ def _verify_report(swis, report_id, expected_policies, expected_rules, log):
     return report_id, len(stored_policies), stored_rules
 
 
+def test_rule(swis, rule, config_text=None, config_id=None, fmt=None):
+    """Evaluate one generated rule against a real configuration, server side.
+
+    ``TestRule(policyRule, config)`` takes the configuration as text and
+    ``TestRuleOnBackedUpConfig(policyRule, configId)`` takes the id of a config
+    NCM already holds. Neither creates anything: this is the console's own
+    "test the rule before you save it" path, and it needs only the WebDownloader
+    role. It is the one way to find out that a generated pattern does what the
+    STIG check text implied before a whole benchmark is imported on the strength
+    of it.
+
+    The rule travels as the same contract type AddPolicyRule takes, so the same
+    wire-format ambiguity applies; ``fmt`` carries the format that worked so the
+    caller can reuse it. Returns (result, fmt).
+
+    SolarWinds documents the return as a string and does not document its
+    shape, so the caller is handed it verbatim rather than parsed. Macros are
+    not expanded for a config passed as text - only the backed-up-config route
+    resolves them.
+    """
+    names = [fmt] if fmt else list(WIRE_FORMATS)
+    rejections = []
+    for name in names:
+        spec = WIRE_FORMATS[name]
+        try:
+            if config_id:
+                result = swis.invoke("Cirrus.PolicyReports", "TestRuleOnBackedUpConfig",
+                                     spec["rule"](rule), config_id)
+            else:
+                result = swis.invoke("Cirrus.PolicyReports", "TestRule",
+                                     spec["rule"](rule), config_text or "")
+            return result, name
+        except SwisError as exc:
+            if "HTTP 400" not in str(exc):
+                raise
+            rejections.append(f"{spec['label']}: {str(exc).splitlines()[-1]}")
+    raise SwisError("this server accepted none of the wire formats for TestRule:\n  "
+                    + "\n  ".join(rejections))
+
+
+def test_reports(swis, reports, config_text=None, config_id=None, limit=10, log=print):
+    """Dry-run the generated rules against one configuration and report back.
+
+    Returns (tested, with_output). Nothing is written to the server.
+    """
+    rules = [r for rep_ in reports for pol in rep_["AssignedPolicies"]
+             for r in pol["AssignedPolicyRules"]]
+    total = len(rules)
+    if limit and limit > 0:
+        rules = rules[:limit]
+    source = f"backed-up config {config_id}" if config_id else "the supplied config text"
+    log(f"testing {len(rules)} of {total} rule(s) against {source} "
+        "(nothing is created on the server) …")
+    fmt = None
+    with_output = 0
+    for rule in rules:
+        result, fmt = test_rule(swis, rule, config_text, config_id, fmt)
+        text = "" if result is None else str(result).strip()
+        if text:
+            with_output += 1
+        first = text.splitlines()[0][:160] if text else "(no output)"
+        log(f"  {rule['RuleName'][:70]} -> {first}")
+    log(f"{len(rules)} rule(s) tested, {with_output} returned output. "
+        "SolarWinds does not document the shape of the TestRule result, so it is "
+        "echoed above exactly as the server sent it and not interpreted here.")
+    return len(rules), with_output
+
+
+def rollback_ncm(swis, rule_ids, policy_ids, report_id, log):
+    """Undo a partial bottom-up import.
+
+    A STIG report is built from the bottom up, so a failure at the policy or
+    report step leaves every rule already created sitting in the NCM rules
+    library with nothing pointing at it. They are invisible in the Compliance
+    view, they are not deleted by anything, and the next attempt at the same
+    STIG adds a second full set. Deleting them explicitly, newest level first,
+    is the only way back to the state before the import.
+
+    Children are removed by their own verbs rather than with
+    ``DeletePolicyReports(ids, deleteChildren=true)``, because that flag also
+    reaches policies and rules that other reports share.
+    """
+    def drop(verb, *args):
+        try:
+            swis.invoke("Cirrus.PolicyReports", verb, *args)
+            return True
+        except SwisError as exc:
+            log(f"rollback: {verb} failed, clean up by hand - {exc}")
+            return False
+
+    if report_id:
+        log(f"rollback: deleting report {report_id}")
+        drop("DeletePolicyReports", [report_id], False)
+    if policy_ids:
+        log(f"rollback: deleting {len(policy_ids)} policy/policies")
+        drop("DeletePolicies", policy_ids, False)
+    if rule_ids:
+        log(f"rollback: deleting {len(rule_ids)} rule(s)")
+        drop("DeletePolicyRules", rule_ids)
+
+
 class NcmWireError(SwisError):
     """No wire format the server accepts was found. Carries a console-importable
     XML file body so the caller can save it and finish the import through the
@@ -837,7 +1028,7 @@ class NcmWireError(SwisError):
         self.console_xml = console_xml
 
 
-def import_ncm_report(swis, report, log=print):
+def import_ncm_report(swis, report, log=print, rollback=True):
     """Import the report, probing how this server accepts the NCM contract types.
 
     The JSON endpoint's handling of SolarWinds.NCM.Contracts.Compliance.*
@@ -852,6 +1043,10 @@ def import_ncm_report(swis, report, log=print):
 
     The result is verified by reading the report back before caching starts.
     Returns (report_id, policy_count, rule_count) as confirmed by the read-back.
+
+    ``rollback`` deletes whatever the failed attempt managed to create, so a
+    half-built import does not leave orphaned rules behind. Pass False to keep
+    them for diagnosis.
     """
     probe_rule = report["AssignedPolicies"][0]["AssignedPolicyRules"][0]
     fmt = None
@@ -872,7 +1067,7 @@ def import_ncm_report(swis, report, log=print):
             log(f"server rejected {spec['label']}; trying the next wire format …")
     if fmt:
         return _import_ncm_bottom_up(swis, report, log, WIRE_FORMATS[fmt],
-                                     first_rule_id)
+                                     first_rule_id, rollback)
 
     log("no per-item wire format accepted; trying one nested AddPolicyReport "
         "in the console-export format …")
@@ -897,39 +1092,51 @@ def import_ncm_report(swis, report, log=print):
         '<?xml version="1.0" encoding="utf-16"?>' + report_contract_xml(report))
 
 
-def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id):
+def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True):
     policy_ids = []
-    total_rules = 0
+    all_rule_ids = [first_rule_id]
+    report_id = ""
     first = True
-    for policy in report["AssignedPolicies"]:
-        rules = policy["AssignedPolicyRules"]
-        log(f"creating {len(rules)} rules for policy \"{policy['PolicyName']}\" …")
-        rule_ids = []
-        for i, rule in enumerate(rules, 1):
-            if first:
-                # The probe already created this rule.
-                rule_ids.append(first_rule_id)
-                first = False
-                continue
-            result = swis.invoke("Cirrus.PolicyReports", "AddPolicyRule",
-                                 spec["rule"](rule))
-            rule_ids.append(_clean_id(result, rule["RuleId"]))
-            if i % 25 == 0:
-                log(f"  {i}/{len(rules)} rules created")
-        total_rules += len(rule_ids)
+    try:
+        for policy in report["AssignedPolicies"]:
+            rules = policy["AssignedPolicyRules"]
+            log(f"creating {len(rules)} rules for policy \"{policy['PolicyName']}\" …")
+            rule_ids = []
+            for i, rule in enumerate(rules, 1):
+                if first:
+                    # The probe already created this rule.
+                    rule_ids.append(first_rule_id)
+                    first = False
+                    continue
+                result = swis.invoke("Cirrus.PolicyReports", "AddPolicyRule",
+                                     spec["rule"](rule))
+                new_rule_id = _clean_id(result, rule["RuleId"])
+                rule_ids.append(new_rule_id)
+                all_rule_ids.append(new_rule_id)
+                if i % 25 == 0:
+                    log(f"  {i}/{len(rules)} rules created")
 
-        result = swis.invoke("Cirrus.PolicyReports", "AddPolicy",
-                             spec["policy"](policy, rule_ids), False)
-        policy_ids.append(_clean_id(result, policy["PolicyId"]))
-        log(f"created policy \"{policy['PolicyName']}\" with {len(rule_ids)} rules")
+            result = swis.invoke("Cirrus.PolicyReports", "AddPolicy",
+                                 spec["policy"](policy, rule_ids), False)
+            policy_ids.append(_clean_id(result, policy["PolicyId"]))
+            log(f"created policy \"{policy['PolicyName']}\" with {len(rule_ids)} rules")
 
-    report_id = _clean_id(
-        swis.invoke("Cirrus.PolicyReports", "AddPolicyReport",
-                    spec["report"](report, policy_ids), False), "")
-    if not report_id:
-        raise SwisError("AddPolicyReport did not return the new report id")
+        report_id = _clean_id(
+            swis.invoke("Cirrus.PolicyReports", "AddPolicyReport",
+                        spec["report"](report, policy_ids), False), "")
+        if not report_id:
+            raise SwisError("AddPolicyReport did not return the new report id")
 
-    return _verify_report(swis, report_id, len(policy_ids), total_rules, log)
+        return _verify_report(swis, report_id, len(policy_ids), len(all_rule_ids), log)
+    except SwisError:
+        if rollback:
+            log("import failed part way through; removing what it created …")
+            rollback_ncm(swis, all_rule_ids, policy_ids, report_id, log)
+        else:
+            log(f"import failed part way through; {len(all_rule_ids)} rule(s) and "
+                f"{len(policy_ids)} policy/policies were left on the server "
+                "(--no-rollback)")
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -1152,7 +1359,7 @@ def make_reports_from_args(args, benchmarks, node_where):
     return build_reports(
         benchmarks, name=args.name, grouping=args.grouping,
         node_where=node_where, config_type=args.config_type, mode=args.mode,
-        source_path=args.path,
+        source_path=args.path, enabled=not getattr(args, "disabled", False),
     )
 
 
@@ -1178,6 +1385,9 @@ def cmd_build(args):
             print(f"wrote {out}: SCM policy \"{b['title']}\" — {len(b['rules'])} rules")
         print("import with:  disa_stig_tool.py import <same source> --target server …")
         return
+    warning = xml_config_warning(info)
+    if warning:
+        print(warning)
     reports = make_reports_from_args(args, benchmarks, info)
     for report in reports:
         out = write_console_file(report)
@@ -1193,15 +1403,22 @@ def import_scm_benchmarks(swis, benchmarks, os_info, log=print):
     os_name, swql = os_info
     for b in benchmarks:
         yaml_text = xccdf_to_scm_yaml(b)
-        policy_id, name = import_scm_policy(swis, yaml_text)
+        policy_id, name = import_scm_policy(swis, yaml_text, log=log)
         log(f"imported SCM policy \"{name}\" (PolicyID {policy_id}) — "
             f"{len(b['rules'])} manual-review rules")
     log(f"Assign to your {os_name} nodes under Settings → SCM Settings → Policies "
         "(or Orion.PolicyEngine.Policy.AssignToEntity). Find them with:")
     log(f"  SELECT NodeID, Caption, MachineType FROM Orion.Nodes WHERE {swql}")
+    log("SCM evaluates an assigned policy once a day and on demand "
+        "(Orion.PolicyEngine.Policy.PollNowAndEvaluate). Until an engineer has "
+        "verified a check, disable that rule in the console with a reason rather "
+        "than leaving it failing: the reason is stored in "
+        "Orion.PolicyEngine.Rule.DisableReason, and disabling is global, never "
+        "per node.")
 
 
-def cmd_import(args):
+def connect(args):
+    """Build a SwisClient from the shared connection arguments."""
     password = os.environ.get("SWIS_PASSWORD") or getpass.getpass(f"password for {args.user}: ")
     register_secret(password)
     pinned = None
@@ -1209,12 +1426,68 @@ def cmd_import(args):
         pinned, fingerprint, stock = fetch_server_cert(args.host, args.port)
         print(f"pinned the server certificate — SHA-256 {fingerprint}"
               + (" (stock SolarWinds-Orion certificate)" if stock else ""))
-    swis = SwisClient(args.host, args.user, password, port=args.port,
+    return SwisClient(args.host, args.user, password, port=args.port,
                       verify=not args.insecure, ca_file=args.ca_file, pinned_pem=pinned)
+
+
+def cmd_test(args):
+    """Evaluate the generated rules against a real config without importing."""
+    if is_scm_path(args.path):
+        sys.exit("error: rule testing is an NCM feature; an SCM policy has no "
+                 "equivalent server-side dry run. Import it and use "
+                 "Orion.PolicyEngine.Policy.PollNowAndEvaluate against one node.")
+    config_text = None
+    if args.config_file:
+        with open(args.config_file, encoding="utf-8", errors="replace") as fh:
+            config_text = fh.read()
+    if not config_text and not args.config_id:
+        sys.exit("error: give --config-file <path> or --config-id <NCM config GUID>. "
+                 "Find one with: SELECT ConfigID, NodeID, ConfigType, DownloadTime "
+                 "FROM NCM.ConfigArchive ORDER BY DownloadTime DESC")
+    swis = connect(args)
+    benchmarks = load_benchmarks(args.path)
+    kind, info, note = resolve_route(args.target, benchmarks,
+                                     os.path.basename(args.path), args.node_where)
+    print(note)
+    if kind == "server":
+        sys.exit("error: this benchmark routes to SCM, which has no TestRule verb. "
+                 "Force NCM with --target network if you meant to test it there.")
+    reports = make_reports_from_args(args, benchmarks, info)
+    test_reports(swis, reports, config_text=config_text, config_id=args.config_id,
+                 limit=args.limit)
+
+
+def cmd_remove(args):
+    """Delete an imported policy report, the supported way to undo an import."""
+    swis = connect(args)
+    found = swis.query("SELECT PolicyReportID, Name, Grouping FROM Cirrus.PolicyReports "
+                       "WHERE Name = @n", {"n": args.name})
+    if not found:
+        sys.exit(f"error: no policy report named \"{args.name}\" on this server")
+    ids = [r["PolicyReportID"] for r in found]
+    print(f"about to delete {len(ids)} report(s) named \"{args.name}\""
+          + (" together with their policies and rules" if args.delete_children
+             else " (policies and rules are left in place)"))
+    if args.delete_children:
+        print("note: --delete-children also removes policies and rules that other "
+              "reports may share.")
+    if not args.yes:
+        sys.exit("refusing to delete without --yes")
+    swis.invoke("Cirrus.PolicyReports", "DeletePolicyReports", ids, args.delete_children)
+    left = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
+                      {"n": args.name})
+    if left:
+        sys.exit(f"error: {len(left)} report(s) named \"{args.name}\" still exist "
+                 "after DeletePolicyReports")
+    print(f"deleted {len(ids)} report(s).")
+
+
+def cmd_import(args):
+    swis = connect(args)
 
     if is_scm_path(args.path):
         text = load_scm_policy(args.path)
-        policy_id, name = import_scm_policy(swis, text)
+        policy_id, name = import_scm_policy(swis, text, log=print)
         print(f"imported SCM policy \"{name}\" (PolicyID {policy_id}).")
         print("Assign it to nodes under Settings → SCM Settings → Policies, or via "
               "Orion.PolicyEngine.Policy.AssignToEntity.")
@@ -1228,21 +1501,26 @@ def cmd_import(args):
         import_scm_benchmarks(swis, benchmarks, info)
         return
 
+    warning = xml_config_warning(info)
+    if warning:
+        print(warning)
     reports = make_reports_from_args(args, benchmarks, info)
     for report in reports:
         existing = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
                               {"n": report["Name"]})
         if existing:
             sys.exit(f"error: a report named \"{report['Name']}\" already exists "
-                     f"({existing[0]['PolicyReportID']}). Rename with --name, or delete it "
-                     "first — this tool never overwrites.")
+                     f"({existing[0]['PolicyReportID']}). Rename with --name, delete it "
+                     f"with \"remove --name\", or remove it in the console — this tool "
+                     "never overwrites.")
 
     new_ids = []
     for report in reports:
         n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
         print(f"importing \"{report['Name']}\" — {n_rules} rules …")
         try:
-            new_id, _n_pol, n_rul = import_ncm_report(swis, report)
+            new_id, _n_pol, n_rul = import_ncm_report(
+                swis, report, rollback=not args.no_rollback)
         except NcmWireError as exc:
             print(f"error: {exc}")
             for rep in reports:
@@ -1252,6 +1530,22 @@ def cmd_import(args):
         new_ids.append(new_id)
         print(f"imported: \"{report['Name']}\" ({new_id}) — {n_rul} rules")
 
+    if args.disabled:
+        # ReportStatus travels in the payload, but UpdateReportStatus is the verb
+        # that owns the field, so say it explicitly rather than trusting the
+        # import to have carried it.
+        swis.invoke("Cirrus.PolicyReports", "UpdateReportStatus", "Disabled", new_ids)
+        stored = swis.query("SELECT Name, ReportStatus FROM Cirrus.PolicyReports "
+                            "WHERE PolicyReportID IN @ids", {"ids": new_ids})
+        still_on = [r["Name"] for r in stored if r.get("ReportStatus")]
+        if still_on:
+            print("warning: still enabled after UpdateReportStatus: "
+                  + ", ".join(still_on))
+        else:
+            print(f"{len(new_ids)} report(s) imported Disabled and not cached. Enable "
+                  "them in the console, or with UpdateReportStatus('Enabled', [ids]), "
+                  "once the rules have been reviewed.")
+        return
     if args.no_cache:
         print("compliance caching not started (--no-cache); the reports show no data until "
               "you run Update Violations in the console or invoke StartCaching.")
@@ -1259,7 +1553,8 @@ def cmd_import(args):
     # Always pass the specific GUIDs: an empty array would re-cache every report.
     swis.invoke("Cirrus.PolicyReports", "StartCaching", new_ids)
     print(f"compliance caching started for {len(new_ids)} report(s). Watch them under "
-          "My Dashboards → Network Configuration → Compliance.")
+          "My Dashboards → Network Configuration → Compliance. The policy cache also "
+          "refreshes on its own at 11:55 PM daily when that job is enabled.")
 
 
 def add_source_args(p):
@@ -1278,6 +1573,23 @@ def add_source_args(p):
     p.add_argument("--mode", choices=("manual", "heuristic"), default="manual",
                    help="manual: sentinel patterns, every rule flags for review (default). "
                         "heuristic: seed draft patterns from the STIG check text.")
+    p.add_argument("--disabled", action="store_true",
+                   help="create the NCM report with ReportStatus Disabled and skip "
+                        "caching, so a large benchmark can be reviewed and tuned "
+                        "before it starts evaluating")
+
+
+def add_connection_args(p):
+    p.add_argument("--host", required=True)
+    p.add_argument("--user", required=True)
+    p.add_argument("--port", type=int, default=DEFAULT_PORT)
+    p.add_argument("--ca-file", help="CA bundle that signs the SWIS certificate")
+    p.add_argument("--pin-server-cert", action="store_true",
+                   help="fetch the server's certificate (the stock self-signed "
+                        "'SolarWinds-Orion' one), print its SHA-256 fingerprint, and "
+                        "verify this session against exactly that certificate")
+    p.add_argument("--insecure", action="store_true",
+                   help="skip TLS verification (lab only)")
 
 
 
@@ -1479,6 +1791,11 @@ class App:
                                    "heuristic — draft patterns from the STIG check text"))
         box.current(0)
         box.grid(row=2, column=1, sticky="w", **pad)
+        self.import_disabled = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            opts, variable=self.import_disabled,
+            text="Import the NCM report disabled (no caching) so it can be reviewed first"
+        ).grid(row=3, column=1, sticky="w", **pad)
 
         # --- actions (tk.Buttons so completion colors show) -------------------
         btns = ttk.Frame(frame)
@@ -1772,7 +2089,8 @@ class App:
                 self._summary_line(f"{prefix} {os.path.basename(path)} is already an "
                                    "importable SCM policy — nothing to convert")
                 return True
-            policy_id, name = import_scm_policy(swis, load_scm_policy(path))
+            policy_id, name = import_scm_policy(swis, load_scm_policy(path),
+                                                log=self._log)
             self._summary_line(f"SUCCESS {prefix} \"{name}\" (PolicyID {policy_id})",
                                "success")
             return True
@@ -1788,7 +2106,8 @@ class App:
                 self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
                                    f"{len(b['rules'])} rules", "success")
             else:
-                policy_id, name = import_scm_policy(swis, xccdf_to_scm_yaml(b))
+                policy_id, name = import_scm_policy(swis, xccdf_to_scm_yaml(b),
+                                                    log=self._log)
                 self._summary_line(f"SUCCESS {prefix} \"{name}\" "
                                    f"(PolicyID {policy_id}) — {len(b['rules'])} "
                                    "manual-review rules", "success")
@@ -1799,9 +2118,14 @@ class App:
         info = self._resolve_ncm_where(benchmarks, os.path.basename(path))
         if not isinstance(info, str):   # forced-server info tuple can't reach here
             info = node_where_for(None)
+        warning = xml_config_warning(info)
+        if warning:
+            self._summary_line(f"{prefix} {warning}", "warn")
+            self._show_issue()
         mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
+        enabled = not self.import_disabled.get()
         reports = build_reports(benchmarks, node_where=info, mode=mode,
-                                source_path=os.path.basename(path))
+                                source_path=os.path.basename(path), enabled=enabled)
         folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
                                                     os.W_OK) else tempfile.gettempdir()
         if offline:
@@ -1837,7 +2161,11 @@ class App:
             new_ids.append(new_id)
             self._summary_line(f"SUCCESS {prefix} \"{report['Name']}\" — {n_rul} rules",
                                "success")
-        if new_ids:
+        if new_ids and not enabled:
+            swis.invoke("Cirrus.PolicyReports", "UpdateReportStatus", "Disabled", new_ids)
+            self._log(f"{prefix} {len(new_ids)} report(s) imported disabled; enable them "
+                      "in the console once the rules have been reviewed")
+        elif new_ids:
             swis.invoke("Cirrus.PolicyReports", "StartCaching", new_ids)
             self._log(f"{prefix} compliance caching started for {len(new_ids)} report(s)")
         return not partial
@@ -1888,23 +2216,38 @@ def main():
 
     imp = sub.add_parser("import", help="import into NCM via SWIS and start caching")
     add_source_args(imp)
-    imp.add_argument("--host", required=True)
-    imp.add_argument("--user", required=True)
-    imp.add_argument("--port", type=int, default=DEFAULT_PORT)
-    imp.add_argument("--ca-file", help="CA bundle that signs the SWIS certificate")
-    imp.add_argument("--pin-server-cert", action="store_true",
-                     help="fetch the server's certificate (the stock self-signed "
-                          "'SolarWinds-Orion' one), print its SHA-256 fingerprint, and "
-                          "verify this session against exactly that certificate")
-    imp.add_argument("--insecure", action="store_true",
-                     help="skip TLS verification (lab only)")
+    add_connection_args(imp)
     imp.add_argument("--no-cache", action="store_true",
                      help="import but do not start compliance caching")
+    imp.add_argument("--no-rollback", action="store_true",
+                     help="on a failed import, leave the rules and policies it "
+                          "already created on the server instead of deleting them")
+
+    tst = sub.add_parser("test", help="evaluate the generated rules against a real "
+                                      "config, server side, without importing anything")
+    add_source_args(tst)
+    add_connection_args(tst)
+    tst.add_argument("--config-file", help="a device configuration saved to a local file")
+    tst.add_argument("--config-id",
+                     help="ConfigID of a config NCM already holds (SELECT ConfigID, "
+                          "NodeID, ConfigType, DownloadTime FROM NCM.ConfigArchive). "
+                          "This route resolves NCM macros; pasted text does not.")
+    tst.add_argument("--limit", type=int, default=10,
+                     help="how many rules to test (default 10, 0 for all)")
+
+    rm = sub.add_parser("remove", help="delete an imported policy report by name")
+    add_connection_args(rm)
+    rm.add_argument("--name", required=True, help="exact report name")
+    rm.add_argument("--delete-children", action="store_true",
+                    help="also delete the report's policies and rules, including any "
+                         "shared with other reports")
+    rm.add_argument("--yes", action="store_true", help="confirm the deletion")
 
     args = top.parse_args()
     try:
         {"download": cmd_download, "parse": cmd_parse, "build": cmd_build,
-         "convert": cmd_build, "import": cmd_import}[args.cmd](args)
+         "convert": cmd_build, "import": cmd_import, "test": cmd_test,
+         "remove": cmd_remove}[args.cmd](args)
     except (ValueError, OSError, SwisError) as exc:
         sys.exit(redact(f"error: {exc}"))
 

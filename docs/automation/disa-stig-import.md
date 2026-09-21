@@ -100,6 +100,14 @@ documents in full. The mapping that works:
   open action item until an engineer writes the real pattern — or a heuristic draft
   pattern lifted from the first config-looking line of the check text, to accelerate
   authoring. Both are honest; silently importing green is not.
+- A drafted pattern carrying `*` or `?` cannot be left as a `Like` pattern. From NCM
+  2023.1.1 those characters are wildcards only when the server's
+  `ComplianceRulesWildcardsEnabled` advanced setting is selected, and it is not
+  selected by default, so the same rule means two different things on two servers.
+  Emit it as a `Regex` over the escaped literal instead.
+- **Check what the STIG's node scope implies.** A policy report cannot evaluate a
+  config downloaded in XML format, which is how Palo Alto devices back up by default,
+  and the result is an empty report rather than an error.
 
 The calls, in order (all on `Cirrus.PolicyReports`, positional JSON bodies). The tiers
 are created bottom-up and linked by ID lists — the one-call nested alternative,
@@ -117,7 +125,27 @@ but has been observed in the field creating only the report row over JSON REST:
    checks only that policy/rule counts are nonzero; the audit reproduced a partial tree
    being accepted. Exact verification is a required improvement, not existing behavior.
 6. `StartCaching(selectedReportsIds)` with `[thatGuid]` — the report shows nothing
-   until cached, and an empty array would re-cache every report on the server.
+   until cached, and an empty array would re-cache every report on the server. Skip
+   this and call `UpdateReportStatus('Disabled', [thatGuid])` instead when a large
+   benchmark needs reviewing before it evaluates: the policy cache otherwise refreshes
+   on its own at 11:55 PM daily.
+
+Two things to build in around that sequence, because bottom-up creation is not atomic:
+
+- **Test a rule before importing a hundred of them.**
+  `TestRule(policyRule, config)` evaluates an unsaved rule against configuration text
+  and `TestRuleOnBackedUpConfig(policyRule, configId)` against a config NCM already
+  holds (`SELECT ConfigID, NodeID, ConfigType, DownloadTime FROM NCM.ConfigArchive`).
+  Neither creates anything and both need only WebDownloader. Macros are expanded only
+  on the backed-up-config route.
+- **Roll back a partial import.** Steps 2 to 4 create rules before the policy that
+  references them and the policy before the report, so a failure at step 3 or 4 leaves
+  rules in the library that nothing points at — invisible in the Compliance view and
+  duplicated by the next attempt. Keep the ids as they come back and, on failure,
+  delete them with `DeletePolicyRules(ruleIds)` and
+  `DeletePolicies(policyIds, deleteChildren)` passing `deleteChildren` false, not with
+  `DeletePolicyReports(policyReportIds, deleteChildren)` passing it true, which reaches
+  children other reports share.
 
 ## Path two: server STIGs into SCM
 
@@ -133,13 +161,25 @@ the converter's XCCDF ZIP path; select individual policy files until that is imp
 
 The import is one verb, because the file itself is the payload:
 
-1. `SELECT PolicyID FROM Orion.PolicyEngine.Policy WHERE Name = @n` — the verb always
-   creates, so check first.
+1. `SELECT PolicyID, Name, UniqueId FROM Orion.PolicyEngine.Policy WHERE Name = @n OR
+   UniqueId = @u` — the verb always creates, and SolarWinds rejects an import matching
+   an existing policy's name **or** its uniqueId, so check both. A converter that
+   derives the uniqueId from the benchmark collides on it even after a rename, and the
+   server-side rejection is far less legible than a local one.
 2. `Orion.PolicyEngine.Policy.ImportPolicy(yaml)` — the document text verbatim, returns
    the new `PolicyID`.
-3. Assign to nodes (console: Settings → SCM Settings → Policies, or
+3. `SELECT COUNT(RuleID) AS N FROM Orion.PolicyEngine.Rule WHERE PolicyID = @p` — an id
+   coming back is not evidence the rules landed. Read them back the same way the NCM
+   path reads its report back.
+4. Assign to nodes (console: Settings → SCM Settings → Policies, or
    `AssignToEntity(policyId, entityUri, data)` — the URI must be a node) and evaluate
-   with `PollNowAndEvaluate(policyId, entityUri)`.
+   with `PollNowAndEvaluate(policyId, entityUri)`. An assigned policy is otherwise
+   evaluated once a day.
+
+For a converted manual STIG, whose rules are attestations rather than machine checks,
+the end state of a check an engineer has verified by hand is a rule disabled with a
+reason (`Orion.PolicyEngine.Rule.Enabled` and `DisableReason`) rather than one that
+reports failed forever. Disabling is global, never per node.
 
 Audit before importing: the `!scm.powershell` scripts in a policy run on every assigned
 node. Treat a YAML from outside the organisation as executable content.
@@ -154,13 +194,21 @@ GUI buildable into a Windows executable:
 ```bash
 python3 apps/disa-stig-conversion-tool/disa_stig_tool.py download U_Cisco_IOS_Router_Y26M07_STIG
 python3 apps/disa-stig-conversion-tool/disa_stig_tool.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip
+python3 apps/disa-stig-conversion-tool/disa_stig_tool.py test U_Cisco_IOS_Router_Y26M07_STIG.zip \
+    --host orion.example.com --user admin --config-id <ConfigID>
 python3 apps/disa-stig-conversion-tool/disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
     --host orion.example.com --user admin
 ```
 
+Its intended safety posture is: nothing auto-executes, name collisions are errors
+rather than merges, caching/evaluation is started for the specific import only, a
+failed import deletes what it created rather than leaving orphaned rules behind, and
+`remove --name … --yes` is the supported way to undo one.
+
 For current serializer and verification limitations, read the
 [implementation findings](../modules/ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter).
-In particular, the XML fallback drops advanced conditions if those are supplied; the
-normal generator currently emits basic rules. Its intended safety posture is: nothing auto-executes, name
-collisions are errors rather than merges, and caching/evaluation is started for the
-specific import only.
+In particular, the XML fallback drops advanced conditions if those are supplied, and the
+normal generator currently emits only basic (sentinel or heuristic) rules rather than
+compiling advanced conditions from DISA prose — the rollback and dry-run additions above
+do not close those gaps, they only make a basic-rule import safer to retry and cheaper to
+check before committing.
