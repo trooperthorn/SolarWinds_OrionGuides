@@ -66543,7 +66543,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The SWIS round trip (2026.2, verified)](../modules/scm-compliance-policies.md#the-swis-round-trip-20262-verified)**
 
 - Assign — `AssignToEntity(policyId, entityUri, data)` — `entityUri` is a SWIS URI, and "For SCM policies it needs to be a Node"; `data` is "optional additional data" with no documented content — **unverified**, observe the console's own call before composing one
-- [Policy-engine documentation](https://documentation.solarwinds.com/en/success_center/scm/content/scm-monitor-compliance-using-the-scm-policy-engine.htm). - A `builtIn: true` in the file does not make the imported row `BuiltIn` — that column is read-only and "true only for policies deployed with the SCM installation" (**unverified** for the import path specifically; the column's read-only contra...
+- Query `Name`/`UniqueId` first, report the conflict, and preserve the existing policy — do not treat import as an upsert or automatically delete a collision. - A `builtIn: true` in the file does not make the imported row `BuiltIn` — that column is read-only and "true only for policies deployed with the SCM installation" (**unverified** for the import path specifically; the column's read-only con...
 
 ## [scm-policy-portability-audit.md](../modules/scm-policy-portability-audit.md)
 
