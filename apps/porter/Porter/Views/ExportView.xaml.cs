@@ -257,83 +257,155 @@ public partial class ExportView : UserControl
         var provider = _provider;
 
         _shell.Go(new RunView(_shell, $"Mission Control — exporting {provider.DisplayName}",
-            async (log, ct) =>
+            async (log, summary, ct) =>
         {
+            var started = DateTime.UtcNow;
+            var outcome = RunOutcome.Completed;
+            var rawDir = Path.Combine(dest, provider.Key);
+            // Package modes (zip / encrypted) collect everything and write once at the end:
+            // "ok" is an audit claim that the output exists, so those audit lines are held
+            // in `pending` until the package is on disk. Raw mode writes each file the
+            // moment its export finishes, so an abort keeps what was already written.
             var items = new List<PackageItem>();
-            var summary = new RunSummary();
-            // "ok" is an audit claim that the output exists, so the audit lines for
-            // successful items are held here and only written once the output is on disk.
-            var pendingOk = new List<(string Target, string Detail)>();
-            if (provider.BulkExport)
+            var pending = new List<(string Target, string Detail, int Count)>();
+
+            void Recorded(string target, string outcomeText, string detail)
             {
-                try
-                {
-                    log.Report($"Export {picked.Count} item(s) → one {provider.FileExtension} file");
-                    var export = await provider.ExportBulkAsync(picked, options, ct);
-                    items.Add(new PackageItem(provider.Key, $"{provider.Key}/{export.FileName}",
-                        provider.DisplayName, export.Bytes, provider.ImportVia, "bulk"));
-                    pendingOk.Add((provider.Key, $"{picked.Count} items, bulk"));
-                    summary.Ok = picked.Count;
-                }
-                catch (Exception ex)
-                {
-                    log.Report($"  FAILED: {ex.Message}");
-                    SessionLog.Log("export", provider.Key, "failed", ex.Message);
-                    summary.Failed = picked.Count;
-                }
+                summary.Items.Add(new RunItem(target, outcomeText, detail));
+                SessionLog.Log("export", target, outcomeText, detail);
             }
-            else
-            {
-                foreach (var item in picked)
-                {
-                    try
-                    {
-                        log.Report($"Export \"{item.Name}\" (id {item.Id})");
-                        var export = await provider.ExportAsync(item, options, ct);
-                        items.Add(new PackageItem(provider.Key, $"{provider.Key}/{export.FileName}",
-                            item.Name, export.Bytes, provider.ImportVia, "skip-or-copy-selected-at-import"));
-                        pendingOk.Add((item.Name, $"{provider.Key} {item.Id}"));
-                        summary.Ok++;
-                    }
-                    catch (Exception ex)
-                    {
-                        log.Report($"  FAILED: {ex.Message}");
-                        SessionLog.Log("export", item.Name, "failed", ex.Message);
-                        summary.Failed++;
-                    }
-                }
-            }
-            string where;
-            if (items.Count == 0)
-            {
-                log.Report("Nothing exported — no output written.");
-                summary.OutputPath = null;
-                return summary;
-            }
-            try
+
+            void Accept(PackageItem package, string target, string detail, int count)
             {
                 if (asZip)
-                    where = PackageWriter.WritePackage(dest, session.Server, platform, items, aesPassword);
-                else
-                    where = PackageWriter.WriteRaw(Path.Combine(dest, provider.Key), items);
+                {
+                    items.Add(package);
+                    pending.Add((target, detail, count));
+                    return;
+                }
+                try
+                {
+                    PackageWriter.WriteRaw(rawDir, new[] { package });
+                    summary.OutputPath = rawDir;
+                    summary.Ok += count;
+                    Recorded(target, "ok", detail);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    log.Report($"  FAILED: output not written: {ex.Message}");
+                    summary.Failed += count;
+                    Recorded(target, "failed", $"output not written: {ex.Message}");
+                }
             }
-            catch (Exception ex)
+
+            try
             {
-                // The items were fetched but nothing reached the disk: none of them may
-                // be recorded as exported.
-                log.Report($"  FAILED: output not written: {ex.Message}");
-                foreach (var (target, detail) in pendingOk)
-                    SessionLog.Log("export", target, "failed", $"output not written: {ex.Message}");
-                summary.Failed = summary.Ok + summary.Failed;
-                summary.Ok = 0;
-                summary.OutputPath = null;
-                return summary;
+                if (provider.BulkExport)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        log.Report($"Export {picked.Count} item(s) → one {provider.FileExtension} file");
+                        var export = await provider.ExportBulkAsync(picked, options, ct);
+                        Accept(new PackageItem(provider.Key, $"{provider.Key}/{export.FileName}",
+                            provider.DisplayName, export.Bytes, provider.ImportVia, "bulk"),
+                            provider.Key, $"{picked.Count} items, bulk", picked.Count);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        log.Report($"  FAILED: {ex.Message}");
+                        summary.Failed = picked.Count;
+                        Recorded(provider.Key, "failed", ex.Message);
+                    }
+                }
+                else
+                {
+                    foreach (var item in picked)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        try
+                        {
+                            log.Report($"Export \"{item.Name}\" (id {item.Id})");
+                            var export = await provider.ExportAsync(item, options, ct);
+                            Accept(new PackageItem(provider.Key, $"{provider.Key}/{export.FileName}",
+                                item.Name, export.Bytes, provider.ImportVia, "skip-or-copy-selected-at-import"),
+                                item.Name, $"{provider.Key} {item.Id}", 1);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            log.Report($"  FAILED: {ex.Message}");
+                            summary.Failed++;
+                            Recorded(item.Name, "failed", ex.Message);
+                        }
+                    }
+                }
+
+                if (items.Count == 0)
+                {
+                    if (summary.OutputPath is null) log.Report("Nothing exported — no output written.");
+                    else log.Report($"Output → {summary.OutputPath}");
+                    return;
+                }
+
+                // Package modes: the single write happens here.
+                ct.ThrowIfCancellationRequested();
+                string where;
+                try
+                {
+                    where = PackageWriter.WritePackage(dest, session.Server, platform, items, aesPassword);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // The items were fetched but nothing reached the disk: none of them may
+                    // be recorded as exported.
+                    log.Report($"  FAILED: output not written: {ex.Message}");
+                    foreach (var (target, _, count) in pending)
+                    {
+                        summary.Failed += count;
+                        Recorded(target, "failed", $"output not written: {ex.Message}");
+                    }
+                    outcome = RunOutcome.Failed;
+                    return;
+                }
+                foreach (var (target, detail, count) in pending)
+                {
+                    summary.Ok += count;
+                    Recorded(target, "ok", detail);
+                }
+                log.Report($"Output → {where}");
+                summary.OutputPath = where;
             }
-            foreach (var (target, detail) in pendingOk)
-                SessionLog.Log("export", target, "ok", detail);
-            log.Report($"Output → {where}");
-            summary.OutputPath = where;
-            return summary;
+            catch (OperationCanceledException)
+            {
+                outcome = RunOutcome.Cancelled;
+                if (pending.Count > 0)
+                {
+                    // Package modes write once at the end, so an abort means no output.
+                    foreach (var (target, _, count) in pending)
+                    {
+                        summary.Skipped += count;
+                        Recorded(target, "cancelled", "aborted before the package was written");
+                    }
+                    log.Report($"Aborted — {pending.Sum(p => p.Count)} item(s) were fetched but " +
+                        "no package was written. Nothing was saved.");
+                }
+                else
+                    log.Report("Aborted.");
+                throw;
+            }
+            catch (Exception)
+            {
+                outcome = RunOutcome.Failed;
+                throw;
+            }
+            finally
+            {
+                if (outcome == RunOutcome.Completed && summary.Failed > 0 && summary.Ok == 0)
+                    outcome = RunOutcome.Failed;
+                RunReport.WriteAndLog(dest, new RunReportData("export", provider.Key, session.Server,
+                    false, started, DateTime.UtcNow, outcome, summary));
+                if (summary.ReportPath is not null) log.Report($"Run report → {summary.ReportPath}");
+            }
         }), "Export · Mission Control");
     }
 }

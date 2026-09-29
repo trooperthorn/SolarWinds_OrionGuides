@@ -186,88 +186,118 @@ public partial class ImportView : UserControl
         };
         var provider = _provider;
 
+        var session = _shell.Session;
+
         _shell.Go(new RunView(_shell,
             dryRun ? $"Simulation — {provider.DisplayName} (Go / No-Go, no writes)"
                    : $"Mission Control — importing {provider.DisplayName}",
-            async (log, ct) =>
+            async (log, summary, ct) =>
         {
-            var summary = new RunSummary();
-
-            foreach (var file in skippedInvalid)
+            var started = DateTime.UtcNow;
+            var outcome = RunOutcome.Completed;
+            try
             {
-                summary.Skipped++;
-                summary.SkippedNames.Add($"{file.FileName} — {file.Validation.Summary}");
-                log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {file.Validation.Summary}");
-            }
-
-            foreach (var file in files)
-            {
-                try
+                foreach (var file in skippedInvalid)
                 {
-                    var keys = file.Validation.Items.Select(i => i.Key).ToList();
-                    var collisions = await provider.FindCollisionsAsync(keys, ct);
-                    var text = file.Text;
-                    var verifyKeys = keys;
-                    var note = "";
+                    summary.Skipped++;
+                    summary.SkippedNames.Add($"{file.FileName} — {file.Validation.Summary}");
+                    summary.Items.Add(new RunItem(file.FileName, dryRun ? "no-go" : "skipped", file.Validation.Summary));
+                    log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {file.Validation.Summary}");
+                }
 
-                    if (collisions.Count > 0 && !asCopy)
+                foreach (var file in files)
+                {
+                    // Between items only: a file already in flight finishes, so an abort never
+                    // leaves a half-imported definition behind.
+                    ct.ThrowIfCancellationRequested();
+                    try
                     {
-                        summary.Skipped++;
-                        var parts = file.Validation.Items.Select(i =>
-                            collisions.TryGetValue(i.Key, out var existing)
-                            ? $"\"{existing}\" (already on target)"
-                            : $"\"{i.Name}\" (skipped with its file)").ToList();
-                        var detail = string.Join(", ", parts);
-                        summary.SkippedNames.Add($"{file.FileName} — {detail}");
-                        log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
-                        SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "skipped", detail);
-                        continue;
-                    }
-                    if (collisions.Count > 0 && provider.CopyMode == CopyMode.ClientRewrite)
-                    {
-                        var rewrite = provider.AsCopy(file.Text);
-                        text = rewrite.Text;
-                        verifyKeys = rewrite.NewKeys;
-                        note = $" as copy: {string.Join(", ", rewrite.NewNames.Select(n => $"\"{n}\""))}";
-                        summary.CopyNotes.Add($"{file.FileName} → {string.Join(", ", rewrite.NewNames)}");
-                        foreach (var extra in rewrite.Notes) log.Report($"  note: {extra}");
-                    }
-                    else if (collisions.Count > 0)
-                    {
-                        note = " — the server will import it as its own \"Copy of …\"";
-                    }
+                        var keys = file.Validation.Items.Select(i => i.Key).ToList();
+                        var collisions = await provider.FindCollisionsAsync(keys, ct);
+                        var text = file.Text;
+                        var verifyKeys = keys;
+                        var note = "";
 
-                    if (dryRun)
-                    {
-                        log.Report($"GO — would import {file.FileName}{note}");
-                        summary.Ok++;
-                        continue;
-                    }
+                        if (collisions.Count > 0 && !asCopy)
+                        {
+                            summary.Skipped++;
+                            var parts = file.Validation.Items.Select(i =>
+                                collisions.TryGetValue(i.Key, out var existing)
+                                ? $"\"{existing}\" (already on target)"
+                                : $"\"{i.Name}\" (skipped with its file)").ToList();
+                            var detail = string.Join(", ", parts);
+                            summary.SkippedNames.Add($"{file.FileName} — {detail}");
+                            summary.Items.Add(new RunItem(file.FileName, dryRun ? "no-go" : "skipped", detail));
+                            log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
+                            SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "skipped", detail);
+                            continue;
+                        }
+                        if (collisions.Count > 0 && provider.CopyMode == CopyMode.ClientRewrite)
+                        {
+                            var rewrite = provider.AsCopy(file.Text);
+                            text = rewrite.Text;
+                            verifyKeys = rewrite.NewKeys;
+                            note = $" as copy: {string.Join(", ", rewrite.NewNames.Select(n => $"\"{n}\""))}";
+                            summary.CopyNotes.Add($"{file.FileName} → {string.Join(", ", rewrite.NewNames)}");
+                            foreach (var extra in rewrite.Notes) log.Report($"  note: {extra}");
+                        }
+                        else if (collisions.Count > 0)
+                        {
+                            note = " — the server will import it as its own \"Copy of …\"";
+                        }
 
-                    log.Report($"Import {file.FileName}{note} → {provider.ImportVia}");
-                    var outcome = await provider.ImportAsync(text, verifyKeys, options, ct);
+                        if (dryRun)
+                        {
+                            log.Report($"GO — would import {file.FileName}{note}");
+                            summary.Items.Add(new RunItem(file.FileName, "go", note.Trim()));
+                            summary.Ok++;
+                            continue;
+                        }
 
-                    if (outcome.Verified)
-                    {
-                        log.Report($"  tricorder — verified: {outcome.Detail}");
-                        SessionLog.Log("import", file.FileName, "ok", outcome.Detail);
-                        summary.Ok++;
+                        log.Report($"Import {file.FileName}{note} → {provider.ImportVia}");
+                        var result = await provider.ImportAsync(text, verifyKeys, options, ct);
+
+                        if (result.Verified)
+                        {
+                            log.Report($"  tricorder — verified: {result.Detail}");
+                            SessionLog.Log("import", file.FileName, "ok", result.Detail);
+                            summary.Items.Add(new RunItem(file.FileName, "ok", result.Detail));
+                            summary.Ok++;
+                        }
+                        else
+                        {
+                            log.Report($"  WARNING: {result.Detail}");
+                            SessionLog.Log("import", file.FileName, "unverified", result.Detail);
+                            summary.Items.Add(new RunItem(file.FileName, "unverified", result.Detail));
+                            summary.Warn++;
+                        }
                     }
-                    else
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
-                        log.Report($"  WARNING: {outcome.Detail}");
-                        SessionLog.Log("import", file.FileName, "unverified", outcome.Detail);
-                        summary.Warn++;
+                        log.Report($"{(dryRun ? "NO-GO" : "FAILED")} {file.FileName}: {ex.Message}");
+                        SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "failed", ex.Message);
+                        summary.Items.Add(new RunItem(file.FileName, "failed", ex.Message));
+                        summary.Failed++;
                     }
                 }
-                catch (Exception ex)
-                {
-                    log.Report($"{(dryRun ? "NO-GO" : "FAILED")} {file.FileName}: {ex.Message}");
-                    SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "failed", ex.Message);
-                    summary.Failed++;
-                }
             }
-            return summary;
+            catch (OperationCanceledException)
+            {
+                outcome = RunOutcome.Cancelled;
+                log.Report("Aborted — files not yet started were left untouched.");
+                throw;
+            }
+            catch (Exception)
+            {
+                outcome = RunOutcome.Failed;
+                throw;
+            }
+            finally
+            {
+                RunReport.WriteAndLog(SessionLog.LogDir, new RunReportData("import", provider.Key,
+                    session.Server, dryRun, started, DateTime.UtcNow, outcome, summary));
+                if (summary.ReportPath is not null) log.Report($"Run report → {summary.ReportPath}");
+            }
         }), dryRun ? "Import · Simulation" : "Import · Mission Control");
     }
 }
