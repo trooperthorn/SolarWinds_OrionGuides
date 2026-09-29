@@ -84,6 +84,7 @@ public static class PackageWriter
             }
             var manifest = JsonSerializer.Serialize(new
             {
+                manifestVersion = PackageReader.SupportedManifestVersion,
                 tool = ToolName,
                 source = new { server, platform = platformVersion, swis = "v3" },
                 created = DateTime.UtcNow.ToString("o"),
