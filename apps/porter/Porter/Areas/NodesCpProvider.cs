@@ -135,13 +135,13 @@ public sealed class NodesCpProvider : AreaProvider
         {
             var cells = new List<string>
             {
-                Csv(row.GetProperty("Caption").GetString() ?? ""),
-                Csv(row.GetProperty("IPAddress").GetString() ?? ""),
+                CsvCell(row.GetProperty("Caption").GetString() ?? ""),
+                CsvCell(row.GetProperty("IPAddress").GetString() ?? ""),
             };
             foreach (var d in defs)
             {
                 var val = row.TryGetProperty(d.Field, out var v) ? v : default;
-                cells.Add(Csv(val.ValueKind switch
+                cells.Add(CsvCell(val.ValueKind switch
                 {
                     JsonValueKind.String => val.GetString() ?? "",
                     JsonValueKind.Number => val.GetRawText(),
@@ -159,9 +159,34 @@ public sealed class NodesCpProvider : AreaProvider
         => s.IndexOfAny(new[] { ',', '"', '\n', '\r' }) >= 0
             ? "\"" + s.Replace("\"", "\"\"") + "\"" : s;
 
+    /// <summary>Characters that make a spreadsheet treat a cell as a formula.</summary>
+    private static readonly char[] FormulaLeaders = { '=', '+', '-', '@', '\t', '\r' };
+
+    /// <summary>
+    /// A data cell. A node caption or custom-property value beginning with = + - @ (or a
+    /// tab/CR) would run as a formula when someone opens the table in Excel, so it is
+    /// prefixed with a single quote — the spreadsheet convention for "this is text".
+    /// <see cref="Unprefix"/> removes exactly that quote at import, so round trips are
+    /// lossless. Header and annotation rows are Porter's own and stay unprefixed.
+    /// </summary>
+    internal static string CsvCell(string s)
+        => Csv(NeedsGuard(s) ? "'" + s : s);
+
+    /// <summary>True for a formula leader, and also for a value that already looks like a
+    /// guarded one ("'=x") — it needs its own guard so import cannot mistake it for one.</summary>
+    private static bool NeedsGuard(string s)
+        => s.Length > 0 && (Array.IndexOf(FormulaLeaders, s[0]) >= 0 ||
+            (s[0] == '\'' && s.Length > 1 && Array.IndexOf(FormulaLeaders, s[1]) >= 0));
+
+    /// <summary>Undo <see cref="CsvCell"/>: drop exactly one leading quote, and only when
+    /// it is a guard (what follows is a formula leader or another guarded-looking value) —
+    /// a genuine "'hello" is left alone.</summary>
+    internal static string Unprefix(string s)
+        => s.Length >= 2 && s[0] == '\'' && NeedsGuard(s[1..]) ? s[1..] : s;
+
     /// <summary>Full-record CSV scanner: a quoted cell may span physical lines, so records
     /// are split by the scanner, never by a naive line split.</summary>
-    private static List<List<string>> ParseCsv(string text)
+    internal static List<List<string>> ParseCsv(string text)
     {
         var records = new List<List<string>>();
         var cells = new List<string>();
@@ -200,12 +225,12 @@ public sealed class NodesCpProvider : AreaProvider
         return records;
     }
 
-    private sealed record Table(List<string> Fields, Dictionary<string, string> Types,
+    internal sealed record Table(List<string> Fields, Dictionary<string, string> Types,
         Dictionary<string, List<string>> AllowedValues, Dictionary<string, bool> Mandatory,
         Dictionary<string, string> Defaults,
         List<(string Caption, string Ip, List<string> Values)> Rows);
 
-    private static Table? ParseTable(string text, AreaValidation v)
+    internal static Table? ParseTable(string text, AreaValidation v)
     {
         var records = ParseCsv(text);
         // Annotation records ride under '#'-prefixed first cells; the header is the first
@@ -268,7 +293,8 @@ public sealed class NodesCpProvider : AreaProvider
             {
                 var rec = records[ri];
                 if (rec[0].Trim().StartsWith('#')) continue;
-                string Cell(int i) => i < rec.Count ? rec[i] : "";
+                // Unprefix before Trim: the guard quote protects a leading tab/CR from it.
+                string Cell(int i) => i < rec.Count ? Unprefix(rec[i]) : "";
                 rows.Add((Cell(capIdx).Trim(), Cell(ipIdx).Trim(), fieldIdx.Select(Cell).ToList()));
             }
         }
@@ -299,6 +325,126 @@ public sealed class NodesCpProvider : AreaProvider
         return v;
     }
 
+    /// <summary>The ValueType and size a missing definition would be created with — the same
+    /// answer for the real import and for the dry-run plan.</summary>
+    private static (string ValueType, int Size) DefinitionSpec(Table table, string field)
+    {
+        var spec = table.Types.TryGetValue(field, out var t) ? t : "string:250";
+        var parts = spec.Split(':');
+        var valueType = parts[0].Trim().ToLowerInvariant();
+        var size = parts.Length > 1 && int.TryParse(parts[1], out var s) ? s : 250;
+        if (valueType is not ("string" or "integer" or "datetime" or "single" or "double" or "boolean"))
+            valueType = "string";
+        return (valueType, size);
+    }
+
+    /// <summary>
+    /// The one node-matching rule, used by both the import and the dry-run plan so the
+    /// simulation can never promise a match the real run would not make: IPAddress first,
+    /// falling back to Caption only when the IP found nothing. Read-only.
+    /// </summary>
+    private async Task<List<JsonElement>> FindNodesAsync(string caption, string ip, CancellationToken ct)
+    {
+        JsonElement matches;
+        if (ip.Length > 0)
+            matches = await Swis.QueryAsync(
+                "SELECT NodeID, Uri, Caption FROM Orion.Nodes WHERE IPAddress = @ip",
+                new Dictionary<string, object?> { ["ip"] = ip }, ct);
+        else
+            matches = await Swis.QueryAsync(
+                "SELECT NodeID, Uri, Caption FROM Orion.Nodes WHERE Caption = @c",
+                new Dictionary<string, object?> { ["c"] = caption }, ct);
+        var rows = matches.EnumerateArray().ToList();
+        if (rows.Count == 0 && ip.Length > 0 && caption.Length > 0)
+        {
+            matches = await Swis.QueryAsync(
+                "SELECT NodeID, Uri, Caption FROM Orion.Nodes WHERE Caption = @c",
+                new Dictionary<string, object?> { ["c"] = caption }, ct);
+            rows = matches.EnumerateArray().ToList();
+        }
+        return rows;
+    }
+
+    /// <summary>Most per-row plan lines shown; the rest are summarised as counts.</summary>
+    private const int MaxPlanRowLines = 50;
+
+    /// <summary>Dry-run plan: definitions that would be created (with types) and how each
+    /// data row resolves against the target's nodes. Read-only queries only.</summary>
+    public override async Task<List<string>> PlanAsync(string text, CancellationToken ct)
+    {
+        var lines = new List<string>();
+        var scratch = new AreaValidation();
+        var table = ParseTable(text, scratch);
+        if (table is null) return lines;
+
+        var existing = (await DefinitionsAsync(ct)).Select(d => d.Field)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var field in table.Fields.Where(f => !existing.Contains(f)))
+        {
+            var (valueType, size) = DefinitionSpec(table, field);
+            var withValues = table.AllowedValues.TryGetValue(field, out var av) && av.Count > 0
+                ? $", {av.Count} allowed value(s)" : "";
+            lines.Add($"would create custom property \"{field}\" ({valueType}" +
+                (valueType == "string" ? $":{size}" : "") + withValues + ")");
+        }
+
+        int one = 0, none = 0, ambiguous = 0, shown = 0, considered = 0;
+        foreach (var (caption, ip, _) in table.Rows)
+        {
+            if (caption.Length == 0 && ip.Length == 0) continue;
+            ct.ThrowIfCancellationRequested();
+            considered++;
+            var label = caption.Length > 0 ? caption : ip;
+            var rows = await FindNodesAsync(caption, ip, ct);
+            var verdict = rows.Count switch
+            {
+                0 => "not found",
+                1 => "matches 1 node",
+                _ => $"ambiguous — matches {rows.Count} nodes",
+            };
+            if (rows.Count == 0) none++; else if (rows.Count == 1) one++; else ambiguous++;
+            if (shown < MaxPlanRowLines) { lines.Add($"\"{label}\": {verdict}"); shown++; }
+        }
+        if (considered > shown)
+            lines.Add($"… and {considered - shown} more row(s) not listed");
+        lines.Add($"{considered} row(s): {one} match one node · {none} not found · {ambiguous} ambiguous");
+        return lines;
+    }
+
+    /// <summary>
+    /// Converts one CSV cell to the value written to a node. Only a boolean can be
+    /// rejected: true/false/1/0/yes/no (any case) are accepted and anything else returns
+    /// false, so the cell is left unwritten instead of silently becoming "false". Other
+    /// types keep the long-standing fallback to the raw text.
+    /// </summary>
+    internal static bool TryConvert(string valueType, string raw, out object? value)
+    {
+        switch (valueType.ToLowerInvariant())
+        {
+            case "boolean":
+                if (TryParseBool(raw, out var b)) { value = b; return true; }
+                value = null;
+                return false;
+            case "integer" when long.TryParse(raw, out var l):
+                value = l; return true;
+            case "single" or "double" when double.TryParse(raw, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out var d):
+                value = d; return true;
+            default:
+                value = raw; return true;
+        }
+    }
+
+    internal static bool TryParseBool(string raw, out bool value)
+    {
+        switch (raw.Trim().ToLowerInvariant())
+        {
+            case "true" or "1" or "yes": value = true; return true;
+            case "false" or "0" or "no": value = false; return true;
+            default: value = false; return false;
+        }
+    }
+
     public override async Task<ImportOutcome> ImportAsync(string text, IReadOnlyList<string> verifyKeys,
         ImportOptions opt, CancellationToken ct)
     {
@@ -312,12 +458,7 @@ public sealed class NodesCpProvider : AreaProvider
         var problems = new List<string>();
         foreach (var field in table.Fields.Where(f => !existing.Contains(f)))
         {
-            var spec = table.Types.TryGetValue(field, out var t) ? t : "string:250";
-            var parts = spec.Split(':');
-            var valueType = parts[0].Trim().ToLowerInvariant();
-            var size = parts.Length > 1 && int.TryParse(parts[1], out var s) ? s : 250;
-            if (valueType is not ("string" or "integer" or "datetime" or "single" or "double" or "boolean"))
-                valueType = "string";
+            var (valueType, size) = DefinitionSpec(table, field);
             var values = table.AllowedValues.TryGetValue(field, out var av) ? av : new List<string>();
             var isMandatory = table.Mandatory.TryGetValue(field, out var mn) && mn;
             var deflt = table.Defaults.TryGetValue(field, out var df) ? df : null;
@@ -353,23 +494,8 @@ public sealed class NodesCpProvider : AreaProvider
             var label = caption.Length > 0 ? caption : ip;
             try
             {
-                JsonElement matches;
-                if (ip.Length > 0)
-                    matches = await Swis.QueryAsync(
-                        "SELECT NodeID, Uri, Caption FROM Orion.Nodes WHERE IPAddress = @ip",
-                        new Dictionary<string, object?> { ["ip"] = ip }, ct);
-                else
-                    matches = await Swis.QueryAsync(
-                        "SELECT NodeID, Uri, Caption FROM Orion.Nodes WHERE Caption = @c",
-                        new Dictionary<string, object?> { ["c"] = caption }, ct);
-                var rows = matches.EnumerateArray().ToList();
-                if (rows.Count == 0 && ip.Length > 0 && caption.Length > 0)
-                {
-                    matches = await Swis.QueryAsync(
-                        "SELECT NodeID, Uri, Caption FROM Orion.Nodes WHERE Caption = @c",
-                        new Dictionary<string, object?> { ["c"] = caption }, ct);
-                    rows = matches.EnumerateArray().ToList();
-                }
+                ct.ThrowIfCancellationRequested();
+                var rows = await FindNodesAsync(caption, ip, ct);
                 if (rows.Count == 0) { problems.Add($"\"{label}\" not found"); continue; }
                 if (rows.Count > 1) { problems.Add($"\"{label}\" matches {rows.Count} nodes — ambiguous"); continue; }
 
@@ -380,14 +506,12 @@ public sealed class NodesCpProvider : AreaProvider
                     var raw = values[i].Trim();
                     if (raw.Length == 0) continue;   // empty cells never clear target values
                     var spec = table.Types.TryGetValue(table.Fields[i], out var t) ? t : "string";
-                    props[table.Fields[i]] = spec.Split(':')[0].ToLowerInvariant() switch
+                    if (!TryConvert(spec.Split(':')[0], raw, out var converted))
                     {
-                        "integer" when long.TryParse(raw, out var l) => l,
-                        "boolean" => raw.Equals("true", StringComparison.OrdinalIgnoreCase) || raw == "1",
-                        "single" or "double" when double.TryParse(raw, NumberStyles.Float,
-                            CultureInfo.InvariantCulture, out var dd) => dd,
-                        _ => raw,
-                    };
+                        problems.Add($"\"{label}\": {table.Fields[i]} value '{raw}' is not a boolean");
+                        continue;   // the cell is not written; the rest of the row still is
+                    }
+                    props[table.Fields[i]] = converted;
                 }
                 if (props.Count == 0) continue;
                 var uri = rows[0].GetProperty("Uri").GetString()

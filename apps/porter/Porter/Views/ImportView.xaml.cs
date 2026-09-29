@@ -1,8 +1,5 @@
 using System.Collections.ObjectModel;
 using System.IO;
-using System.IO.Compression;
-using System.Security.Cryptography;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -48,13 +45,6 @@ public partial class ImportView : UserControl
                     "identity regenerated so the server sees a new object, and the run report " +
                     "shows the new name.";
                 break;
-            case CopyMode.ServerRename:
-                PolicyCopyText.Text = "Replicate — import anyway; the server itself creates " +
-                    "the duplicate and renames it \"Copy of …\"";
-                PolicyHint.Text = "This area's import verb never overwrites: on a name " +
-                    "collision the server always creates the copy. The run report shows " +
-                    "what the server named it.";
-                break;
         }
         UpdateButtons();
     }
@@ -87,13 +77,24 @@ public partial class ImportView : UserControl
         {
             try
             {
-                foreach (var (name, text) in ReadCandidates(path))
+                var contents = PackageReader.Read(path, _provider, PromptPassword);
+                foreach (var entry in contents.Entries)
+                {
+                    var validation = _provider.Validate(entry.DisplayName, entry.Text);
+                    // Origin findings lead the lists so they become the row summary: a
+                    // modified file must never read as "all checks pass".
+                    validation.Errors.InsertRange(0, entry.Errors);
+                    validation.Warnings.InsertRange(0, entry.Warnings);
+                    if (SourceLine(contents.Info) is { Length: > 0 } source)
+                        validation.Detail = validation.Detail.Length > 0
+                            ? $"{source} — {validation.Detail}" : source;
                     _staged.Add(new StagedFile
                     {
-                        FileName = name,
-                        Text = text,
-                        Validation = _provider.Validate(name, text),
+                        FileName = entry.DisplayName,
+                        Text = entry.Text,
+                        Validation = validation,
                     });
+                }
             }
             catch (Exception ex)
             {
@@ -115,90 +116,23 @@ public partial class ImportView : UserControl
         UpdateButtons();
     }
 
-    /// <summary>A path may be one raw export, a .zip of them, or an AES-encrypted package.</summary>
-    private IEnumerable<(string Name, string Text)> ReadCandidates(string path)
+    /// <summary>The only UI the reader needs: ask for a package password, null on cancel.</summary>
+    private string? PromptPassword(string fileName)
     {
-        if (path.EndsWith(".aes", StringComparison.OrdinalIgnoreCase))
-        {
-            var dialog = new PasswordDialog($"Package password for {Path.GetFileName(path)}")
-                { Owner = Window.GetWindow(this) };
-            if (dialog.ShowDialog() != true)
-                throw new OperationCanceledException("password entry cancelled");
-            byte[] zipBytes;
-            try { zipBytes = PackageCrypto.DecryptFile(path, dialog.Password); }
-            catch (CryptographicException)
-            { throw new InvalidDataException("wrong password, or the package was modified"); }
-            using var archive = new ZipArchive(new MemoryStream(zipBytes), ZipArchiveMode.Read);
-            foreach (var pair in ReadZip(archive, Path.GetFileName(path))) yield return pair;
-        }
-        else if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-        {
-            using var archive = ZipFile.OpenRead(path);
-            foreach (var pair in ReadZip(archive, Path.GetFileName(path))) yield return pair;
-        }
-        else
-        {
-            if (new FileInfo(path).Length > MaxItemBytes)
-                throw new InvalidDataException($"{Path.GetFileName(path)} exceeds the {MaxItemBytes / (1024 * 1024)} MB limit");
-            yield return (Path.GetFileName(path), ReadTextSniffed(File.ReadAllBytes(path)));
-        }
+        var dialog = new PasswordDialog($"Package password for {fileName}")
+            { Owner = Window.GetWindow(this) };
+        return dialog.ShowDialog() == true ? dialog.Password : null;
     }
 
-    /// <summary>Exports are small; anything past this is not a configuration export.</summary>
-    private const long MaxItemBytes = 64L * 1024 * 1024;
-
-    /// <summary>Platform exports lie about their encoding — NCM policy reports declare
-    /// utf-16 in the XML prolog while the file on disk is utf-8. Trust the bytes (BOM),
-    /// never the declaration.</summary>
-    private static string ReadTextSniffed(byte[] bytes)
+    /// <summary>"from core-orion · Orion 2026.2 · 2026-09-01T…" for a Porter package, else
+    /// empty. The source platform is shown as recorded, beside the connected server's own
+    /// label in the header — Porter does no version arithmetic on it.</summary>
+    private static string SourceLine(PackageInfo info)
     {
-        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
-            return Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2);
-        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
-            return Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
-        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-            return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
-        return Encoding.UTF8.GetString(bytes);
-    }
-
-    /// <summary>Reads to the cap and no further — a hostile zip's central directory can lie
-    /// about entry sizes, so the guard counts what actually decompresses.</summary>
-    private static string ReadLimited(Stream stream, long cap)
-    {
-        using var buffer = new MemoryStream();
-        var chunk = new byte[81920];
-        long total = 0;
-        int n;
-        while ((n = stream.Read(chunk, 0, chunk.Length)) > 0)
-        {
-            total += n;
-            if (total > cap)
-                throw new InvalidDataException($"entry decompresses past the {cap / (1024 * 1024)} MB limit");
-            buffer.Write(chunk, 0, n);
-        }
-        return ReadTextSniffed(buffer.ToArray());
-    }
-
-    private IEnumerable<(string, string)> ReadZip(ZipArchive archive, string label)
-    {
-        var matching = archive.Entries.Where(en =>
-            en.Name.EndsWith(_provider.FileExtension, StringComparison.OrdinalIgnoreCase) &&
-            !en.Name.Equals("manifest.json", StringComparison.OrdinalIgnoreCase)).ToList();
-        // A Porter cargo pod folders files by area — prefer this area's folder so a
-        // mixed-area package stages only what belongs here; flat zips still stage fully.
-        var inFolder = matching.Where(en => en.FullName.StartsWith(
-            _provider.Key + "/", StringComparison.OrdinalIgnoreCase)).ToList();
-        if (inFolder.Count > 0) matching = inFolder;
-        var found = false;
-        foreach (var entry in matching)
-        {
-            found = true;
-            using var stream = entry.Open();
-            yield return ($"{label} › {entry.Name}", ReadLimited(stream, MaxItemBytes));
-        }
-        if (!found)
-            throw new InvalidDataException(
-                $"the package contains no {_provider.FileExtension} files for {_provider.DisplayName}");
+        if (!info.IsPorterPackage) return "";
+        var parts = new[] { info.SourceServer, info.SourcePlatform, info.Created }
+            .Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+        return parts.Count == 0 ? "" : $"from {string.Join(" · ", parts)}";
     }
 
     private void UpdateButtons()
@@ -245,88 +179,125 @@ public partial class ImportView : UserControl
         };
         var provider = _provider;
 
+        var session = _shell.Session;
+
         _shell.Go(new RunView(_shell,
             dryRun ? $"Simulation — {provider.DisplayName} (Go / No-Go, no writes)"
                    : $"Mission Control — importing {provider.DisplayName}",
-            async (log, ct) =>
+            async (log, summary, ct) =>
         {
-            var summary = new RunSummary();
-
-            foreach (var file in skippedInvalid)
+            var started = DateTime.UtcNow;
+            var outcome = RunOutcome.Completed;
+            try
             {
-                summary.Skipped++;
-                summary.SkippedNames.Add($"{file.FileName} — {file.Validation.Summary}");
-                log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {file.Validation.Summary}");
-            }
-
-            foreach (var file in files)
-            {
-                try
+                foreach (var file in skippedInvalid)
                 {
-                    var keys = file.Validation.Items.Select(i => i.Key).ToList();
-                    var collisions = await provider.FindCollisionsAsync(keys, ct);
-                    var text = file.Text;
-                    var verifyKeys = keys;
-                    var note = "";
+                    summary.Skipped++;
+                    summary.SkippedNames.Add($"{file.FileName} — {file.Validation.Summary}");
+                    summary.Items.Add(new RunItem(file.FileName, dryRun ? "no-go" : "skipped", file.Validation.Summary));
+                    log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {file.Validation.Summary}");
+                }
 
-                    if (collisions.Count > 0 && !asCopy)
+                foreach (var file in files)
+                {
+                    // Between items only: a file already in flight finishes, so an abort never
+                    // leaves a half-imported definition behind.
+                    ct.ThrowIfCancellationRequested();
+                    try
                     {
-                        summary.Skipped++;
-                        var parts = file.Validation.Items.Select(i =>
-                            collisions.TryGetValue(i.Key, out var existing)
-                            ? $"\"{existing}\" (already on target)"
-                            : $"\"{i.Name}\" (skipped with its file)").ToList();
-                        var detail = string.Join(", ", parts);
-                        summary.SkippedNames.Add($"{file.FileName} — {detail}");
-                        log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
-                        SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "skipped", detail);
-                        continue;
-                    }
-                    if (collisions.Count > 0 && provider.CopyMode == CopyMode.ClientRewrite)
-                    {
-                        var rewrite = provider.AsCopy(file.Text);
-                        text = rewrite.Text;
-                        verifyKeys = rewrite.NewKeys;
-                        note = $" as copy: {string.Join(", ", rewrite.NewNames.Select(n => $"\"{n}\""))}";
-                        summary.CopyNotes.Add($"{file.FileName} → {string.Join(", ", rewrite.NewNames)}");
-                        foreach (var extra in rewrite.Notes) log.Report($"  note: {extra}");
-                    }
-                    else if (collisions.Count > 0)
-                    {
-                        note = " — the server will import it as its own \"Copy of …\"";
-                    }
+                        var keys = file.Validation.Items.Select(i => i.Key).ToList();
+                        var collisions = await provider.FindCollisionsAsync(keys, ct);
+                        var text = file.Text;
+                        var verifyKeys = keys;
+                        var note = "";
 
-                    if (dryRun)
-                    {
-                        log.Report($"GO — would import {file.FileName}{note}");
-                        summary.Ok++;
-                        continue;
-                    }
+                        if (collisions.Count > 0 && !asCopy)
+                        {
+                            summary.Skipped++;
+                            var parts = file.Validation.Items.Select(i =>
+                                collisions.TryGetValue(i.Key, out var existing)
+                                ? $"\"{existing}\" (already on target)"
+                                : $"\"{i.Name}\" (skipped with its file)").ToList();
+                            var detail = string.Join(", ", parts);
+                            summary.SkippedNames.Add($"{file.FileName} — {detail}");
+                            summary.Items.Add(new RunItem(file.FileName, dryRun ? "no-go" : "skipped", detail));
+                            log.Report($"{(dryRun ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
+                            SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "skipped", detail);
+                            continue;
+                        }
+                        if (collisions.Count > 0 && provider.CopyMode == CopyMode.ClientRewrite)
+                        {
+                            var rewrite = provider.AsCopy(file.Text);
+                            text = rewrite.Text;
+                            verifyKeys = rewrite.NewKeys;
+                            note = $" as copy: {string.Join(", ", rewrite.NewNames.Select(n => $"\"{n}\""))}";
+                            summary.CopyNotes.Add($"{file.FileName} → {string.Join(", ", rewrite.NewNames)}");
+                            foreach (var extra in rewrite.Notes) log.Report($"  note: {extra}");
+                        }
 
-                    log.Report($"Import {file.FileName}{note} → {provider.ImportVia}");
-                    var outcome = await provider.ImportAsync(text, verifyKeys, options, ct);
+                        if (dryRun)
+                        {
+                            log.Report($"GO — would import {file.FileName}{note}");
+                            summary.Items.Add(new RunItem(file.FileName, "go", note.Trim()));
+                            summary.Ok++;
+                            // Read-only narration of what the import would touch. A plan that
+                            // cannot be gathered never turns a GO into a failure.
+                            try
+                            {
+                                foreach (var line in await provider.PlanAsync(text, ct))
+                                    log.Report($"  plan: {line}");
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                log.Report($"  plan unavailable: {ex.Message}");
+                            }
+                            continue;
+                        }
 
-                    if (outcome.Verified)
-                    {
-                        log.Report($"  tricorder — verified: {outcome.Detail}");
-                        SessionLog.Log("import", file.FileName, "ok", outcome.Detail);
-                        summary.Ok++;
+                        log.Report($"Import {file.FileName}{note} → {provider.ImportVia}");
+                        var result = await provider.ImportAsync(text, verifyKeys, options, ct);
+
+                        if (result.Verified)
+                        {
+                            log.Report($"  tricorder — verified: {result.Detail}");
+                            SessionLog.Log("import", file.FileName, "ok", result.Detail);
+                            summary.Items.Add(new RunItem(file.FileName, "ok", result.Detail));
+                            summary.Ok++;
+                        }
+                        else
+                        {
+                            log.Report($"  WARNING: {result.Detail}");
+                            SessionLog.Log("import", file.FileName, "unverified", result.Detail);
+                            summary.Items.Add(new RunItem(file.FileName, "unverified", result.Detail));
+                            summary.Warn++;
+                        }
                     }
-                    else
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
-                        log.Report($"  WARNING: {outcome.Detail}");
-                        SessionLog.Log("import", file.FileName, "unverified", outcome.Detail);
-                        summary.Warn++;
+                        log.Report($"{(dryRun ? "NO-GO" : "FAILED")} {file.FileName}: {ex.Message}");
+                        SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "failed", ex.Message);
+                        summary.Items.Add(new RunItem(file.FileName, "failed", ex.Message));
+                        summary.Failed++;
                     }
                 }
-                catch (Exception ex)
-                {
-                    log.Report($"{(dryRun ? "NO-GO" : "FAILED")} {file.FileName}: {ex.Message}");
-                    SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "failed", ex.Message);
-                    summary.Failed++;
-                }
             }
-            return summary;
+            catch (OperationCanceledException)
+            {
+                outcome = RunOutcome.Cancelled;
+                log.Report("Aborted — files not yet started were left untouched.");
+                throw;
+            }
+            catch (Exception)
+            {
+                outcome = RunOutcome.Failed;
+                throw;
+            }
+            finally
+            {
+                RunReport.WriteAndLog(SessionLog.LogDir, new RunReportData("import", provider.Key,
+                    session.Server, dryRun, started, DateTime.UtcNow, outcome, summary));
+                if (summary.ReportPath is not null) log.Report($"Run report → {summary.ReportPath}");
+            }
         }), dryRun ? "Import · Simulation" : "Import · Mission Control");
     }
 }

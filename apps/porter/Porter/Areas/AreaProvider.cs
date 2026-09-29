@@ -9,8 +9,6 @@ public enum CopyMode
     NotSupported,
     /// <summary>Porter rewrites identities client-side before import (dashboards).</summary>
     ClientRewrite,
-    /// <summary>The server itself duplicates on collision, renaming "Copy of …" (reports).</summary>
-    ServerRename,
 }
 
 /// <summary>One inventory item offered for export. Id is the provider's native identifier
@@ -107,6 +105,14 @@ public abstract class AreaProvider
 
     public virtual CopyRewrite AsCopy(string text)
         => throw new NotSupportedException($"{DisplayName} does not support import-as-copy");
+
+    /// <summary>
+    /// Dry-run narration: human-readable lines describing what importing this file would
+    /// do, gathered with read-only queries only — an override must never write. The default
+    /// has nothing to add.
+    /// </summary>
+    public virtual Task<List<string>> PlanAsync(string text, CancellationToken ct)
+        => Task.FromResult(new List<string>());
 
     /// <summary>Import one validated file. verifyKeys are the identities to confirm after
     /// the write (already rewritten when the copy policy applied).</summary>

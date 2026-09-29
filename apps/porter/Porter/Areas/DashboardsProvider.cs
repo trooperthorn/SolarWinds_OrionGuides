@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Porter.Core;
 
 namespace Porter.Areas;
@@ -54,6 +55,63 @@ public sealed class DashboardsProvider : AreaProvider
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (key, name) in hits) map[key] = name;
         return map;
+    }
+
+    /// <summary>
+    /// Dry-run plan: which dashboards the file would create, and any widget unique_keys
+    /// that already exist on the target. Widget keys are reported here rather than treated
+    /// as collisions: the dashboard key is the identity Porter matches on, and how the
+    /// server treats a repeated widget key on Import is not documented, so it is surfaced
+    /// as a warning for the operator instead of silently skipping or importing. The widget
+    /// query targets Orion.Dashboards.Widgets.UniqueKey (inherited from
+    /// Orion.Dashboards.Entity in the 2026.2 schema, checked with tools/schema_query.py);
+    /// it is still wrapped in a SwisException catch so a schema difference on another
+    /// build degrades to "not checked" rather than a failed simulation.
+    /// </summary>
+    public override async Task<List<string>> PlanAsync(string text, CancellationToken ct)
+    {
+        var lines = new List<string>();
+        var validation = DashboardValidator.Validate(text);
+        foreach (var (key, name) in validation.Dashboards)
+            lines.Add($"would create dashboard \"{name}\" (key {key})");
+
+        var widgetKeys = WidgetKeys(text);
+        if (widgetKeys.Count == 0) return lines;
+        try
+        {
+            var rows = await Swis.QueryAsync(
+                "SELECT UniqueKey FROM Orion.Dashboards.Widgets", null, ct);
+            var onTarget = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in rows.EnumerateArray())
+                if (row.TryGetProperty("UniqueKey", out var k) && k.GetString() is string s) onTarget.Add(s);
+            var hits = widgetKeys.Where(onTarget.Contains).ToList();
+            foreach (var key in hits.Take(20))
+                lines.Add($"WARNING: widget {key} (already on target)");
+            if (hits.Count > 20)
+                lines.Add($"WARNING: … and {hits.Count - 20} more widget key(s) already on target");
+            if (hits.Count == 0)
+                lines.Add($"{widgetKeys.Count} widget definition(s), none already on target");
+        }
+        catch (SwisException ex)
+        {
+            lines.Add($"widget keys not checked against the target: {ex.Message}");
+        }
+        return lines;
+    }
+
+    internal static List<string> WidgetKeys(string text)
+    {
+        var keys = new List<string>();
+        try
+        {
+            if (JsonNode.Parse(text) is JsonObject root && root["widgets"] is JsonArray widgets)
+                foreach (var w in widgets.OfType<JsonObject>())
+                    if (w["unique_key"] is JsonValue v && v.TryGetValue<string>(out var k) &&
+                        !string.IsNullOrEmpty(k))
+                        keys.Add(k);
+        }
+        catch (JsonException) { /* Validate already reported the file as unreadable */ }
+        return keys.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     public override CopyRewrite AsCopy(string text)

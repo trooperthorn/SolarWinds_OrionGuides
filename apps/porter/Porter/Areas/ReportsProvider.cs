@@ -66,7 +66,8 @@ public sealed class ReportsProvider : AreaProvider
 
             var root = doc.Root?.Name.LocalName ?? "";
             if (!root.Equals("Report", StringComparison.OrdinalIgnoreCase))
-                v.Warnings.Add($"root element is <{root}> — expected <Report>; the server makes the final call");
+                v.Errors.Add($"root element is <{root}> — expected <Report>; this is not a report definition " +
+                    "(it may belong to another area)");
 
             var name = Element(doc, "Name") ?? System.IO.Path.GetFileNameWithoutExtension(fileName);
             v.Items.Add((name, name));

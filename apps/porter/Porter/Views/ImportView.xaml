@@ -35,7 +35,7 @@
                                Text="Recording cipher password (set when the recording was exported)"/>
                     <PasswordBox x:Name="CipherPass" Margin="0,3,0,0"/>
                 </StackPanel>
-                <CheckBox x:Name="AllowWarnBox" IsChecked="True"
+                <CheckBox x:Name="AllowWarnBox" IsChecked="False"
                           Checked="AllowWarn_Changed" Unchecked="AllowWarn_Changed">
                     <TextBlock TextWrapping="Wrap" Text="Import files that carry warnings"/>
                 </CheckBox>
