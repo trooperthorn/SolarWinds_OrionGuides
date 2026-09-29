@@ -70,8 +70,8 @@ public sealed class AlertsProvider : AreaProvider
 
             var root = doc.Root?.Name.LocalName ?? "";
             if (!root.Contains("Alert", StringComparison.OrdinalIgnoreCase))
-                v.Warnings.Add($"root element is <{root}> — expected an alert definition; " +
-                    "the server makes the final call");
+                v.Errors.Add($"root element is <{root}> — this is not an alert definition " +
+                    "(it may belong to another area)");
 
             // The definition's own name, wherever the schema put it — first <Name> wins.
             var name = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Name")?.Value?.Trim();

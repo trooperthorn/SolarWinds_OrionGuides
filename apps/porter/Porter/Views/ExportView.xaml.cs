@@ -192,6 +192,33 @@ public partial class ExportView : UserControl
     private void Back_Click(object sender, RoutedEventArgs e)
         => _shell.Go(new AreaView(_shell), "Export · Constellations");
 
+    /// <summary>
+    /// Checks the landing site before the run starts, so a bad path fails at the console
+    /// instead of after every item has been pulled from the server: it must be a full
+    /// path, creatable, and writable (a temp file is written and removed as the probe).
+    /// </summary>
+    private static bool TryPrepareDestination(string dest, out string problem)
+    {
+        problem = "";
+        if (string.IsNullOrWhiteSpace(dest))
+        { problem = "Choose a landing site for the export first."; return false; }
+        if (!Path.IsPathFullyQualified(dest))
+        { problem = "The landing site must be a full path, such as C:\\Exports\\Porter."; return false; }
+        try
+        {
+            Directory.CreateDirectory(dest);
+            var probe = Path.Combine(dest, $".porter-write-test-{Guid.NewGuid():N}.tmp");
+            File.WriteAllBytes(probe, new byte[] { 0 });
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            problem = $"Porter cannot write to that landing site: {ex.Message}";
+            return false;
+        }
+    }
+
     private void Export_Click(object sender, RoutedEventArgs e)
     {
         if (_shell.Session is null) return;
@@ -211,7 +238,13 @@ public partial class ExportView : UserControl
                 "Cipher password required", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        var dest = DestBox.Text;
+        var dest = DestBox.Text.Trim();
+        if (!TryPrepareDestination(dest, out var destProblem))
+        {
+            MessageBox.Show(destProblem, "Landing site not usable",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         var asZip = FmtZip.IsChecked == true || FmtAes.IsChecked == true;
         var aesPassword = FmtAes.IsChecked == true ? AesPass.Password : null;
         var options = new ExportOptions
@@ -228,6 +261,9 @@ public partial class ExportView : UserControl
         {
             var items = new List<PackageItem>();
             var summary = new RunSummary();
+            // "ok" is an audit claim that the output exists, so the audit lines for
+            // successful items are held here and only written once the output is on disk.
+            var pendingOk = new List<(string Target, string Detail)>();
             if (provider.BulkExport)
             {
                 try
@@ -236,7 +272,7 @@ public partial class ExportView : UserControl
                     var export = await provider.ExportBulkAsync(picked, options, ct);
                     items.Add(new PackageItem(provider.Key, $"{provider.Key}/{export.FileName}",
                         provider.DisplayName, export.Bytes, provider.ImportVia, "bulk"));
-                    SessionLog.Log("export", provider.Key, "ok", $"{picked.Count} items, bulk");
+                    pendingOk.Add((provider.Key, $"{picked.Count} items, bulk"));
                     summary.Ok = picked.Count;
                 }
                 catch (Exception ex)
@@ -256,7 +292,7 @@ public partial class ExportView : UserControl
                         var export = await provider.ExportAsync(item, options, ct);
                         items.Add(new PackageItem(provider.Key, $"{provider.Key}/{export.FileName}",
                             item.Name, export.Bytes, provider.ImportVia, "skip-or-copy-selected-at-import"));
-                        SessionLog.Log("export", item.Name, "ok", $"{provider.Key} {item.Id}");
+                        pendingOk.Add((item.Name, $"{provider.Key} {item.Id}"));
                         summary.Ok++;
                     }
                     catch (Exception ex)
@@ -271,19 +307,32 @@ public partial class ExportView : UserControl
             if (items.Count == 0)
             {
                 log.Report("Nothing exported — no output written.");
-                where = dest;
+                summary.OutputPath = null;
+                return summary;
             }
-            else if (asZip)
+            try
             {
-                where = PackageWriter.WritePackage(dest, session.Server, platform, items, aesPassword);
+                if (asZip)
+                    where = PackageWriter.WritePackage(dest, session.Server, platform, items, aesPassword);
+                else
+                    where = PackageWriter.WriteRaw(Path.Combine(dest, provider.Key), items);
             }
-            else
+            catch (Exception ex)
             {
-                var rawDir = Path.Combine(dest, provider.Key);
-                where = PackageWriter.WriteRaw(rawDir, items);
+                // The items were fetched but nothing reached the disk: none of them may
+                // be recorded as exported.
+                log.Report($"  FAILED: output not written: {ex.Message}");
+                foreach (var (target, detail) in pendingOk)
+                    SessionLog.Log("export", target, "failed", $"output not written: {ex.Message}");
+                summary.Failed = summary.Ok + summary.Failed;
+                summary.Ok = 0;
+                summary.OutputPath = null;
+                return summary;
             }
+            foreach (var (target, detail) in pendingOk)
+                SessionLog.Log("export", target, "ok", detail);
             log.Report($"Output → {where}");
-            summary.OutputPath = items.Count > 0 ? where : null;
+            summary.OutputPath = where;
             return summary;
         }), "Export · Mission Control");
     }

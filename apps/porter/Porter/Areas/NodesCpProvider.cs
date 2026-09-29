@@ -135,13 +135,13 @@ public sealed class NodesCpProvider : AreaProvider
         {
             var cells = new List<string>
             {
-                Csv(row.GetProperty("Caption").GetString() ?? ""),
-                Csv(row.GetProperty("IPAddress").GetString() ?? ""),
+                CsvCell(row.GetProperty("Caption").GetString() ?? ""),
+                CsvCell(row.GetProperty("IPAddress").GetString() ?? ""),
             };
             foreach (var d in defs)
             {
                 var val = row.TryGetProperty(d.Field, out var v) ? v : default;
-                cells.Add(Csv(val.ValueKind switch
+                cells.Add(CsvCell(val.ValueKind switch
                 {
                     JsonValueKind.String => val.GetString() ?? "",
                     JsonValueKind.Number => val.GetRawText(),
@@ -159,9 +159,27 @@ public sealed class NodesCpProvider : AreaProvider
         => s.IndexOfAny(new[] { ',', '"', '\n', '\r' }) >= 0
             ? "\"" + s.Replace("\"", "\"\"") + "\"" : s;
 
+    /// <summary>Characters that make a spreadsheet treat a cell as a formula.</summary>
+    private static readonly char[] FormulaLeaders = { '=', '+', '-', '@', '\t', '\r' };
+
+    /// <summary>
+    /// A data cell. A node caption or custom-property value beginning with = + - @ (or a
+    /// tab/CR) would run as a formula when someone opens the table in Excel, so it is
+    /// prefixed with a single quote — the spreadsheet convention for "this is text".
+    /// <see cref="Unprefix"/> removes exactly that quote at import, so round trips are
+    /// lossless. Header and annotation rows are Porter's own and stay unprefixed.
+    /// </summary>
+    internal static string CsvCell(string s)
+        => Csv(s.Length > 0 && Array.IndexOf(FormulaLeaders, s[0]) >= 0 ? "'" + s : s);
+
+    /// <summary>Undo <see cref="CsvCell"/>: drop exactly one leading quote, and only when
+    /// it guards a formula leader — a genuine "'hello" is left alone.</summary>
+    internal static string Unprefix(string s)
+        => s.Length >= 2 && s[0] == '\'' && Array.IndexOf(FormulaLeaders, s[1]) >= 0 ? s[1..] : s;
+
     /// <summary>Full-record CSV scanner: a quoted cell may span physical lines, so records
     /// are split by the scanner, never by a naive line split.</summary>
-    private static List<List<string>> ParseCsv(string text)
+    internal static List<List<string>> ParseCsv(string text)
     {
         var records = new List<List<string>>();
         var cells = new List<string>();
@@ -200,12 +218,12 @@ public sealed class NodesCpProvider : AreaProvider
         return records;
     }
 
-    private sealed record Table(List<string> Fields, Dictionary<string, string> Types,
+    internal sealed record Table(List<string> Fields, Dictionary<string, string> Types,
         Dictionary<string, List<string>> AllowedValues, Dictionary<string, bool> Mandatory,
         Dictionary<string, string> Defaults,
         List<(string Caption, string Ip, List<string> Values)> Rows);
 
-    private static Table? ParseTable(string text, AreaValidation v)
+    internal static Table? ParseTable(string text, AreaValidation v)
     {
         var records = ParseCsv(text);
         // Annotation records ride under '#'-prefixed first cells; the header is the first
@@ -268,7 +286,8 @@ public sealed class NodesCpProvider : AreaProvider
             {
                 var rec = records[ri];
                 if (rec[0].Trim().StartsWith('#')) continue;
-                string Cell(int i) => i < rec.Count ? rec[i] : "";
+                // Unprefix before Trim: the guard quote protects a leading tab/CR from it.
+                string Cell(int i) => i < rec.Count ? Unprefix(rec[i]) : "";
                 rows.Add((Cell(capIdx).Trim(), Cell(ipIdx).Trim(), fieldIdx.Select(Cell).ToList()));
             }
         }
