@@ -73,8 +73,9 @@ public sealed class AlertsProvider : AreaProvider
                 v.Errors.Add($"root element is <{root}> — this is not an alert definition " +
                     "(it may belong to another area)");
 
-            // The definition's own name, wherever the schema put it — first <Name> wins.
-            var name = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Name")?.Value?.Trim();
+            var (name, nested) = ExtractName(doc);
+            if (nested)
+                v.Warnings.Add("alert name taken from a nested <Name> — check the collision result");
             if (string.IsNullOrEmpty(name))
             {
                 name = System.IO.Path.GetFileNameWithoutExtension(fileName);
@@ -88,6 +89,29 @@ public sealed class AlertsProvider : AreaProvider
             v.Errors.Add($"file could not be analysed: {ex.Message}");
         }
         return v;
+    }
+
+    /// <summary>
+    /// The definition's own name. An alert carries many Name elements (actions, triggers,
+    /// conditions), so "first descendant" can pick an action's name — that is only the last
+    /// resort. Preference: a direct child of the root, then a child of an
+    /// AlertDefinition/AlertConfiguration element directly under the root, then (flagged)
+    /// the first Name anywhere.
+    /// </summary>
+    internal static (string? Name, bool Nested) ExtractName(XDocument doc)
+    {
+        static string? Named(XElement? parent)
+        {
+            var n = parent?.Elements().FirstOrDefault(e => e.Name.LocalName == "Name")?.Value?.Trim();
+            return string.IsNullOrEmpty(n) ? null : n;
+        }
+
+        if (Named(doc.Root) is string direct) return (direct, false);
+        var wrapper = doc.Root?.Elements().FirstOrDefault(e =>
+            e.Name.LocalName is "AlertDefinition" or "AlertConfiguration");
+        if (Named(wrapper) is string wrapped) return (wrapped, false);
+        var deep = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Name")?.Value?.Trim();
+        return string.IsNullOrEmpty(deep) ? (null, false) : (deep, true);
     }
 
     public override async Task<Dictionary<string, string>> FindCollisionsAsync(

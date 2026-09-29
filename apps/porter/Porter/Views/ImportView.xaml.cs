@@ -45,13 +45,6 @@ public partial class ImportView : UserControl
                     "identity regenerated so the server sees a new object, and the run report " +
                     "shows the new name.";
                 break;
-            case CopyMode.ServerRename:
-                PolicyCopyText.Text = "Replicate — import anyway; the server itself creates " +
-                    "the duplicate and renames it \"Copy of …\"";
-                PolicyHint.Text = "This area's import verb never overwrites: on a name " +
-                    "collision the server always creates the copy. The run report shows " +
-                    "what the server named it.";
-                break;
         }
         UpdateButtons();
     }
@@ -241,16 +234,23 @@ public partial class ImportView : UserControl
                             summary.CopyNotes.Add($"{file.FileName} → {string.Join(", ", rewrite.NewNames)}");
                             foreach (var extra in rewrite.Notes) log.Report($"  note: {extra}");
                         }
-                        else if (collisions.Count > 0)
-                        {
-                            note = " — the server will import it as its own \"Copy of …\"";
-                        }
 
                         if (dryRun)
                         {
                             log.Report($"GO — would import {file.FileName}{note}");
                             summary.Items.Add(new RunItem(file.FileName, "go", note.Trim()));
                             summary.Ok++;
+                            // Read-only narration of what the import would touch. A plan that
+                            // cannot be gathered never turns a GO into a failure.
+                            try
+                            {
+                                foreach (var line in await provider.PlanAsync(text, ct))
+                                    log.Report($"  plan: {line}");
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                log.Report($"  plan unavailable: {ex.Message}");
+                            }
                             continue;
                         }
 
