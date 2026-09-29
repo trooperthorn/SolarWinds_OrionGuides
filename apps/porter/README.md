@@ -24,6 +24,11 @@ dotnet publish Porter\Porter.csproj -c Release -r win-x64 --self-contained true 
 The executable lands in `Porter\bin\Release\net8.0-windows\win-x64\publish\Porter.exe` —
 a single file, no runtime install needed on the target machine (air-gap friendly).
 
+Tests and CI: `dotnet test Porter.sln -c Release` runs the xUnit suite in `Porter.Tests`
+(validators, copy rewrite, CSV round trip, package reader, crypto, run reports).
+`.github/workflows/porter.yml` builds and tests on `windows-latest` for any change under
+`apps/porter/`.
+
 **Elevation:** `app.manifest` requests `requireAdministrator`. This is an application
 design choice, not a substantiated universal DISA STIG requirement. No benchmark, version,
 or rule ID is cited for that earlier claim. The executable requests UAC elevation.
@@ -52,25 +57,49 @@ or rule ID is cited for that earlier claim. The executable requests UAC elevatio
 4. Pick the collision policy: **Skip** (skips are reported by name) or **Import as copy**
    (dashboard and widget identity keys remapped, dashboards renamed "… (Copy)").
    Embedded object GUIDs are preserved; see the identity limits below.
-5. Dry run first if you like — full validation plus collision checks, zero writes.
+5. Dry run first if you like — full validation plus collision checks, zero writes. Each
+   GO file also logs a read-only `plan:` — dashboards it would create and widget keys
+   already on the target, custom properties it would create and how each node row
+   resolves (one match / not found / ambiguous; first 50 rows listed).
 6. Import. The dashboards verb returns void, so Porter verifies each import by re-querying
    the dashboard `unique_key` and reports the new DashboardIDs.
 
+**Abort** stops a run between items (the item in flight finishes). A package export
+writes once at the end, so aborting one saves nothing; raw exports write each file as it
+completes and keep what was written. After every run — completed, aborted, or failed —
+Porter writes `porter-run_<export|import>_<timestamp>.json` (tool version, area, server,
+UTC start/finish, outcome, counts, one line per item; never passwords or payloads): next
+to the output for an export, in `%ProgramData%\Porter\logs` for an import. The path is
+logged.
+
+**Package verification.** A Porter package carries `manifest.json` (now with
+`manifestVersion`). On import, files are chosen by the manifest's `area` — not by file
+extension, which cannot tell alerts from reports — and each one's SHA-256 is checked; a
+modified file, or a file in the area's folder the manifest does not list, is staged with
+an error and cannot be imported. The source server, platform, and export time are shown
+on each staged row. A raw file or a zip without a Porter manifest still imports, but
+carries an "unverified origin" warning. A manifest newer than this build is refused.
+"Import files that carry warnings" is **off** by default, so unverified files need that
+box ticked deliberately.
+
 Everything is logged as JSONL in `%ProgramData%\Porter\logs`, written before the UI
 reports success. Certificate pins live in `%ProgramData%\Porter\pins.json` — delete a
-line to un-pin. On startup Porter **hardens `%ProgramData%\Porter`** to Administrators +
-SYSTEM only (inheritance off), refuses to operate through a junction/symlink, and logs
+line to un-pin (pins are written atomically). On startup Porter **hardens
+`%ProgramData%\Porter`** — owner reset to Administrators, then Administrators + SYSTEM
+only (inheritance off), recursively, with the outcome logged as `appdirs` — refuses to operate through a junction/symlink, and logs
 every connection that is accepted via a pin — so a pre-planted pin cannot act silently.
 Encrypted packages are assembled entirely in memory: plaintext never touches the
 destination disk. Hostile input is bounded — 64 MB per dashboard file or zip entry
-(counted as it decompresses, since a zip's directory can lie), 256 MB per package.
+(counted as it decompresses, since a zip's directory can lie), 256 MB decompressed per
+package, and at most 5,000 entries per archive.
 
 ## Identity and verification limits
 
 Code review on 2026-09-18 found these limits; this review did not perform a live import:
 
-- Collision queries inspect dashboard keys in `Orion.Dashboards.Instances`. They do not
-  inventory all target widget identities, so a different dashboard can still reuse a
+- Collision queries inspect dashboard keys in `Orion.Dashboards.Instances`. Widget keys
+  are only checked in the dry-run plan (`Orion.Dashboards.Widgets.UniqueKey`, listed as
+  warnings), not treated as collisions, so a different dashboard can still reuse a
   widget key. "Skip" is not complete protection against shared-widget changes.
 - `AsCopy` builds one old-to-new key map per input document. Duplicate old widget keys
   remain duplicate after remapping; it does not split conflicting definitions or provide
@@ -217,10 +246,13 @@ error sentence stay plain. For the record:
 
 - **Alerts** — "Remove sensitive data" is ON by default (accounts, passwords, tokens
   stripped at export). Import always *creates*; a same-name alert on the target means
-  the file is skipped and reported. A partial import (the server's `MigrationMessage`,
+  the file is skipped and reported. The name is read from the definition's own `<Name>`
+  (root, then the `AlertDefinition`/`AlertConfiguration` wrapper); a name found only in a
+  nested element is flagged. A file whose root is not an alert definition is an error. A partial import (the server's `MigrationMessage`,
   e.g. a referenced custom property missing) lands as a warning, not a success.
 - **Reports** — export is the `Definition` column, byte-for-byte what the console's
-  export button writes. Import is `CreateReport` (create-only); name collisions skip.
+  export button writes. Import is `CreateReport` (create-only); name collisions skip. A
+  file whose root is not `<Report>` is an error, not a warning.
   Report *schedules* have no SWIS route anywhere — they never travel.
 - **SAM Templates** — the `.apmtemplate` XML travels verbatim, including every script
   monitor's `ScriptBody` — Porter warns per file so embedded secrets get reviewed.
@@ -243,7 +275,10 @@ error sentence stay plain. For the record:
   (admin needed), then writes values matching nodes by IP with Caption fallback.
   Ambiguous matches are skipped and named, never guessed; every row fails individually
   and the outcome accounts for all of it. Values with embedded newlines round-trip.
-  SNMP community strings are deliberately not exported.
+  Cells starting with `=`, `+`, `-`, `@`, tab or CR are exported with a leading `'` so
+  Excel cannot run them as formulas; import removes exactly that one quote. Boolean
+  cells accept true/false/1/0/yes/no; anything else is reported and that cell is not
+  written. SNMP community strings are deliberately not exported.
 - **NCM Compliance Reports** — Porter writes the observed element structure as UTF-16
   with a matching declaration. Validate interchange on the target console. Its current
   import verifies the report row rather than the full nested tree; see the
@@ -259,7 +294,8 @@ error sentence stay plain. For the record:
 ```text
 Porter/
 ├─ app.manifest            requireAdministrator (application elevation setting)
-├─ Core/                   SwisSession (REST), cert pinning, JSONL log, package writer, AES-GCM
+├─ Core/                   SwisSession (REST), cert pinning, JSONL log, package writer/reader, AES-GCM, run reports
 ├─ Areas/                  AreaProvider contract + registry · one provider per area · validators
 └─ Views/                  Connect · Mode · Area · Export · Import · Run · PasswordDialog
+Porter.Tests/              xUnit tests (run in CI)
 ```
