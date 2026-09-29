@@ -170,12 +170,19 @@ public sealed class NodesCpProvider : AreaProvider
     /// lossless. Header and annotation rows are Porter's own and stay unprefixed.
     /// </summary>
     internal static string CsvCell(string s)
-        => Csv(s.Length > 0 && Array.IndexOf(FormulaLeaders, s[0]) >= 0 ? "'" + s : s);
+        => Csv(NeedsGuard(s) ? "'" + s : s);
+
+    /// <summary>True for a formula leader, and also for a value that already looks like a
+    /// guarded one ("'=x") — it needs its own guard so import cannot mistake it for one.</summary>
+    private static bool NeedsGuard(string s)
+        => s.Length > 0 && (Array.IndexOf(FormulaLeaders, s[0]) >= 0 ||
+            (s[0] == '\'' && s.Length > 1 && Array.IndexOf(FormulaLeaders, s[1]) >= 0));
 
     /// <summary>Undo <see cref="CsvCell"/>: drop exactly one leading quote, and only when
-    /// it guards a formula leader — a genuine "'hello" is left alone.</summary>
+    /// it is a guard (what follows is a formula leader or another guarded-looking value) —
+    /// a genuine "'hello" is left alone.</summary>
     internal static string Unprefix(string s)
-        => s.Length >= 2 && s[0] == '\'' && Array.IndexOf(FormulaLeaders, s[1]) >= 0 ? s[1..] : s;
+        => s.Length >= 2 && s[0] == '\'' && NeedsGuard(s[1..]) ? s[1..] : s;
 
     /// <summary>Full-record CSV scanner: a quoted cell may span physical lines, so records
     /// are split by the scanner, never by a naive line split.</summary>

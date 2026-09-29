@@ -1,0 +1,31 @@
+name: porter
+
+# Porter is a Windows WPF app (net8.0-windows), so it builds and tests on a Windows runner.
+on:
+  push:
+    paths:
+      - "apps/porter/**"
+      - ".github/workflows/porter.yml"
+  pull_request:
+    paths:
+      - "apps/porter/**"
+      - ".github/workflows/porter.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build
+        run: dotnet build apps/porter/Porter.sln -c Release
+
+      - name: Test
+        run: dotnet test apps/porter/Porter.sln -c Release --no-build
