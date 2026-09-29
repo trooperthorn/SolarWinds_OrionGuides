@@ -15,3 +15,7 @@ apps/porter/**/obj/
 # DashboardPorter (WPF app) build output
 apps/dashboard-porter/**/bin/
 apps/dashboard-porter/**/obj/
+
+# Node tooling and its build output.
+tools/build-docx/node_modules/
+tools/build-docx/*.docx
