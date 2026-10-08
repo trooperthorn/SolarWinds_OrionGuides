@@ -525,7 +525,7 @@ platform upgrades, with no support recourse.
 `Orion.APIPoller.ApiPoller` feed, and render coverage yourself in a Modern Dashboard
 resource (SVG or canvas). You forfeit the generation engine and write your own
 interpolation, and you gain vendor independence permanently. See
-[../webui/modern-dashboard-authoring.md](../webui/modern-dashboard-authoring.md).
+[../docs/webui/modern-dashboard-authoring.md](../docs/webui/modern-dashboard-authoring.md).
 
 ### 10.4 Android platform limitations
 

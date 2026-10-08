@@ -10,5 +10,5 @@ reports would be permanent index noise.
 
 | Report | Date |
 |---|---|
-| `orion-wireless-heatmaps-2026-09-10.md` | 2026-09-10 |
-| `sectra-solarwinds-monitoring-findings.md` | 2026-09-21 |
+| [orion-wireless-heatmaps-2026-09-10.md](orion-wireless-heatmaps-2026-09-10.md) | 2026-09-10 |
+| [sectra-solarwinds-monitoring-findings.md](sectra-solarwinds-monitoring-findings.md) | 2026-09-21 |
