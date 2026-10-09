@@ -82,7 +82,8 @@ every batch; `python disa_stig_tool.py gui --log-file PATH --log-level debug` (o
 **Verify TLS certificate is on by default**; **Trust server certificate…** fetches the
 certificate SWIS presents (the stock self-signed `SolarWinds-Orion` one), shows its
 SHA-256 fingerprint, and pins the session to exactly that certificate — held in
-memory only, like the credentials.
+memory only, like the credentials. A pinned certificate is checked even when the
+verify box is cleared ([Security rules](#security-rules)).
 
 ## Offline conversion — no server connection
 
@@ -299,7 +300,12 @@ an implemented automated STIG assessment.
 
 Before extending the tool to richer rules, fix the XML fallback serializers, preserve
 advanced conditions in both editions, and compare exact imported relationships and
-content. The current read-back rejects empty trees but can accept a partial tree.
+content. Since 2.0.0 (2026-10-09) the read-back compares the stored tree with what was
+submitted, as Porter 0.3.0 does: the policy count, the rule count, and the rule names in
+each policy (matched by policy name). A mismatch, or a `GetPolicyReport` result that is
+not a report object, is a failed import and is rolled back. Rule content (patterns,
+severity, remediation fields) is not compared yet, and no live import has exercised
+this; the behavior is covered by offline tests against an in-memory stand-in.
 See the [evidence and acceptance tests](../../docs/modules/ncm-compliance-portability-audit.md)
 for scope/config dependencies, version tracking, and the proposed import journal.
 
@@ -373,7 +379,10 @@ directory. What a run records at `info`:
 - every SWIS call: `entity.verb` or the query, a short argument summary, the duration,
   and `ok` or the error message, plus the endpoint, the user name and the TLS mode of the
   connection (never the password);
-- import, verification, rollback and removal decisions;
+- import, verification, rollback and removal decisions, including the wire-format
+  classification of every rejection, the permission preflight and the role each verb
+  needs, each `IN @ids` sanity probe, `StartCaching`'s result, and the transport and
+  certificate check a connection uses;
 - an end-of-run summary: exit code, SWIS calls and failures, files written, verified
   imports, warnings and errors.
 
@@ -392,6 +401,23 @@ line is written, so it is masked even in the logged command line.
   waived only for the pinned certificate, whose CN is `SolarWinds-Orion`, never in
   general), `--ca-file` with an exported copy, or binding a domain-trusted certificate
   to SWIS.
+- **A pinned certificate is enforced on every connection and fails closed** (since
+  2.0.0, 2026-10-09). The Python edition trusts only the pinned certificate. Windows
+  PowerShell 5.1 sets the process-wide `ServicePointManager` callback only for the
+  duration of each call and puts the previous one back afterwards. PowerShell 7's
+  `Invoke-RestMethod` has no server-certificate callback (`-CertificateThumbprint`
+  selects a *client* certificate), so a pinned connection there goes through a
+  `System.Net.Http.HttpClient` whose handler compares the SHA-256 of the presented
+  certificate with the pin; `-SkipCertificateCheck` is used only for `-Insecure`
+  without a pin, and `-Insecure` is ignored when a certificate is pinned. The check is
+  a small C# class compiled with `Add-Type` (a script block cannot run as a TLS
+  callback where no runspace exists); if it cannot be compiled, the tool refuses to
+  connect. A mismatch names both fingerprints. The PowerShell 7 path is exercised in
+  the offline tests by forcing it on Windows PowerShell 5.1 against a local TLS
+  listener; it has not been run under PowerShell 7 itself.
+- **Request bodies are UTF-8.** The PowerShell edition sends the JSON as UTF-8 bytes
+  with `Content-Type: application/json; charset=utf-8`; Windows PowerShell 5.1 would
+  otherwise encode a string body as ISO-8859-1 and mangle STIG text outside Latin-1.
 - **Credentials live in memory only.** Nothing is written to disk, credentials never
   appear in URLs, and the CLI takes the password from `SWIS_PASSWORD` or an interactive
   prompt — never a command-line argument.
@@ -417,6 +443,11 @@ line is written, so it is masked even in the logged command line.
 - **"No Data Returned" is said plainly.** Every import is verified by reading the
   result back; an empty read-back is reported as *No data returned from &lt;call&gt;*,
   never as success.
+- **The account's rights are checked before anything is written.** An NCM import (and
+  `remove`) first logs the role each verb needs and calls `GetPolicyReport` for the nil
+  GUID. HTTP 401, 403 or a permission message stops the run with the role it needs;
+  any other answer is logged as inconclusive and the run continues (**Unverified:** how
+  a server answers `GetPolicyReport` for an id that does not exist is not documented).
 - **SCM configuration text stays on the server.** The tool never reads
   `Orion.SCM.Results.ElementContents` (collected file/config content) or any other
   config-bearing API — the only SCM data it touches is policy metadata. Any future
@@ -451,6 +482,36 @@ line is written, so it is masked even in the logged command line.
   nothing with `--no-cache`). Only the failed report is rolled back. When no wire format
   is accepted, console-importable files are written for the reports that were not
   imported, not for the ones that were.
+- **Since 2.0.0 (2026-10-09), every failure is handled the same way.** In both editions
+  a timeout, a reset connection, a TLS failure or a body that is not JSON is reported
+  as a SWIS error carrying the original type and message, and any exception during an
+  import (not only an HTTP error) is logged, rolled back and recorded as that report's
+  failure. A rollback step that fails is logged and the next level is still deleted.
+  A call that failed without an HTTP status may still have run on the server, so the
+  tool names the id it submitted for checking.
+- **Only the documented rejections mean "try another wire format".** An HTTP 400 whose
+  message is one of the two rejections
+  [ncm-compliance-reports.md](../../docs/modules/ncm-compliance-reports.md#the-swis-round-trip-20262-verified)
+  records ("Value cannot be null. Parameter name: input", "... cannot unpackage
+  parameter 0") moves on to the next format. Any other 400, and every 401, 403, 409 or
+  500, stops that report with the server's message, rolls back, and writes no console
+  file, because the problem is not the wire format.
+- **The nested fallback cleans up too.** If the one-call nested `AddPolicyReport` is
+  accepted but the read-back does not match, the report it created is deleted (the
+  report row, then the policies and rules nothing else uses, never an id that existed
+  before the run) before the console file is written.
+- **`IN @ids` is checked before anything is decided with it.** The existing-id snapshot,
+  the removal plan and the nested rollback all read sets of GUIDs with `IN @ids`.
+  **Unverified:** the documented array binding uses integers, and whether every server
+  binds an array of GUID strings the same way is not documented; a server that matched
+  nothing would make the snapshot say "nothing existed before". So the same query is
+  first run for one id known to exist, and anything other than exactly one row stops
+  the run with nothing deleted.
+- **A refused `StartCaching` or `UpdateReportStatus` does not stop the run.** Both need
+  WebUploader, one step above what the import needs. The refusal is logged with that
+  role, the console files still due are written, and the command exits non-zero
+  because the requested end state was not confirmed. `StartCaching`'s boolean result is
+  logged; `false` is reported (**Unverified:** what `false` means is not documented).
 - **The SCM collision check covers the uniqueId too**, not just the name. SolarWinds
   rejects an import matching either, and the tool derives the uniqueId deterministically
   from the benchmark, so a re-import under a new `--name` still collides. Checking
@@ -476,10 +537,10 @@ My Dashboards → Home → Server Configuration shows per-node, per-rule pass/fa
 
 | Route | Calls, in order |
 | --- | --- |
-| NCM (network STIGs) | Collision check query on `Cirrus.PolicyReports` → per report: existing-id snapshot on `Cirrus.PolicyRules` / `Cirrus.Policies`, wire-format probe with one `AddPolicyRule(rule)`, `AddPolicyRule` per check, `AddPolicy(policy, importFlag)` with the rule-ID list, `AddPolicyReport(report, importFlag)` with the policy-ID list, `GetPolicyReport(reportId, exportFlag)` read-back verification → after the last report, or at the first failure, one `StartCaching([ids])` for every report that was imported, or `UpdateReportStatus('Disabled', [ids])` plus a `ReportStatus` read-back with `--disabled`. A failure within one report triggers `DeletePolicyReports` / `DeletePolicies` / `DeletePolicyRules` for what that report's attempt created, skipping ids that existed beforehand |
+| NCM (network STIGs) | Permission preflight `GetPolicyReport(<nil GUID>, false)` → collision check query on `Cirrus.PolicyReports` → per report: `IN @ids` sanity probe on one existing rule and policy (`SELECT TOP 1 …`), existing-id snapshot on `Cirrus.PolicyRules` / `Cirrus.Policies`, wire-format probe with one `AddPolicyRule(rule)`, `AddPolicyRule` per check, `AddPolicy(policy, importFlag)` with the rule-ID list, `AddPolicyReport(report, importFlag)` with the policy-ID list, `GetPolicyReport(reportId, exportFlag)` read-back verification → after the last report, or at the first failure, one `StartCaching([ids])` for every report that was imported, or `UpdateReportStatus('Disabled', [ids])` plus a `ReportStatus` read-back with `--disabled`. A failure within one report triggers `DeletePolicyReports` / `DeletePolicies` / `DeletePolicyRules` for what that report's attempt created, skipping ids that existed beforehand |
 | NCM rule dry run (`test`) | Wire-format probe against `TestRule` → `TestRule(rule, configText)` or `TestRuleOnBackedUpConfig(rule, configId)` per rule. Read-only; nothing is created |
-| NCM fallback | Nested `AddPolicyReport(report, importFlag)` in console-export XML; if every wire format is refused, console-importable `.ncm-report.xml` files are written for the reports not yet imported |
-| NCM undo (`remove`) | Name query on `Cirrus.PolicyReports` → `GetPolicyReport(reportId, exportFlag)` per report → membership and sharing queries on `Cirrus.PolicyAssignment` and `Cirrus.PolicyRuleAssignment` → `DeletePolicyReports(ids, false)` → `DeletePolicies(unsharedIds, false)` → `DeletePolicyRules(unsharedIds)` → read-back of all three |
+| NCM fallback | Only after documented 400 rejections: nested `AddPolicyReport(report, importFlag)` in console-export XML, verified with `GetPolicyReport`; a nested report that fails verification is removed the way `remove` does it (after the `IN @ids` probe), skipping ids that existed before. If every wire format is refused, console-importable `.ncm-report.xml` files are written for the reports not yet imported |
+| NCM undo (`remove`) | Name query on `Cirrus.PolicyReports` → permission preflight (not on `--dry-run`) → `IN @ids` sanity probe on the report → `GetPolicyReport(reportId, exportFlag)` per report → membership and sharing queries on `Cirrus.PolicyAssignment` and `Cirrus.PolicyRuleAssignment` → `DeletePolicyReports(ids, false)` → `DeletePolicies(unsharedIds, false)` → `DeletePolicyRules(unsharedIds)` → read-back of all three |
 | SCM (server STIGs / `.yaml` / `.scm-policy.yaml` / legacy policy `.scm-profile`) | Collision check query on `Orion.PolicyEngine.Policy` by `Name` **and** `UniqueId` → `ImportPolicy(yaml)` per policy → rule-count read-back on `Orion.PolicyEngine.Rule` |
 | Test connection | `Orion.Engines` version query + `Metadata.Entity` counts for the `Cirrus.` and `Orion.PolicyEngine.` namespaces |
 
@@ -500,9 +561,13 @@ verb contracts shipped in this repository (`data/schema/2026.2/`). Deeper treatm
 | Auth | HTTP Basic (Orion local or AD account), or Windows Negotiate/SSPI for the current-user option |
 | TLS | SWIS ships a self-signed certificate; trust it via a CA bundle rather than disabling verification outside a lab |
 
-Required rights: NCM imports need the NCM **WebUploader** role at minimum
-(**WebDownloader** for read/export), and a server option can restrict all compliance
-verbs to Orion admins. SCM policy import/assignment requires the **manageNodes**
+Required rights, from the 2026.2 verb descriptions: `AddPolicyRule`, `AddPolicy`,
+`AddPolicyReport`, `GetPolicyReport`, the three `Delete*` verbs and the two `TestRule`
+verbs need at least the NCM **WebDownloader** role; `StartCaching` and
+`UpdateReportStatus` need **WebUploader**. When the server's "compliance only for
+administrators" option is on, all of them are valid only for Orion administrators.
+(Before 2.0.0 this README and the tool's verification error said WebUploader was the
+minimum for an import, which was wrong.) SCM policy import/assignment requires the **manageNodes**
 right on `Orion.PolicyEngine.Policy`.
 
 ## NCM: entities and verbs used
@@ -516,14 +581,15 @@ The `Cirrus.Policy*` SWQL entities are read-only; all writes are Invoke verbs on
 | `AddPolicyRule` | `(rule)` → new rule GUID (string) | One call per STIG check — the rules are created first |
 | `AddPolicy` | `(policy, importFlag)` → new policy GUID (string) | One per benchmark, with `importFlag=false` and `AssignedRulesList` carrying the rule GUIDs just created |
 | `AddPolicyReport` | `(report, importFlag)` → new report GUID (string) | Last, with `importFlag=false` and `AssignedPoliciesList` carrying the policy GUIDs |
-| `GetPolicyReport` | `(reportId, exportFlag)` with `exportFlag=true` | Read-back verification: the import only reports success once the returned tree holds the expected policies and rules |
-| `StartCaching` | `(selectedReportsIds)` — array of GUID strings | Activation; **always pass the specific GUID** — an empty array re-caches every report on the server |
+| `GetPolicyReport` | `(reportId, exportFlag)` with `exportFlag=true` | Read-back verification: the import only reports success once the returned tree has the submitted policy count, rule count and rule names per policy. Also the permission preflight, for the nil GUID with `exportFlag=false` |
+| `StartCaching` | `(selectedReportsIds)` — array of GUID strings → boolean | Activation; **always pass the specific GUID** — an empty array re-caches every report on the server. The result is logged |
 | `UpdateReportStatus` | `(status, selectedReportsIds)` — `Enabled`/`Disabled` | `--disabled`: the verb that owns the field, said explicitly rather than trusting the payload to have carried it |
 | `TestRule` / `TestRuleOnBackedUpConfig` | `(policyRule, config)` / `(policyRule, configId)` → string | The `test` command. Creates nothing, needs only WebDownloader, and takes the same contract type `AddPolicyRule` does, so the same wire-format probe applies |
 | `DeletePolicyRules` / `DeletePolicies` / `DeletePolicyReports` | `(ruleIds)` / `(policyIds, deleteChildren)` / `(policyReportIds, deleteChildren)` | Rollback of a failed import, and the `remove` command; `deleteChildren` is always false |
 | Query | `SELECT PolicyReportID, PolicyID FROM Cirrus.PolicyAssignment WHERE PolicyID IN @ids` | `remove`: a policy another report is assigned to is kept |
 | Query | `SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids` | `remove`: a rule a surviving policy uses is kept |
 | Query | `SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids` | Pre-import snapshot so a rollback skips rules that already existed |
+| Query | `SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules` / `SELECT TOP 1 PolicyID FROM Cirrus.Policies` | An id known to exist, for the `IN @ids` sanity probe before the snapshot (the report itself is the probe id for `remove` and the nested rollback) |
 | `GetPolicy` / `GetPolicyRule` | `(policyId, exportFlag)` / `(ruleId)` | Per-item export |
 
 The tool builds bottom-up (rules → policies → report, linked by ID lists) rather than

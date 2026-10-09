@@ -121,9 +121,13 @@ but has been observed in the field creating only the report row over JSON REST:
 4. `AddPolicyReport(report, importFlag)` with `importFlag` false and
    `AssignedPoliciesList` carrying the policy GUIDs — returns the report GUID.
 5. `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true — read the tree back and
-   compare expected relationships and content before claiming success. The current tool
-   checks only that policy/rule counts are nonzero; the audit reproduced a partial tree
-   being accepted. Exact verification is a required improvement, not existing behavior.
+   compare expected relationships and content before claiming success. Since tool 2.0.0
+   (2026-10-09) both editions compare the policy count, the rule count and the rule
+   names in each policy with what was submitted, the comparison Porter 0.3.0 makes, and
+   treat a mismatch or a result that is not a report object as a failed import that is
+   rolled back. Rule content is not compared yet, so exact verification remains an open
+   improvement; the earlier tool checked only that the counts were nonzero, which is how
+   the audit got a partial tree accepted.
 6. `StartCaching(selectedReportsIds)` with `[thatGuid]` — the report shows nothing
    until cached, and an empty array would re-cache every report on the server. Skip
    this and call `UpdateReportStatus('Disabled', [thatGuid])` instead when a large
@@ -228,6 +232,38 @@ Since 2026-10-08 those last two follow the rollback guidance above more closely:
   [collection-profile](../modules/scm-profile-portability-audit.md) export extension;
   a JSON profile is refused rather than sent to `ImportPolicy`, and policy YAML that an
   older build wrote under that extension is still accepted.
+
+Tool 2.0.0 (2026-10-09) also changes how an import fails, in both editions:
+
+- Only an HTTP 400 carrying one of the two rejection messages
+  [ncm-compliance-reports.md](../modules/ncm-compliance-reports.md#the-swis-round-trip-20262-verified)
+  records counts as "this wire format was refused". Any other 400, and every 401, 403,
+  409 or 500, stops that report with the server's message, rolls back what it created,
+  and writes no console file. Timeouts, reset connections and bodies that are not JSON
+  are reported with their original message and handled like any other failure.
+- A nested `AddPolicyReport(report, importFlag)` that is accepted but fails the
+  read-back is deleted (the report, then the policies and rules nothing else uses, never
+  an id that existed before the run) before the console file is written.
+- Before writing, the tool logs the role each verb needs and calls `GetPolicyReport` for
+  the nil GUID; HTTP 401 or 403 stops the run. The 2026.2 verb descriptions put
+  `AddPolicyRule`, `AddPolicy`, `AddPolicyReport`, `GetPolicyReport` and the `Delete*`
+  verbs at WebDownloader and `StartCaching` / `UpdateReportStatus` at WebUploader, all of
+  them Orion-administrator only when compliance is restricted to administrators. A
+  refused `StartCaching` or `UpdateReportStatus` is logged, the console files still due
+  are written, and the run exits non-zero.
+- A pinned certificate is enforced on every connection and fails closed, including on
+  PowerShell 7, where the PowerShell edition uses an `HttpClient` with a validation
+  callback because `Invoke-RestMethod` offers none for server certificates. That path
+  is tested offline by forcing it on Windows PowerShell 5.1; it has not been run under
+  PowerShell 7 itself.
+- Every decision based on an `IN @ids` query over GUIDs (the existing-id snapshot, the
+  removal plan, the nested rollback) is preceded by the same query for one id known to
+  exist, and stops unless exactly one row comes back. **Unverified:** the documented
+  array binding uses integers; whether every server binds GUID strings the same way is
+  not documented.
+
+These are offline-tested behaviors against an in-memory stand-in and a local listener,
+not a live import test.
 
 For current serializer and verification limitations, read the
 [implementation findings](../modules/ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter).

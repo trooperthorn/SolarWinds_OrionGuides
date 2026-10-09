@@ -1107,8 +1107,68 @@ function Read-ScmPolicyFile([string]$FilePath, [scriptblock]$Log) {
 }
 
 # =========================================================================
-# SWIS client - built-in Invoke-RestMethod, basic or Windows auth
+# SWIS client - built-in Invoke-RestMethod (HttpClient for a PS 7 pin)
 # =========================================================================
+# Certificate pinning fails closed in both PowerShell generations:
+#  - Windows PowerShell 5.1: Invoke-RestMethod, with the process-wide
+#    ServicePointManager callback set only for the duration of each call and the
+#    previous callback restored afterwards.
+#  - PowerShell 7: Invoke-RestMethod has no server-certificate callback (its
+#    -CertificateThumbprint selects a *client* certificate, and
+#    ServicePointManager does not reach its HttpClient), so a pinned connection
+#    goes through an HttpClient whose handler checks the pin on every new TLS
+#    connection. -SkipCertificateCheck is used only for -Insecure without a pin.
+# The pin check is compiled C# (Add-Type): a PowerShell script block cannot run
+# as a TLS callback on the .NET thread pool, where no runspace exists. If the
+# type cannot be compiled, the connection is refused rather than left unchecked.
+$script:PinCheckSource = @'
+using System;
+using System.Net.Security;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+namespace DisaStigTool {
+    public sealed class PinCheck {
+        private readonly string pin;
+        public bool AcceptAny;
+        public int Calls;
+        public string LastSeen = "";
+        public PinCheck(string pin) { this.pin = (pin ?? "").Replace(":", "").ToUpperInvariant(); }
+        public bool Matches(X509Certificate cert) {
+            Calls++;
+            if (AcceptAny) { return true; }
+            if (cert == null || pin.Length == 0) { return false; }
+            using (SHA256 sha = SHA256.Create()) {
+                LastSeen = BitConverter.ToString(sha.ComputeHash(cert.GetRawCertData())).Replace("-", "");
+            }
+            return string.Equals(LastSeen, pin, StringComparison.Ordinal);
+        }
+        public bool ValidateSender(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors errors) {
+            return Matches(cert);
+        }
+        public Func<T, X509Certificate2, X509Chain, SslPolicyErrors, bool> For<T>() {
+            return (request, cert, chain, errors) => Matches(cert);
+        }
+    }
+}
+'@
+# Tests set this to exercise the HttpClient path on Windows PowerShell 5.1.
+$script:ForceHttpClient = $false
+
+function New-PinCheck([string]$Thumb, [bool]$AcceptAny = $false) {
+    if (-not ('DisaStigTool.PinCheck' -as [type])) {
+        try { Add-Type -TypeDefinition $script:PinCheckSource -Language CSharp }
+        catch {
+            $msg = ('certificate checking could not be set up (Add-Type failed: ' + $_.Exception.Message +
+                '); refusing to connect, because the pin must fail closed')
+            Write-ToolLog swis error $msg
+            throw $msg
+        }
+    }
+    $check = New-Object DisaStigTool.PinCheck($Thumb)
+    $check.AcceptAny = $AcceptAny
+    return $check
+}
+
 function New-SwisConnection([string]$SwisServer, [int]$SwisPort, [string]$User,
                             [string]$Password, [bool]$UseWindowsAuth,
                             [bool]$AllowInsecure, [string]$PinnedThumb) {
@@ -1125,10 +1185,151 @@ function New-SwisConnection([string]$SwisServer, [int]$SwisPort, [string]$User,
     if ($UseWindowsAuth) { $who = "the current Windows user '$([Environment]::UserName)' (Negotiate)" }
     Write-ToolLog swis info "SWIS endpoint $base as $who; TLS $tls"
     if ($AllowInsecure -and -not $PinnedThumb) { Write-ToolLog swis warn 'TLS verification is off for this session' }
+    if ($AllowInsecure -and $PinnedThumb) { Write-ToolLog swis info '-Insecure is ignored: a pinned certificate is always checked' }
     return @{
         Base = $base
         User = $User; Password = $Password; WindowsAuth = $UseWindowsAuth
         Insecure = $AllowInsecure; PinnedThumb = $PinnedThumb
+        HttpClient = $null; PinCheck = $null; PlanLogged = $false
+    }
+}
+
+function Get-SwisTransportPlan($Conn, [bool]$IsCore) {
+    # How one call is made. Path: 'RestMethod' or 'HttpClient'. A pinned
+    # connection never gets SkipCertificateCheck; the pin is checked on every new
+    # TLS connection, by the scoped callback (5.1) or the HttpClient handler (7).
+    $pinned = [bool]$Conn.PinnedThumb
+    $plan = @{ Path = 'RestMethod'; SkipCertificateCheck = $false; ScopedCallback = $false; Check = 'system trust store' }
+    if ($pinned -and ($IsCore -or $script:ForceHttpClient)) {
+        $plan.Path = 'HttpClient'; $plan.Check = 'pin (HttpClient handler callback, per connection)'
+    } elseif ($pinned) {
+        $plan.ScopedCallback = $true; $plan.Check = 'pin (ServicePointManager callback, scoped to the call)'
+    } elseif ($script:ForceHttpClient) {
+        $plan.Path = 'HttpClient'
+        if ($Conn.Insecure) { $plan.Check = 'none (-Insecure)' }
+    } elseif ($Conn.Insecure -and $IsCore) {
+        $plan.SkipCertificateCheck = $true; $plan.Check = 'none (-Insecure, SkipCertificateCheck)'
+    } elseif ($Conn.Insecure) {
+        $plan.ScopedCallback = $true; $plan.Check = 'none (-Insecure, scoped callback)'
+    }
+    if ($pinned -and $plan.SkipCertificateCheck) { throw 'internal error: a pinned connection must never skip the certificate check' }
+    return $plan
+}
+
+function New-SwisRequestBody($Body) {
+    # The request body as UTF-8 bytes with the charset said explicitly. A string
+    # body would be encoded by Invoke-RestMethod as ISO-8859-1 on Windows
+    # PowerShell 5.1 when the content type names no charset, mangling any STIG
+    # text outside Latin-1.
+    if ($null -eq $Body) { return $null }
+    $text = ConvertTo-Json $Body -Depth 20 -Compress
+    return @{ Text = $text; Bytes = $script:Utf8NoBom.GetBytes($text); ContentType = 'application/json; charset=utf-8' }
+}
+
+function Get-SwisErrorDetail([string]$Text) {
+    # SWIS error bodies carry a Message member (docs/swis/rest-api.md); fall back to the raw text.
+    if (-not $Text) { return '' }
+    try {
+        $parsed = ConvertFrom-Json $Text
+        if ($null -ne $parsed -and $parsed.PSObject.Properties['Message']) { return [string]$parsed.Message }
+    } catch { }
+    return $Text
+}
+
+function Invoke-SwisHttpClient($Conn, [string]$Method, [string]$Uri, $Request) {
+    # One request through a System.Net.Http.HttpClient kept on the connection.
+    # Returns @{ Status; Ok; Text }; transport failures throw.
+    if ($null -eq $Conn.HttpClient) {
+        Add-Type -AssemblyName System.Net.Http
+        $handler = New-Object System.Net.Http.HttpClientHandler
+        if ($Conn.PinnedThumb -or $Conn.Insecure) {
+            $check = New-PinCheck $Conn.PinnedThumb (-not $Conn.PinnedThumb)
+            $handler.ServerCertificateCustomValidationCallback =
+                $check.GetType().GetMethod('For').MakeGenericMethod([System.Net.Http.HttpRequestMessage]).Invoke($check, @())
+            $Conn.PinCheck = $check
+        }
+        if ($Conn.WindowsAuth) { $handler.UseDefaultCredentials = $true }
+        $client = New-Object System.Net.Http.HttpClient($handler)
+        $client.Timeout = [TimeSpan]::FromSeconds(300)
+        $Conn.HttpClient = $client
+    }
+    $message = New-Object System.Net.Http.HttpRequestMessage((New-Object System.Net.Http.HttpMethod($Method.ToUpperInvariant())), $Uri)
+    [void]$message.Headers.Accept.Add((New-Object System.Net.Http.Headers.MediaTypeWithQualityHeaderValue('application/json')))
+    if (-not $Conn.WindowsAuth) {
+        $token = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($Conn.User + ':' + $Conn.Password))
+        $message.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Basic', $token)
+    }
+    if ($null -ne $Request) {
+        $content = New-Object System.Net.Http.ByteArrayContent(, [byte[]]$Request.Bytes)
+        $content.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse($Request.ContentType)
+        $message.Content = $content
+    }
+    try {
+        $response = $Conn.HttpClient.SendAsync($message).GetAwaiter().GetResult()
+        $text = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+        return @{ Status = [int]$response.StatusCode; Ok = [bool]$response.IsSuccessStatusCode; Text = $text }
+    } finally { $message.Dispose() }
+}
+
+function Invoke-SwisRest($Conn, [string]$Method, [string]$RestPath, $Body) {
+    $uri = $Conn.Base + '/' + $RestPath
+    $isCore = (Get-Command Invoke-RestMethod).Parameters.ContainsKey('SkipCertificateCheck')
+    $plan = Get-SwisTransportPlan $Conn $isCore
+    if (-not $Conn.PlanLogged) {
+        Write-ToolLog swis info "transport: $($plan.Path); certificate check: $($plan.Check)"
+        $Conn.PlanLogged = $true
+    }
+    $request = New-SwisRequestBody $Body
+    $previous = $null; $swapped = $false
+    try {
+        if ($plan.Path -eq 'HttpClient') {
+            $r = Invoke-SwisHttpClient $Conn $Method $uri $request
+            if (-not $r.Ok) { throw ("SWIS HTTP $($r.Status) from $RestPath`n" + (Get-SwisErrorDetail $r.Text)) }
+            if (-not $r.Text -or -not $r.Text.Trim()) { return $null }
+            try { return (ConvertFrom-Json $r.Text) }
+            catch { throw ("SWIS transport error calling ${RestPath}: the response is not JSON: " + $_.Exception.Message) }
+        }
+        $params = @{ Method = $Method; Uri = $uri; TimeoutSec = 300 }
+        if ($Conn.WindowsAuth) { $params.UseDefaultCredentials = $true }
+        else {
+            $token = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(
+                $Conn.User + ':' + $Conn.Password))
+            $params.Headers = @{ Authorization = "Basic $token" }
+        }
+        if ($null -ne $request) { $params.Body = [byte[]]$request.Bytes; $params.ContentType = $request.ContentType }
+        if ($plan.SkipCertificateCheck) { $params.SkipCertificateCheck = $true }
+        if ($plan.ScopedCallback) {
+            if ($null -eq $Conn.PinCheck) { $Conn.PinCheck = New-PinCheck $Conn.PinnedThumb (-not $Conn.PinnedThumb) }
+            $callback = [Delegate]::CreateDelegate([System.Net.Security.RemoteCertificateValidationCallback], $Conn.PinCheck, 'ValidateSender')
+            $previous = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $callback
+            $swapped = $true
+        }
+        return Invoke-RestMethod @params
+    }
+    catch {
+        $failure = $_.Exception
+        if ($failure.Message -like 'SWIS *') { throw }
+        $code = ''
+        try { if ($failure.Response) { $code = [int]$failure.Response.StatusCode } } catch { }
+        if ($code) {
+            $detail = $failure.Message
+            if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $detail = Get-SwisErrorDetail $_.ErrorDetails.Message }
+            throw ("SWIS HTTP $code from $RestPath`n" + $detail)
+        }
+        $base = $failure.GetBaseException()
+        $msg = "SWIS transport error calling ${RestPath}: $($base.GetType().Name): $($base.Message)"
+        if ($Conn.PinnedThumb -and $Conn.PinCheck -and $Conn.PinCheck.LastSeen -and $Conn.PinCheck.LastSeen -ne ($Conn.PinnedThumb -replace ':', '').ToUpperInvariant()) {
+            $msg = ("SWIS certificate pin mismatch calling ${RestPath}: the server presented SHA-256 " +
+                "$($Conn.PinCheck.LastSeen), not the pinned $($Conn.PinnedThumb); the connection was refused")
+            Write-ToolLog swis error $msg
+        }
+        throw $msg
+    }
+    finally {
+        # Restore whatever was there before, so the process-wide callback never
+        # outlives the call that needed it.
+        if ($swapped) { [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $previous }
     }
 }
 
@@ -1137,8 +1338,12 @@ function Get-ServerCertThumbprint([string]$SwisServer, [int]$SwisPort) {
     # 'SolarWinds-Orion' one) for explicit trust. Returns SHA-256 hex.
     $client = New-Object System.Net.Sockets.TcpClient($SwisServer, $SwisPort)
     try {
+        # Accept-any is right here and only here: this fetch is what the operator
+        # inspects before pinning. The callback is the compiled check, not a script
+        # block, so it also runs where no runspace exists (PowerShell 7).
+        $acceptAny = New-PinCheck '' $true
         $ssl = New-Object System.Net.Security.SslStream($client.GetStream(), $false,
-            { param($s, $c, $ch, $e) $true })
+            [Delegate]::CreateDelegate([System.Net.Security.RemoteCertificateValidationCallback], $acceptAny, 'ValidateSender'))
         $ssl.AuthenticateAsClient($SwisServer)
         $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($ssl.RemoteCertificate)
         $thumb = [BitConverter]::ToString(
@@ -1147,47 +1352,6 @@ function Get-ServerCertThumbprint([string]$SwisServer, [int]$SwisPort) {
         $ssl.Dispose()
         return @{ Thumbprint = $thumb; Subject = $cert.Subject; Stock = $stock }
     } finally { $client.Dispose() }
-}
-
-function Invoke-SwisRest($Conn, [string]$Method, [string]$RestPath, $Body) {
-    $params = @{ Method = $Method; Uri = ($Conn.Base + '/' + $RestPath)
-                 ContentType = 'application/json'; TimeoutSec = 300 }
-    if ($Conn.WindowsAuth) { $params.UseDefaultCredentials = $true }
-    else {
-        $token = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(
-            $Conn.User + ':' + $Conn.Password))
-        $params.Headers = @{ Authorization = "Basic $token" }
-    }
-    if ($null -ne $Body) { $params.Body = (ConvertTo-Json $Body -Depth 20 -Compress) }
-    $skipOk = (Get-Command Invoke-RestMethod).Parameters.ContainsKey('SkipCertificateCheck')
-    if ($Conn.Insecure -or $Conn.PinnedThumb) {
-        if ($skipOk) { $params.SkipCertificateCheck = $true }  # pin was verified at fetch
-        else {
-            # Windows PowerShell 5.1: per-process callback honouring the pin
-            $pin = $Conn.PinnedThumb
-            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {
-                param($s, $cert, $chain, $errors)
-                if ($errors -eq [System.Net.Security.SslPolicyErrors]::None) { return $true }
-                if (-not $pin) { return $true }  # explicit -Insecure
-                $c2 = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($cert)
-                $t = [BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($c2.RawData)) -replace '-', ''
-                return $t -eq $pin
-            }.GetNewClosure()
-        }
-    }
-    try { return Invoke-RestMethod @params }
-    catch {
-        $detail = $_.Exception.Message
-        try {
-            if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
-                $parsed = ConvertFrom-Json $_.ErrorDetails.Message
-                if ($parsed.PSObject.Properties['Message']) { $detail = $parsed.Message }
-            }
-        } catch { }
-        $code = ''
-        try { $code = [int]$_.Exception.Response.StatusCode } catch { }
-        throw ("SWIS HTTP $code from $RestPath`n" + $detail)
-    }
 }
 
 function Format-LogValue($Value, [int]$Width = 60) {
@@ -1397,22 +1561,135 @@ function Get-RowValue($Row, [string]$Column) {
     return $null
 }
 
+function Get-HttpStatus([string]$Text) {
+    # The HTTP status an error message names ('SWIS HTTP 403 from ...'), or 0.
+    if ($Text -match '\bHTTP (\d{3})\b') { return [int]$Matches[1] }
+    return 0
+}
+
+# The two HTTP 400 rejections docs/modules/ncm-compliance-reports.md records for
+# the NCM contract types over JSON REST (a field observation on 2026.2.2). Only
+# these mean "this wire format was refused, try the next one"; any other 400, and
+# every 401, 403, 409 or 500, stops that report with the server's message, rolls
+# back, and writes no console file. Unverified: a server on another .NET runtime
+# may word the null-argument rejection differently; that is treated as an
+# undocumented 400 (the report stops) rather than guessed at. Same as Python.
+$script:WireRejectionPatterns = @('(?i)Value cannot be null\.?\s*Parameter name:\s*input',
+                                  '(?i)\bcannot unpackage parameter \d+')
+
+function Test-WireRejection([string]$Text) {
+    if ((Get-HttpStatus $Text) -ne 400) { return $false }
+    foreach ($p in $script:WireRejectionPatterns) { if ($Text -match $p) { return $true } }
+    return $false
+}
+
+# The NCM role each Cirrus.PolicyReports verb this tool calls needs, from the
+# 2026.2 verb descriptions (python tools/schema_query.py verb Cirrus.PolicyReports
+# <verb>). With the server's "compliance only for administrators" option on, all
+# of them are valid only for Orion administrators.
+$script:NcmVerbRoles = @(
+    @{ Role = 'WebDownloader'; Verbs = @('AddPolicyRule', 'AddPolicy', 'AddPolicyReport', 'GetPolicyReport',
+        'DeletePolicyRules', 'DeletePolicies', 'DeletePolicyReports', 'TestRule', 'TestRuleOnBackedUpConfig') },
+    @{ Role = 'WebUploader'; Verbs = @('StartCaching', 'UpdateReportStatus') })
+$script:RoleHint = ('Check that the account has at least the WebDownloader NCM role (WebUploader for ' +
+    'StartCaching and UpdateReportStatus), or is an Orion administrator when the server restricts ' +
+    'compliance to administrators.')
+$script:NilGuid = '00000000-0000-0000-0000-000000000000'
+
+function Invoke-NcmPreflight($Conn, [scriptblock]$Log) {
+    # Before anything is written: logs the role each verb needs, then calls
+    # GetPolicyReport (WebDownloader, like every write the import makes) for the
+    # nil GUID. Any answer confirms access; 401, 403 or a permission message stops
+    # the run before anything is created. Unverified: the answer for an id that
+    # does not exist is not documented, so other errors are inconclusive and the
+    # import goes ahead. Returns 'ok' or 'inconclusive'. Same as Python ncm_preflight.
+    foreach ($entry in $script:NcmVerbRoles) {
+        Write-ToolLog import info ("NCM role needed (2026.2 verb descriptions): $($entry.Role) or higher for " + ($entry.Verbs -join ', '))
+    }
+    Write-ToolLog import info ("when the server's 'compliance only for administrators' option is on, every one of " +
+        'those verbs is valid only for Orion administrators')
+    try {
+        $result = Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'GetPolicyReport' @($script:NilGuid, $false)
+    } catch {
+        $text = $_.Exception.Message
+        $status = Get-HttpStatus $text
+        $denied = $text -match '(?i)access (is )?denied|not authori[sz]ed|permission|forbidden|only for (orion )?admin'
+        if ($status -eq 401 -or $status -eq 403 -or ($status -gt 0 -and $denied)) {
+            $last = @($text -split "`n")[-1]
+            $msg = ("[NCM] permission preflight: this account may not call Cirrus.PolicyReports GetPolicyReport " +
+                "(HTTP $status): $last. The import needs at least the WebDownloader NCM role (WebUploader to " +
+                'start caching or change ReportStatus), or an Orion administrator when the server restricts ' +
+                'compliance to administrators. Nothing was created.')
+            Write-ToolLog import error $msg
+            throw $msg
+        }
+        if ($status -eq 0) { throw }
+        Send-Log $Log 'import' 'warn' ("[NCM] permission preflight inconclusive: GetPolicyReport for the nil GUID answered " +
+            "HTTP $status (Unverified: the answer for an id that does not exist is not documented); continuing")
+        return 'inconclusive'
+    }
+    Write-ToolLog import info ("permission preflight ok: GetPolicyReport answered $(Format-LogValue $result) for an " +
+        'id that does not exist, so the account may call the compliance verbs')
+    return 'ok'
+}
+
+# IN @ids sanity probe. docs/swis/rest-api.md documents the array binding with
+# integers; whether every server binds an array of GUID strings the same way is
+# Unverified. Before any decision based on such a query (the existing-id
+# snapshot, a removal or nested-rollback plan), the query is run for one id known
+# to exist and exactly one matching row is required. Same as Python.
+$script:InIdsProbes = @{
+    report = @('SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids', 'PolicyReportID')
+    policy = @('SELECT PolicyID FROM Cirrus.Policies WHERE PolicyID IN @ids', 'PolicyID')
+    rule   = @('SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids', 'PolicyRuleID')
+}
+
+function Confirm-InIds($Conn, [string]$Kind, [string]$KnownId, [string]$Purpose, [string]$Component = 'import') {
+    $probe = $script:InIdsProbes[$Kind]
+    $rows = @(Invoke-SwisQuery $Conn $probe[0] @{ ids = @($KnownId) })
+    $matched = @($rows | Where-Object { (Get-NormId (Get-RowValue $_ $probe[1])) -eq (Get-NormId $KnownId) })
+    if ($rows.Count -ne 1 -or $matched.Count -ne 1) {
+        $msg = ("[NCM] IN @ids sanity probe failed before ${Purpose}: querying the $Kind $KnownId, which is known " +
+            "to exist, returned $($rows.Count) row(s) instead of exactly 1. This server does not bind a GUID array " +
+            'to IN @ids the way the tool expects, so a decision based on it could delete the wrong objects; ' +
+            'stopping instead. Nothing was deleted by this step.')
+        Write-ToolLog $Component error $msg
+        $err = New-Object System.Exception $msg
+        $err.Data['InIdsProbe'] = $true
+        throw $err
+    }
+    Write-ToolLog $Component info "IN @ids sanity probe ok before ${Purpose}: the $Kind $KnownId returned exactly one row"
+}
+
 function Get-ExistingNcmIds($Conn, $Report) {
     # RuleIds are uuid5-derived from the DISA rule id, so a second import of the
     # same STIG release submits ids an earlier import already created. Those
     # must survive a rollback, so they are recorded before anything is created.
     # Unverified: whether AddPolicyRule/AddPolicy honour a submitted id is not
-    # documented; the returned id is used either way.
+    # documented; the returned id is used either way. Each lookup follows the
+    # IN @ids sanity probe on a row SELECT TOP 1 returns; an empty table needs none.
     $ruleIds = @($Report.AssignedPolicies | ForEach-Object { $_.AssignedPolicyRules } | ForEach-Object { $_.RuleId })
     $policyIds = @($Report.AssignedPolicies | ForEach-Object { $_.PolicyId } | Where-Object { $_ })
-    $rules = @{}; $policies = @{}
-    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids' $ruleIds)) {
-        $rules[(Get-NormId (Get-RowValue $row 'PolicyRuleID'))] = $true
+    $found = @{ rule = @{}; policy = @{} }
+    $cases = @(
+        @{ Kind = 'rule'; Ids = $ruleIds; Sample = 'SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules' },
+        @{ Kind = 'policy'; Ids = $policyIds; Sample = 'SELECT TOP 1 PolicyID FROM Cirrus.Policies' })
+    foreach ($case in $cases) {
+        if ($case.Ids.Count -eq 0) { continue }
+        $probe = $script:InIdsProbes[$case.Kind]
+        $sample = @(Invoke-SwisQuery $Conn $case.Sample $null)
+        $known = $null
+        if ($sample.Count -gt 0) { $known = Get-RowValue $sample[0] $probe[1] }
+        if (-not $known) {
+            Write-ToolLog import info "the server returned no $($case.Kind) rows, so none of the $($case.Ids.Count) submitted $($case.Kind) id(s) can already exist"
+            continue
+        }
+        Confirm-InIds $Conn $case.Kind ([string]$known) "the existing-$($case.Kind)-id snapshot"
+        foreach ($row in @(Invoke-SwisQueryIds $Conn $probe[0] $case.Ids)) {
+            $found[$case.Kind][(Get-NormId (Get-RowValue $row $probe[1]))] = $true
+        }
     }
-    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID FROM Cirrus.Policies WHERE PolicyID IN @ids' $policyIds)) {
-        $policies[(Get-NormId (Get-RowValue $row 'PolicyID'))] = $true
-    }
-    return @{ Rules = $rules; Policies = $policies }
+    return @{ Rules = $found.rule; Policies = $found.policy }
 }
 
 function Undo-NcmImport($Conn, $RuleIds, $PolicyIds, [string]$ReportId, [scriptblock]$Log,
@@ -1440,6 +1717,8 @@ function Undo-NcmImport($Conn, $RuleIds, $PolicyIds, [string]$ReportId, [scriptb
         return @{ Ours = @($ours); Kept = @($kept) }
     }
     $drop = {
+        # Every failure is caught (a transport error as much as an HTTP error),
+        # logged, and the rollback carries on with the next level.
         param($SwisVerb, $Arguments)
         try { [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' $SwisVerb $Arguments) }
         catch { Send-Log $Log 'rollbk' 'error' "[NCM] rollback: $SwisVerb failed, clean up by hand - $($_.Exception.Message)" }
@@ -1491,7 +1770,10 @@ function Test-NcmRule($Conn, $Rule, [string]$ConfigText, [string]$ConfigId, [str
             }
             return @{ Result = $result; Format = $f }
         } catch {
-            if ($_.Exception.Message -notmatch 'HTTP 400') { throw }
+            if (-not (Test-WireRejection $_.Exception.Message)) {
+                Write-ToolLog verify error "TestRule stopped: $f failed with an error that is not a documented wire-format rejection"
+                throw
+            }
             [void]$rejections.Add($f)
         }
     }
@@ -1499,11 +1781,165 @@ function Test-NcmRule($Conn, $Rule, [string]$ConfigText, [string]$ConfigId, [str
         ($rejections -join ', '))
 }
 
+# Read-back comparison: policy count, rule count and per-policy rule names (the
+# comparison Porter 0.3.0 makes). Compare-NcmReportTree returns the same text as
+# the Python compare_report_trees; the parity test checks it.
+function Get-ExpectedReportTree($Report) {
+    $tree = New-Object System.Collections.ArrayList
+    foreach ($p in @($Report.AssignedPolicies)) {
+        $names = @(@($p.AssignedPolicyRules) | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_.RuleName })
+        [void]$tree.Add([pscustomobject]@{ Policy = [string]$p.PolicyName; Rules = [string[]]$names })
+    }
+    return @{ Policies = $tree }
+}
+
+function Test-ToolObject($Value) {
+    return ($Value -is [System.Collections.IDictionary] -or $Value -is [System.Management.Automation.PSCustomObject])
+}
+
+function Get-ReadBackTree($Stored) {
+    # @{ Policies = ... } from a GetPolicyReport(id, true) result, or $null when it
+    # cannot be compared: not an object, an entry that is not an object, or the
+    # nested AssignedPolicies absent while AssignedPoliciesList names policies.
+    if (-not (Test-ToolObject $Stored)) { return $null }
+    $policies = Get-RowValue $Stored 'AssignedPolicies'
+    $tree = New-Object System.Collections.ArrayList
+    if ($null -eq $policies -or $policies -is [string]) {
+        $listed = @(Get-RowValue $Stored 'AssignedPoliciesList' | Where-Object { $null -ne $_ })
+        if ($listed.Count -gt 0) { return $null }
+        return @{ Policies = $tree }
+    }
+    foreach ($p in @($policies)) {
+        if (-not (Test-ToolObject $p)) { return $null }
+        $names = New-Object System.Collections.ArrayList
+        foreach ($r in @(Get-RowValue $p 'AssignedPolicyRules')) {
+            if ($null -eq $r) { continue }
+            if (-not (Test-ToolObject $r)) { return $null }
+            [void]$names.Add([string](Get-RowValue $r 'RuleName'))
+        }
+        [void]$tree.Add([pscustomobject]@{ Policy = [string](Get-RowValue $p 'PolicyName'); Rules = [string[]]@($names) })
+    }
+    return @{ Policies = $tree }
+}
+
+function Compare-NcmReportTree($Expected, $Actual) {
+    $diffs = New-Object System.Collections.ArrayList
+    $nExpected = 0; foreach ($p in $Expected.Policies) { $nExpected += @($p.Rules).Count }
+    $nActual = 0; foreach ($p in $Actual.Policies) { $nActual += @($p.Rules).Count }
+    if ($Expected.Policies.Count -ne $Actual.Policies.Count) {
+        [void]$diffs.Add("policies: expected $($Expected.Policies.Count), stored $($Actual.Policies.Count)")
+    }
+    if ($nExpected -ne $nActual) { [void]$diffs.Add("rules: expected $nExpected, stored $nActual") }
+    $stored = New-Object 'System.Collections.Generic.Dictionary[string,System.Collections.ArrayList]' ([StringComparer]::Ordinal)
+    foreach ($p in $Actual.Policies) {
+        if (-not $stored.ContainsKey($p.Policy)) { $stored[$p.Policy] = New-Object System.Collections.ArrayList }
+        [void]$stored[$p.Policy].Add(@($p.Rules))
+    }
+    foreach ($p in $Expected.Policies) {
+        if (-not $stored.ContainsKey($p.Policy) -or $stored[$p.Policy].Count -eq 0) {
+            [void]$diffs.Add("policy `"$($p.Policy)`" missing"); continue
+        }
+        $match = @($stored[$p.Policy][0]); $stored[$p.Policy].RemoveAt(0)
+        $have = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+        foreach ($r in $match) { [void]$have.Add([string]$r) }
+        $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+        $missing = New-Object System.Collections.ArrayList
+        foreach ($r in @($p.Rules)) { if (-not $have.Contains([string]$r) -and $seen.Add([string]$r)) { [void]$missing.Add([string]$r) } }
+        if ($match.Count -ne @($p.Rules).Count -or $missing.Count -gt 0) {
+            $text = "policy `"$($p.Policy)`": expected $(@($p.Rules).Count) rules, stored $($match.Count)"
+            if ($missing.Count -gt 0) {
+                $shown = @($missing | Select-Object -First 3)
+                $text += ' (missing "' + ($shown -join '", "') + '"'
+                if ($missing.Count -gt 3) { $text += ', ...' }
+                $text += ')'
+            }
+            [void]$diffs.Add($text)
+        }
+    }
+    return @($diffs)
+}
+
+function New-NcmVerificationError([string]$Message) {
+    Write-ToolLog verify error $Message
+    $err = New-Object System.Exception $Message
+    $err.Data['Verification'] = $true
+    return $err
+}
+
+function Test-NcmImport($Conn, [string]$ReportId, $Report, [scriptblock]$Log) {
+    # Read the report back and compare it with what was submitted: the import is
+    # only done when the stored tree has the same policies, rule count and rule
+    # names per policy. A partial tree or a result that is not a report object
+    # throws with Data['Verification'] set; callers treat it as a failed import.
+    $expected = Get-ExpectedReportTree $Report
+    $nPolicies = $expected.Policies.Count
+    $nRules = 0; foreach ($p in $expected.Policies) { $nRules += @($p.Rules).Count }
+    Write-ToolLog verify info "reading report $ReportId back (expecting $nPolicies policies and $nRules rules)"
+    $stored = Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'GetPolicyReport' @($ReportId, $true)
+    if ($null -eq $stored -or ($stored -is [string] -and -not $stored.Trim())) {
+        throw (New-NcmVerificationError "[NCM] No Data Returned from GetPolicyReport for report $ReportId - the import cannot be confirmed")
+    }
+    $actual = Get-ReadBackTree $stored
+    if ($null -eq $actual) {
+        $diffs = @("GetPolicyReport(id, true) returned $(Format-LogValue $stored) instead of a readable report object")
+    } else {
+        $diffs = @(Compare-NcmReportTree $expected $actual)
+    }
+    if ($diffs.Count -gt 0) {
+        $held = 'nothing readable'
+        if ($null -ne $actual) {
+            $n = 0; foreach ($p in $actual.Policies) { $n += @($p.Rules).Count }
+            $held = "$($actual.Policies.Count) policies / $n rules"
+        }
+        $msg = ("[NCM] verification failed: report $ReportId was created but the server holds $held; the import " +
+            "carried $nPolicies policies / $nRules rules - " + (@($diffs | Select-Object -First 5) -join '; '))
+        if ($diffs.Count -gt 5) { $msg += "; ... and $($diffs.Count - 5) more" }
+        throw (New-NcmVerificationError ($msg + '. ' + $script:RoleHint))
+    }
+    Send-Log $Log 'verify' 'info' "[NCM] verified: report holds $($actual.Policies.Count) policies and $nRules rules, matching the import (policy names and rule names compared)"
+    return @{ ReportId = $ReportId; Policies = $actual.Policies.Count; Rules = $nRules }
+}
+
+function Write-UnknownOutcome([scriptblock]$Log, [string]$Kind, [string]$SubmittedId, $Preexisting) {
+    # A call that failed below HTTP (a timeout, a reset) may still have run server side.
+    $known = $Preexisting.Rules; if ($Kind -eq 'policy') { $known = $Preexisting.Policies }
+    if ($known.ContainsKey((Get-NormId $SubmittedId))) { return }
+    Send-Log $Log 'import' 'warn' ("[NCM] warning: the outcome of the failed call is unknown (no HTTP status): if the " +
+        "server created the $Kind anyway, it is not in the rollback list. Check for $Kind id $SubmittedId " +
+        '(Unverified: whether the server keeps a submitted id is not documented).')
+}
+
+function Undo-NcmNestedImport($Conn, [string]$ReportId, $Preexisting, [scriptblock]$Log) {
+    # Delete what a nested AddPolicyReport created: the report row, then the
+    # policies and rules nothing else uses (the plan -Remove makes), skipping every
+    # id that existed before this run. The IN @ids probe in Get-NcmRemovalPlan
+    # runs first; when it fails, nothing is deleted and the error stops the report.
+    Send-Log $Log 'rollbk' 'info' "[NCM] rollback: removing the nested import's report $ReportId and what only it uses"
+    $plan = Get-NcmRemovalPlan $Conn @($ReportId) $Log
+    $keptPolicies = @($plan.DeletePolicies | Where-Object { $Preexisting.Policies.ContainsKey((Get-NormId $_)) })
+    $keptRules = @($plan.DeleteRules | Where-Object { $Preexisting.Rules.ContainsKey((Get-NormId $_)) })
+    $plan.DeletePolicies = @($plan.DeletePolicies | Where-Object { -not $Preexisting.Policies.ContainsKey((Get-NormId $_)) })
+    $plan.DeleteRules = @($plan.DeleteRules | Where-Object { -not $Preexisting.Rules.ContainsKey((Get-NormId $_)) })
+    foreach ($i in $keptPolicies) { Send-Log $Log 'rollbk' 'info' "[NCM] rollback: skipped policy $i - it existed on the server before this import" }
+    foreach ($i in $keptRules) { Send-Log $Log 'rollbk' 'info' "[NCM] rollback: skipped rule $i - it existed on the server before this import" }
+    Write-NcmRemovalPlan $plan $Log
+    try { $left = Remove-NcmReports $Conn $plan $Log }
+    catch {
+        Send-Log $Log 'rollbk' 'error' "[NCM] rollback: deleting the nested import failed, clean up by hand (report $ReportId) - $($_.Exception.Message)"
+        return
+    }
+    if ($left.reports.Count + $left.policies.Count + $left.rules.Count -gt 0) {
+        Send-Log $Log 'rollbk' 'error' "[NCM] rollback: some objects of report $ReportId are still present; clean up by hand"
+    }
+}
+
 function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $true) {
     # Probe with one cheap AddPolicyRule per wire format (JSON object,
     # DataContract XML, plain XML), then run bottom-up in the accepted format.
-    # Falls back to a nested console-format AddPolicyReport; if everything is
-    # refused, throws with WireFailure=$true so the caller writes console files.
+    # Only a documented 400 moves on to the next format; any other error stops
+    # this report. Falls back to a nested console-format AddPolicyReport, verified
+    # and rolled back like the rest; if everything is refused, throws with
+    # WireFailure=$true so the caller writes console files.
     $labels = @{ 'json' = 'JSON contract objects'; 'xml-dc' = 'DataContract XML strings'
                  'xml-plain' = 'plain XML strings (no namespace)' }
     $preexisting = Get-ExistingNcmIds $Conn $Report
@@ -1525,11 +1961,15 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
             Send-Log $Log 'import' 'info' "[NCM] server accepts $($labels[$f])"
             break
         } catch {
-            if ($_.Exception.Message -notmatch 'HTTP 400') {
-                Write-ToolLog import error "wire-format probe stopped: $($labels[$f]) failed with a non-400 error, so no other format is tried"
+            $text = $_.Exception.Message
+            if (-not (Test-WireRejection $text)) {
+                $status = Get-HttpStatus $text; $shown = 'none'; if ($status) { $shown = $status }
+                Write-ToolLog import error ("wire-format probe stopped: $($labels[$f]) failed with an error that is not a " +
+                    "documented wire-format rejection (HTTP $shown), so no other format is tried and no console file is written for it")
+                if ($status -eq 0) { Write-UnknownOutcome $Log 'rule' $probeRule.RuleId $preexisting }
                 throw
             }
-            [void]$rejections.Add("$($labels[$f]): rejected")
+            [void]$rejections.Add("$($labels[$f]): " + @($text -split "`n")[-1])
             Send-Log $Log 'import' 'warn' "[NCM] server rejected $($labels[$f]); trying the next wire format"
         }
     }
@@ -1539,6 +1979,7 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
         [void]$allRuleIds.Add($firstId)
         $reportId = ''
         $first = $true
+        $pending = $null
         try {
             foreach ($p in $Report.AssignedPolicies) {
                 $ruleIds = New-Object System.Collections.ArrayList
@@ -1546,6 +1987,7 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
                 foreach ($r in $p.AssignedPolicyRules) {
                     $i++
                     if ($first) { [void]$ruleIds.Add($firstId); $first = $false; continue }
+                    $pending = @('rule', $r.RuleId)
                     $result = Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'AddPolicyRule' `
                         @((Get-WireArgument $format 'rule' $r $null))
                     $newRuleId = Get-CleanId $result $r.RuleId
@@ -1553,18 +1995,30 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
                     [void]$allRuleIds.Add($newRuleId)
                     if ($i % 25 -eq 0) { Send-Log $Log 'import' 'info' "[NCM]   $i/$($p.AssignedPolicyRules.Count) rules created" }
                 }
+                $pending = @('policy', $p.PolicyId)
                 $result = Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'AddPolicy' `
                     @((Get-WireArgument $format 'policy' $p @($ruleIds)), $false)
                 [void]$policyIds.Add((Get-CleanId $result $p.PolicyId))
                 Send-Log $Log 'import' 'info' "[NCM] created policy `"$($p.PolicyName)`" with $($ruleIds.Count) rules"
             }
+            $pending = @('report', '')
             $reportId = Get-CleanId (Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'AddPolicyReport' `
                 @((Get-WireArgument $format 'report' $Report @($policyIds)), $false)) ''
+            $pending = $null
             if (-not $reportId) { throw '[NCM] No Data Returned from AddPolicyReport - no report id' }
             Write-ToolLog import info "AddPolicyReport returned report id $reportId"
-            return Test-NcmImport $Conn $reportId $policyIds.Count $allRuleIds.Count $Log
+            return Test-NcmImport $Conn $reportId $Report $Log
         } catch {
-            Write-ToolLog import error "import of `"$($Report.Name)`" failed: $($_.Exception.Message)"
+            # Every failure is logged and rolled back the same way, then rethrown
+            # for Import-NcmReports to record.
+            $text = $_.Exception.Message
+            Write-ToolLog import error "import of `"$($Report.Name)`" failed: $text"
+            if ($pending -and (Get-HttpStatus $text) -eq 0 -and -not $_.Exception.Data['Verification']) {
+                if ($pending[0] -eq 'report') {
+                    Send-Log $Log 'import' 'warn' ("[NCM] warning: the outcome of the failed AddPolicyReport is unknown (no HTTP " +
+                        "status); if the server created the report anyway, look for `"$($Report.Name)`" and remove it")
+                } else { Write-UnknownOutcome $Log $pending[0] $pending[1] $preexisting }
+            }
             if ($Rollback) {
                 Send-Log $Log 'import' 'info' '[NCM] import failed part way through; removing what it created'
                 Undo-NcmImport $Conn @($allRuleIds) @($policyIds) $reportId $Log $preexisting
@@ -1576,18 +2030,46 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
         }
     }
     Send-Log $Log 'import' 'warn' '[NCM] no per-item wire format accepted; trying one nested console-format AddPolicyReport'
+    $reportId = ''
     try {
         $reportId = Get-CleanId (Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'AddPolicyReport' `
             @((ConvertTo-ConsoleReportXml $Report), $true)) ''
-        if ($reportId) {
-            $n = ($Report.AssignedPolicies | ForEach-Object { $_.AssignedPolicyRules.Count } |
-                  Measure-Object -Sum).Sum
-            return Test-NcmImport $Conn $reportId $Report.AssignedPolicies.Count $n $Log
+        if (-not $reportId) {
+            # The collision check ran before the import, so a report with this name
+            # now can only be the one this call created without returning its id.
+            $found = @(Invoke-SwisQuery $Conn 'SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n' @{ n = $Report.Name })
+            if ($found.Count -gt 0) {
+                $reportId = [string](Get-RowValue $found[0] 'PolicyReportID')
+                Send-Log $Log 'import' 'warn' "[NCM] nested AddPolicyReport returned no id, but a report named `"$($Report.Name)`" now exists ($reportId); verifying it"
+            } else {
+                [void]$rejections.Add('console-format XML: no report id returned and no report was created')
+            }
         }
-        [void]$rejections.Add('console-format XML: no report id returned')
     } catch {
-        if ($_.Exception.Message -notmatch 'HTTP 400') { throw }
-        [void]$rejections.Add('console-format XML: rejected')
+        if (-not (Test-WireRejection $_.Exception.Message)) {
+            Write-ToolLog import error 'nested AddPolicyReport failed with an error that is not a documented wire-format rejection; stopping this report'
+            if ((Get-HttpStatus $_.Exception.Message) -eq 0) {
+                Send-Log $Log 'import' 'warn' ("[NCM] warning: the outcome of the failed AddPolicyReport is unknown (no HTTP " +
+                    "status); if the server created the report anyway, look for `"$($Report.Name)`" and remove it")
+            }
+            throw
+        }
+        [void]$rejections.Add('console-format XML: ' + @($_.Exception.Message -split "`n")[-1])
+    }
+    if ($reportId) {
+        Write-ToolLog import info "nested AddPolicyReport created report $reportId"
+        try {
+            return Test-NcmImport $Conn $reportId $Report $Log
+        } catch {
+            $failure = $_.Exception
+            Write-ToolLog import error "nested import of `"$($Report.Name)`" failed verification: $($failure.Message)"
+            if ($Rollback) { Undo-NcmNestedImport $Conn $reportId $preexisting $Log }
+            else {
+                Send-Log $Log 'import' 'warn' "[NCM] report $reportId was left on the server (-NoRollback); delete it before importing the console file, or the names collide"
+            }
+            if (-not $failure.Data['Verification']) { throw }
+            [void]$rejections.Add('console-format XML: accepted, but ' + ($failure.Message -replace '^\[NCM\] ', ''))
+        }
     }
     Write-ToolLog import error ("no wire format accepted for `"$($Report.Name)`": " + ($rejections -join '; ') +
         '; console-importable files will be written')
@@ -1596,32 +2078,6 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
         'import them under Compliance -> Manage Policy Reports -> Import.')
     $err.Data['WireFailure'] = $true
     throw $err
-}
-
-function Test-NcmImport($Conn, [string]$ReportId, [int]$ExpectedPolicies,
-                        [int]$ExpectedRules, [scriptblock]$Log) {
-    Write-ToolLog verify info "reading report $ReportId back (expecting $ExpectedPolicies policies and $ExpectedRules rules)"
-    $stored = Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'GetPolicyReport' @($ReportId, $true)
-    if ($null -eq $stored) {
-        $msg = "[NCM] No Data Returned from GetPolicyReport for report $ReportId - the import cannot be confirmed"
-        Write-ToolLog verify error $msg
-        throw $msg
-    }
-    $pols = @(); if ($stored.PSObject.Properties['AssignedPolicies'] -and $stored.AssignedPolicies) {
-        $pols = @($stored.AssignedPolicies) }
-    $ruleCount = 0
-    foreach ($p in $pols) {
-        if ($p.PSObject.Properties['AssignedPolicyRules'] -and $p.AssignedPolicyRules) {
-            $ruleCount += @($p.AssignedPolicyRules).Count
-        }
-    }
-    if ($pols.Count -eq 0 -or $ruleCount -eq 0) {
-        $msg = "[NCM] verification failed: report $ReportId was created but holds $($pols.Count) policies and $ruleCount rules (expected $ExpectedPolicies and $ExpectedRules)"
-        Write-ToolLog verify error $msg
-        throw $msg
-    }
-    Send-Log $Log 'verify' 'info' "[NCM] verified: report holds $($pols.Count) policies and $ruleCount rules"
-    return @{ ReportId = $ReportId; Policies = $pols.Count; Rules = $ruleCount }
 }
 
 function Import-NcmReports($Conn, $Reports, [scriptblock]$Log, [bool]$Rollback = $true) {
@@ -1640,7 +2096,7 @@ function Import-NcmReports($Conn, $Reports, [scriptblock]$Log, [bool]$Rollback =
             $res = Import-NcmReport $Conn $r $Log $Rollback
         } catch {
             Write-ToolLog import error ("stopping at `"$($r.Name)`": $($imported.Count) of $($all.Count) " +
-                "report(s) imported, $($all.Count - $i) not imported")
+                "report(s) imported, $($all.Count - $i) not imported ($($_.Exception.Message))")
             return @{ Imported = @($imported); Failure = $_.Exception; Remaining = @($all[$i..($all.Count - 1)]) }
         }
         Add-ToolLogStat 'Imported'
@@ -1653,12 +2109,21 @@ function Import-NcmReports($Conn, $Reports, [scriptblock]$Log, [bool]$Rollback =
 function Complete-NcmImport($Conn, $ReportIds, [bool]$Disabled, [bool]$SkipCache, [scriptblock]$Log) {
     # Disable or start caching the reports a run imported. Returns $true when
     # the requested end state was confirmed (or nothing was asked of the server).
+    # StartCaching and UpdateReportStatus need WebUploader, one step above the
+    # import itself, so a refusal is logged with that role and the run carries on
+    # (the caller still writes the console files that are due); $false is returned.
     $ids = @(@($ReportIds) | Where-Object { $_ })
     if ($ids.Count -eq 0) { return $true }
     if ($Disabled) {
         # ReportStatus travels in the payload, but UpdateReportStatus is the verb
         # that owns the field, so say it explicitly and read it back.
-        [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'UpdateReportStatus' @('Disabled', $ids))
+        try { [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'UpdateReportStatus' @('Disabled', $ids)) }
+        catch {
+            Send-Log $Log 'verify' 'error' ("[NCM] warning: UpdateReportStatus('Disabled') failed - $($_.Exception.Message). It needs " +
+                'the WebUploader NCM role (an Orion administrator when compliance is restricted to administrators). The ' +
+                'reports may still be Enabled, and the nightly policy cache job would then evaluate them; disable them in the console.')
+            return $false
+        }
         $stored = @(Invoke-SwisQuery $Conn 'SELECT Name, ReportStatus FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids' @{ ids = $ids })
         if ($stored.Count -eq 0) {
             Send-Log $Log 'verify' 'warn' '[NCM] warning: No Data Returned reading ReportStatus back after UpdateReportStatus; confirm the reports are disabled in the console'
@@ -1679,7 +2144,21 @@ function Complete-NcmImport($Conn, $ReportIds, [bool]$Disabled, [bool]$SkipCache
         return $true
     }
     # Always pass the specific GUIDs: an empty array would re-cache every report.
-    [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'StartCaching' @(, $ids))
+    try { $started = Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'StartCaching' @(, $ids) }
+    catch {
+        Send-Log $Log 'import' 'error' ("[NCM] warning: StartCaching failed - $($_.Exception.Message). It needs the WebUploader " +
+            'NCM role (an Orion administrator when compliance is restricted to administrators). The reports are imported ' +
+            'and verified but show no data until they are cached: run Update Violations in the console, or wait for the ' +
+            'nightly policy cache job if it is enabled.')
+        return $false
+    }
+    # The contract declares a boolean result; what false means is not documented.
+    Write-ToolLog import info "StartCaching returned $(Format-LogValue $started)"
+    if ($started -is [bool] -and -not $started) {
+        Send-Log $Log 'import' 'warn' ('[NCM] warning: StartCaching returned false. Unverified: SolarWinds does not document ' +
+            'what false means; watch CacheStatus on Cirrus.PolicyReports for these reports.')
+        return $false
+    }
     Send-Log $Log 'import' 'info' "[NCM] compliance caching started for $($ids.Count) report(s)"
     return $true
 }
@@ -1694,6 +2173,10 @@ function Complete-NcmImport($Conn, $ReportIds, [bool]$Disabled, [bool]$SkipCache
 # DeletePolicyRules, skipping anything another report or policy still uses
 # (Cirrus.PolicyAssignment / Cirrus.PolicyRuleAssignment). Same as Python.
 function Get-NcmRemovalPlan($Conn, $ReportIds, [scriptblock]$Log) {
+    # Every membership and sharing lookup below is an IN @ids query over GUIDs,
+    # so the sanity probe runs first on the first report, which is known to
+    # exist; when it fails, nothing is planned and nothing is deleted.
+    if (@($ReportIds).Count -gt 0) { Confirm-InIds $Conn 'report' ([string]@($ReportIds)[0]) 'planning the removal' 'remove' }
     $reportKeys = @{}
     foreach ($r in @($ReportIds)) { $reportKeys[(Get-NormId $r)] = $true }
     $policies = [ordered]@{}; $rules = [ordered]@{}; $names = @{}
@@ -1706,17 +2189,19 @@ function Get-NcmRemovalPlan($Conn, $ReportIds, [scriptblock]$Log) {
     }
     foreach ($rid in @($ReportIds)) {
         $tree = Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'GetPolicyReport' @($rid, $true)
-        if ($null -eq $tree) {
-            Send-Log $Log 'remove' 'warn' "[NCM] note: No Data Returned from GetPolicyReport for $rid; its policies and rules are taken from Cirrus.PolicyAssignment alone"
+        if (-not (Test-ToolObject $tree)) {
+            $what = 'No Data Returned'
+            if ($null -ne $tree -and -not ($tree -is [string] -and -not $tree)) { $what = "a result that is not a report object ($(Format-LogValue $tree)) came back" }
+            Send-Log $Log 'remove' 'warn' "[NCM] note: $what from GetPolicyReport for $rid; its policies and rules are taken from Cirrus.PolicyAssignment alone"
             continue
         }
         foreach ($polId in @(Get-RowValue $tree 'AssignedPoliciesList')) { & $add $policies $polId $null }
         foreach ($pol in @(Get-RowValue $tree 'AssignedPolicies')) {
-            if ($null -eq $pol) { continue }
+            if (-not (Test-ToolObject $pol)) { continue }
             & $add $policies (Get-RowValue $pol 'PolicyId') (Get-RowValue $pol 'PolicyName')
             foreach ($x in @(Get-RowValue $pol 'AssignedRulesList')) { & $add $rules $x $null }
             foreach ($rule in @(Get-RowValue $pol 'AssignedPolicyRules')) {
-                if ($null -eq $rule) { continue }
+                if (-not (Test-ToolObject $rule)) { continue }
                 & $add $rules (Get-RowValue $rule 'RuleId') (Get-RowValue $rule 'RuleName')
             }
         }
@@ -1995,6 +2480,7 @@ function Invoke-CliRemove {
     if ($found.Count -eq 0) { throw "no policy report named `"$Name`" on this server" }
     $ids = @($found | ForEach-Object { Get-RowValue $_ 'PolicyReportID' })
     Write-ToolLog remove info ("$($ids.Count) report(s) named `"$Name`": " + ($ids -join ', '))
+    if (-not $DryRun) { [void](Invoke-NcmPreflight $conn $log) }
     $plan = Get-NcmRemovalPlan $conn $ids $log
     $verb = 'about to delete'; if ($DryRun) { $verb = 'would delete' }
     Write-Host "$verb $($ids.Count) report(s) named `"$Name`":"
@@ -2138,6 +2624,7 @@ function Invoke-CliRun {
             if ($xmlWarning) { Write-Host $xmlWarning -ForegroundColor Yellow }
             $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $where $Mode $Grouping `
                 (-not $ImportDisabled) $ConfigType
+            [void](Invoke-NcmPreflight $conn $log)
             foreach ($r in $reports) {
                 $existing = @(Invoke-SwisQuery $conn 'SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n' @{ n = $r.Name })
                 if ($existing.Count -gt 0) { Write-ToolLog import error "name collision: report `"$($r.Name)`" already exists; nothing was imported"; throw "[NCM] a report named `"$($r.Name)`" already exists - rename with -Name, delete it with -Remove, or remove it in the console; this tool never overwrites" }
@@ -2146,9 +2633,15 @@ function Invoke-CliRun {
             foreach ($i in $run.Imported) {
                 Write-Host "SUCCESS [NCM] `"$($i.Report.Name)`" - $($i.Rules) rules ($($i.ReportId))" -ForegroundColor Green
             }
-            # Reports verified before a failure still get caching / disabling.
-            [void](Complete-NcmImport $conn @($run.Imported | ForEach-Object { $_.ReportId }) `
-                $ImportDisabled.IsPresent $NoCache.IsPresent $log)
+            # Reports verified before a failure still get caching / disabling. A
+            # refused StartCaching / UpdateReportStatus does not stop the run: the
+            # console files that are due below are still written.
+            $confirmed = Complete-NcmImport $conn @($run.Imported | ForEach-Object { $_.ReportId }) `
+                $ImportDisabled.IsPresent $NoCache.IsPresent $log
+            if ($null -eq $run.Failure -and -not $confirmed) {
+                $state = 'caching'; if ($ImportDisabled) { $state = 'disabled state' }
+                throw "[NCM] the reports were imported and verified, but the requested $state could not be confirmed; see the warning above"
+            }
             if ($null -ne $run.Failure) {
                 if ($run.Imported.Count -gt 0) {
                     Write-Host ("[NCM] $($run.Imported.Count) of $($reports.Count) report(s) were imported " +
@@ -2438,6 +2931,7 @@ function Show-StigGui {
                         }
                         $ok++
                     } else {
+                        [void](Invoke-NcmPreflight $conn $logBlock)
                         $run = Import-NcmReports $conn $reports $logBlock $true
                         foreach ($i in $run.Imported) {
                             Add-Summary ("SUCCESS " + $prefix + '"' + $i.Report.Name + '" - ' + $i.Rules + ' rules') ([System.Drawing.Color]::Green)
@@ -2446,7 +2940,8 @@ function Show-StigGui {
                         $confirmed = Complete-NcmImport $conn @($run.Imported | ForEach-Object { $_.ReportId }) `
                             (-not $reportEnabled) $false $logBlock
                         if (-not $confirmed) {
-                            Add-Summary ($prefix + 'ReportStatus could not be confirmed as Disabled; see the detailed log') $yellow
+                            $state = 'cached (StartCaching)'; if (-not $reportEnabled) { $state = 'Disabled' }
+                            Add-Summary ($prefix + "the imported reports could not be confirmed as $state; see the detailed log") $yellow
                             Show-Issue
                         }
                         if ($null -ne $run.Failure) {

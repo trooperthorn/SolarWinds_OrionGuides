@@ -8,7 +8,7 @@ This index extracts explicit uncertainty markers from authored pages under docs/
 
 The extractor recognizes selected phrases and explicit labels such as **Unverified:**, **Unknown:**, **Unconfirmed:**, **Not tested:**, and **Runtime validation required:**. It skips generated pages, headings, and fenced code. Absence from this index does not mean a claim is verified; app and script READMEs are outside its collection scope. See [the documentation audit](documentation-audit-2026-09-18.md) for coverage and evidence rules.
 
-**311 statements across 75 pages.**
+**312 statements across 76 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -99,6 +99,12 @@ Read this before relying on this repository for something load-bearing. If you h
 **[How automatic discovery is scoped](../automation/dependencies.md#how-automatic-discovery-is-scoped)**
 
 - The precise algorithm that selects a root, and what the counts are used for once calculated, are **not recorded in the published schema** and are unverified here.
+
+## [disa-stig-import.md](../automation/disa-stig-import.md)
+
+**[The tool that does all of this](../automation/disa-stig-import.md#the-tool-that-does-all-of-this)**
+
+- **Unverified:** the documented array binding uses integers; whether every server binds GUID strings the same way is not documented.
 
 ## [discovery.md](../automation/discovery.md)
 

@@ -65,6 +65,12 @@ if ($ParityJson) {
     $out['names'] = @(@($spec.names) | ForEach-Object { Get-SafeFileName $_.stem $_.suffix })
     $out['quoted'] = @(@($spec.quotes) | ForEach-Object { ConvertTo-PsSingleQuoted $_ })
     $out['probeIds'] = @(@($spec.probeIds) | ForEach-Object { Get-ScmProbeId $_ '' })
+    # Import decisions that must match: which 400s are wire-format rejections, and
+    # the read-back comparison text (one string per case, lines joined by LF).
+    $out['wire'] = @(@($spec.wire) | ForEach-Object { Test-WireRejection $_ })
+    $toTree = { param($Pairs) @{ Policies = @(@($Pairs) | ForEach-Object { [pscustomobject]@{ Policy = [string]$_[0]; Rules = [string[]]@($_[1]) } }) } }
+    $out['trees'] = @(@($spec.trees) | ForEach-Object {
+        (@(Compare-NcmReportTree (& $toTree $_.expected) (& $toTree $_.actual)) -join "`n") })
     # XML the Python edition refuses must be refused here too, with a logged reason.
     if ($spec.logFile) { [void](Initialize-ToolLog $spec.logFile 'info') }
     $out['refused'] = @(@($spec.refuse) | ForEach-Object {
@@ -390,6 +396,289 @@ try {
     $script:Calls.Clear()
     [void](Complete-NcmImport @{} @('id-first') $false $true $captureLog)
     Assert-Equal 0 $script:Calls.Count '-NoCache makes no call'
+
+    # --- 12. import reliability (a stateful stub of Cirrus.PolicyReports) ----
+    $relLog = Join-Path $scratch 'reliability.log'
+    [void](Initialize-ToolLog $relLog 'info')
+    $wireCases = @(
+        @("SWIS HTTP 400 from Invoke/Cirrus.PolicyReports/AddPolicyRule`nValue cannot be null. Parameter name: input", $true),
+        @("SWIS HTTP 400 from Invoke/Cirrus.PolicyReports/AddPolicy`nVerb Cirrus.PolicyReports.AddPolicy cannot unpackage parameter 0", $true),
+        @("SWIS HTTP 400 from Invoke/Cirrus.PolicyReports/AddPolicyRule`nRule name must not be empty.", $false),
+        @("SWIS HTTP 400 from Invoke/X`nValue cannot be null. (Parameter 'input')", $false),
+        @("SWIS HTTP 403 from Invoke/X`nAccess is denied.", $false),
+        @("SWIS HTTP 500 from Invoke/X`ncannot unpackage parameter 0", $false),
+        @('SWIS transport error calling Query: WebException: The operation has timed out', $false))
+    foreach ($case in $wireCases) {
+        Assert-Equal $case[1] (Test-WireRejection $case[0]) ('wire rejection: ' + @($case[0] -split "`n")[-1])
+    }
+
+    $treeP = [pscustomobject]@{ Policy = 'P'; Rules = [string[]]@('a', 'b', 'c') }
+    $treeQ = [pscustomobject]@{ Policy = 'Q'; Rules = [string[]]@('d') }
+    $exp = @{ Policies = @($treeP, $treeQ) }
+    Assert-Equal 0 @(Compare-NcmReportTree $exp $exp).Count 'identical trees compare equal'
+    $short = @{ Policies = @([pscustomobject]@{ Policy = 'P'; Rules = [string[]]@('a', 'b') }) }
+    Assert-Equal ('policies: expected 2, stored 1|rules: expected 4, stored 2|policy "P": expected 3 rules, stored 2 (missing "c")|policy "Q" missing') `
+        (@(Compare-NcmReportTree $exp $short) -join '|') 'tree differences match the Python text'
+    Assert-True ($null -eq (Get-ReadBackTree '<PolicyReport />')) 'a string read-back cannot be compared'
+    Assert-True ($null -eq (Get-ReadBackTree ([pscustomobject]@{ AssignedPoliciesList = @('x') }))) 'a tree without its policies cannot be compared'
+    Assert-Equal 0 (Get-ReadBackTree ([pscustomobject]@{ Name = 'r' })).Policies.Count 'a report object with no policies is an empty tree'
+
+    function Reset-Fake {
+        $script:F = @{
+            Reports = [ordered]@{}; Policies = [ordered]@{}; Rules = [ordered]@{}
+            Fail = @{}; Results = @{}; RejectItems = $false; Nested = $null; InIdsBroken = $false; DropRule = $false
+            Calls = New-Object System.Collections.ArrayList
+        }
+    }
+    function Invoke-FakeFail([string]$Key) {
+        if (-not $script:F.Fail.ContainsKey($Key)) { return }
+        $spec = $script:F.Fail[$Key]
+        if ($spec -is [System.Collections.ArrayList]) {
+            if ($spec.Count -eq 0) { return }
+            $next = $spec[0]; $spec.RemoveAt(0)
+            if ($null -ne $next) { throw $next }
+            return
+        }
+        throw $spec
+    }
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) {
+        [void]$script:F.Calls.Add("query: $Swql")
+        Invoke-FakeFail 'query'
+        $ids = @(); if ($Parameters -and $Parameters.ContainsKey('ids')) { $ids = @($Parameters.ids | ForEach-Object { Get-NormId $_ }) }
+        $rows = New-Object System.Collections.ArrayList
+        if ($Swql -match 'IN @ids' -and $script:F.InIdsBroken) { return @() }
+        if ($Swql -eq 'SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules') {
+            foreach ($k in @($script:F.Rules.Keys) | Select-Object -First 1) { [void]$rows.Add([pscustomobject]@{ PolicyRuleID = $k }) }
+        } elseif ($Swql -eq 'SELECT TOP 1 PolicyID FROM Cirrus.Policies') {
+            foreach ($k in @($script:F.Policies.Keys) | Select-Object -First 1) { [void]$rows.Add([pscustomobject]@{ PolicyID = $k }) }
+        } elseif ($Swql -match 'FROM Cirrus\.PolicyReports WHERE Name = @n') {
+            foreach ($k in @($script:F.Reports.Keys)) { if ($script:F.Reports[$k].Name -eq $Parameters.n) { [void]$rows.Add([pscustomobject]@{ PolicyReportID = $k; Name = $script:F.Reports[$k].Name }) } }
+        } elseif ($Swql -match 'FROM Cirrus\.PolicyReports WHERE PolicyReportID IN') {
+            foreach ($k in @($script:F.Reports.Keys)) { if ($ids -contains (Get-NormId $k)) { [void]$rows.Add([pscustomobject]@{ PolicyReportID = $k; Name = $script:F.Reports[$k].Name; ReportStatus = $script:F.Reports[$k].Enabled }) } }
+        } elseif ($Swql -match 'FROM Cirrus\.PolicyRules WHERE PolicyRuleID IN') {
+            foreach ($k in @($script:F.Rules.Keys)) { if ($ids -contains (Get-NormId $k)) { [void]$rows.Add([pscustomobject]@{ PolicyRuleID = $k }) } }
+        } elseif ($Swql -match 'FROM Cirrus\.Policies WHERE PolicyID IN') {
+            foreach ($k in @($script:F.Policies.Keys)) { if ($ids -contains (Get-NormId $k)) { [void]$rows.Add([pscustomobject]@{ PolicyID = $k }) } }
+        } elseif ($Swql -match 'FROM Cirrus\.PolicyAssignment WHERE PolicyReportID IN') {
+            foreach ($k in @($script:F.Reports.Keys)) { if ($ids -contains (Get-NormId $k)) { foreach ($p in $script:F.Reports[$k].Policies) { [void]$rows.Add([pscustomobject]@{ PolicyID = $p }) } } }
+        } elseif ($Swql -match 'FROM Cirrus\.PolicyAssignment WHERE PolicyID IN') {
+            foreach ($k in @($script:F.Reports.Keys)) { foreach ($p in $script:F.Reports[$k].Policies) { if ($ids -contains (Get-NormId $p)) { [void]$rows.Add([pscustomobject]@{ PolicyReportID = $k; PolicyID = $p }) } } }
+        } elseif ($Swql -match 'FROM Cirrus\.PolicyRuleAssignment WHERE PolicyID IN') {
+            foreach ($k in @($script:F.Policies.Keys)) { if ($ids -contains (Get-NormId $k)) { foreach ($x in $script:F.Policies[$k].Rules) { [void]$rows.Add([pscustomobject]@{ PolicyRuleID = $x }) } } }
+        } elseif ($Swql -match 'FROM Cirrus\.PolicyRuleAssignment WHERE PolicyRuleID IN') {
+            foreach ($k in @($script:F.Policies.Keys)) { foreach ($x in $script:F.Policies[$k].Rules) { if ($ids -contains (Get-NormId $x)) { [void]$rows.Add([pscustomobject]@{ PolicyID = $k; PolicyRuleID = $x }) } } }
+        } else { throw "fake has no answer for: $Swql" }
+        return @($rows)
+    }
+    function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$Arguments) {
+        [void]$script:F.Calls.Add("verb: $SwisVerb")
+        Invoke-FakeFail $SwisVerb
+        $result = $null
+        switch ($SwisVerb) {
+            'AddPolicyRule' {
+                $rule = $Arguments[0]
+                if ($script:F.RejectItems -or $rule -is [string]) { throw "SWIS HTTP 400 from Invoke/Cirrus.PolicyReports/AddPolicyRule`nValue cannot be null. Parameter name: input" }
+                $script:F.Rules[$rule.RuleId] = $rule.RuleName
+                $result = '"' + $rule.RuleId + '"'
+            }
+            'AddPolicy' {
+                $pid2 = [guid]::NewGuid().ToString()
+                $script:F.Policies[$pid2] = @{ Name = $Arguments[0].PolicyName; Rules = @($Arguments[0].AssignedRulesList) }
+                $result = $pid2
+            }
+            'AddPolicyReport' {
+                $rep = $Arguments[0]
+                $rid = [guid]::NewGuid().ToString()
+                if ($rep -is [string]) {
+                    if (-not $script:F.Nested) { throw "SWIS HTTP 400 from Invoke/Cirrus.PolicyReports/AddPolicyReport`ncannot unpackage parameter 0" }
+                    $x = [xml]$rep
+                    $script:F.Reports[$rid] = @{ Name = $x.PolicyReport.Name; Policies = @(); Enabled = $true }
+                } else {
+                    $script:F.Reports[$rid] = @{ Name = $rep.Name; Policies = @($rep.AssignedPoliciesList); Enabled = $true }
+                }
+                $result = $rid
+            }
+            'GetPolicyReport' {
+                $rid = [string]$Arguments[0]
+                if ($script:F.Reports.Contains($rid)) {
+                    $pols = @(foreach ($p in $script:F.Reports[$rid].Policies) {
+                        $ruleIds = @($script:F.Policies[$p].Rules)
+                        if ($script:F.DropRule -and $ruleIds.Count -gt 0) { $ruleIds = @($ruleIds | Select-Object -First ($ruleIds.Count - 1)) }
+                        [pscustomobject]@{ PolicyName = $script:F.Policies[$p].Name; PolicyId = $p
+                            AssignedPolicyRules = @($ruleIds | ForEach-Object { [pscustomobject]@{ RuleId = $_; RuleName = $script:F.Rules[$_] } }) }
+                    })
+                    $result = [pscustomobject]@{ Name = $script:F.Reports[$rid].Name; AssignedPolicies = $pols }
+                }
+            }
+            'DeletePolicyReports' { foreach ($x in @($Arguments[0])) { $script:F.Reports.Remove($x) }; $result = 1 }
+            'DeletePolicies' { foreach ($x in @($Arguments[0])) { $script:F.Policies.Remove($x) }; $result = 1 }
+            'DeletePolicyRules' { foreach ($x in @($Arguments[0])) { $script:F.Rules.Remove($x) }; $result = 1 }
+            'StartCaching' { $result = $true }
+            'UpdateReportStatus' { foreach ($x in @($Arguments[1])) { if ($script:F.Reports.Contains($x)) { $script:F.Reports[$x].Enabled = ($Arguments[0] -ne 'Disabled') } } }
+        }
+        if ($script:F.Results.ContainsKey($SwisVerb)) { return $script:F.Results[$SwisVerb] }
+        return $result
+    }
+    function Get-FakeVerbCount([string]$Verb) { return @($script:F.Calls | Where-Object { $_ -eq "verb: $Verb" }).Count }
+    $relRules = @(1, 2, 3 | ForEach-Object { @{ VulnId = "V-$_"; RuleId = "SV-$($_)r1_rule"; StigId = "X-$_"; Severity = 'medium'; Title = "Rule $_"; Discussion = ''; CheckContent = ''; OvalRef = ''; FixText = ''; Ccis = @() } })
+    $relBench = @{ BenchmarkId = 'Rel_STIG'; Title = 'Reliability'; Version = '1'; Release = 'R1'; StatusDate = ''; Source = 'r.xml'; Edition = 'manual'; Rules = $relRules }
+    $relReports = New-NcmReports @($relBench) 'Rel' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $true
+    $relReport = $relReports[0]
+    $relRuleIds = @($relReport.AssignedPolicies[0].AssignedPolicyRules | ForEach-Object { $_.RuleId })
+
+    Reset-Fake
+    $res = Import-NcmReports @{} @($relReport) $captureLog $true
+    Assert-Equal 1 $res.Imported.Count 'a clean import is verified by name and count'
+    Assert-Equal 3 $res.Imported[0].Rules 'verified rule count comes from the read-back'
+
+    # Only a documented 400 moves on; anything else stops the report.
+    foreach ($message in @("SWIS HTTP 400 from Invoke/Cirrus.PolicyReports/AddPolicyRule`nRule name must not be empty.",
+                           "SWIS HTTP 403 from Invoke/Cirrus.PolicyReports/AddPolicyRule`nAccess is denied.",
+                           "SWIS HTTP 500 from Invoke/Cirrus.PolicyReports/AddPolicyRule`nObject reference not set")) {
+        Reset-Fake
+        $script:F.Fail['AddPolicyRule'] = $message
+        $res = Import-NcmReports @{} @($relReport) $captureLog $true
+        $label = @($message -split "`n")[0]
+        Assert-True ($null -ne $res.Failure -and -not $res.Failure.Data['WireFailure']) "$label stops the report without console files"
+        Assert-Equal 1 (Get-FakeVerbCount 'AddPolicyRule') "$label tries no other wire format"
+        Assert-Equal 0 (Get-FakeVerbCount 'AddPolicyReport') "$label does not fall back to the nested call"
+    }
+
+    # A transport error mid-import is rolled back and recorded.
+    Reset-Fake
+    $script:F.Fail['AddPolicy'] = 'SWIS transport error calling Invoke/Cirrus.PolicyReports/AddPolicy: WebException: The operation has timed out'
+    $noteLog.Clear()
+    $res = Import-NcmReports @{} @($relReport) $captureLog $true
+    Assert-True ($res.Failure.Message -match 'timed out') 'the transport failure is recorded'
+    Assert-Equal 0 $script:F.Rules.Count 'the rules created before the timeout are rolled back'
+    Assert-True ((@($noteLog) -join ' ') -match 'outcome of the failed call is unknown') 'an unknown outcome is called out'
+
+    # A rollback carries on past a failing delete.
+    Reset-Fake
+    $script:F.Fail['AddPolicyReport'] = "SWIS HTTP 500 from Invoke/Cirrus.PolicyReports/AddPolicyReport`nsimulated"
+    $script:F.Fail['DeletePolicies'] = 'SWIS transport error calling Invoke/Cirrus.PolicyReports/DeletePolicies: WebException: timed out'
+    $noteLog.Clear()
+    [void](Import-NcmReports @{} @($relReport) $captureLog $true)
+    Assert-Equal 0 $script:F.Rules.Count 'rules are deleted even after the policy delete failed'
+    Assert-True ((@($noteLog) -join ' ') -match 'DeletePolicies failed, clean up by hand') 'the failed delete is reported'
+
+    # Read-back: a string, or a partial tree, is a failed import that is rolled back.
+    Reset-Fake
+    $script:F.Results['GetPolicyReport'] = '<PolicyReport />'
+    $res = Import-NcmReports @{} @($relReport) $captureLog $true
+    Assert-True ($res.Failure.Message -match 'instead of a readable report object') 'a string read-back fails verification'
+    Assert-Equal 0 ($script:F.Reports.Count + $script:F.Policies.Count + $script:F.Rules.Count) 'and everything it created is rolled back'
+    Reset-Fake
+    $script:F.DropRule = $true
+    $res = Import-NcmReports @{} @($relReport) $captureLog $true
+    Assert-True ($res.Failure.Message -match 'rules: expected 3, stored 2') 'a partial tree fails verification'
+    Assert-True ($res.Failure.Message -match 'WebDownloader' -and $res.Failure.Message -notmatch 'WebUploader or higher') 'the role named is the right one'
+    Assert-Equal 0 $script:F.Rules.Count 'a partial import is rolled back'
+
+    # Nested fallback: a report row alone is deleted, then console files are due.
+    Reset-Fake
+    $script:F.RejectItems = $true; $script:F.Nested = 'report-only'
+    $res = Import-NcmReports @{} @($relReport) $captureLog $true
+    Assert-True ([bool]$res.Failure.Data['WireFailure']) 'nested report-only falls through to console files'
+    Assert-Equal 0 $script:F.Reports.Count 'the bare nested report row is deleted'
+    Assert-Equal 1 (Get-FakeVerbCount 'DeletePolicyReports') 'one report delete for the nested rollback'
+    Reset-Fake
+    $script:F.RejectItems = $true
+    $script:F.Fail['AddPolicyReport'] = 'SWIS transport error calling Invoke/Cirrus.PolicyReports/AddPolicyReport: WebException: timed out'
+    $noteLog.Clear()
+    $res = Import-NcmReports @{} @($relReport) $captureLog $true
+    Assert-True ($null -ne $res.Failure -and -not $res.Failure.Data['WireFailure']) 'a nested timeout stops the report without console files'
+    Assert-True ((@($noteLog) -join ' ') -match 'outcome of the failed AddPolicyReport is unknown') 'the nested timeout is called out as an unknown outcome'
+    Reset-Fake
+    $script:F.RejectItems = $true; $script:F.Nested = 'report-only'; $script:F.InIdsBroken = $true
+    $res = Import-NcmReports @{} @($relReport) $captureLog $true
+    Assert-True ([bool]$res.Failure.Data['InIdsProbe'] -and -not $res.Failure.Data['WireFailure']) 'a broken IN @ids stops the nested rollback'
+    Assert-Equal 1 $script:F.Reports.Count 'nothing is deleted on an unverified basis'
+    Assert-Equal 0 (Get-FakeVerbCount 'DeletePolicyReports') 'no delete call was made'
+
+    # IN @ids probe before the existing-id snapshot.
+    Reset-Fake
+    $script:F.Rules['old-r'] = 'old'; $script:F.InIdsBroken = $true
+    $res = Import-NcmReports @{} @($relReport) $captureLog $true
+    Assert-True ([bool]$res.Failure.Data['InIdsProbe']) 'a broken IN @ids stops the import before anything is created'
+    Assert-Equal 0 (Get-FakeVerbCount 'AddPolicyRule') 'no rule was created'
+    Reset-Fake
+    $script:F.Reports['rA'] = @{ Name = 'Report A'; Policies = @(); Enabled = $true }
+    $script:F.InIdsBroken = $true
+    Assert-Throws { Get-NcmRemovalPlan @{} @('rA') $captureLog } 'IN @ids sanity probe failed' 'removal planning stops when IN @ids misses the report'
+
+    # Permission preflight.
+    Reset-Fake
+    Assert-Equal 'ok' (Invoke-NcmPreflight @{} $captureLog) 'preflight ok when GetPolicyReport answers'
+    $script:F.Fail['GetPolicyReport'] = "SWIS HTTP 403 from Invoke/Cirrus.PolicyReports/GetPolicyReport`nAccess is denied."
+    Assert-Throws { Invoke-NcmPreflight @{} $captureLog } 'WebDownloader NCM role' 'preflight refuses a 403 and names the role'
+    $script:F.Fail['GetPolicyReport'] = "SWIS HTTP 500 from Invoke/Cirrus.PolicyReports/GetPolicyReport`nnot found"
+    Assert-Equal 'inconclusive' (Invoke-NcmPreflight @{} $captureLog) 'preflight is inconclusive on other errors'
+
+    # StartCaching / UpdateReportStatus refused: logged, not thrown, $false returned.
+    Reset-Fake
+    $script:F.Reports['id-1'] = @{ Name = 'one'; Policies = @(); Enabled = $true }
+    Assert-True (Complete-NcmImport @{} @('id-1') $false $false $captureLog) 'StartCaching true is confirmed'
+    $script:F.Fail['StartCaching'] = "SWIS HTTP 403 from Invoke/Cirrus.PolicyReports/StartCaching`nAccess is denied."
+    $noteLog.Clear()
+    Assert-Equal $false (Complete-NcmImport @{} @('id-1') $false $false $captureLog) 'a refused StartCaching returns false'
+    Assert-True ((@($noteLog) -join ' ') -match '(?s)StartCaching failed .*WebUploader') 'the refusal names WebUploader'
+    $script:F.Fail.Remove('StartCaching'); $script:F.Results['StartCaching'] = $false
+    Assert-Equal $false (Complete-NcmImport @{} @('id-1') $false $false $captureLog) 'StartCaching false is not confirmed'
+    $script:F.Fail['UpdateReportStatus'] = "SWIS HTTP 403 from Invoke/Cirrus.PolicyReports/UpdateReportStatus`nAccess is denied."
+    Assert-Equal $false (Complete-NcmImport @{} @('id-1') $true $false $captureLog) 'a refused UpdateReportStatus returns false'
+    $relText = [System.IO.File]::ReadAllText($relLog)
+    Assert-True ($relText.Contains('StartCaching returned true') -and $relText.Contains('StartCaching returned false')) "StartCaching's result is logged"
+    Assert-True ($relText.Contains('NCM role needed (2026.2 verb descriptions): WebUploader or higher for StartCaching, UpdateReportStatus')) 'the role table is logged'
+    Assert-True ($relText.Contains('IN @ids sanity probe ok before')) 'a passing probe is logged'
+    Assert-True (@($relText -split "`n" | Where-Object { $_ -and $_ -cnotmatch $lineRe }).Count -eq 0) 'reliability log lines match the contract'
+    $script:LogState.Path = $null
+
+    # --- 13. transport: UTF-8 body, fail-closed pin, scoped callback ---------
+    $bodyText = 'Caf' + [char]0xE9 + ' ' + [char]0x2014 + ' ' + [char]0x2713
+    $req = New-SwisRequestBody @([ordered]@{ RuleName = $bodyText })
+    Assert-Equal 'application/json; charset=utf-8' $req.ContentType 'the body says charset=utf-8'
+    Assert-Equal ([System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($req.Text))) ([System.Convert]::ToBase64String($req.Bytes)) 'the body is the UTF-8 bytes of the JSON'
+    Assert-True ($req.Text.Contains($bodyText)) 'non-Latin-1 text survives into the body'
+    Assert-True ($null -eq (New-SwisRequestBody $null)) 'no body for a call without one'
+
+    $pinnedConn = New-SwisConnection '127.0.0.1' 1 'admin' 'PsSecret-Pin-3307' $false $true ('AB' * 32)
+    $plainConn = New-SwisConnection '127.0.0.1' 1 'admin' 'PsSecret-Pin-3307' $false $false $null
+    $insecureConn = New-SwisConnection '127.0.0.1' 1 'admin' 'PsSecret-Pin-3307' $false $true $null
+    $p7 = Get-SwisTransportPlan $pinnedConn $true
+    Assert-True ($p7.Path -eq 'HttpClient' -and -not $p7.SkipCertificateCheck) 'PS 7 pinned: HttpClient, never SkipCertificateCheck (even with -Insecure)'
+    $p5 = Get-SwisTransportPlan $pinnedConn $false
+    Assert-True ($p5.Path -eq 'RestMethod' -and $p5.ScopedCallback -and -not $p5.SkipCertificateCheck) 'PS 5.1 pinned: Invoke-RestMethod with a scoped callback'
+    $i7 = Get-SwisTransportPlan $insecureConn $true
+    Assert-True ($i7.Path -eq 'RestMethod' -and $i7.SkipCertificateCheck) 'PS 7 -Insecure without a pin: SkipCertificateCheck'
+    $i5 = Get-SwisTransportPlan $insecureConn $false
+    Assert-True ($i5.ScopedCallback -and -not $i5.SkipCertificateCheck) 'PS 5.1 -Insecure: scoped accept-all callback'
+    $n7 = Get-SwisTransportPlan $plainConn $true
+    Assert-True ($n7.Path -eq 'RestMethod' -and -not $n7.SkipCertificateCheck -and -not $n7.ScopedCallback) 'no pin, no -Insecure: the system trust store'
+
+    $sentinel = [System.Net.Security.RemoteCertificateValidationCallback] { param($a, $b, $c, $d) $false }
+    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $sentinel
+    Assert-Throws { Invoke-SwisRest $pinnedConn 'Post' 'Query' @{ query = 'x' } } 'SWIS transport error' 'an unreachable pinned server is a transport error'
+    Assert-True ([object]::ReferenceEquals([System.Net.ServicePointManager]::ServerCertificateValidationCallback, $sentinel)) 'the previous ServicePointManager callback is restored after the call'
+    $script:ForceHttpClient = $true
+    $forcedConn = New-SwisConnection '127.0.0.1' 1 'admin' 'PsSecret-Pin-3307' $false $false ('AB' * 32)
+    Assert-Throws { Invoke-SwisRest $forcedConn 'Post' 'Query' @{ query = 'x' } } 'SWIS transport error' 'the HttpClient path reports a transport error too'
+    Assert-True ($null -ne $forcedConn.HttpClient -and $null -ne $forcedConn.PinCheck) 'the HttpClient path installs the pin check'
+    Assert-True ([object]::ReferenceEquals([System.Net.ServicePointManager]::ServerCertificateValidationCallback, $sentinel)) 'the HttpClient path leaves ServicePointManager alone'
+    $script:ForceHttpClient = $false
+    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
+
+    if ('System.Security.Cryptography.X509Certificates.CertificateRequest' -as [type]) {
+        $rsa = [System.Security.Cryptography.RSA]::Create(2048)
+        $csr = New-Object System.Security.Cryptography.X509Certificates.CertificateRequest('CN=SolarWinds-Orion', $rsa,
+            [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+        $cert = $csr.CreateSelfSigned([DateTimeOffset]::UtcNow.AddDays(-1), [DateTimeOffset]::UtcNow.AddDays(1))
+        $thumb = [BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($cert.RawData)) -replace '-', ''
+        Assert-True ((New-PinCheck $thumb).Matches($cert)) 'the pin check accepts the pinned certificate'
+        Assert-True ((New-PinCheck ('0' * 64)).Matches($cert) -eq $false) 'the pin check refuses any other certificate (fails closed)'
+        Assert-True ((New-PinCheck '').Matches($cert) -eq $false) 'an empty pin refuses everything'
+        Assert-True ((New-PinCheck ($thumb -replace '(..)(?!$)', '$1:')).Matches($cert)) 'colon-separated fingerprints are accepted'
+    }
 }
 finally {
     Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue

@@ -1763,6 +1763,7 @@ This index extracts explicit uncertainty markers from authored pages under docs/
 - [credentials.md](reference/unverified.md#credentialsmd): Credential types
 - [custom-properties.md](reference/unverified.md#custom-propertiesmd): The one structural fact to hold on to
 - [dependencies.md](reference/unverified.md#dependenciesmd): How a dependency is expressed
+- [disa-stig-import.md](reference/unverified.md#disa-stig-importmd): The tool that does all of this
 - [discovery.md](reference/unverified.md#discoverymd): Phase 1b: the interfaces plugin configuration
 - [events-and-auditing.md](reference/unverified.md#events-and-auditingmd): Orion.Events.EventTime is local
 - [high-availability.md](reference/unverified.md#high-availabilitymd): High availability

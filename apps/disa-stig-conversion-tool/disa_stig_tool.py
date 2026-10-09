@@ -74,6 +74,7 @@ import argparse
 import base64
 import getpass
 import hashlib
+import http.client
 import io
 import json
 import logging
@@ -151,6 +152,70 @@ CONFIG_TOKENS = (
 
 class SwisError(RuntimeError):
     """A SWIS request failed. Carries the server's message where one was returned."""
+
+
+class NcmVerificationError(SwisError):
+    """The GetPolicyReport read-back did not match what the import submitted."""
+
+
+class InIdsProbeError(SwisError):
+    """An `IN @ids` query over GUIDs did not return the one row known to exist, so no
+    decision (rollback, removal, the existing-id snapshot) may be based on it."""
+
+
+# Failures below the SWIS contract, with no HTTP status: a timeout, a refused or reset
+# connection, a TLS failure, a truncated response, or a body that is not JSON.
+# requests' exceptions derive from OSError (IOError), so the Windows-login client is
+# covered too. Each is re-raised as SwisError carrying the original type and message.
+TRANSPORT_ERRORS = (OSError, http.client.HTTPException, json.JSONDecodeError)
+
+
+def transport_error(exc, label):
+    """A SwisError for a transport failure, keeping the original type and message."""
+    return SwisError(f"transport error calling {label}: {type(exc).__name__}: {exc}")
+
+
+def http_status(exc_or_text):
+    """The HTTP status a SwisError message names (``HTTP 403 from ...``), or None."""
+    m = re.search(r"\bHTTP (\d{3})\b", str(exc_or_text))
+    return int(m.group(1)) if m else None
+
+
+# The two HTTP 400 rejections docs/modules/ncm-compliance-reports.md records for the
+# NCM contract types over JSON REST (a field observation on 2026.2.2): "Value cannot be
+# null. Parameter name: input" (a JSON object handed to an XML reader) and "Verb ...
+# cannot unpackage parameter 0" (XML the DataContractSerializer refused). Only these
+# mean "this wire format was refused, try the next one". Any other 400, and every 401,
+# 403, 409 or 500, stops that report with the server's message, rolls back what it
+# created, and writes no console file that would suggest a format problem.
+# Unverified: a server on another .NET runtime may word the null-argument rejection
+# differently ("Value cannot be null. (Parameter 'input')"); such a message is treated
+# as an undocumented 400, which stops the report rather than guessing.
+WIRE_REJECTION_PATTERNS = (
+    re.compile(r"Value cannot be null\.?\s*Parameter name:\s*input", re.IGNORECASE),
+    re.compile(r"\bcannot unpackage parameter \d+", re.IGNORECASE),
+)
+
+
+def is_wire_rejection(exc_or_text):
+    """True only for an HTTP 400 carrying one of the documented rejection texts."""
+    text = str(exc_or_text)
+    return http_status(text) == 400 and any(p.search(text) for p in WIRE_REJECTION_PATTERNS)
+
+
+# The NCM role each Cirrus.PolicyReports verb this tool calls needs, from the verb
+# descriptions in the 2026.2 schema (python tools/schema_query.py verb Cirrus.PolicyReports
+# <verb>). When the server's "compliance only for administrators" option is on, every
+# one of them is valid only for Orion administrators instead.
+NCM_VERB_ROLES = (
+    ("WebDownloader", ("AddPolicyRule", "AddPolicy", "AddPolicyReport", "GetPolicyReport",
+                       "DeletePolicyRules", "DeletePolicies", "DeletePolicyReports",
+                       "TestRule", "TestRuleOnBackedUpConfig")),
+    ("WebUploader", ("StartCaching", "UpdateReportStatus")),
+)
+ROLE_HINT = ("Check that the account has at least the WebDownloader NCM role (WebUploader for "
+             "StartCaching and UpdateReportStatus), or is an Orion administrator when the "
+             "server restricts compliance to administrators.")
 
 
 # Credentials live in memory only: never written to disk, never placed in URLs,
@@ -433,7 +498,7 @@ class SwisClient:
         try:
             with urllib.request.urlopen(req, context=self.ctx, timeout=300) as resp:
                 payload = resp.read().decode("utf-8", "replace")
-                return json.loads(payload) if payload.strip() else None
+            return json.loads(payload) if payload.strip() else None
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")
             try:
@@ -443,6 +508,9 @@ class SwisClient:
             raise SwisError(f"HTTP {exc.code} from {url}\n{detail}") from exc
         except urllib.error.URLError as exc:
             raise SwisError(f"could not reach {url}: {exc.reason}") from exc
+        except TRANSPORT_ERRORS as exc:
+            # A read timeout, a reset connection, a truncated or non-JSON body.
+            raise transport_error(exc, url) from exc
 
     def query(self, swql, parameters=None):
         body = {"query": swql}
@@ -486,7 +554,11 @@ class LoggedSwis:
     WindowsAuthClient, or a test double) and writes one log line per SWIS call:
     entity.verb or the query, a short argument summary, the duration in ms, and ok
     or the error message. At debug level the redacted request and response bodies
-    follow, cut to LOG_BODY_LIMIT characters."""
+    follow, cut to LOG_BODY_LIMIT characters.
+
+    A transport failure from the wrapped client (a timeout, a reset connection, a
+    requests exception, a body that is not JSON) is re-raised as SwisError with the
+    original type and message, so every caller handles one error type."""
 
     def __init__(self, inner):
         self.inner = inner
@@ -517,7 +589,11 @@ class LoggedSwis:
         except Exception as exc:
             elapsed = int((time.perf_counter() - start) * 1000)
             _bump("swis_failed")
-            log_event("swis", f"{label} -> error {elapsed} ms: {exc}", "warn")
+            transport = isinstance(exc, TRANSPORT_ERRORS) and not isinstance(exc, SwisError)
+            kind = f"{type(exc).__name__}: " if not isinstance(exc, SwisError) else ""
+            log_event("swis", f"{label} -> error {elapsed} ms: {kind}{exc}", "warn")
+            if transport:
+                raise transport_error(exc, _one_line(label, 120)) from exc
             raise
         elapsed = int((time.perf_counter() - start) * 1000)
         outcome = (f"{len(result)} row(s)" if label.startswith("query ") and isinstance(result, list)
@@ -1450,6 +1526,48 @@ def _query_ids(swis, swql, ids, chunk=100):
     return rows
 
 
+def _row_value(row, column):
+    """One column of a SWQL result row, or None when the row is not an object."""
+    return row.get(column) if isinstance(row, dict) else None
+
+
+# `IN @ids` with a JSON array is how this tool reads sets of GUIDs back (the rollback
+# snapshot, the removal plan, the delete read-back). docs/swis/rest-api.md documents the
+# array binding with integers; whether every server binds an array of GUID strings the
+# same way is Unverified. A server that silently matched nothing would make the snapshot
+# say "nothing existed before" (so a rollback could delete an earlier import's rules) and
+# make a removal plan say "nothing is shared". So before any such decision the same query
+# is run for one id known to exist, and exactly one matching row is required.
+IN_IDS_PROBES = {
+    "report": ("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids",
+               "PolicyReportID"),
+    "policy": ("SELECT PolicyID FROM Cirrus.Policies WHERE PolicyID IN @ids", "PolicyID"),
+    "rule": ("SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids",
+             "PolicyRuleID"),
+}
+
+
+def confirm_in_ids(swis, kind, known_id, purpose, component="import"):
+    """Require ``IN @ids`` to return exactly the one ``kind`` row ``known_id`` names.
+
+    Raises InIdsProbeError (nothing is deleted or decided) when it does not.
+    """
+    swql, column = IN_IDS_PROBES[kind]
+    rows = swis.query(swql, {"ids": [known_id]})
+    rows = rows if isinstance(rows, list) else []
+    matches = [r for r in rows if _norm_id(_row_value(r, column)) == _norm_id(known_id)]
+    if len(rows) != 1 or len(matches) != 1:
+        msg = (f"IN @ids sanity probe failed before {purpose}: querying the {kind} {known_id}, "
+               f"which is known to exist, returned {len(rows)} row(s) instead of exactly 1. "
+               "This server does not bind a GUID array to IN @ids the way the tool expects, so a "
+               "decision based on it could delete the wrong objects; stopping instead. "
+               "Nothing was deleted by this step.")
+        log_event(component, msg, "error")
+        raise InIdsProbeError(msg)
+    log_event(component, f"IN @ids sanity probe ok before {purpose}: the {kind} {known_id} "
+                         "returned exactly one row")
+
+
 def existing_ncm_ids(swis, report):
     """Which of the RuleIds/PolicyIds this report would submit already exist.
 
@@ -1459,41 +1577,130 @@ def existing_ncm_ids(swis, report):
     created. Unverified: whether AddPolicyRule/AddPolicy honour a submitted id or
     always assign a fresh one is not documented; the returned id is used either
     way, and this snapshot only matters when it equals an existing one.
+
+    Each lookup is preceded by the IN @ids sanity probe on one row known to exist
+    (the first one SELECT TOP 1 returns); an empty table needs no lookup at all.
     """
     rule_ids = [r["RuleId"] for p in report["AssignedPolicies"]
                 for r in p["AssignedPolicyRules"]]
     policy_ids = [p["PolicyId"] for p in report["AssignedPolicies"] if p.get("PolicyId")]
-    rules = {_norm_id(row.get("PolicyRuleID")) for row in _query_ids(
-        swis, "SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids",
-        rule_ids)}
-    policies = {_norm_id(row.get("PolicyID")) for row in _query_ids(
-        swis, "SELECT PolicyID FROM Cirrus.Policies WHERE PolicyID IN @ids",
-        policy_ids)}
-    return {"rules": rules, "policies": policies}
+    found = {}
+    for kind, ids, sample_swql in (
+            ("rule", rule_ids, "SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules"),
+            ("policy", policy_ids, "SELECT TOP 1 PolicyID FROM Cirrus.Policies")):
+        swql, column = IN_IDS_PROBES[kind]
+        found[kind] = set()
+        if not ids:
+            continue
+        sample = swis.query(sample_swql)
+        known = _row_value(sample[0], column) if isinstance(sample, list) and sample else None
+        if not known:
+            log_event("import", f"the server returned no {kind} rows, so none of the "
+                                f"{len(ids)} submitted {kind} id(s) can already exist")
+            continue
+        confirm_in_ids(swis, kind, known, f"the existing-{kind}-id snapshot")
+        found[kind] = {_norm_id(_row_value(row, column)) for row in _query_ids(swis, swql, ids)}
+    return {"rules": found["rule"], "policies": found["policy"]}
 
 
-def _verify_report(swis, report_id, expected_policies, expected_rules, log):
-    """Read the report back — the import is only done if the tree actually exists."""
-    log_event("verify", f"reading report {report_id} back (expecting {expected_policies} "
-                        f"policies and {expected_rules} rules)")
+def expected_tree(report):
+    """[(policy name, [rule names])] for what an import submits, in document order."""
+    return [(str(p.get("PolicyName") or ""),
+             [str(r.get("RuleName") or "") for r in p.get("AssignedPolicyRules") or []])
+            for p in report.get("AssignedPolicies") or []]
+
+
+def read_back_tree(stored):
+    """The same shape from a GetPolicyReport(id, true) result, or None when it cannot
+    be compared: not an object, an entry that is not an object, or the nested
+    AssignedPolicies absent while AssignedPoliciesList names policies (the tree was
+    not returned, which is not the same as an empty report)."""
+    if not isinstance(stored, dict):
+        return None
+    policies = stored.get("AssignedPolicies")
+    if not isinstance(policies, list):
+        listed = stored.get("AssignedPoliciesList")
+        return None if isinstance(listed, list) and listed else []
+    tree = []
+    for p in policies:
+        if not isinstance(p, dict):
+            return None
+        rules = p.get("AssignedPolicyRules") or []
+        if not isinstance(rules, list) or not all(isinstance(r, dict) for r in rules):
+            return None
+        tree.append((str(p.get("PolicyName") or ""), [str(r.get("RuleName") or "") for r in rules]))
+    return tree
+
+
+def compare_report_trees(expected, actual):
+    """Differences between the submitted tree and the stored one: policy count, rule
+    count, and per-policy rule names (the comparison Porter 0.3.0 makes). Empty means
+    they match. The PowerShell edition's Compare-NcmReportTree returns the same text."""
+    diffs = []
+    n_expected = sum(len(rules) for _p, rules in expected)
+    n_actual = sum(len(rules) for _p, rules in actual)
+    if len(expected) != len(actual):
+        diffs.append(f"policies: expected {len(expected)}, stored {len(actual)}")
+    if n_expected != n_actual:
+        diffs.append(f"rules: expected {n_expected}, stored {n_actual}")
+    stored = {}
+    for policy, rules in actual:
+        stored.setdefault(policy, []).append(rules)
+    for policy, rules in expected:
+        candidates = stored.get(policy)
+        if not candidates:
+            diffs.append(f"policy \"{policy}\" missing")
+            continue
+        match = candidates.pop(0)
+        have = set(match)
+        missing = list(dict.fromkeys(r for r in rules if r not in have))
+        if len(match) != len(rules) or missing:
+            text = f"policy \"{policy}\": expected {len(rules)} rules, stored {len(match)}"
+            if missing:
+                text += (" (missing \"" + "\", \"".join(missing[:3]) + "\""
+                         + (", ..." if len(missing) > 3 else "") + ")")
+            diffs.append(text)
+    return diffs
+
+
+def _verify_report(swis, report_id, report, log):
+    """Read the report back and compare it with what was submitted.
+
+    The import is only done when the stored tree has the same policies, the same
+    rule count and the same rule names per policy. A partial tree (one server was
+    observed storing only the report row) or a result that is not a report object
+    raises NcmVerificationError, which the callers treat as a failed import.
+    """
+    expected = expected_tree(report)
+    n_policies = len(expected)
+    n_rules = sum(len(rules) for _p, rules in expected)
+    log_event("verify", f"reading report {report_id} back (expecting {n_policies} "
+                        f"policies and {n_rules} rules)")
     stored = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True)
-    if not stored:
+    if stored is None or (isinstance(stored, str) and not stored.strip()):
         msg = (f"No data returned from GetPolicyReport for report {report_id} — "
                "the import cannot be confirmed")
         log_event("verify", msg, "error")
-        raise SwisError(msg)
-    stored_policies = stored.get("AssignedPolicies") or []
-    stored_rules = sum(len(p.get("AssignedPolicyRules") or []) for p in stored_policies)
-    if not stored_policies or stored_rules == 0:
-        msg = (f"verification failed: report {report_id} was created but holds "
-               f"{len(stored_policies)} policies and {stored_rules} rules "
-               f"(expected {expected_policies} and {expected_rules}). Check the account's NCM "
-               "role (WebUploader or higher) and the server's compliance settings.")
+        raise NcmVerificationError(msg)
+    actual = read_back_tree(stored)
+    if actual is None:
+        diffs = [f"GetPolicyReport(id, true) returned {_summarize_value(stored)} "
+                 "instead of a readable report object"]
+    else:
+        diffs = compare_report_trees(expected, actual)
+    if diffs:
+        held = ("nothing readable" if actual is None else
+                f"{len(actual)} policies / {sum(len(r) for _p, r in actual)} rules")
+        msg = (f"verification failed: report {report_id} was created but the server holds "
+               f"{held}; the import carried {n_policies} policies / {n_rules} rules - "
+               + "; ".join(diffs[:5])
+               + (f"; ... and {len(diffs) - 5} more" if len(diffs) > 5 else "")
+               + ". " + ROLE_HINT)
         log_event("verify", msg, "error")
-        raise SwisError(msg)
-    _say(log, "verify",
-         f"verified: report holds {len(stored_policies)} policies and {stored_rules} rules")
-    return report_id, len(stored_policies), stored_rules
+        raise NcmVerificationError(msg)
+    _say(log, "verify", f"verified: report holds {len(actual)} policies and {n_rules} rules, "
+                        "matching the import (policy names and rule names compared)")
+    return report_id, len(actual), n_rules
 
 
 def test_rule(swis, rule, config_text=None, config_id=None, fmt=None):
@@ -1529,7 +1736,9 @@ def test_rule(swis, rule, config_text=None, config_id=None, fmt=None):
                                      spec["rule"](rule), config_text or "")
             return result, name
         except SwisError as exc:
-            if "HTTP 400" not in str(exc):
+            if not is_wire_rejection(exc):
+                log_event("verify", f"TestRule stopped: {spec['label']} failed with an error "
+                                    "that is not a documented wire-format rejection", "error")
                 raise
             rejections.append(f"{spec['label']}: {str(exc).splitlines()[-1]}")
     raise SwisError("this server accepted none of the wire formats for TestRule:\n  "
@@ -1597,11 +1806,14 @@ def rollback_ncm(swis, rule_ids, policy_ids, report_id, log, preexisting=None):
         return ours, kept
 
     def drop(verb, *args):
+        # Every failure is caught here (a timeout or a raw transport error as much as
+        # an HTTP error), logged, and the rollback carries on with the next level.
         try:
             swis.invoke("Cirrus.PolicyReports", verb, *args)
             return True
-        except SwisError as exc:
-            _say(log, "rollbk", f"rollback: {verb} failed, clean up by hand - {exc}", "error")
+        except Exception as exc:
+            _say(log, "rollbk", f"rollback: {verb} failed, clean up by hand - "
+                                f"{type(exc).__name__}: {exc}", "error")
             return False
 
     policy_ids, kept_policies = split(policy_ids or [], preexisting["policies"])
@@ -1677,10 +1889,14 @@ def import_ncm_report(swis, report, log=print, rollback=True):
             fmt = name
             _say(log, "import", f"server accepts {spec['label']}")
             break
-        except SwisError as exc:
-            if "HTTP 400" not in str(exc):
-                log_event("import", f"wire-format probe stopped: {spec['label']} failed with "
-                                    "a non-400 error, so no other format is tried", "error")
+        except Exception as exc:
+            if not is_wire_rejection(exc):
+                log_event("import", f"wire-format probe stopped: {spec['label']} failed with an "
+                                    "error that is not a documented wire-format rejection "
+                                    f"(HTTP {http_status(exc) or 'none'}), so no other format is "
+                                    "tried and no console file is written for it", "error")
+                if http_status(exc) is None:
+                    _warn_unknown_outcome(log, "rule", probe_rule["RuleId"], preexisting)
                 raise
             rejections.append(f"{spec['label']}: {str(exc).splitlines()[-1]}")
             _say(log, "import",
@@ -1688,22 +1904,77 @@ def import_ncm_report(swis, report, log=print, rollback=True):
     if fmt:
         return _import_ncm_bottom_up(swis, report, log, WIRE_FORMATS[fmt],
                                      first_rule_id, rollback, preexisting)
+    return _import_ncm_nested(swis, report, log, rollback, preexisting, rejections)
 
+
+def _warn_unknown_outcome(log, kind, submitted_id, preexisting):
+    """A call that failed below HTTP (a timeout, a reset) may still have run server side."""
+    if _norm_id(submitted_id) in preexisting.get({"rule": "rules", "policy": "policies"}[kind],
+                                                  set()):
+        return
+    _say(log, "import", f"warning: the outcome of the failed call is unknown (no HTTP status): "
+                        f"if the server created the {kind} anyway, it is not in the rollback "
+                        f"list. Check for {kind} id {submitted_id} (Unverified: whether the "
+                        "server keeps a submitted id is not documented).", "warn")
+
+
+def _import_ncm_nested(swis, report, log, rollback, preexisting, rejections):
+    """The one-call nested AddPolicyReport in console-export XML, verified like the rest.
+
+    A server has been observed accepting the nested call and storing only the report
+    row, so a verification failure here deletes what the call created (the report,
+    then its unshared policies and rules, never anything that existed before this run)
+    and falls through to the console-file fallback. Any error that is not a documented
+    wire-format rejection stops the report instead, with no console file.
+    """
     _say(log, "import", "no per-item wire format accepted; trying one nested AddPolicyReport "
                         "in the console-export format …", "warn")
-    n_policies = len(report["AssignedPolicies"])
-    n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
+    report_id = ""
     try:
         report_id = _clean_id(
             swis.invoke("Cirrus.PolicyReports", "AddPolicyReport",
                         report_contract_xml(report), True), "")
-        if report_id:
-            return _verify_report(swis, report_id, n_policies, n_rules, log)
-        rejections.append("console-format XML: no report id returned")
-    except SwisError as exc:
-        if "HTTP 400" not in str(exc):
+    except Exception as exc:
+        if not is_wire_rejection(exc):
+            log_event("import", "nested AddPolicyReport failed with an error that is not a "
+                                "documented wire-format rejection; stopping this report", "error")
+            if http_status(exc) is None:
+                _say(log, "import", "warning: the outcome of the failed AddPolicyReport is unknown "
+                                    "(no HTTP status); if the server created the report anyway, "
+                                    f"look for \"{report['Name']}\" and remove it", "warn")
             raise
         rejections.append(f"console-format XML: {str(exc).splitlines()[-1]}")
+    else:
+        if not report_id:
+            # The collision check ran before the import, so a report with this name
+            # now can only be the one this call created without returning its id.
+            found = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
+                               {"n": report["Name"]})
+            report_id = str(_row_value(found[0], "PolicyReportID") or "") \
+                if isinstance(found, list) and found else ""
+            if report_id:
+                _say(log, "import", f"nested AddPolicyReport returned no id, but a report named "
+                                    f"\"{report['Name']}\" now exists ({report_id}); verifying it",
+                     "warn")
+            else:
+                rejections.append("console-format XML: no report id returned and no report "
+                                  "was created")
+    if report_id:
+        log_event("import", f"nested AddPolicyReport created report {report_id}")
+        try:
+            return _verify_report(swis, report_id, report, log)
+        except Exception as exc:
+            log_event("import", f"nested import of \"{report['Name']}\" failed verification: "
+                                f"{exc}", "error")
+            if rollback:
+                _rollback_nested(swis, report_id, preexisting, log)
+            else:
+                _say(log, "import", f"report {report_id} was left on the server (--no-rollback); "
+                                    "delete it before importing the console file, or the names "
+                                    "collide", "warn")
+            if not isinstance(exc, NcmVerificationError):
+                raise
+            rejections.append(f"console-format XML: accepted, but {exc}")
     log_event("import", "no wire format accepted for \"" + report["Name"] + "\": "
                         + "; ".join(rejections) + "; console-importable files will be written",
               "error")
@@ -1715,12 +1986,42 @@ def import_ncm_report(swis, report, log=print, rollback=True):
         '<?xml version="1.0" encoding="utf-16"?>' + report_contract_xml(report))
 
 
+def _rollback_nested(swis, report_id, preexisting, log):
+    """Delete what a nested AddPolicyReport created: the report row, then the policies
+    and rules nothing else uses (the same plan ``remove`` makes), skipping every id that
+    existed before this run. The IN @ids probe in plan_ncm_removal runs first; when it
+    fails, nothing is deleted and InIdsProbeError stops the report."""
+    _say(log, "rollbk", f"rollback: removing the nested import's report {report_id} and what "
+                        "only it uses …")
+    plan = plan_ncm_removal(swis, [report_id], log=log)
+    for key, kind, label in (("delete_policies", "policies", "policy"),
+                             ("delete_rules", "rules", "rule")):
+        kept = [i for i in plan[key] if _norm_id(i) in preexisting[kind]]
+        if kept:
+            plan[key] = [i for i in plan[key] if _norm_id(i) not in preexisting[kind]]
+            for i in kept:
+                _say(log, "rollbk", f"rollback: skipped {label} {i} - it existed on the server "
+                                    "before this import")
+    describe_removal_plan(plan, log, prefix="rollback: ")
+    try:
+        left = remove_ncm_reports(swis, plan, log)
+    except Exception as exc:
+        _say(log, "rollbk", f"rollback: deleting the nested import failed, clean up by hand "
+                            f"(report {report_id}) - {type(exc).__name__}: {exc}", "error")
+        return
+    if any(left.values()):
+        _say(log, "rollbk", f"rollback: some objects of report {report_id} are still present; "
+                            "clean up by hand", "error")
+
+
 def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True,
                           preexisting=None):
+    preexisting = preexisting or {"rules": set(), "policies": set()}
     policy_ids = []
     all_rule_ids = [first_rule_id]
     report_id = ""
     first = True
+    pending = None     # (kind, submitted id) of the call in flight, for an unknown outcome
     try:
         for policy in report["AssignedPolicies"]:
             rules = policy["AssignedPolicyRules"]
@@ -1733,6 +2034,7 @@ def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True,
                     rule_ids.append(first_rule_id)
                     first = False
                     continue
+                pending = ("rule", rule["RuleId"])
                 result = swis.invoke("Cirrus.PolicyReports", "AddPolicyRule",
                                      spec["rule"](rule))
                 new_rule_id = _clean_id(result, rule["RuleId"])
@@ -1741,22 +2043,37 @@ def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True,
                 if i % 25 == 0:
                     _say(log, "import", f"  {i}/{len(rules)} rules created")
 
+            pending = ("policy", policy["PolicyId"])
             result = swis.invoke("Cirrus.PolicyReports", "AddPolicy",
                                  spec["policy"](policy, rule_ids), False)
             policy_ids.append(_clean_id(result, policy["PolicyId"]))
             _say(log, "import",
                  f"created policy \"{policy['PolicyName']}\" with {len(rule_ids)} rules")
 
+        pending = ("report", "")
         report_id = _clean_id(
             swis.invoke("Cirrus.PolicyReports", "AddPolicyReport",
                         spec["report"](report, policy_ids), False), "")
+        pending = None
         if not report_id:
             raise SwisError("AddPolicyReport did not return the new report id")
         log_event("import", f"AddPolicyReport returned report id {report_id}")
 
-        return _verify_report(swis, report_id, len(policy_ids), len(all_rule_ids), log)
-    except SwisError as exc:
-        log_event("import", f"import of \"{report['Name']}\" failed: {exc}", "error")
+        return _verify_report(swis, report_id, report, log)
+    except Exception as exc:
+        # Every failure (an HTTP error, a timeout, a read-back that is not a report
+        # object, a mismatch) is logged and rolled back the same way, then re-raised
+        # for import_ncm_reports to record.
+        log_event("import", f"import of \"{report['Name']}\" failed: {type(exc).__name__}: {exc}",
+                  "error")
+        if pending and http_status(exc) is None and not isinstance(exc, NcmVerificationError):
+            if pending[0] == "report":
+                _say(log, "import", "warning: the outcome of the failed AddPolicyReport is "
+                                    "unknown (no HTTP status); if the server created the report "
+                                    f"anyway, look for \"{report['Name']}\" and remove it",
+                     "warn")
+            else:
+                _warn_unknown_outcome(log, pending[0], pending[1], preexisting)
         if rollback:
             _say(log, "import", "import failed part way through; removing what it created …")
             rollback_ncm(swis, all_rule_ids, policy_ids, report_id, log, preexisting)
@@ -1775,7 +2092,8 @@ def import_ncm_reports(swis, reports, log=print, rollback=True):
     verified, ``failure`` is the exception that stopped the run (None when all
     succeeded), and ``remaining`` lists the reports that were not imported,
     the failed one first. Reports imported before a failure stay on the server
-    and are still the caller's to cache or disable.
+    and are still the caller's to cache or disable. Any exception counts as a
+    failure here, as it does in the PowerShell edition's Import-NcmReports.
     """
     imported = []
     for index, report in enumerate(reports):
@@ -1784,10 +2102,10 @@ def import_ncm_reports(swis, reports, log=print, rollback=True):
         try:
             new_id, _n_pol, n_stored = import_ncm_report(swis, report, log=log,
                                                          rollback=rollback)
-        except SwisError as exc:
+        except Exception as exc:
             log_event("import", f"stopping at \"{report['Name']}\": {len(imported)} of "
                                 f"{len(reports)} report(s) imported, {len(reports) - index} "
-                                "not imported", "error")
+                                f"not imported ({type(exc).__name__}: {exc})", "error")
             return imported, exc, list(reports[index:])
         imported.append((report, new_id, n_stored))
         _bump("imported")
@@ -1797,14 +2115,30 @@ def import_ncm_reports(swis, reports, log=print, rollback=True):
 
 def finish_ncm_imports(swis, new_ids, disabled=False, no_cache=False, log=print):
     """Disable or start caching the reports a run imported. Returns True when the
-    requested end state was confirmed (or nothing was asked of the server)."""
+    requested end state was confirmed (or nothing was asked of the server).
+
+    StartCaching and UpdateReportStatus need the WebUploader NCM role, one step above
+    what the import itself needs, so an account can import successfully and then be
+    refused here. That refusal is logged with the role it needs and the run carries
+    on (the caller still writes any console files that are due); the return value is
+    False so the caller can report the unconfirmed state.
+    """
     if not new_ids:
         return True
     if disabled:
         # ReportStatus travels in the payload, but UpdateReportStatus is the verb
         # that owns the field, so say it explicitly rather than trusting the
         # import to have carried it, and read it back.
-        swis.invoke("Cirrus.PolicyReports", "UpdateReportStatus", "Disabled", list(new_ids))
+        try:
+            swis.invoke("Cirrus.PolicyReports", "UpdateReportStatus", "Disabled", list(new_ids))
+        except Exception as exc:
+            _say(log, "verify", f"warning: UpdateReportStatus('Disabled') failed - "
+                                f"{type(exc).__name__}: {exc}. It needs the WebUploader NCM role "
+                                "(an Orion administrator when compliance is restricted to "
+                                "administrators). The reports may still be Enabled, and the "
+                                "nightly policy cache job would then evaluate them; disable them "
+                                "in the console.", "error")
+            return False
         stored = swis.query("SELECT Name, ReportStatus FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids",
                             {"ids": list(new_ids)})
         if not stored:
@@ -1812,10 +2146,10 @@ def finish_ncm_imports(swis, new_ids, disabled=False, no_cache=False, log=print)
                                 "UpdateReportStatus; confirm the reports are disabled in the "
                                 "console", "warn")
             return False
-        still_on = [r.get("Name") for r in stored if r.get("ReportStatus")]
+        still_on = [_row_value(r, "Name") for r in stored if _row_value(r, "ReportStatus")]
         if still_on:
             _say(log, "verify", "warning: still enabled after UpdateReportStatus: "
-                 + ", ".join(still_on), "warn")
+                 + ", ".join(str(n) for n in still_on), "warn")
             return False
         _say(log, "import", f"{len(new_ids)} report(s) imported Disabled and not cached. Enable "
                             "them in the console, or with UpdateReportStatus('Enabled', [ids]), "
@@ -1827,12 +2161,73 @@ def finish_ncm_imports(swis, new_ids, disabled=False, no_cache=False, log=print)
                             "StartCaching.")
         return True
     # Always pass the specific GUIDs: an empty array would re-cache every report.
-    swis.invoke("Cirrus.PolicyReports", "StartCaching", list(new_ids))
+    try:
+        started = swis.invoke("Cirrus.PolicyReports", "StartCaching", list(new_ids))
+    except Exception as exc:
+        _say(log, "import", f"warning: StartCaching failed - {type(exc).__name__}: {exc}. It "
+                            "needs the WebUploader NCM role (an Orion administrator when "
+                            "compliance is restricted to administrators). The reports are "
+                            "imported and verified but show no data until they are cached: run "
+                            "Update Violations in the console, or wait for the nightly policy "
+                            "cache job if it is enabled.", "error")
+        return False
+    # The contract declares a boolean result; what false means is not documented.
+    log_event("import", f"StartCaching returned {_summarize_value(started)}")
+    if started is False:
+        _say(log, "import", "warning: StartCaching returned false. Unverified: SolarWinds does "
+                            "not document what false means; watch CacheStatus on "
+                            "Cirrus.PolicyReports for these reports.", "warn")
+        return False
     _say(log, "import", f"compliance caching started for {len(new_ids)} report(s). Watch them "
                         "under My Dashboards > Network Configuration > Compliance. The policy "
                         "cache also refreshes on its own at 11:55 PM daily when that job is "
                         "enabled.")
     return True
+
+
+NIL_GUID = "00000000-0000-0000-0000-000000000000"
+_DENIED_TEXT = re.compile(r"access (is )?denied|not authori[sz]ed|permission|forbidden|"
+                          r"only for (orion )?admin", re.IGNORECASE)
+
+
+def ncm_preflight(swis, log=print):
+    """Before anything is written: can this account call the compliance verbs at all?
+
+    Logs the role each verb needs, then calls GetPolicyReport (WebDownloader, like
+    every write the import makes) for the nil GUID, which no report has. An answer of
+    any kind confirms access; 401, 403, or a message that reads as a permission
+    refusal stops the run before anything is created. Unverified: how a server
+    answers GetPolicyReport for an id that does not exist is not documented, so any
+    other error is logged as inconclusive and the import goes ahead (the per-report
+    rollback still covers a later refusal). Returns "ok" or "inconclusive".
+    """
+    for role, verbs in NCM_VERB_ROLES:
+        log_event("import", f"NCM role needed (2026.2 verb descriptions): {role} or higher for "
+                            + ", ".join(verbs))
+    log_event("import", "when the server's 'compliance only for administrators' option is on, "
+                        "every one of those verbs is valid only for Orion administrators")
+    try:
+        result = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", NIL_GUID, False)
+    except SwisError as exc:
+        status = http_status(exc)
+        if status in (401, 403) or (status is not None and _DENIED_TEXT.search(str(exc))):
+            msg = (f"permission preflight: this account may not call Cirrus.PolicyReports "
+                   f"GetPolicyReport (HTTP {status}): {str(exc).splitlines()[-1]}. The import "
+                   "needs at least the WebDownloader NCM role (WebUploader to start caching or "
+                   "change ReportStatus), or an Orion administrator when the server restricts "
+                   "compliance to administrators. Nothing was created.")
+            log_event("import", msg, "error")
+            raise SwisError(msg) from exc
+        if status is None:
+            raise
+        _say(log, "import", f"permission preflight inconclusive: GetPolicyReport for the nil "
+                            f"GUID answered HTTP {status} (Unverified: the answer for an id that "
+                            "does not exist is not documented); continuing", "warn")
+        return "inconclusive"
+    log_event("import", f"permission preflight ok: GetPolicyReport answered "
+                        f"{_summarize_value(result)} for an id that does not exist, so the "
+                        "account may call the compliance verbs")
+    return "ok"
 
 
 # ---------------------------------------------------------------------------
@@ -1848,7 +2243,15 @@ def finish_ncm_imports(swis, new_ids, disabled=False, no_cache=False, log=print)
 # references (Cirrus.PolicyAssignment / Cirrus.PolicyRuleAssignment).
 
 def plan_ncm_removal(swis, report_ids, log=print):
-    """Work out what removing these reports deletes and what it must keep."""
+    """Work out what removing these reports deletes and what it must keep.
+
+    Every membership and sharing lookup below is an IN @ids query over GUIDs, so the
+    sanity probe runs first on the first report, which is known to exist; when it
+    fails, InIdsProbeError stops the removal before anything is deleted.
+    """
+    report_ids = list(report_ids)
+    if report_ids:
+        confirm_in_ids(swis, "report", report_ids[0], "planning the removal", component="remove")
     report_keys = {_norm_id(r) for r in report_ids}
     policies, rules, names = {}, {}, {}
 
@@ -1861,44 +2264,49 @@ def plan_ncm_removal(swis, report_ids, log=print):
 
     for report_id in report_ids:
         tree = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True)
-        if not tree:
-            _say(log, "remove", f"note: No data returned from GetPolicyReport for {report_id}; "
+        if not isinstance(tree, dict) or not tree:
+            what = "No data returned" if not tree else \
+                f"a result that is not a report object ({_summarize_value(tree)}) came back"
+            _say(log, "remove", f"note: {what} from GetPolicyReport for {report_id}; "
                                 "its policies and rules are taken from Cirrus.PolicyAssignment "
                                 "alone", "warn")
             continue
         for pid in tree.get("AssignedPoliciesList") or []:
             add(policies, pid)
         for pol in tree.get("AssignedPolicies") or []:
+            if not isinstance(pol, dict):
+                continue
             add(policies, pol.get("PolicyId"), pol.get("PolicyName"))
             for rid in pol.get("AssignedRulesList") or []:
                 add(rules, rid)
             for rule in pol.get("AssignedPolicyRules") or []:
-                add(rules, rule.get("RuleId"), rule.get("RuleName"))
+                if isinstance(rule, dict):
+                    add(rules, rule.get("RuleId"), rule.get("RuleName"))
     # The export tree is not documented to carry PolicyId, so the SWQL link
     # tables are read as well; together they give the report's full membership.
     for row in _query_ids(swis, "SELECT PolicyID FROM Cirrus.PolicyAssignment WHERE PolicyReportID IN @ids",
                           list(report_ids)):
-        add(policies, row.get("PolicyID"))
+        add(policies, _row_value(row, "PolicyID"))
     for row in _query_ids(swis, "SELECT PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyID IN @ids",
                           list(policies.values())):
-        add(rules, row.get("PolicyRuleID"))
+        add(rules, _row_value(row, "PolicyRuleID"))
 
     kept_policies = {}
     for row in _query_ids(swis, "SELECT PolicyReportID, PolicyID FROM Cirrus.PolicyAssignment WHERE PolicyID IN @ids",
                           list(policies.values())):
-        other = _norm_id(row.get("PolicyReportID"))
-        key = _norm_id(row.get("PolicyID"))
+        other = _norm_id(_row_value(row, "PolicyReportID"))
+        key = _norm_id(_row_value(row, "PolicyID"))
         if key in policies and other and other not in report_keys:
-            kept_policies.setdefault(key, []).append(str(row.get("PolicyReportID")))
+            kept_policies.setdefault(key, []).append(str(_row_value(row, "PolicyReportID")))
     delete_policy_keys = set(policies) - set(kept_policies)
 
     kept_rules = {}
     for row in _query_ids(swis, "SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids",
                           list(rules.values())):
-        other = _norm_id(row.get("PolicyID"))
-        key = _norm_id(row.get("PolicyRuleID"))
+        other = _norm_id(_row_value(row, "PolicyID"))
+        key = _norm_id(_row_value(row, "PolicyRuleID"))
         if key in rules and other and other not in delete_policy_keys:
-            kept_rules.setdefault(key, []).append(str(row.get("PolicyID")))
+            kept_rules.setdefault(key, []).append(str(_row_value(row, "PolicyID")))
 
     log_event("remove", f"removal plan for {len(report_ids)} report(s): {len(policies)} "
                         f"policy/policies and {len(rules)} rule(s) found; "
@@ -2351,6 +2759,8 @@ def cmd_remove(args):
               "report's policies and rules itself, skipping any another report or policy "
               "still uses, and never passes deleteChildren=true.")
     ids = [r["PolicyReportID"] for r in found]
+    if not args.dry_run:
+        ncm_preflight(swis)
     plan = plan_ncm_removal(swis, ids)
     print(f"{'would delete' if args.dry_run else 'about to delete'} {len(ids)} report(s) "
           f"named \"{args.name}\":")
@@ -2397,6 +2807,7 @@ def cmd_import(args):
     if warning:
         print(warning)
     reports = make_reports_from_args(args, benchmarks, info)
+    ncm_preflight(swis)
     for report in reports:
         existing = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
                               {"n": report["Name"]})
@@ -2413,10 +2824,16 @@ def cmd_import(args):
         swis, reports, log=print, rollback=not args.no_rollback)
     new_ids = [new_id for _rep, new_id, _n in imported]
     # Reports that completed before a failure are real, verified imports: they
-    # get the same caching / disabling as a fully successful run.
-    finish_ncm_imports(swis, new_ids, disabled=args.disabled, no_cache=args.no_cache,
-                       log=print)
+    # get the same caching / disabling as a fully successful run. A refused
+    # StartCaching / UpdateReportStatus does not stop the run: the console files
+    # that are due below are still written.
+    confirmed = finish_ncm_imports(swis, new_ids, disabled=args.disabled,
+                                   no_cache=args.no_cache, log=print)
     if failure is None:
+        if not confirmed:
+            sys.exit("error: the reports were imported and verified, but the requested "
+                     + ("disabled state" if args.disabled else "caching")
+                     + " could not be confirmed; see the warning above")
         return
     if imported:
         print(f"{len(imported)} of {len(reports)} report(s) were imported before the "
@@ -2538,14 +2955,20 @@ class WindowsAuthClient:
             urllib3.disable_warnings()
 
     def _request(self, path, body):
-        resp = self.session.post(f"{self.base}/{path}", json=body, timeout=300)
+        try:
+            resp = self.session.post(f"{self.base}/{path}", json=body, timeout=300)
+        except TRANSPORT_ERRORS as exc:   # requests' exceptions derive from OSError
+            raise transport_error(exc, path) from exc
         if resp.status_code >= 400:
             try:
                 detail = resp.json().get("Message", resp.text)
-            except ValueError:
+            except (ValueError, AttributeError):
                 detail = resp.text
             raise SwisError(f"HTTP {resp.status_code} from {path}\n{detail}")
-        return resp.json() if resp.text.strip() else None
+        try:
+            return resp.json() if resp.text.strip() else None
+        except ValueError as exc:         # a body that is not JSON
+            raise transport_error(exc, path) from exc
 
     def query(self, swql, parameters=None):
         body = {"query": swql}
@@ -3057,6 +3480,7 @@ class App:
                 self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
                                    f"{n_rules} rules", "success")
             return True
+        ncm_preflight(swis, log=self._log)
         for report in reports:
             existing = swis.query(
                 "SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
@@ -3073,8 +3497,9 @@ class App:
                                        disabled=not enabled,
                                        log=lambda m: self._log(f"{prefix} {m}"))
         if not confirmed:
-            self._summary_line(f"{prefix} ReportStatus could not be confirmed as "
-                               "Disabled; see the detailed log", "warn")
+            state = "Disabled" if not enabled else "cached (StartCaching)"
+            self._summary_line(f"{prefix} the imported reports could not be confirmed as "
+                               f"{state}; see the detailed log", "warn")
             self._show_issue()
         if failure is None:
             return confirmed
@@ -3209,8 +3634,18 @@ def build_gui_parser():
 
 
 def _announce_log(path):
-    """Print the log path (stderr keeps stdout exactly as it was)."""
-    print(f"log file: {path}", file=sys.stderr)
+    """Print the log path (stderr keeps stdout exactly as it was).
+
+    stdout is flushed first: when both streams go to one pipe or file (2>&1), a
+    buffered stdout would otherwise land after both announcements, so the end-of-run
+    line looked like a second start-of-run line.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.flush()
+        except (AttributeError, OSError, ValueError):
+            pass
+    print(f"log file: {path}", file=sys.stderr, flush=True)
 
 
 def main(argv=None):

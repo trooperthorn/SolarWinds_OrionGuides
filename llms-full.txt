@@ -22628,12 +22628,12 @@ The relevant sources are the [Python tool](../../apps/disa-stig-conversion-tool/
 |---|---|---|---|
 | P0 | Python `dc_rule_xml`; PowerShell `ConvertTo-DcXml` | These writers emit an empty multiline container. An offline Python probe supplied two real advanced conditions and serialized zero in both XML namespace modes. | Preserve every ordered condition in all supported serializers; refuse unsupported structures rather than drop them. |
 | P0 | PowerShell `ConvertTo-ConsoleReportXml` | Code inspection shows an empty multiline container even if the supplied object has conditions. Python's console writer does iterate them. | Test Python/PowerShell console and API output equivalence for advanced rules. |
-| P0 | Python `_verify_report`; PowerShell `Test-NcmImport` | Verification rejects an empty tree but does not compare expected counts. The Python probe expected two policies/ten rules; one policy/one rule was accepted. | Verify exact relationships and canonical content, not merely nonzero counts; report partial imports explicitly. |
+| P0 | Python `_verify_report`; PowerShell `Test-NcmImport` | Verification rejects an empty tree but does not compare expected counts. The Python probe expected two policies/ten rules; one policy/one rule was accepted. **Addressed in code in DISA STIG tool 2.0.0 (2026-10-09):** both editions compare the read-back with what was submitted (policy count, rule count, and rule names per policy, as Porter 0.3.0 does); a mismatch or a result that is not a report object is a failed import, named with both counts and rolled back, and a nested `AddPolicyReport` that fails it is deleted before the console-file fallback. Covered by offline tests; no live import was run. | Verify exact relationships and canonical content, not merely nonzero counts; report partial imports explicitly. Still open: comparison of rule content beyond names and counts, and a live acceptance test. |
 | P0 | Porter `ImportAsync` | At baseline, read-back checked the report row's name and then started caching; it did not read the nested tree. **Addressed in code in Porter 0.3.0 (2026-10-08):** the report is created `Disabled`, `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true is read back, and policy and rule counts and names are compared with the file. A mismatch is reported as a partial import with both counts, and caching starts only for a verified report the operator chose to keep `Enabled`. Covered by offline unit tests; no live import was run. | Verify the complete imported definition before evaluation. A report row alone is insufficient. Still open: canonical comparison of rule content beyond names and counts, and a live acceptance test. |
 | P1 | Python `_parse_one_benchmark`; PowerShell `Read-OneBenchmark` | Only the first direct Rule per Group is selected. A synthetic two-rule Group produced one rule. Profile metadata is not retained. | Preserve all rules and group ancestry; represent profile selection explicitly. |
 | P1 | XCCDF parsers and deduplication | Only one check/reference and one fix text are selected; check-reference href/system and tailoring are not modeled. Namespace 1.2 is treated as SCAP edition, and deduplication prefers manual by benchmark ID without release comparison. | Keep source structure and versions before deciding how much can be converted; namespace alone is not an edition test. |
 | P1 | `make_node_selection_string` / `New-NodeSelectionString` | The picker is synthesized from Vendor alone with equality, while the SQL suffix can retain LIKE and additional properties. An offline probe reproduced that disagreement. | Generate both representations from the same scope model; test save/reopen behavior on the target. |
-| P1 | Import orchestration / `_clean_id` | Probe calls create rules. A missing returned rule/policy ID can fall back to the submitted ID. No durable dependency/import ledger is maintained. | Treat probes as writes, verify returned identities, account for partial progress, and support deliberate resume/cleanup. |
+| P1 | Import orchestration / `_clean_id` | Probe calls create rules. A missing returned rule/policy ID can fall back to the submitted ID. No durable dependency/import ledger is maintained. Partly addressed in tool 2.0.0 (2026-10-09): only the two documented 400 rejections move the probe on, a call that fails without an HTTP status is reported as an unknown outcome naming the submitted id, and every rollback or removal decision based on `IN @ids` is preceded by a probe for an id known to exist. | Treat probes as writes, verify returned identities, account for partial progress, and support deliberate resume/cleanup. Still open: a durable import ledger and resume. |
 | P1 | `rule_object` / `New-NcmRule` | Default generation creates basic literal sentinel/draft rules and copies fix prose into a CLI script field. It does not compile advanced/block conditions from DISA prose. | Separate review status, guidance, machine-check implementation, and executable remediation. |
 
 The advanced-rule serialization findings do not imply that today's default converter
@@ -41040,9 +41040,13 @@ but has been observed in the field creating only the report row over JSON REST:
 4. `AddPolicyReport(report, importFlag)` with `importFlag` false and
    `AssignedPoliciesList` carrying the policy GUIDs — returns the report GUID.
 5. `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true — read the tree back and
-   compare expected relationships and content before claiming success. The current tool
-   checks only that policy/rule counts are nonzero; the audit reproduced a partial tree
-   being accepted. Exact verification is a required improvement, not existing behavior.
+   compare expected relationships and content before claiming success. Since tool 2.0.0
+   (2026-10-09) both editions compare the policy count, the rule count and the rule
+   names in each policy with what was submitted, the comparison Porter 0.3.0 makes, and
+   treat a mismatch or a result that is not a report object as a failed import that is
+   rolled back. Rule content is not compared yet, so exact verification remains an open
+   improvement; the earlier tool checked only that the counts were nonzero, which is how
+   the audit got a partial tree accepted.
 6. `StartCaching(selectedReportsIds)` with `[thatGuid]` — the report shows nothing
    until cached, and an empty array would re-cache every report on the server. Skip
    this and call `UpdateReportStatus('Disabled', [thatGuid])` instead when a large
@@ -41147,6 +41151,38 @@ Since 2026-10-08 those last two follow the rollback guidance above more closely:
   [collection-profile](../modules/scm-profile-portability-audit.md) export extension;
   a JSON profile is refused rather than sent to `ImportPolicy`, and policy YAML that an
   older build wrote under that extension is still accepted.
+
+Tool 2.0.0 (2026-10-09) also changes how an import fails, in both editions:
+
+- Only an HTTP 400 carrying one of the two rejection messages
+  [ncm-compliance-reports.md](../modules/ncm-compliance-reports.md#the-swis-round-trip-20262-verified)
+  records counts as "this wire format was refused". Any other 400, and every 401, 403,
+  409 or 500, stops that report with the server's message, rolls back what it created,
+  and writes no console file. Timeouts, reset connections and bodies that are not JSON
+  are reported with their original message and handled like any other failure.
+- A nested `AddPolicyReport(report, importFlag)` that is accepted but fails the
+  read-back is deleted (the report, then the policies and rules nothing else uses, never
+  an id that existed before the run) before the console file is written.
+- Before writing, the tool logs the role each verb needs and calls `GetPolicyReport` for
+  the nil GUID; HTTP 401 or 403 stops the run. The 2026.2 verb descriptions put
+  `AddPolicyRule`, `AddPolicy`, `AddPolicyReport`, `GetPolicyReport` and the `Delete*`
+  verbs at WebDownloader and `StartCaching` / `UpdateReportStatus` at WebUploader, all of
+  them Orion-administrator only when compliance is restricted to administrators. A
+  refused `StartCaching` or `UpdateReportStatus` is logged, the console files still due
+  are written, and the run exits non-zero.
+- A pinned certificate is enforced on every connection and fails closed, including on
+  PowerShell 7, where the PowerShell edition uses an `HttpClient` with a validation
+  callback because `Invoke-RestMethod` offers none for server certificates. That path
+  is tested offline by forcing it on Windows PowerShell 5.1; it has not been run under
+  PowerShell 7 itself.
+- Every decision based on an `IN @ids` query over GUIDs (the existing-id snapshot, the
+  removal plan, the nested rollback) is preceded by the same query for one id known to
+  exist, and stops unless exactly one row comes back. **Unverified:** the documented
+  array binding uses integers; whether every server binds GUID strings the same way is
+  not documented.
+
+These are offline-tested behaviors against an in-memory stand-in and a local listener,
+not a live import test.
 
 For current serializer and verification limitations, read the
 [implementation findings](../modules/ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter).
@@ -66029,7 +66065,7 @@ This index extracts explicit uncertainty markers from authored pages under docs/
 
 The extractor recognizes selected phrases and explicit labels such as **Unverified:**, **Unknown:**, **Unconfirmed:**, **Not tested:**, and **Runtime validation required:**. It skips generated pages, headings, and fenced code. Absence from this index does not mean a claim is verified; app and script READMEs are outside its collection scope. See [the documentation audit](documentation-audit-2026-09-18.md) for coverage and evidence rules.
 
-**311 statements across 75 pages.**
+**312 statements across 76 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -66120,6 +66156,12 @@ Read this before relying on this repository for something load-bearing. If you h
 **[How automatic discovery is scoped](../automation/dependencies.md#how-automatic-discovery-is-scoped)**
 
 - The precise algorithm that selects a root, and what the counts are used for once calculated, are **not recorded in the published schema** and are unverified here.
+
+## [disa-stig-import.md](../automation/disa-stig-import.md)
+
+**[The tool that does all of this](../automation/disa-stig-import.md#the-tool-that-does-all-of-this)**
+
+- **Unverified:** the documented array binding uses integers; whether every server binds GUID strings the same way is not documented.
 
 ## [discovery.md](../automation/discovery.md)
 

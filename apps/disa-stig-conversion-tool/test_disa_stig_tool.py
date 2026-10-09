@@ -19,14 +19,19 @@ from __future__ import annotations
 import argparse
 import base64
 import contextlib
+import hashlib
+import http.client
+import http.server
 import io
 import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 import uuid
 import zipfile
@@ -148,7 +153,36 @@ def _n(value):
     return tool._norm_id(value)
 
 
+class FakeRequestsTimeout(OSError):
+    """Shaped like requests.exceptions.ReadTimeout, whose bases end in IOError."""
+
+
+FakeRequestsTimeout.__module__ = "requests.exceptions"
+FakeRequestsTimeout.__name__ = FakeRequestsTimeout.__qualname__ = "ReadTimeout"
+
+DOCUMENTED_400S = ("HTTP 400 from AddPolicyRule\nValue cannot be null. Parameter name: input",
+                   "HTTP 400 from AddPolicy\nVerb Cirrus.PolicyReports.AddPolicy cannot "
+                   "unpackage parameter 0")
+UNDOCUMENTED_400 = "HTTP 400 from AddPolicyRule\nRule name must not be empty."
+FORBIDDEN_403 = "HTTP 403 from Invoke/Cirrus.PolicyReports/StartCaching\nAccess is denied."
+
+
 class FakeSwis:
+    """In-memory Cirrus.PolicyReports / Orion.PolicyEngine.Policy.
+
+    Knobs for the failure paths (all off by default):
+      fail[verb] = exception, or (exception, n) to let n calls succeed first, or a list
+                   with one entry per call (None lets that call through); "query"
+                   fails queries the same way
+      results[verb] = a value returned instead of the modelled one (e.g. a string)
+      reject_items: every per-item AddPolicyRule is refused with a documented 400
+      nested: None (the nested console-XML AddPolicyReport is refused with a documented
+              400), "report-only" (it stores only the report row, as one server was
+              observed doing), or "full" (it stores the whole tree)
+      in_ids_broken: every IN @ids query returns no rows
+      drop_rule_on_readback: GetPolicyReport leaves the last rule of each policy out
+    """
+
     def __init__(self, tree_has_policy_ids=True):
         self.reports = {}      # id -> {"Name", "policies": [ids], "ReportStatus": bool}
         self.policies = {}     # id -> {"PolicyName", "rules": [ids]}
@@ -159,6 +193,12 @@ class FakeSwis:
         self.fail_add_report = set()   # report names whose AddPolicyReport fails (HTTP 500)
         self.reject_all_after = None   # after N reports exist, every write is HTTP 400
         self.next_scm_id = 100
+        self.fail = {}
+        self.results = {}
+        self.reject_items = False
+        self.nested = None
+        self.in_ids_broken = False
+        self.drop_rule_on_readback = False
 
     # -- helpers ------------------------------------------------------------
     def add_report(self, name, policies, report_id=None):
@@ -178,11 +218,33 @@ class FakeSwis:
     def _rejecting(self):
         return self.reject_all_after is not None and len(self.reports) >= self.reject_all_after
 
+    def _maybe_fail(self, key):
+        spec = self.fail.get(key)
+        if spec is None:
+            return
+        if isinstance(spec, list):          # one entry per call; None lets that call through
+            exc = spec.pop(0) if spec else None
+            if exc is not None:
+                raise exc
+            return
+        exc, skip = spec if isinstance(spec, tuple) else (spec, 0)
+        if skip > 0:
+            self.fail[key] = (exc, skip - 1)
+            return
+        raise exc
+
     # -- SwisClient surface -------------------------------------------------
     def query(self, swql, parameters=None):
         self.calls.append(("query", swql, parameters))
+        self._maybe_fail("query")
         p = parameters or {}
         ids = {_n(i) for i in p.get("ids", [])}
+        if "IN @ids" in swql and self.in_ids_broken:
+            return []
+        if swql == "SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules":
+            return [{"PolicyRuleID": k} for k in list(self.rules)[:1]]
+        if swql == "SELECT TOP 1 PolicyID FROM Cirrus.Policies":
+            return [{"PolicyID": k} for k in list(self.policies)[:1]]
         if "FROM Cirrus.PolicyReports WHERE Name = @n" in swql:
             return [{"PolicyReportID": k, "Name": v["Name"], "Grouping": "DISA STIG"}
                     for k, v in self.reports.items() if v["Name"] == p["n"]]
@@ -214,28 +276,46 @@ class FakeSwis:
 
     def invoke(self, entity, verb, *args):
         self.calls.append(("invoke", verb, args))
-        return getattr(self, "_" + verb)(*args)
+        self._maybe_fail(verb)
+        result = getattr(self, "_" + verb)(*args)
+        return self.results.get(verb, result)
 
     # -- Cirrus.PolicyReports verbs ------------------------------------------
     def _AddPolicyRule(self, rule):
-        if self._rejecting() or not isinstance(rule, dict):
-            raise tool.SwisError("HTTP 400 from AddPolicyRule\nValue cannot be null. Parameter name: input")
+        if self._rejecting() or self.reject_items or not isinstance(rule, dict):
+            raise tool.SwisError(DOCUMENTED_400S[0])
         self.rules[rule["RuleId"]] = rule["RuleName"]
         return f'"{rule["RuleId"]}"'
 
     def _AddPolicy(self, policy, import_flag):
         if self._rejecting():
-            raise tool.SwisError("HTTP 400 from AddPolicy\ncannot unpackage parameter 0")
+            raise tool.SwisError(DOCUMENTED_400S[1])
         pid = str(uuid.uuid4())
         self.add_policy(pid, policy["AssignedRulesList"], policy["PolicyName"])
         return pid
 
     def _AddPolicyReport(self, report, import_flag):
+        if isinstance(report, str) and self.nested and not self._rejecting():
+            return self._nested_import(report)
         if self._rejecting() or not isinstance(report, dict):
             raise tool.SwisError("HTTP 400 from AddPolicyReport\ncannot unpackage parameter 0")
         if report["Name"] in self.fail_add_report:
             raise tool.SwisError("HTTP 500 from AddPolicyReport\nsimulated server error")
         return self.add_report(report["Name"], report["AssignedPoliciesList"])
+
+    def _nested_import(self, xml_text):
+        root = tool.ET.fromstring(xml_text)
+        policies = []
+        if self.nested == "full":
+            for pol in root.iter("Policy"):
+                pid = str(uuid.uuid4())
+                rule_ids = []
+                for rule in pol.iter("PolicyRule"):
+                    self.rules[rule.findtext("RuleId")] = rule.findtext("RuleName")
+                    rule_ids.append(rule.findtext("RuleId"))
+                self.add_policy(pid, rule_ids, pol.findtext("PolicyName"))
+                policies.append(pid)
+        return self.add_report(root.findtext("Name"), policies)
 
     def _GetPolicyReport(self, report_id, export_flag):
         rep = self.reports.get(report_id)
@@ -244,9 +324,10 @@ class FakeSwis:
         pols = []
         for pid in rep["policies"]:
             pol = self.policies.get(pid, {"PolicyName": "?", "rules": []})
+            rules = pol["rules"][:-1] if self.drop_rule_on_readback else pol["rules"]
             entry = {"PolicyName": pol["PolicyName"],
                      "AssignedPolicyRules": [{"RuleId": r, "RuleName": self.rules.get(r)}
-                                             for r in pol["rules"]]}
+                                             for r in rules]}
             if self.tree_has_policy_ids:
                 entry["PolicyId"] = pid
             pols.append(entry)
@@ -268,7 +349,7 @@ class FakeSwis:
         return len(ids)
 
     def _StartCaching(self, ids):
-        return None
+        return True     # the contract declares a boolean result
 
     def _UpdateReportStatus(self, status, ids):
         for i in ids:
@@ -616,6 +697,337 @@ class ImportFlowTests(TempDirTest):
 
 
 # ---------------------------------------------------------------------------
+# 7b. Import reliability: transport errors, 400 classification, nested fallback,
+#     permissions, the IN @ids sanity probe and read-back comparison
+# ---------------------------------------------------------------------------
+
+class ImportReliabilityTests(TempDirTest):
+    def report(self, n_rules=2, bid="NDM", name="Pkg"):
+        bench = make_benchmark(bid, [make_rule(i) for i in range(1, n_rules + 1)])
+        return tool.build_reports([bench], name=name)[0]
+
+    def run_import(self, fake, path=None, **overrides):
+        path = path or self.router_zip()
+        cwd = os.getcwd()
+        os.chdir(self.tmp)
+        self.addCleanup(os.chdir, cwd)
+        out = io.StringIO()
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(out):
+            try:
+                tool.cmd_import(import_args(path, **overrides))
+            finally:
+                self.output = out.getvalue()
+
+    def console_files(self):
+        return sorted(f for f in os.listdir(self.tmp) if f.endswith(".ncm-report.xml"))
+
+    def open_log(self, level="info"):
+        path = os.path.join(self.tmp, "reliability.log")
+        self.addCleanup(tool.close_logging)
+        tool.setup_logging(path, level)
+        return path
+
+    # -- item 9: every exception, transport errors wrapped ---------------------
+    def test_transport_errors_become_swis_errors_with_the_original_message(self):
+        for exc in (TimeoutError("The read operation timed out"),
+                    FakeRequestsTimeout("Read timed out. (read timeout=300)"),
+                    http.client.RemoteDisconnected("Remote end closed connection"),
+                    json.JSONDecodeError("Expecting value", "<html>", 0)):
+            with self.subTest(type(exc).__name__):
+                fake = FakeSwis()
+                fake.fail["AddPolicyRule"] = exc
+                with self.assertRaises(tool.SwisError) as ctx:
+                    tool.logged(fake).invoke("Cirrus.PolicyReports", "AddPolicyRule",
+                                             {"RuleName": "r", "RuleId": "x"})
+                self.assertIn(f"{type(exc).__name__}: {exc}", str(ctx.exception))
+                self.assertIs(ctx.exception.__cause__, exc)
+
+    def test_swis_client_wraps_timeouts_and_bodies_that_are_not_json(self):
+        client = tool.SwisClient("orion.example.com", "u", "Pw-Reliability-8812")
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self):
+                return b"<html>proxy error</html>"
+
+        with mock.patch.object(tool.urllib.request, "urlopen",
+                               side_effect=TimeoutError("The read operation timed out")):
+            with self.assertRaisesRegex(tool.SwisError,
+                                        "transport error .*TimeoutError: The read operation"):
+                client.query("SELECT TOP 1 EngineVersion FROM Orion.Engines")
+        with mock.patch.object(tool.urllib.request, "urlopen", return_value=Response()):
+            with self.assertRaisesRegex(tool.SwisError, "JSONDecodeError"):
+                client.invoke("Cirrus.PolicyReports", "GetPolicyReport", tool.NIL_GUID, False)
+
+    def test_timeout_mid_import_rolls_back_and_is_recorded(self):
+        report = self.report(3)
+        fake = FakeSwis()
+        fake.fail["AddPolicy"] = TimeoutError("timed out")
+        lines, log = capture()
+        imported, failure, remaining = tool.import_ncm_reports(tool.logged(fake), [report], log=log)
+        self.assertEqual(imported, [])
+        self.assertIsInstance(failure, tool.SwisError)
+        self.assertIn("TimeoutError: timed out", str(failure))
+        self.assertEqual(remaining, [report])
+        self.assertEqual(fake.rules, {}, "the three rules were rolled back")
+        self.assertTrue(any("outcome of the failed call is unknown" in line for line in lines))
+        # An unwrapped client raising a raw exception is rolled back and recorded too.
+        fake = FakeSwis()
+        fake.fail["AddPolicy"] = TimeoutError("timed out")
+        _imported, failure, _remaining = tool.import_ncm_reports(fake, [report], log=lambda m: None)
+        self.assertIsInstance(failure, TimeoutError)
+        self.assertEqual(fake.rules, {})
+
+    def test_rollback_carries_on_after_a_failing_delete(self):
+        report = self.report(2)
+        fake = FakeSwis()
+        fake.fail_add_report.add(report["Name"])
+        fake.fail["DeletePolicies"] = FakeRequestsTimeout("Read timed out.")
+        lines, log = capture()
+        with self.assertRaises(tool.SwisError):
+            tool.import_ncm_report(fake, report, log=log)
+        self.assertEqual(fake.rules, {}, "rules are still deleted after the policy delete failed")
+        self.assertEqual(len(fake.policies), 1)
+        self.assertTrue(any("DeletePolicies failed, clean up by hand - ReadTimeout" in line
+                            for line in lines))
+
+    def test_a_string_read_back_is_a_verification_failure(self):
+        report = self.report(2)
+        fake = FakeSwis()
+        fake.results["GetPolicyReport"] = "<PolicyReport />"
+        with self.assertRaisesRegex(tool.NcmVerificationError,
+                                    "instead of a readable report object"):
+            tool.import_ncm_report(fake, report, log=lambda m: None)
+        self.assertEqual((fake.reports, fake.policies, fake.rules), ({}, {}, {}))
+
+    # -- verification gap: counts and names compared ---------------------------
+    def test_partial_tree_fails_verification_and_rolls_back(self):
+        report = self.report(3)
+        fake = FakeSwis()
+        fake.drop_rule_on_readback = True
+        with self.assertRaises(tool.NcmVerificationError) as ctx:
+            tool.import_ncm_report(fake, report, log=lambda m: None)
+        msg = str(ctx.exception)
+        self.assertIn("rules: expected 3, stored 2", msg)
+        self.assertIn('(missing "V-3 [medium] Rule 3 must hold.")', msg)
+        self.assertIn("WebDownloader", msg)
+        self.assertNotIn("WebUploader or higher", msg)
+        self.assertEqual((fake.reports, fake.policies, fake.rules), ({}, {}, {}))
+
+    def test_compare_report_trees(self):
+        expected = [("P", ["a", "b", "c"]), ("Q", ["d"])]
+        self.assertEqual(tool.compare_report_trees(expected, expected), [])
+        self.assertEqual(tool.compare_report_trees(expected, [("P", ["a", "b"])]), [
+            "policies: expected 2, stored 1", "rules: expected 4, stored 2",
+            'policy "P": expected 3 rules, stored 2 (missing "c")', 'policy "Q" missing'])
+        self.assertEqual(tool.compare_report_trees([("P", ["a", "b"])], [("P", ["b", "x"])]),
+                         ['policy "P": expected 2 rules, stored 2 (missing "a")'])
+        self.assertIsNone(tool.read_back_tree({"AssignedPoliciesList": ["x"]}))
+        self.assertEqual(tool.read_back_tree({}), [])
+        self.assertIsNone(tool.read_back_tree("<PolicyReport />"))
+        self.assertIsNone(tool.read_back_tree({"AssignedPolicies": ["x"]}))
+
+    # -- item 13: only the documented 400s mean "try the next wire format" -----
+    def test_only_documented_400s_are_wire_rejections(self):
+        for text in DOCUMENTED_400S:
+            self.assertTrue(tool.is_wire_rejection(tool.SwisError(text)), text)
+        for text in (UNDOCUMENTED_400, FORBIDDEN_403,
+                     "HTTP 500 from AddPolicy\ncannot unpackage parameter 0",
+                     "HTTP 409 from AddPolicyRule\nValue cannot be null. Parameter name: input",
+                     "HTTP 400 from AddPolicyRule\nValue cannot be null. (Parameter 'input')",
+                     "transport error calling x: TimeoutError: timed out"):
+            self.assertFalse(tool.is_wire_rejection(text), text)
+
+    def test_other_errors_stop_the_report_without_console_files(self):
+        for message in (UNDOCUMENTED_400, "HTTP 401 from AddPolicyRule\nUnauthorized",
+                        "HTTP 403 from AddPolicyRule\nAccess is denied.",
+                        "HTTP 409 from AddPolicyRule\nConflict",
+                        "HTTP 500 from AddPolicyRule\nObject reference not set"):
+            with self.subTest(message.split("\n")[0]):
+                fake = FakeSwis()
+                fake.fail["AddPolicyRule"] = tool.SwisError(message)
+                with self.assertRaises(tool.SwisError) as ctx:
+                    self.run_import(fake)
+                self.assertIn(message.split("\n")[1], str(ctx.exception))
+                self.assertEqual(len(fake.verbs("AddPolicyRule")), 1, "no other format tried")
+                self.assertEqual(fake.verbs("AddPolicyReport"), [], "no nested fallback")
+                self.assertEqual(self.console_files(), [])
+                self.assertIn("not imported:", self.output)
+
+    def test_undocumented_400_mid_import_rolls_back_without_console_files(self):
+        fake = FakeSwis()
+        fake.fail["AddPolicy"] = tool.SwisError("HTTP 400 from AddPolicy\nPolicy name too long")
+        with self.assertRaisesRegex(tool.SwisError, "Policy name too long"):
+            self.run_import(fake)
+        self.assertEqual((fake.reports, fake.rules), ({}, {}))
+        self.assertEqual(self.console_files(), [])
+
+    # -- item 12: the nested fallback cleans up after a failed verification ----
+    def test_nested_report_row_only_is_deleted_then_console_files_written(self):
+        fake = FakeSwis()
+        fake.reject_items = True
+        fake.nested = "report-only"
+        with self.assertRaises(SystemExit):
+            self.run_import(fake)
+        self.assertEqual(fake.reports, {}, "the bare report rows were deleted")
+        # The run stops at the first failed report, so one nested row was created and
+        # deleted, and both reports are written out for the console.
+        self.assertEqual(len(fake.verbs("DeletePolicyReports")), 1)
+        self.assertEqual(len(self.console_files()), 2)
+        self.assertIn("accepted, but verification failed", self.output)
+        self.assertEqual(fake.verbs("StartCaching"), [])
+
+    def test_nested_timeout_stops_without_console_files(self):
+        fake = FakeSwis()
+        fake.reject_items = True
+        fake.fail["AddPolicyReport"] = TimeoutError("timed out")
+        with self.assertRaisesRegex(tool.SwisError, "TimeoutError: timed out"):
+            self.run_import(fake)
+        self.assertIn("outcome of the failed AddPolicyReport is unknown", self.output)
+        self.assertEqual(self.console_files(), [])
+
+    def test_nested_full_tree_verifies_and_is_cached(self):
+        fake = FakeSwis()
+        fake.reject_items = True
+        fake.nested = "full"
+        self.run_import(fake)
+        self.assertEqual(len(fake.reports), 2)
+        self.assertEqual(len(fake.verbs("StartCaching")), 1)
+        self.assertEqual(self.console_files(), [])
+
+    def test_nested_rollback_keeps_ids_that_existed_before(self):
+        report = self.report(2)
+        rule_ids = [r["RuleId"] for r in report["AssignedPolicies"][0]["AssignedPolicyRules"]]
+        fake = FakeSwis()
+        fake.add_policy("earlier-policy", [rule_ids[0]])
+        fake.add_report("Earlier import", ["earlier-policy"], "earlier-report")
+        fake.reject_items = True
+        fake.nested = "full"
+        fake.drop_rule_on_readback = True
+        lines, log = capture()
+        with self.assertRaises(tool.NcmWireError):
+            tool.import_ncm_report(fake, report, log=log)
+        self.assertIn(rule_ids[0], fake.rules, "the earlier import's rule survives")
+        self.assertNotIn(rule_ids[1], fake.rules)
+        self.assertEqual(set(fake.reports), {"earlier-report"})
+
+    def test_nested_rollback_stops_when_in_ids_is_broken(self):
+        fake = FakeSwis()
+        fake.reject_items = True
+        fake.nested = "report-only"
+        fake.in_ids_broken = True
+        with self.assertRaises(tool.InIdsProbeError):
+            self.run_import(fake)
+        self.assertEqual(len(fake.reports), 1, "nothing was deleted on an unverified basis")
+        self.assertEqual([c for c in fake.verbs() if c[1].startswith("Delete")], [])
+        self.assertEqual(self.console_files(), [])
+
+    # -- item 14: permissions ----------------------------------------------------
+    def test_preflight_refuses_a_denied_account_before_writing(self):
+        log = self.open_log()
+        fake = FakeSwis()
+        fake.fail["GetPolicyReport"] = tool.SwisError(
+            "HTTP 403 from Invoke/Cirrus.PolicyReports/GetPolicyReport\nAccess is denied.")
+        with self.assertRaisesRegex(tool.SwisError, "WebDownloader NCM role"):
+            self.run_import(fake)
+        self.assertEqual([c for c in fake.verbs() if c[1].startswith("Add")], [])
+        tool.close_logging()
+        text = "\n".join(read_log_lines(log))
+        self.assertIn("NCM role needed (2026.2 verb descriptions): WebUploader or higher for "
+                      "StartCaching, UpdateReportStatus", text)
+        self.assertIn("WebDownloader or higher for AddPolicyRule", text)
+
+    def test_preflight_inconclusive_answer_continues(self):
+        log = self.open_log()
+        fake = FakeSwis()
+        fake.fail["GetPolicyReport"] = [tool.SwisError("HTTP 500 from GetPolicyReport\nnot found")]
+        self.run_import(fake)
+        self.assertEqual(len(fake.reports), 2)
+        tool.close_logging()
+        self.assertTrue(any(" WARN  import permission preflight inconclusive" in line
+                            for line in read_log_lines(log)))
+
+    def test_start_caching_denied_still_writes_the_console_files_due(self):
+        fake = FakeSwis()
+        fake.reject_all_after = 1
+        fake.fail["StartCaching"] = tool.SwisError(FORBIDDEN_403)
+        with self.assertRaises(SystemExit):
+            self.run_import(fake)
+        self.assertEqual(len(fake.reports), 1)
+        self.assertEqual(len(self.console_files()), 1)
+        self.assertIn("StartCaching failed", self.output)
+        self.assertIn("WebUploader", self.output)
+
+    def test_start_caching_denied_after_a_full_import_exits_nonzero(self):
+        fake = FakeSwis()
+        fake.fail["StartCaching"] = tool.SwisError(FORBIDDEN_403)
+        with self.assertRaisesRegex(SystemExit, "caching could not be confirmed"):
+            self.run_import(fake)
+        self.assertEqual(len(fake.reports), 2)
+
+    def test_update_report_status_denied_is_reported(self):
+        fake = FakeSwis()
+        fake.fail["UpdateReportStatus"] = tool.SwisError(
+            "HTTP 403 from UpdateReportStatus\nAccess is denied.")
+        with self.assertRaisesRegex(SystemExit, "disabled state could not be confirmed"):
+            self.run_import(fake, disabled=True)
+        self.assertIn("UpdateReportStatus('Disabled') failed", self.output)
+
+    def test_start_caching_result_is_logged(self):
+        log = self.open_log()
+        fake = FakeSwis()
+        fake.add_report("r", [], "r1")
+        self.assertTrue(tool.finish_ncm_imports(fake, ["r1"], log=lambda m: None))
+        fake.results["StartCaching"] = False
+        self.assertFalse(tool.finish_ncm_imports(fake, ["r1"], log=lambda m: None))
+        tool.close_logging()
+        lines = read_log_lines(log)
+        self.assertTrue(any("StartCaching returned true" in line for line in lines))
+        self.assertTrue(any("StartCaching returned false" in line for line in lines))
+        self.assertTrue(any(" WARN  import warning: StartCaching returned false" in line
+                            for line in lines))
+
+    # -- item 16: IN @ids sanity probe ---------------------------------------------
+    def test_import_stops_when_in_ids_misses_a_rule_known_to_exist(self):
+        fake = FakeSwis()
+        fake.add_policy("old-p", ["old-r"])
+        fake.add_report("Old", ["old-p"], "old")
+        fake.in_ids_broken = True
+        with self.assertRaisesRegex(tool.InIdsProbeError, "known to exist"):
+            self.run_import(fake)
+        self.assertEqual([c for c in fake.verbs() if c[1].startswith("Add")], [])
+        self.assertEqual(set(fake.rules), {"old-r"})
+
+    def test_remove_stops_when_in_ids_misses_the_report(self):
+        fake = FakeSwis()
+        fake.add_policy("p1", ["r1"])
+        fake.add_report("Report A", ["p1"], "rA")
+        fake.in_ids_broken = True
+        args = argparse.Namespace(name="Report A", dry_run=False, yes=True, delete_children=False)
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(tool.InIdsProbeError):
+                tool.cmd_remove(args)
+        self.assertEqual([c for c in fake.verbs() if c[1].startswith("Delete")], [])
+        self.assertIn("rA", fake.reports)
+
+    def test_probe_success_is_logged(self):
+        log = self.open_log()
+        fake = FakeSwis()
+        fake.add_report("Report A", [], "rA")
+        tool.confirm_in_ids(tool.logged(fake), "report", "rA", "a test")
+        tool.close_logging()
+        self.assertTrue(any("IN @ids sanity probe ok before a test" in line
+                            for line in read_log_lines(log)))
+
+
+# ---------------------------------------------------------------------------
 # 8. Run log: format, redaction, default path, one line per SWIS call
 # ---------------------------------------------------------------------------
 
@@ -737,6 +1149,21 @@ class LoggingTests(TempDirTest):
         self.assertIn("run end: exit code 0; 0 SWIS call(s)", lines[-1])
         self.assertIn("2 file(s) written", lines[-1])
 
+    def test_log_path_is_printed_once_at_start_and_once_at_end(self):
+        """With stdout and stderr in one stream (2>&1), buffered stdout used to land
+        after both announcements, so the path looked printed twice at the start."""
+        xml = self.write("U_Cisco_X-xccdf.xml", xccdf_xml("X_STIG", "Cisco X STIG", RTR_GROUPS))
+        log = os.path.join(self.tmp, "once.log")
+        result = subprocess.run([sys.executable, PY_TOOL, "convert", xml, "--log-file", log],
+                                cwd=self.tmp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                timeout=120)
+        self.assertEqual(result.returncode, 0)
+        lines = [line for line in result.stdout.decode(errors="replace").splitlines() if line]
+        self.assertEqual(sum(line.startswith("log file: ") for line in lines), 2, lines)
+        self.assertTrue(lines[0].startswith("log file: "), lines)
+        self.assertTrue(lines[-1].startswith("log file: "), lines)
+        self.assertTrue(any(line.startswith("wrote ") for line in lines[1:-1]), lines)
+
     def test_cli_failure_is_logged_with_exit_code(self):
         log = os.path.join(self.tmp, "fail.log")
         result = subprocess.run([sys.executable, PY_TOOL, "parse",
@@ -845,6 +1272,118 @@ class SecurityTests(TempDirTest):
 
 
 # ---------------------------------------------------------------------------
+# Loopback SWIS stand-in: what actually goes over the wire, and certificate pins
+# ---------------------------------------------------------------------------
+
+class _Recorder(http.server.BaseHTTPRequestHandler):
+    """Records each POST (path, Content-Type, raw body, Authorization) and answers
+    every Invoke with the JSON string "new-rule-id"."""
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        self.server.seen.append({"path": self.path, "type": self.headers.get("Content-Type"),
+                                 "body": self.rfile.read(length),
+                                 "auth": self.headers.get("Authorization")})
+        out = json.dumps("new-rule-id").encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(out)))
+        self.end_headers()
+        self.wfile.write(out)
+
+    def log_message(self, *args):
+        pass
+
+
+@contextlib.contextmanager
+def loopback_server(cert=None, key=None):
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Recorder)
+    server.seen = []
+    server.handle_error = lambda request, address: None   # refused handshakes are expected
+    if cert:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(cert, key)
+        server.socket = ctx.wrap_socket(server.socket, server_side=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def make_self_signed(folder, cn="SolarWinds-Orion"):
+    """(cert.pem, key.pem, SHA-256 hex) of a fresh self-signed certificate, made with
+    the openssl that Git for Windows ships (or any on PATH); None when there is none."""
+    candidates = [shutil.which("openssl")]
+    git = shutil.which("git")
+    if git:
+        for base in (os.path.dirname(os.path.dirname(git)),
+                     os.path.dirname(os.path.dirname(os.path.dirname(git)))):
+            candidates += [os.path.join(base, "usr", "bin", "openssl.exe"),
+                           os.path.join(base, "mingw64", "bin", "openssl.exe")]
+    exe = next((c for c in candidates if c and os.path.isfile(c)), None)
+    if not exe:
+        return None
+    os.makedirs(folder, exist_ok=True)
+    cert, key = os.path.join(folder, "cert.pem"), os.path.join(folder, "key.pem")
+    result = subprocess.run([exe, "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key,
+                             "-out", cert, "-days", "2", "-subj", "/CN=" + cn],
+                            capture_output=True, timeout=120,
+                            env=dict(os.environ, MSYS_NO_PATHCONV="1"))
+    if result.returncode != 0 or not os.path.isfile(cert):
+        return None
+    with open(cert, encoding="ascii") as fh:
+        der = ssl.PEM_cert_to_DER_cert(fh.read())
+    return cert, key, hashlib.sha256(der).hexdigest().upper()
+
+
+class PythonPinTests(TempDirTest):
+    def test_python_pin_is_enforced(self):
+        made = make_self_signed(os.path.join(self.tmp, "server"))
+        other = make_self_signed(os.path.join(self.tmp, "other"))
+        if not made or not other:
+            self.skipTest("openssl not found; cannot make a test certificate")
+        cert, key, fingerprint = made
+        with loopback_server(cert, key) as server:
+            port = server.server_address[1]
+            pem, shown, stock = tool.fetch_server_cert("127.0.0.1", port)
+            self.assertEqual(shown.replace(":", ""), fingerprint)
+            self.assertTrue(stock)
+            good = tool.SwisClient("127.0.0.1", "admin", "Pin-Py-7781", port=port, pinned_pem=pem)
+            self.assertEqual(good.invoke("Cirrus.PolicyReports", "GetPolicyReport", tool.NIL_GUID,
+                                         False), "new-rule-id")
+            with open(other[0], encoding="ascii") as fh:
+                wrong = tool.SwisClient("127.0.0.1", "admin", "Pin-Py-7781", port=port,
+                                        pinned_pem=fh.read())
+            with self.assertRaisesRegex(tool.SwisError, "could not reach"):
+                wrong.invoke("Cirrus.PolicyReports", "GetPolicyReport", tool.NIL_GUID, False)
+            self.assertEqual(len(server.seen), 1, "the refused connection delivered nothing")
+
+
+PS_LOOPBACK_RUNNER = r"""
+param([string]$Tool, [string]$Base, [string]$Pin, [string]$Mode)
+. $Tool -NoGui
+$sentinel = [System.Net.Security.RemoteCertificateValidationCallback] { param($a, $b, $c, $d) $false }
+[System.Net.ServicePointManager]::ServerCertificateValidationCallback = $sentinel
+$script:ForceHttpClient = ($Mode -eq 'httpclient')
+if ($Pin -eq 'none') { $Pin = '' }
+$conn = New-SwisConnection '127.0.0.1' 1 'admin' 'Loopback-Pw-5512' $false $false $Pin
+$conn.Base = $Base
+$out = [ordered]@{}
+try {
+    $text = 'Caf' + [char]0xE9 + ' ' + [char]0x2014 + ' ' + [char]0x2713
+    $r = Invoke-SwisVerbCall $conn 'Cirrus.PolicyReports' 'AddPolicyRule' @([ordered]@{ RuleName = $text })
+    $out.ok = $true; $out.result = [string]$r
+} catch { $out.ok = $false; $out.error = $_.Exception.Message }
+$out.restored = [object]::ReferenceEquals([System.Net.ServicePointManager]::ServerCertificateValidationCallback, $sentinel)
+$out.pinCalls = 0; if ($conn.PinCheck) { $out.pinCalls = $conn.PinCheck.Calls }
+[Console]::Out.Write((ConvertTo-Json $out -Compress))
+"""
+
+
+# ---------------------------------------------------------------------------
 # PowerShell edition: parse, self-tests, and cross-edition parity
 # ---------------------------------------------------------------------------
 
@@ -936,10 +1475,26 @@ class PowerShellEditionTests(TempDirTest):
             ("a" * 250 + " - Bench_ID", ".ncm-report.xml"), ("plain_name-1.2", ".yaml"))]
         quotes = ["it's", 'a`b $(c) "d"', "x’y‘z‚‛", ""]
         probe_ids = ["V-1", NASTY_VULN, "xccdf_mil.disa.stig_group_V-5", "V-1\n", "", "v-1"]
+        wire = [*DOCUMENTED_400S, UNDOCUMENTED_400, FORBIDDEN_403,
+                "SWIS HTTP 400 from Invoke/Cirrus.PolicyReports/AddPolicyRule\nValue cannot be null. "
+                "Parameter name: input",
+                "HTTP 400 from X\nValue cannot be null. (Parameter 'input')",
+                "HTTP 500 from X\ncannot unpackage parameter 0",
+                "transport error calling x: TimeoutError: timed out"]
+        trees = [
+            {"expected": [["P", ["a", "b", "c"]], ["Q", ["d"]]], "actual": [["P", ["a", "b"]]]},
+            {"expected": [["P", ["a", "b"]]], "actual": [["P", ["b", "x"]]]},
+            {"expected": [["P", ["a", "a", "b"]]], "actual": [["P", ["b"]]]},
+            {"expected": [["P", ["1", "2", "3", "4", "5"]]], "actual": [["P", []]]},
+            {"expected": [["Café", ["r"]], ["café", ["s"]]],
+             "actual": [["café", ["s"]], ["Café", ["r"]]]},
+            {"expected": [["P", ["a"]], ["P", ["b"]]], "actual": [["P", ["b"]], ["P", ["a"]]]},
+            {"expected": [["P", ["a"]]], "actual": [["P", ["a"]]]},
+        ]
         spec = {"files": files,
                 "memory": [dict(c, benchmarks=[ps_benchmark(b) for b in c["benchmarks"]]) for c in memory],
                 "names": name_cases, "quotes": quotes, "probeIds": probe_ids,
-                "refuse": refuse, "logFile": ps_log}
+                "refuse": refuse, "logFile": ps_log, "wire": wire, "trees": trees}
         spec_path = self.write("parity-in.json", json.dumps(spec))
         out_path = os.path.join(self.tmp, "parity-out.json")
         result = run_powershell("-File", PS_TEST, "-ParityJson", spec_path, "-ParityOut", out_path)
@@ -981,6 +1536,12 @@ class PowerShellEditionTests(TempDirTest):
         self.assertEqual(ps["names"], [tool.safe_file_name(n["stem"], n["suffix"]) for n in name_cases])
         self.assertEqual(ps["quoted"], [tool.ps_single_quote(q) for q in quotes])
         self.assertEqual(ps["probeIds"], [tool.scm_probe_id(i) for i in probe_ids])
+        # Import decisions agree: which 400s are wire rejections, and the read-back diff text.
+        self.assertEqual(ps["wire"], [tool.is_wire_rejection(w) for w in wire])
+        self.assertEqual(ps["wire"][:3], [True, True, False])
+        self.assertEqual(ps["trees"], ["\n".join(tool.compare_report_trees(
+            [tuple(p) for p in c["expected"]], [tuple(p) for p in c["actual"]])) for c in trees])
+        self.assertIn("(missing \"1\", \"2\", \"3\", ...)", ps["trees"][3])
 
         # Both editions refuse DTDs, and the PowerShell log says why in the same format.
         self.assertEqual(ps["refused"], [0, 0])
@@ -991,6 +1552,56 @@ class PowerShellEditionTests(TempDirTest):
         for line in ps_lines:
             self.assertRegex(line, LOG_LINE_RE)
         self.assertEqual(len([line for line in ps_lines if "declares a DTD" in line]), 2)
+
+    def run_ps_loopback(self, base, pin, mode):
+        runner = self.write("loopback.ps1", PS_LOOPBACK_RUNNER)
+        result = run_powershell("-File", runner, "-Tool", PS_TOOL, "-Base", base,
+                                "-Pin", pin or "none", "-Mode", mode, timeout=180)
+        text = result.stdout.decode(errors="replace")
+        self.assertIn("{", text, text + result.stderr.decode(errors="replace"))
+        return json.loads(text[text.index("{"):])
+
+    def test_powershell_sends_utf8_bytes_with_a_charset(self):
+        """Both transport paths put the UTF-8 bytes of the JSON on the wire, with
+        charset=utf-8 said explicitly (Windows PowerShell 5.1 otherwise encodes a
+        string body as ISO-8859-1)."""
+        for mode in ("restmethod", "httpclient"):
+            with self.subTest(mode=mode), loopback_server() as server:
+                base = f"http://127.0.0.1:{server.server_address[1]}{tool.BASE_PATH}"
+                res = self.run_ps_loopback(base, None, mode)
+                self.assertTrue(res["ok"], res)
+                self.assertEqual(res["result"], "new-rule-id")
+                seen = server.seen[0]
+                self.assertEqual(seen["path"], tool.BASE_PATH + "/Invoke/Cirrus.PolicyReports/AddPolicyRule")
+                self.assertEqual(seen["type"].replace(" ", "").lower(), "application/json;charset=utf-8")
+                self.assertEqual(json.loads(seen["body"].decode("utf-8")),
+                                 [{"RuleName": "Café — ✓"}])
+                self.assertTrue(seen["auth"].startswith("Basic "))
+
+    def test_powershell_pin_fails_closed_on_both_paths(self):
+        made = make_self_signed(os.path.join(self.tmp, "server"))
+        if not made:
+            self.skipTest("openssl not found; cannot make a test certificate")
+        cert, key, fingerprint = made
+        with loopback_server(cert, key) as server:
+            port = server.server_address[1]
+            base = f"https://127.0.0.1:{port}{tool.BASE_PATH}"
+            fetched = run_powershell("-Command", f". '{PS_TOOL}' -NoGui; [Console]::Out.Write("
+                                                 f"(Get-ServerCertThumbprint '127.0.0.1' {port}).Thumbprint)")
+            self.assertEqual(fetched.stdout.decode(errors="replace").strip(), fingerprint,
+                             fetched.stderr.decode(errors="replace"))
+            for mode in ("restmethod", "httpclient"):
+                with self.subTest(mode=mode):
+                    good = self.run_ps_loopback(base, fingerprint, mode)
+                    self.assertTrue(good["ok"], good)
+                    self.assertGreaterEqual(good["pinCalls"], 1, "the pin was checked")
+                    self.assertTrue(good["restored"], "the previous callback is back after the call")
+                    bad = self.run_ps_loopback(base, "AB" * 32, mode)
+                    self.assertFalse(bad["ok"], bad)
+                    self.assertIn("pin mismatch", bad["error"])
+                    self.assertIn(fingerprint, bad["error"])
+                    self.assertTrue(bad["restored"])
+            self.assertEqual(len(server.seen), 2, "only the two pinned-correctly calls arrived")
 
     def test_both_editions_write_the_same_log_format(self):
         """Run a real conversion through each edition's CLI with a log file and a
