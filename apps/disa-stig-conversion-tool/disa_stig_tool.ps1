@@ -391,7 +391,10 @@ function Get-ReportBaseName([string]$SourcePath, [string]$ReportName) {
     # otherwise nothing, so each report is named after its benchmark title.
     if ($ReportName) { return $ReportName }
     if ($SourcePath -and $SourcePath.ToLower().EndsWith('.zip')) {
-        return [System.IO.Path]::GetFileNameWithoutExtension($SourcePath)
+        # Split on both separators: .NET on Linux/macOS treats a backslash as an
+        # ordinary character, and a Windows-style path can still reach PowerShell 7 there.
+        $leaf = ($SourcePath -split '[\\/]')[-1]
+        return $leaf.Substring(0, $leaf.Length - 4)
     }
     return ''
 }
@@ -635,14 +638,17 @@ function Y([string]$Value) {
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.Append('"')
     foreach ($ch in $Value.ToCharArray()) {
-        switch ($ch) {
-            '"'  { [void]$sb.Append('\"') }
-            '\'  { [void]$sb.Append('\\') }
-            "`n" { [void]$sb.Append('\n') }
-            "`r" { [void]$sb.Append('\r') }
-            "`t" { [void]$sb.Append('\t') }
-            "`b" { [void]$sb.Append('\b') }   # json.dumps spells these two out
-            "`f" { [void]$sb.Append('\f') }
+        # Switch on the code point, not the character: PowerShell compares strings with
+        # culture rules, and under ICU (PowerShell 7 on Linux) control characters are
+        # ignorable, so "`b" would also match U+0001 and every other control character.
+        switch ([int]$ch) {
+            34 { [void]$sb.Append('\"') }
+            92 { [void]$sb.Append('\\') }
+            10 { [void]$sb.Append('\n') }
+            13 { [void]$sb.Append('\r') }
+            9  { [void]$sb.Append('\t') }
+            8  { [void]$sb.Append('\b') }   # json.dumps spells these two out
+            12 { [void]$sb.Append('\f') }
             default {
                 if ([int]$ch -lt 32) { [void]$sb.AppendFormat('\u{0:x4}', [int]$ch) }
                 else { [void]$sb.Append($ch) }
