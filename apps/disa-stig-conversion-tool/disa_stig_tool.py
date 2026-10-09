@@ -38,6 +38,11 @@ verbatim through ``Orion.PolicyEngine.Policy.ImportPolicy``.
 The password is read from the SWIS_PASSWORD environment variable, or prompted for.
 Never hard-code it and never pass it on the command line.
 
+Every run writes a log file, one line per decision and per SWIS call, with secrets
+redacted; its path is printed when the run starts and ends. --log-file PATH and
+--log-level debug|info|warn (on every command, and after "gui") change it. See the
+"Run log" section of README.md.
+
 What the import produces
 ------------------------
 
@@ -71,7 +76,9 @@ import getpass
 import hashlib
 import io
 import json
+import logging
 import os
+import platform
 import queue
 import re
 import socket
@@ -79,12 +86,19 @@ import ssl
 import sys
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
 import xml.etree.ElementTree as ET
+import xml.parsers.expat
 import zipfile
+
+# One version for the tool, shared by both editions (disa_stig_tool.ps1 carries the
+# same number). It is written into every log file's start-of-run line.
+TOOL_VERSION = "2.0.0"
+USER_AGENT = f"disa-stig-conversion-tool/{TOOL_VERSION}"
 
 DEFAULT_PORT = 17774
 BASE_PATH = "/SolarWinds/InformationService/v3/Json"
@@ -155,6 +169,205 @@ def redact(text):
     return text
 
 
+# ---------------------------------------------------------------------------
+# Run log: one line per event, the same format in both editions
+# ---------------------------------------------------------------------------
+#
+#   2026-10-09T14:03:07.123Z INFO  swis   Cirrus.PolicyReports.AddPolicyRule(...) -> ok 41 ms
+#
+# <UTC ISO-8601 with milliseconds>Z, the level padded to 5, the component padded to
+# 6, then the message on one line (line breaks are written as a literal \n). Every
+# line goes through redact(), so a registered secret never reaches the file. The
+# console output is unchanged; the file is additive. disa_stig_tool.ps1 writes the
+# identical format through Write-ToolLog.
+
+LOG_COMPONENTS = ("main", "parse", "route", "scope", "build", "swis", "import", "verify",
+                  "rollbk", "remove", "scm", "file", "gui")
+LOG_LEVELS = {"debug": logging.DEBUG, "info": logging.INFO, "warn": logging.WARNING,
+              "error": logging.ERROR}
+LOG_BODY_LIMIT = 4096   # debug-level request/response bodies are cut to this many chars
+
+_LOG = logging.getLogger("disa_stig_tool")
+_LOG.propagate = False
+_LOG.addHandler(logging.NullHandler())   # no stderr fallback when no file is set up
+_LOG.setLevel(logging.INFO)
+_LOG_LOCK = threading.Lock()
+_LOG_STATE = {"path": None, "handler": None, "stream": None, "started": None,
+              "stats": {}}
+_STAT_KEYS = ("swis_calls", "swis_failed", "files_written", "imported", "warnings", "errors")
+
+
+def _reset_stats():
+    _LOG_STATE["stats"] = {key: 0 for key in _STAT_KEYS}
+
+
+_reset_stats()
+
+
+def _bump(key, n=1):
+    with _LOG_LOCK:
+        _LOG_STATE["stats"][key] = _LOG_STATE["stats"].get(key, 0) + n
+
+
+def format_log_line(created, level, component, message):
+    """One log line. ``created`` is a POSIX timestamp, ``level`` one of LOG_LEVELS."""
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(created))
+    millis = int((created % 1) * 1000)
+    text = redact(str(message)).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n")
+    return f"{stamp}.{millis:03d}Z {level.upper():<5} {component:<6} {text}"
+
+
+class _RedactFilter(logging.Filter):
+    """Pass every record through the secret redaction before it is formatted."""
+
+    def filter(self, record):
+        record.msg = redact(record.getMessage())
+        record.args = ()
+        return True
+
+
+class _LineFormatter(logging.Formatter):
+    _NAMES = {logging.DEBUG: "debug", logging.INFO: "info", logging.WARNING: "warn",
+              logging.ERROR: "error", logging.CRITICAL: "error"}
+
+    def format(self, record):
+        return format_log_line(record.created, self._NAMES.get(record.levelno, "info"),
+                               getattr(record, "component", "main"), record.getMessage())
+
+
+def default_log_path(now=None, env=None, platform_name=None, home=None):
+    """Where the run log goes when --log-file is not given.
+
+    Windows: %LOCALAPPDATA%\\DisaStigTool\\logs\\disa-stig-tool_<yyyyMMdd-HHmmss>.log;
+    elsewhere ~/.local/state/disa-stig-tool/logs/ (or $XDG_STATE_HOME when set). The
+    time stamp in the name is UTC, like the lines inside.
+    """
+    env = os.environ if env is None else env
+    platform_name = sys.platform if platform_name is None else platform_name
+    home = home or os.path.expanduser("~")
+    stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime(time.time() if now is None else now))
+    name = f"disa-stig-tool_{stamp}.log"
+    if platform_name.startswith("win"):
+        base = env.get("LOCALAPPDATA") or os.path.join(home, "AppData", "Local")
+        return os.path.join(base, "DisaStigTool", "logs", name)
+    base = env.get("XDG_STATE_HOME") or os.path.join(home, ".local", "state")
+    return os.path.join(base, "disa-stig-tool", "logs", name)
+
+
+def close_logging():
+    """Detach and close the log file, if one is open."""
+    handler, stream = _LOG_STATE["handler"], _LOG_STATE["stream"]
+    if handler is not None:
+        _LOG.removeHandler(handler)
+        handler.close()
+    if stream is not None:
+        stream.close()
+    _LOG_STATE.update(path=None, handler=None, stream=None)
+
+
+def setup_logging(path=None, level="info"):
+    """Open the run log once per run and return its absolute path.
+
+    An explicit ``path`` that cannot be opened is an error. When the default
+    location cannot be created, the log falls back to the temp directory rather
+    than stopping the run.
+    """
+    close_logging()
+    if level not in LOG_LEVELS:
+        raise ValueError(f"unknown log level {level!r}; use debug, info or warn")
+    candidates = [path] if path else [
+        default_log_path(),
+        os.path.join(tempfile.gettempdir(), "disa-stig-tool", "logs",
+                     os.path.basename(default_log_path()))]
+    stream, error = None, None
+    for candidate in candidates:
+        candidate = os.path.abspath(candidate)
+        try:
+            os.makedirs(os.path.dirname(candidate), exist_ok=True)
+            stream = open(candidate, "a", encoding="utf-8", newline="\n")
+            break
+        except OSError as exc:
+            error = exc
+    if stream is None:
+        raise OSError(f"cannot open the log file: {error}")
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(_LineFormatter())
+    handler.addFilter(_RedactFilter())
+    handler.setLevel(LOG_LEVELS[level])
+    _LOG.setLevel(LOG_LEVELS[level])
+    _LOG.addHandler(handler)
+    _reset_stats()
+    _LOG_STATE.update(path=candidate, handler=handler, stream=stream, started=time.time())
+    return candidate
+
+
+def log_path():
+    """The open log file's path, or None."""
+    return _LOG_STATE["path"]
+
+
+def log_debug_enabled():
+    return _LOG_STATE["handler"] is not None and _LOG.isEnabledFor(logging.DEBUG)
+
+
+def log_event(component, message, level="info"):
+    """Write one event to the run log (a no-op until setup_logging has run).
+
+    ``component`` is one of LOG_COMPONENTS; ``level`` is debug, info, warn or error.
+    """
+    if level == "warn":
+        _bump("warnings")
+    elif level == "error":
+        _bump("errors")
+    if component not in LOG_COMPONENTS:
+        component = "main"
+    _LOG.log(LOG_LEVELS.get(level, logging.INFO), "%s", message,
+             extra={"component": component})
+
+
+def _say(log, component, message, level="info"):
+    """Send a message to the caller's console callback and to the run log."""
+    if log:
+        log(message)
+    log_event(component, message, level)
+
+
+def truncate_body(text, limit=LOG_BODY_LIMIT):
+    text = str(text)
+    if len(text) <= limit:
+        return text
+    return text[:limit] + f"... [truncated, {len(text)} chars]"
+
+
+def _format_command_line(argv):
+    def quote(arg):
+        return f'"{arg}"' if (not arg or any(ch in arg for ch in ' \t"')) else arg
+    return " ".join(quote(a) for a in [os.path.basename(sys.argv[0] or "disa_stig_tool.py")]
+                    + list(argv))
+
+
+def log_run_start(argv, mode="cli"):
+    """Start-of-run lines: tool version, interpreter, OS, the command line, the log file."""
+    log_event("main", f"DISA STIG Conversion Tool {TOOL_VERSION} (Python edition), {mode} run")
+    log_event("main", f"interpreter: Python {platform.python_version()} "
+                      f"({platform.python_implementation()}) {sys.executable}")
+    log_event("main", f"os: {platform.platform()}")
+    log_event("main", f"command line: {_format_command_line(argv)}")
+    log_event("main", f"log file: {log_path()} (level "
+                      f"{logging.getLevelName(_LOG.level).lower().replace('warning', 'warn')})")
+
+
+def log_run_end(exit_code):
+    """End-of-run summary with counts and the exit code."""
+    s = _LOG_STATE["stats"]
+    started = _LOG_STATE["started"] or time.time()
+    log_event("main", (
+        f"run end: exit code {exit_code}; {s['swis_calls']} SWIS call(s), {s['swis_failed']} "
+        f"failed; {s['files_written']} file(s) written; {s['imported']} import(s) verified; "
+        f"{s['warnings']} warning(s), {s['errors']} error(s); "
+        f"{time.time() - started:.1f} s"))
+
+
 def fetch_server_cert(host, port=DEFAULT_PORT):
     """Fetch the certificate SWIS presents, for explicit trust (pinning).
 
@@ -184,6 +397,16 @@ class SwisClient:
         self.username = username
         self.password = password
         register_secret(password)
+        # The Basic token carries the password too, so it is redacted as well.
+        register_secret(base64.b64encode(f"{username}:{password}".encode()).decode())
+        tls = ("pinned server certificate" if pinned_pem else
+               f"verified against {ca_file}" if verify and ca_file else
+               "verified against the system trust store" if verify else
+               "NOT verified (--insecure, lab only)")
+        log_event("swis", f"SWIS endpoint https://{host}:{port}{BASE_PATH} as user "
+                          f"'{username}' (basic auth); TLS {tls}")
+        if not verify and not pinned_pem:
+            log_event("swis", "TLS verification is off for this session", "warn")
         if pinned_pem:
             # Trust exactly the fetched SolarWinds-Orion certificate. The stock
             # certificate's CN is 'SolarWinds-Orion', not the host name, so the
@@ -229,6 +452,144 @@ class SwisClient:
 
     def invoke(self, entity, verb, *args):
         return self._request("POST", f"Invoke/{entity}/{verb}", list(args))
+
+
+def _summarize_value(value, width=60):
+    """A short, log-safe description of one SWIS argument or result."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        if len(value) <= width and "\n" not in value and "\r" not in value:
+            return f'"{value}"'
+        return f"<string {len(value)} chars>"
+    if isinstance(value, dict):
+        for key in ("RuleName", "PolicyName", "Name"):
+            if value.get(key):
+                return f"<object {str(value[key])[:width]}>"
+        return f"<object {len(value)} keys>"
+    if isinstance(value, (list, tuple)):
+        return f"[{len(value)} item(s)]"
+    return f"<{type(value).__name__}>"
+
+
+def _one_line(text, width):
+    text = " ".join(str(text).split())
+    return text if len(text) <= width else text[:width] + "..."
+
+
+class LoggedSwis:
+    """Wraps any client with the query()/invoke() surface (SwisClient,
+    WindowsAuthClient, or a test double) and writes one log line per SWIS call:
+    entity.verb or the query, a short argument summary, the duration in ms, and ok
+    or the error message. At debug level the redacted request and response bodies
+    follow, cut to LOG_BODY_LIMIT characters."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    def __getattr__(self, name):
+        return getattr(self.inner, name)
+
+    def query(self, swql, parameters=None):
+        label = "query " + _one_line(swql, 160)
+        if parameters:
+            label += " params {" + ", ".join(f"{k}={_summarize_value(v)}"
+                                             for k, v in parameters.items()) + "}"
+        body = {"query": swql, "parameters": parameters} if parameters else {"query": swql}
+        return self._call(label, body, lambda: self.inner.query(swql, parameters))
+
+    def invoke(self, entity, verb, *args):
+        label = f"{entity}.{verb}(" + ", ".join(_summarize_value(a) for a in args) + ")"
+        return self._call(label, list(args), lambda: self.inner.invoke(entity, verb, *args))
+
+    def _call(self, label, body, fn):
+        _bump("swis_calls")
+        if log_debug_enabled():
+            log_event("swis", "request " + label + " body "
+                      + truncate_body(json.dumps(body, default=str, ensure_ascii=False)), "debug")
+        start = time.perf_counter()
+        try:
+            result = fn()
+        except Exception as exc:
+            elapsed = int((time.perf_counter() - start) * 1000)
+            _bump("swis_failed")
+            log_event("swis", f"{label} -> error {elapsed} ms: {exc}", "warn")
+            raise
+        elapsed = int((time.perf_counter() - start) * 1000)
+        outcome = (f"{len(result)} row(s)" if label.startswith("query ") and isinstance(result, list)
+                   else _summarize_value(result))
+        log_event("swis", f"{label} -> ok {elapsed} ms, {outcome}")
+        if log_debug_enabled():
+            log_event("swis", "response " + label + " body "
+                      + truncate_body(json.dumps(result, default=str, ensure_ascii=False)), "debug")
+        return result
+
+
+def logged(client):
+    """Wrap a SWIS client for call logging (idempotent)."""
+    return client if client is None or isinstance(client, LoggedSwis) else LoggedSwis(client)
+
+
+# ---------------------------------------------------------------------------
+# Safe output: generated file names and PowerShell probe literals
+# ---------------------------------------------------------------------------
+
+MAX_FILE_NAME = 200
+_WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {f"COM{i}" for i in range(1, 10)} \
+    | {f"LPT{i}" for i in range(1, 10)}
+
+
+def safe_file_name(stem, suffix=""):
+    """The one place every generated file name goes through, in both editions.
+
+    Keeps [A-Za-z0-9._-], collapses every other run of characters to a single
+    underscore, strips leading dots, and caps the whole name (suffix included) at
+    MAX_FILE_NAME characters, so a STIG title can neither climb out of the output
+    folder ("../../x") nor exceed the 255-character file name limit.
+    """
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", stem or "").lstrip(".")
+    if name.split(".")[0].upper() in _WINDOWS_RESERVED:
+        name = "_" + name
+    name = name[:max(1, MAX_FILE_NAME - len(suffix))] or "unnamed"
+    return name + suffix
+
+
+# SCM probes run as PowerShell on every assigned node, so nothing from the STIG
+# may reach script source unquoted. Ids are validated, and the probe text is a
+# single-quoted PowerShell literal, in which only the quote characters are
+# special. PowerShell also treats U+2018-U+201B as single quotes.
+VULN_ID_PATTERN = re.compile(r"^V-[0-9]+\Z")
+RULE_ID_PATTERN = re.compile(r"^SV-[0-9]+r[0-9]+_rule\Z")
+_PS_SINGLE_QUOTES = "'‘’‚‛"
+
+
+def ps_single_quote(text):
+    """A PowerShell single-quoted string literal holding ``text`` verbatim."""
+    return "'" + "".join(ch + ch if ch in _PS_SINGLE_QUOTES else ch for ch in str(text)) + "'"
+
+
+def scm_probe_id(vuln_id, rule_id=""):
+    """The vuln id as it may appear in an SCM probe, validated.
+
+    A DISA id is V-<digits> (rule ids SV-<digits>r<digits>_rule), after any SCAP
+    xccdf_ prefix is stripped. Anything else is reduced to [A-Za-z0-9._-] with a
+    warning in the log, so the probe and its expression stay predictable.
+    """
+    vid = _strip_scap_prefix(vuln_id)
+    rid = _strip_scap_prefix(rule_id)
+    if rid and not RULE_ID_PATTERN.match(rid):
+        log_event("scm", f"rule id {rid!r} does not match SV-<n>r<n>_rule; it is used only "
+                         "in ids and comments, never in probe source", "warn")
+    if VULN_ID_PATTERN.match(vid):
+        return vid
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", vid) or "V-unknown"
+    log_event("scm", f"vuln id {vid!r} does not match V-<n>; the SCM probe uses the "
+                     f"sanitized id {safe!r}", "warn")
+    return safe
 
 
 # ---------------------------------------------------------------------------
@@ -315,15 +676,19 @@ def load_scm_policy(path, log=None):
     text = decode_text_bytes(raw)
     kind = classify_scm_text(text)
     if kind == "profile":
+        log_event("scm", f"refused {path}: JSON SCM collection profile, not a policy", "warn")
         raise ValueError(SCM_PROFILE_REFUSAL.format(path=path))
     if kind != "policy":
+        log_event("scm", f"refused {path}: not a tagged-YAML SCM compliance policy", "warn")
         raise ValueError(f"{path}: not an SCM compliance policy "
                          "(expected a YAML document tagged !policy with pluginName: SCM)")
-    if path.lower().endswith(LEGACY_SCM_POLICY_SUFFIX) and log:
-        log(f"note: {os.path.basename(path)} is SCM policy YAML written by an older build "
-            f"of this tool under the {LEGACY_SCM_POLICY_SUFFIX} extension, which belongs "
-            "to SCM collection profiles (JSON). It is read as a compliance policy; new "
-            f"conversions write {SCM_POLICY_SUFFIX}, so rename the file to avoid confusion.")
+    log_event("scm", f"read SCM policy file {path} ({len(raw)} bytes)")
+    if path.lower().endswith(LEGACY_SCM_POLICY_SUFFIX):
+        msg = (f"note: {os.path.basename(path)} is SCM policy YAML written by an older build "
+               f"of this tool under the {LEGACY_SCM_POLICY_SUFFIX} extension, which belongs "
+               "to SCM collection profiles (JSON). It is read as a compliance policy; new "
+               f"conversions write {SCM_POLICY_SUFFIX}, so rename the file to avoid confusion.")
+        _say(log, "scm", msg, "warn")
     return text
 
 
@@ -341,6 +706,8 @@ def import_scm_policy(swis, text, log=None):
     id is not by itself evidence that the rules landed.
     """
     info = scan_scm_policy(text)
+    log_event("scm", f"SCM policy \"{info['name']}\" uniqueId {info['uniqueId'] or '(none)'}, "
+                     f"{len(info['rules'])} rule(s); checking for a name/uniqueId collision")
     clauses, params = [], {}
     if info["name"]:
         clauses.append("Name = @n")
@@ -356,25 +723,29 @@ def import_scm_policy(swis, text, log=None):
             hit = existing[0]
             why = ("the same name" if (hit.get("Name") or "") == info["name"]
                    else "the same uniqueId")
-            raise SwisError(
-                f"a policy with {why} already exists: \"{hit.get('Name')}\" "
-                f"(PolicyID {hit.get('PolicyID')}, UniqueId {hit.get('UniqueId')}); "
-                "refusing to duplicate. SolarWinds rejects an import that matches "
-                "either field.")
+            msg = (f"a policy with {why} already exists: \"{hit.get('Name')}\" "
+                   f"(PolicyID {hit.get('PolicyID')}, UniqueId {hit.get('UniqueId')}); "
+                   "refusing to duplicate. SolarWinds rejects an import that matches "
+                   "either field.")
+            log_event("scm", msg, "error")
+            raise SwisError(msg)
     policy_id = swis.invoke("Orion.PolicyEngine.Policy", "ImportPolicy", text)
     if policy_id is None:
+        log_event("scm", "ImportPolicy returned no PolicyID; the policy was not created", "error")
         raise SwisError("No data returned from Orion.PolicyEngine.Policy.ImportPolicy — "
                         "the policy was not created")
+    log_event("scm", f"ImportPolicy returned PolicyID {policy_id}; reading the rules back")
     stored = swis.query("SELECT COUNT(RuleID) AS N FROM Orion.PolicyEngine.Rule "
                         "WHERE PolicyID = @p", {"p": policy_id})
     n_stored = (stored[0].get("N") if stored else 0) or 0
     if not n_stored:
-        raise SwisError(
-            f"No data returned reading rules back for PolicyID {policy_id} — the "
-            "policy row exists but holds no rules, so the import cannot be confirmed. "
-            "Check the account's rights on Orion.PolicyEngine.Policy.")
-    if log:
-        log(f"verified: PolicyID {policy_id} holds {n_stored} rule(s)")
+        msg = (f"No data returned reading rules back for PolicyID {policy_id} — the "
+               "policy row exists but holds no rules, so the import cannot be confirmed. "
+               "Check the account's rights on Orion.PolicyEngine.Policy.")
+        log_event("verify", msg, "error")
+        raise SwisError(msg)
+    _say(log, "verify", f"verified: PolicyID {policy_id} holds {n_stored} rule(s)")
+    _bump("imported")
     return policy_id, info["name"]
 
 
@@ -406,9 +777,47 @@ def _strip_scap_prefix(value):
     return _SCAP_ID_PREFIX.sub("", value or "")
 
 
+class _PrologDone(Exception):
+    """Raised by the prolog scan once the root element starts."""
+
+
+DTD_REFUSAL = ("refused: the document declares a DTD (<!DOCTYPE>); DTDs and entity "
+               "declarations are never processed, so external entities cannot be resolved")
+
+
+def refuse_dtd(xml_bytes, source_name):
+    """Refuse any document that declares a DTD, before it is parsed for content.
+
+    XCCDF does not use DTDs, and refusing them outright closes the external-entity
+    (XXE) and entity-expansion classes in both editions alike: the PowerShell edition
+    loads XML with DtdProcessing=Prohibit. Only the prolog is scanned (the scan
+    stops at the root element), and expat honours the declared encoding and BOM.
+    """
+    scanner = xml.parsers.expat.ParserCreate()
+
+    def doctype(*_args):
+        raise ValueError(f"{source_name}: {DTD_REFUSAL}")
+
+    def start(*_args):
+        raise _PrologDone()
+
+    scanner.StartDoctypeDeclHandler = doctype
+    scanner.StartElementHandler = start
+    try:
+        scanner.Parse(xml_bytes, True)
+    except _PrologDone:
+        pass
+    except xml.parsers.expat.ExpatError:
+        pass    # not well-formed: the content parse below reports it
+
+
 def parse_benchmarks(xml_bytes, source_name):
     """Parse an XCCDF file (manual or SCAP data-stream) into a list of benchmark dicts."""
-    root = ET.fromstring(xml_bytes)
+    refuse_dtd(xml_bytes, source_name)
+    try:
+        root = ET.fromstring(xml_bytes)
+    except ET.ParseError as exc:
+        raise ValueError(f"{source_name}: not well-formed XML ({exc})") from exc
     found = []
     for ns in (XCCDF_NS, XCCDF_12_NS):
         if root.tag == f"{ns}Benchmark":
@@ -466,7 +875,7 @@ def _parse_one_benchmark(root, ns, source_name):
                      if i.text and (i.get("system") or "").endswith("/cci")],
         })
 
-    return {
+    benchmark = {
         "source": source_name,
         "benchmark_id": _strip_scap_prefix(root.get("id", "")),
         "title": root.findtext(f"{ns}title", default="").strip(),
@@ -476,6 +885,11 @@ def _parse_one_benchmark(root, ns, source_name):
         "edition": "scap" if ns == XCCDF_12_NS else "manual",
         "rules": rules,
     }
+    log_event("parse", f"benchmark {benchmark['benchmark_id'] or '(no id)'} "
+                       f"\"{benchmark['title']}\" V{benchmark['version']} "
+                       f"({benchmark['release'] or 'no release info'}), "
+                       f"{benchmark['edition']} edition, {len(rules)} rule(s), from {source_name}")
+    return benchmark
 
 
 def _try_parse_xml(xml_bytes, name):
@@ -483,15 +897,24 @@ def _try_parse_xml(xml_bytes, name):
 
     Zip discovery goes by content, not filename: DISA's naming varies
     ("*-xccdf.xml", "*Manualxccdf.xml", "*_Benchmark.xml"), and the stylesheet
-    or a stray XML must simply be skipped rather than fail the whole zip.
+    or a stray XML must simply be skipped rather than fail the whole zip. Every
+    skip is logged with its reason.
     """
     head = xml_bytes[:200]
     if b"<?xml" not in head and b"<" not in head:
+        log_event("parse", f"skipped {name}: does not look like XML")
         return []
     try:
-        return parse_benchmarks(xml_bytes, name)
-    except (ET.ParseError, ValueError):
+        found = parse_benchmarks(xml_bytes, name)
+    except ValueError as exc:
+        reason = str(exc)
+        if reason.startswith(f"{name}: "):
+            reason = reason[len(name) + 2:]
+        level = "info" if reason.startswith("no XCCDF Benchmark") else "warn"
+        log_event("parse", f"skipped {name}: {reason}", level)
         return []
+    log_event("parse", f"parsed {name}: {len(found)} benchmark(s)")
+    return found
 
 
 def _dedupe_benchmarks(benchmarks):
@@ -505,8 +928,16 @@ def _dedupe_benchmarks(benchmarks):
     for b in benchmarks:
         key = b["benchmark_id"] or b["title"]
         held = by_id.get(key)
-        if held is None or (held["edition"] == "scap" and b["edition"] == "manual"):
+        if held is None:
             by_id[key] = b
+        elif held["edition"] == "scap" and b["edition"] == "manual":
+            log_event("parse", f"dedupe {key}: kept the manual edition from {b['source']}, "
+                               f"dropped the SCAP edition from {held['source']}")
+            by_id[key] = b
+        else:
+            log_event("parse", f"dedupe {key}: kept the {held['edition']} edition from "
+                               f"{held['source']}, dropped the {b['edition']} edition from "
+                               f"{b['source']}")
     return list(by_id.values())
 
 
@@ -517,33 +948,58 @@ def load_benchmarks(path):
     (SCAP data-stream), and compilation zips nesting one zip per STIG.
     """
     benchmarks = []
+
+    def skip(name, why):
+        log_event("parse", f"skipped {name}: {why}")
+
     if os.path.isdir(path):
+        log_event("parse", f"input {path}: directory")
         for dirpath, _dirs, files in os.walk(path):
             for name in sorted(files):
                 if name.lower().endswith(".xml"):
                     with open(os.path.join(dirpath, name), "rb") as fh:
                         benchmarks.extend(_try_parse_xml(fh.read(), name))
+                else:
+                    skip(name, "not an .xml file")
     elif zipfile.is_zipfile(path):
+        log_event("parse", f"input {path}: zip ({os.path.getsize(path)} bytes)")
         with zipfile.ZipFile(path) as zf:
             for info in sorted(zf.infolist(), key=lambda i: i.filename):
                 base = os.path.basename(info.filename)
+                if info.is_dir():
+                    continue
                 if base.lower().endswith(".xml"):
                     benchmarks.extend(_try_parse_xml(zf.read(info), base))
                 elif base.lower().endswith(".zip"):
                     # Compilation zips (SRG-STIG Library) nest one zip per STIG.
+                    log_event("parse", f"nested zip {info.filename}: reading its members")
                     inner = io.BytesIO(zf.read(info))
                     with zipfile.ZipFile(inner) as izf:
                         for iinfo in sorted(izf.infolist(), key=lambda i: i.filename):
                             ibase = os.path.basename(iinfo.filename)
+                            if iinfo.is_dir():
+                                continue
                             if ibase.lower().endswith(".xml"):
                                 benchmarks.extend(_try_parse_xml(izf.read(iinfo), ibase))
+                            else:
+                                skip(f"{info.filename}/{iinfo.filename}", "not an .xml member")
+                else:
+                    skip(info.filename, "not an .xml or .zip member (stylesheet, document "
+                                        "or other content)")
     elif path.lower().endswith(".xml"):
+        log_event("parse", f"input {path}: XML file")
         with open(path, "rb") as fh:
-            benchmarks.extend(parse_benchmarks(fh.read(), os.path.basename(path)))
+            try:
+                benchmarks.extend(parse_benchmarks(fh.read(), os.path.basename(path)))
+            except ValueError as exc:
+                log_event("parse", f"refused {path}: {exc}", "warn")
+                raise
     elif path.lower().endswith(".xsl"):
         # The .xsl is only the display stylesheet; the data lives in the
         # benchmark XML sitting next to it. Resolve that silently.
         folder = os.path.dirname(os.path.abspath(path))
+        log_event("parse", f"input {path}: stylesheet; reading the XML files next to it in "
+                           f"{folder}")
         for n in sorted(os.listdir(folder)):
             if n.lower().endswith(".xml"):
                 with open(os.path.join(folder, n), "rb") as fh:
@@ -552,10 +1008,13 @@ def load_benchmarks(path):
             raise ValueError(f"{path}: this is the STIG stylesheet, not the data, and no "
                              "XCCDF benchmark XML was found next to it")
     else:
+        log_event("parse", f"refused {path}: not a zip, directory, or XCCDF .xml file", "warn")
         raise ValueError(f"{path}: not a zip, directory, or XCCDF .xml file")
     benchmarks = _dedupe_benchmarks(benchmarks)
     if not benchmarks:
+        log_event("parse", f"{path}: no XCCDF benchmark found inside", "warn")
         raise ValueError(f"{path}: no XCCDF benchmark found inside")
+    log_event("parse", f"{path}: {len(benchmarks)} benchmark(s) after dedupe")
     return benchmarks
 
 
@@ -659,6 +1118,8 @@ def xml_config_warning(node_where):
     lowered = (node_where or "").lower()
     if not any(v in lowered for v in XML_CONFIG_VENDORS):
         return None
+    log_event("scope", f"node scope {node_where} selects devices whose configs back up as "
+                       "XML; NCM policy reports cannot evaluate XML configs", "warn")
     return ("warning: NCM policy reports cannot be run against configurations "
             "downloaded in XML format, which is how Palo Alto devices back up unless "
             "the config type is changed. The report will import and cache normally and "
@@ -743,6 +1204,10 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
             # until it is switched on.
             "ReportStatus": "Enabled" if enabled else "Disabled",
         })
+        log_event("build", f"report \"{reports[-1]['Name']}\": policy \"{policy['PolicyName']}\" "
+                           f"(PolicyId {policy['PolicyId']}), {len(rules)} rule(s), mode {mode}, "
+                           f"ReportStatus {reports[-1]['ReportStatus']}, ConfigTypes "
+                           f"{config_type}, grouping {policy_group}")
     return reports
 
 
@@ -751,16 +1216,23 @@ def build_report(benchmarks, **kwargs):
     return build_reports(benchmarks, **kwargs)[0]
 
 
+def write_text_file(path, text, newline="\n"):
+    """Write one generated file (UTF-8, no BOM) and log it."""
+    with open(path, "w", encoding="utf-8", newline=newline) as fh:
+        fh.write(text)
+    _bump("files_written")
+    log_event("file", f"wrote {os.path.abspath(path)} ({os.path.getsize(path)} bytes)")
+    return path
+
+
 def write_console_file(report, folder="."):
     """Write a report as a console-importable file, byte-matching real exports:
     UTF-8 without BOM, CRLF line endings, and the (lying) utf-16 declaration."""
-    out = os.path.join(folder, re.sub(r"[^\w.-]+", "_", report["Name"]) + ".ncm-report.xml")
+    out = os.path.join(folder, safe_file_name(report["Name"], ".ncm-report.xml"))
     root = ET.fromstring(report_contract_xml(report))
     ET.indent(root, space="  ")
     body = '<?xml version="1.0" encoding="utf-16"?>\n' + ET.tostring(root, encoding="unicode")
-    with open(out, "w", encoding="utf-8", newline="\r\n") as fh:
-        fh.write(body)
-    return out
+    return write_text_file(out, body, newline="\r\n")
 
 
 # ---------------------------------------------------------------------------
@@ -1002,19 +1474,25 @@ def existing_ncm_ids(swis, report):
 
 def _verify_report(swis, report_id, expected_policies, expected_rules, log):
     """Read the report back — the import is only done if the tree actually exists."""
+    log_event("verify", f"reading report {report_id} back (expecting {expected_policies} "
+                        f"policies and {expected_rules} rules)")
     stored = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True)
     if not stored:
-        raise SwisError(f"No data returned from GetPolicyReport for report {report_id} — "
-                        "the import cannot be confirmed")
+        msg = (f"No data returned from GetPolicyReport for report {report_id} — "
+               "the import cannot be confirmed")
+        log_event("verify", msg, "error")
+        raise SwisError(msg)
     stored_policies = stored.get("AssignedPolicies") or []
     stored_rules = sum(len(p.get("AssignedPolicyRules") or []) for p in stored_policies)
     if not stored_policies or stored_rules == 0:
-        raise SwisError(
-            f"verification failed: report {report_id} was created but holds "
-            f"{len(stored_policies)} policies and {stored_rules} rules "
-            f"(expected {expected_policies} and {expected_rules}). Check the account's NCM "
-            "role (WebUploader or higher) and the server's compliance settings.")
-    log(f"verified: report holds {len(stored_policies)} policies and {stored_rules} rules")
+        msg = (f"verification failed: report {report_id} was created but holds "
+               f"{len(stored_policies)} policies and {stored_rules} rules "
+               f"(expected {expected_policies} and {expected_rules}). Check the account's NCM "
+               "role (WebUploader or higher) and the server's compliance settings.")
+        log_event("verify", msg, "error")
+        raise SwisError(msg)
+    _say(log, "verify",
+         f"verified: report holds {len(stored_policies)} policies and {stored_rules} rules")
     return report_id, len(stored_policies), stored_rules
 
 
@@ -1069,8 +1547,8 @@ def test_reports(swis, reports, config_text=None, config_id=None, limit=10, log=
     if limit and limit > 0:
         rules = rules[:limit]
     source = f"backed-up config {config_id}" if config_id else "the supplied config text"
-    log(f"testing {len(rules)} of {total} rule(s) against {source} "
-        "(nothing is created on the server) …")
+    _say(log, "verify", f"testing {len(rules)} of {total} rule(s) against {source} "
+                        "(nothing is created on the server) …")
     fmt = None
     with_output = 0
     for rule in rules:
@@ -1079,10 +1557,10 @@ def test_reports(swis, reports, config_text=None, config_id=None, limit=10, log=
         if text:
             with_output += 1
         first = text.splitlines()[0][:160] if text else "(no output)"
-        log(f"  {rule['RuleName'][:70]} -> {first}")
-    log(f"{len(rules)} rule(s) tested, {with_output} returned output. "
-        "SolarWinds does not document the shape of the TestRule result, so it is "
-        "echoed above exactly as the server sent it and not interpreted here.")
+        _say(log, "verify", f"  {rule['RuleName'][:70]} -> {first}")
+    _say(log, "verify", f"{len(rules)} rule(s) tested, {with_output} returned output. "
+                        "SolarWinds does not document the shape of the TestRule result, so it "
+                        "is echoed above exactly as the server sent it and not interpreted here.")
     return len(rules), with_output
 
 
@@ -1123,25 +1601,29 @@ def rollback_ncm(swis, rule_ids, policy_ids, report_id, log, preexisting=None):
             swis.invoke("Cirrus.PolicyReports", verb, *args)
             return True
         except SwisError as exc:
-            log(f"rollback: {verb} failed, clean up by hand - {exc}")
+            _say(log, "rollbk", f"rollback: {verb} failed, clean up by hand - {exc}", "error")
             return False
 
     policy_ids, kept_policies = split(policy_ids or [], preexisting["policies"])
     rule_ids, kept_rules = split(rule_ids or [], preexisting["rules"])
+    log_event("rollbk", f"rollback plan: report {report_id or '(none created)'}, "
+                        f"{len(policy_ids)} policy id(s) and {len(rule_ids)} rule id(s) to "
+                        f"delete; {len(kept_policies)} policy id(s) and {len(kept_rules)} rule "
+                        "id(s) kept because they existed before this run")
     if report_id:
-        log(f"rollback: deleting report {report_id}")
+        _say(log, "rollbk", f"rollback: deleting report {report_id}")
         drop("DeletePolicyReports", [report_id], False)
     if policy_ids:
-        log(f"rollback: deleting {len(policy_ids)} policy/policies")
+        _say(log, "rollbk", f"rollback: deleting {len(policy_ids)} policy/policies")
         drop("DeletePolicies", policy_ids, False)
     if rule_ids:
-        log(f"rollback: deleting {len(rule_ids)} rule(s)")
+        _say(log, "rollbk", f"rollback: deleting {len(rule_ids)} rule(s)")
         drop("DeletePolicyRules", rule_ids)
     for label, kept in (("policy", kept_policies), ("rule", kept_rules)):
         for i in kept:
-            log(f"rollback: skipped {label} {i} - it existed on the server before this "
-                "import (an earlier import of the same STIG release?), so this run did "
-                "not create it")
+            _say(log, "rollbk", f"rollback: skipped {label} {i} - it existed on the server "
+                                "before this import (an earlier import of the same STIG "
+                                "release?), so this run did not create it")
 
 
 class NcmWireError(SwisError):
@@ -1176,10 +1658,13 @@ def import_ncm_report(swis, report, log=print, rollback=True):
     run are never deleted by the rollback (see ``existing_ncm_ids``).
     """
     preexisting = existing_ncm_ids(swis, report)
+    log_event("import", f"existing-id snapshot for \"{report['Name']}\": "
+                        f"{len(preexisting['rules'])} rule id(s) and "
+                        f"{len(preexisting['policies'])} policy id(s) already on the server")
     if preexisting["rules"] or preexisting["policies"]:
-        log(f"note: {len(preexisting['rules'])} rule id(s) and "
-            f"{len(preexisting['policies'])} policy id(s) this report submits already "
-            "exist on the server; a rollback will leave those alone")
+        _say(log, "import", f"note: {len(preexisting['rules'])} rule id(s) and "
+                            f"{len(preexisting['policies'])} policy id(s) this report submits "
+                            "already exist on the server; a rollback will leave those alone")
     probe_rule = report["AssignedPolicies"][0]["AssignedPolicyRules"][0]
     fmt = None
     first_rule_id = None
@@ -1190,19 +1675,22 @@ def import_ncm_report(swis, report, log=print, rollback=True):
                                  spec["rule"](probe_rule))
             first_rule_id = _clean_id(result, probe_rule["RuleId"])
             fmt = name
-            log(f"server accepts {spec['label']}")
+            _say(log, "import", f"server accepts {spec['label']}")
             break
         except SwisError as exc:
             if "HTTP 400" not in str(exc):
+                log_event("import", f"wire-format probe stopped: {spec['label']} failed with "
+                                    "a non-400 error, so no other format is tried", "error")
                 raise
             rejections.append(f"{spec['label']}: {str(exc).splitlines()[-1]}")
-            log(f"server rejected {spec['label']}; trying the next wire format …")
+            _say(log, "import",
+                 f"server rejected {spec['label']}; trying the next wire format …", "warn")
     if fmt:
         return _import_ncm_bottom_up(swis, report, log, WIRE_FORMATS[fmt],
                                      first_rule_id, rollback, preexisting)
 
-    log("no per-item wire format accepted; trying one nested AddPolicyReport "
-        "in the console-export format …")
+    _say(log, "import", "no per-item wire format accepted; trying one nested AddPolicyReport "
+                        "in the console-export format …", "warn")
     n_policies = len(report["AssignedPolicies"])
     n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
     try:
@@ -1216,6 +1704,9 @@ def import_ncm_report(swis, report, log=print, rollback=True):
         if "HTTP 400" not in str(exc):
             raise
         rejections.append(f"console-format XML: {str(exc).splitlines()[-1]}")
+    log_event("import", "no wire format accepted for \"" + report["Name"] + "\": "
+                        + "; ".join(rejections) + "; console-importable files will be written",
+              "error")
     raise NcmWireError(
         "this server accepted none of the wire formats for the NCM compliance "
         "contract types:\n  " + "\n  ".join(rejections) + "\n"
@@ -1233,7 +1724,8 @@ def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True,
     try:
         for policy in report["AssignedPolicies"]:
             rules = policy["AssignedPolicyRules"]
-            log(f"creating {len(rules)} rules for policy \"{policy['PolicyName']}\" …")
+            _say(log, "import",
+                 f"creating {len(rules)} rules for policy \"{policy['PolicyName']}\" …")
             rule_ids = []
             for i, rule in enumerate(rules, 1):
                 if first:
@@ -1247,28 +1739,31 @@ def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True,
                 rule_ids.append(new_rule_id)
                 all_rule_ids.append(new_rule_id)
                 if i % 25 == 0:
-                    log(f"  {i}/{len(rules)} rules created")
+                    _say(log, "import", f"  {i}/{len(rules)} rules created")
 
             result = swis.invoke("Cirrus.PolicyReports", "AddPolicy",
                                  spec["policy"](policy, rule_ids), False)
             policy_ids.append(_clean_id(result, policy["PolicyId"]))
-            log(f"created policy \"{policy['PolicyName']}\" with {len(rule_ids)} rules")
+            _say(log, "import",
+                 f"created policy \"{policy['PolicyName']}\" with {len(rule_ids)} rules")
 
         report_id = _clean_id(
             swis.invoke("Cirrus.PolicyReports", "AddPolicyReport",
                         spec["report"](report, policy_ids), False), "")
         if not report_id:
             raise SwisError("AddPolicyReport did not return the new report id")
+        log_event("import", f"AddPolicyReport returned report id {report_id}")
 
         return _verify_report(swis, report_id, len(policy_ids), len(all_rule_ids), log)
-    except SwisError:
+    except SwisError as exc:
+        log_event("import", f"import of \"{report['Name']}\" failed: {exc}", "error")
         if rollback:
-            log("import failed part way through; removing what it created …")
+            _say(log, "import", "import failed part way through; removing what it created …")
             rollback_ncm(swis, all_rule_ids, policy_ids, report_id, log, preexisting)
         else:
-            log(f"import failed part way through; {len(all_rule_ids)} rule(s) and "
-                f"{len(policy_ids)} policy/policies were left on the server "
-                "(--no-rollback)")
+            _say(log, "import", f"import failed part way through; {len(all_rule_ids)} rule(s) "
+                                f"and {len(policy_ids)} policy/policies were left on the server "
+                                "(--no-rollback)", "warn")
         raise
 
 
@@ -1285,14 +1780,18 @@ def import_ncm_reports(swis, reports, log=print, rollback=True):
     imported = []
     for index, report in enumerate(reports):
         n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
-        log(f"importing \"{report['Name']}\" - {n_rules} rules ...")
+        _say(log, "import", f"importing \"{report['Name']}\" - {n_rules} rules ...")
         try:
             new_id, _n_pol, n_stored = import_ncm_report(swis, report, log=log,
                                                          rollback=rollback)
         except SwisError as exc:
+            log_event("import", f"stopping at \"{report['Name']}\": {len(imported)} of "
+                                f"{len(reports)} report(s) imported, {len(reports) - index} "
+                                "not imported", "error")
             return imported, exc, list(reports[index:])
         imported.append((report, new_id, n_stored))
-        log(f"imported: \"{report['Name']}\" ({new_id}) - {n_stored} rules")
+        _bump("imported")
+        _say(log, "import", f"imported: \"{report['Name']}\" ({new_id}) - {n_stored} rules")
     return imported, None, []
 
 
@@ -1309,26 +1808,30 @@ def finish_ncm_imports(swis, new_ids, disabled=False, no_cache=False, log=print)
         stored = swis.query("SELECT Name, ReportStatus FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids",
                             {"ids": list(new_ids)})
         if not stored:
-            log("warning: No data returned reading ReportStatus back after "
-                "UpdateReportStatus; confirm the reports are disabled in the console")
+            _say(log, "verify", "warning: No data returned reading ReportStatus back after "
+                                "UpdateReportStatus; confirm the reports are disabled in the "
+                                "console", "warn")
             return False
         still_on = [r.get("Name") for r in stored if r.get("ReportStatus")]
         if still_on:
-            log("warning: still enabled after UpdateReportStatus: " + ", ".join(still_on))
+            _say(log, "verify", "warning: still enabled after UpdateReportStatus: "
+                 + ", ".join(still_on), "warn")
             return False
-        log(f"{len(new_ids)} report(s) imported Disabled and not cached. Enable them in "
-            "the console, or with UpdateReportStatus('Enabled', [ids]), once the rules "
-            "have been reviewed.")
+        _say(log, "import", f"{len(new_ids)} report(s) imported Disabled and not cached. Enable "
+                            "them in the console, or with UpdateReportStatus('Enabled', [ids]), "
+                            "once the rules have been reviewed.")
         return True
     if no_cache:
-        log("compliance caching not started (--no-cache); the reports show no data until "
-            "you run Update Violations in the console or invoke StartCaching.")
+        _say(log, "import", "compliance caching not started (--no-cache); the reports show no "
+                            "data until you run Update Violations in the console or invoke "
+                            "StartCaching.")
         return True
     # Always pass the specific GUIDs: an empty array would re-cache every report.
     swis.invoke("Cirrus.PolicyReports", "StartCaching", list(new_ids))
-    log(f"compliance caching started for {len(new_ids)} report(s). Watch them under "
-        "My Dashboards > Network Configuration > Compliance. The policy cache also "
-        "refreshes on its own at 11:55 PM daily when that job is enabled.")
+    _say(log, "import", f"compliance caching started for {len(new_ids)} report(s). Watch them "
+                        "under My Dashboards > Network Configuration > Compliance. The policy "
+                        "cache also refreshes on its own at 11:55 PM daily when that job is "
+                        "enabled.")
     return True
 
 
@@ -1359,8 +1862,9 @@ def plan_ncm_removal(swis, report_ids, log=print):
     for report_id in report_ids:
         tree = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True)
         if not tree:
-            log(f"note: No data returned from GetPolicyReport for {report_id}; its "
-                "policies and rules are taken from Cirrus.PolicyAssignment alone")
+            _say(log, "remove", f"note: No data returned from GetPolicyReport for {report_id}; "
+                                "its policies and rules are taken from Cirrus.PolicyAssignment "
+                                "alone", "warn")
             continue
         for pid in tree.get("AssignedPoliciesList") or []:
             add(policies, pid)
@@ -1396,6 +1900,12 @@ def plan_ncm_removal(swis, report_ids, log=print):
         if key in rules and other and other not in delete_policy_keys:
             kept_rules.setdefault(key, []).append(str(row.get("PolicyID")))
 
+    log_event("remove", f"removal plan for {len(report_ids)} report(s): {len(policies)} "
+                        f"policy/policies and {len(rules)} rule(s) found; "
+                        f"{len(delete_policy_keys)} policy/policies and "
+                        f"{len(set(rules) - set(kept_rules))} rule(s) to delete, "
+                        f"{len(kept_policies)} policy/policies and {len(kept_rules)} rule(s) "
+                        "kept because something else still uses them")
     return {
         "reports": list(report_ids),
         "delete_policies": [policies[k] for k in policies if k in delete_policy_keys],
@@ -1413,17 +1923,18 @@ def describe_removal_plan(plan, log=print, prefix=""):
     def label(i):
         return f"{i} \"{names[i]}\"" if i in names else i
 
-    log(f"{prefix}report(s): {len(plan['reports'])}  " + ", ".join(plan["reports"]))
-    log(f"{prefix}policies to delete: {len(plan['delete_policies'])}")
+    _say(log, "remove", f"{prefix}report(s): {len(plan['reports'])}  "
+         + ", ".join(plan["reports"]))
+    _say(log, "remove", f"{prefix}policies to delete: {len(plan['delete_policies'])}")
     for i in plan["delete_policies"]:
-        log(f"{prefix}  - {label(i)}")
-    log(f"{prefix}rules to delete: {len(plan['delete_rules'])}")
+        _say(log, "remove", f"{prefix}  - {label(i)}")
+    _say(log, "remove", f"{prefix}rules to delete: {len(plan['delete_rules'])}")
     for pid, others in plan["keep_policies"].items():
-        log(f"{prefix}kept policy {label(pid)}: still assigned to another report "
-            f"({', '.join(others)})")
+        _say(log, "remove", f"{prefix}kept policy {label(pid)}: still assigned to another "
+                            f"report ({', '.join(others)})")
     for rid, others in plan["keep_rules"].items():
-        log(f"{prefix}kept rule {label(rid)}: still assigned to a policy that is not "
-            f"being deleted ({', '.join(others)})")
+        _say(log, "remove", f"{prefix}kept rule {label(rid)}: still assigned to a policy that "
+                            f"is not being deleted ({', '.join(others)})")
 
 
 def remove_ncm_reports(swis, plan, log=print):
@@ -1433,13 +1944,13 @@ def remove_ncm_reports(swis, plan, log=print):
     run may delete are named explicitly instead. Returns a summary dict.
     """
     swis.invoke("Cirrus.PolicyReports", "DeletePolicyReports", list(plan["reports"]), False)
-    log(f"deleted {len(plan['reports'])} report(s)")
+    _say(log, "remove", f"deleted {len(plan['reports'])} report(s)")
     if plan["delete_policies"]:
         swis.invoke("Cirrus.PolicyReports", "DeletePolicies", list(plan["delete_policies"]), False)
-        log(f"deleted {len(plan['delete_policies'])} policy/policies")
+        _say(log, "remove", f"deleted {len(plan['delete_policies'])} policy/policies")
     if plan["delete_rules"]:
         swis.invoke("Cirrus.PolicyReports", "DeletePolicyRules", list(plan["delete_rules"]))
-        log(f"deleted {len(plan['delete_rules'])} rule(s)")
+        _say(log, "remove", f"deleted {len(plan['delete_rules'])} rule(s)")
     left = {
         "reports": _query_ids(swis, "SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids",
                               plan["reports"]),
@@ -1450,7 +1961,8 @@ def remove_ncm_reports(swis, plan, log=print):
     }
     for kind, rows in left.items():
         if rows:
-            log(f"warning: {len(rows)} {kind} still present after the delete call")
+            _say(log, "remove", f"warning: {len(rows)} {kind} still present after the delete "
+                                "call", "warn")
     return left
 
 
@@ -1501,23 +2013,31 @@ def detect_target(benchmarks, source_name):
                                            for b in benchmarks]).lower()
     for kw, os_info in SERVER_OSES.items():
         if kw in text:
+            log_event("route", f"server keyword '{kw}' matched in the file/benchmark names "
+                               f"-> server ({os_info[0]})")
             return "server", os_info
     vendor = None
-    matched = False
+    matched = []
     for kw, v in NETWORK_VENDORS.items():
         if kw in text:
-            matched = True
+            matched.append(kw)
             if v:
                 vendor = v
                 break
     if matched:
+        log_event("route", "network keyword(s) " + ", ".join(f"'{k}'" for k in matched)
+                           + f" matched -> network, vendor {vendor or '(not identified)'}")
         return "network", vendor
+    log_event("route", "no server or network keyword matched the file/benchmark names")
     return None, None
 
 
 def node_where_for(vendor):
     # Bare column names: the SQL fragment in real console exports says Vendor,
     # not Nodes.Vendor, and exact vendor equality is what the node picker writes.
+    if not vendor:
+        log_event("scope", "no vendor identified; the node scope defaults to "
+                           "(Vendor = 'Cisco')", "warn")
     return f"(Vendor = '{vendor}')" if vendor else "(Vendor = 'Cisco')"
 
 
@@ -1559,7 +2079,11 @@ def xccdf_to_scm_yaml(benchmark):
             f"Machine check (SCAP edition): OVAL definition {r['oval_ref']}. "
             "The manual STIG for this product carries the prose check text."
             if r.get("oval_ref") else "")
-        probe = f"Write-Host \"{r['vuln_id']} reviewed: False\""
+        # The probe runs as PowerShell on every assigned node: the id is validated
+        # and the whole text is a single-quoted literal, so no STIG content can
+        # expand ($(...), $var) or escape (` or ") inside the script source.
+        probe_id = scm_probe_id(r["vuln_id"], r["rule_id"])
+        probe = "Write-Host " + ps_single_quote(f"{probe_id} reviewed: False")
         lines += [
             f"- displayId: {_yq(r['vuln_id'])}",
             f"  uniqueId: {rule_uid}",
@@ -1569,11 +2093,13 @@ def xccdf_to_scm_yaml(benchmark):
             f"  remediationDescription: {_yq(r['fix_text'])}",
             f"  checkText: {_yq(check)}",
             "  condition: !matches",
-            f"    expression: {_yq(r['vuln_id'] + ' reviewed: True')}",
+            f"    expression: {_yq(probe_id + ' reviewed: True')}",
             "    source: !scm.powershell",
             f"      description: {_yq('STIG ' + r['stig_id'] + ' manual-review attestation')}",
             f"      script: {_yq(probe)}",
         ]
+    log_event("build", f"SCM policy \"{name}\" uniqueId {policy_uid}: "
+                       f"{len(benchmark['rules'])} manual-review rule(s)")
     return "\n".join(lines) + "\n"
 
 
@@ -1589,9 +2115,11 @@ def cmd_download(args):
         if not name.lower().endswith(".zip"):
             name += ".zip"
         url = DISA_ZIP_BASE + name
-    dest = os.path.join(args.dir, os.path.basename(urllib.parse.urlsplit(url).path))
+    dest = os.path.join(args.dir, safe_file_name(
+        os.path.basename(urllib.parse.urlsplit(url).path) or "stig-download.zip"))
     print(f"downloading {url}")
-    req = urllib.request.Request(url, headers={"User-Agent": "disa-stig-conversion-tool/1.0"})
+    log_event("file", f"downloading {url} to {os.path.abspath(dest)}")
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as out:
             while chunk := resp.read(1 << 16):
@@ -1600,6 +2128,8 @@ def cmd_download(args):
         sys.exit(f"error: HTTP {exc.code} for {url}\n"
                  "Check the exact package name on https://public.cyber.mil/stigs/downloads/ "
                  "(names are case-sensitive), or pass the full URL.")
+    _bump("files_written")
+    log_event("file", f"wrote {os.path.abspath(dest)} ({os.path.getsize(dest)} bytes)")
     print(f"saved {dest} ({os.path.getsize(dest):,} bytes)")
     if not zipfile.is_zipfile(dest):
         sys.exit(f"error: {dest} is not a zip — the mirror may have returned an error page")
@@ -1618,8 +2148,9 @@ def scm_policy_filename(benchmark, stem=None):
     """File name for a converted SCM policy (see SCM_POLICY_SUFFIX)."""
     base = benchmark["benchmark_id"] or benchmark["title"]
     if stem:
-        return f"{stem}.{benchmark['benchmark_id'] or 'benchmark'}{SCM_POLICY_SUFFIX}"
-    return re.sub(r"[^\w.-]+", "_", base) + SCM_POLICY_SUFFIX
+        return safe_file_name(f"{stem}.{benchmark['benchmark_id'] or 'benchmark'}",
+                              SCM_POLICY_SUFFIX)
+    return safe_file_name(base, SCM_POLICY_SUFFIX)
 
 
 def cmd_parse(args):
@@ -1663,10 +2194,16 @@ def resolve_route(target, benchmarks, source_name, node_where=None):
                                                      "MachineType LIKE '%'")
         why = "detected from the file/benchmark name" if detected == "server" \
             else "forced by the Server Compliance selection"
-        return "server", os_info, (f"target: Server Configuration Monitor — "
-                                   f"{os_info[0]} ({why})")
+        note = f"target: Server Configuration Monitor — {os_info[0]} ({why})"
+        log_event("route", f"decision: SCM for {source_name} (--target {target}, detected "
+                           f"{detected or 'nothing'}); {note}")
+        log_event("scope", f"SCM node filter suggested for assignment: {os_info[1]}")
+        return "server", os_info, note
     vendor = info if detected == "network" else None
     where = node_where if explicit_where else node_where_for(vendor)
+    log_event("scope", f"NCM node scope {where} ("
+                       + ("explicit --node-where" if explicit_where else
+                          f"derived from vendor {vendor}" if vendor else "default") + ")")
     if target == "network" and detected == "server":
         note = ("target: NCM (forced by the Network Compliance selection — the file "
                 "looks like a server STIG)")
@@ -1678,6 +2215,9 @@ def resolve_route(target, benchmarks, source_name, node_where=None):
         note = (f"target: NCM by default — nothing recognized in the name; "
                 f"node scope {where} (override with the Server Compliance option "
                 "or --target server if this is a server STIG)")
+    log_event("route", f"decision: NCM for {source_name} (--target {target}, detected "
+                       f"{detected or 'nothing'}); {note}",
+              "warn" if detected is None and target == "auto" else "info")
     return "network", where, note
 
 
@@ -1706,8 +2246,7 @@ def cmd_build(args):
         for b in benchmarks:
             out = args.output if args.output and len(benchmarks) == 1 else \
                 scm_policy_filename(b, stem)
-            with open(out, "w", encoding="utf-8") as fh:
-                fh.write(xccdf_to_scm_yaml(b))
+            write_text_file(out, xccdf_to_scm_yaml(b), newline=None)
             print(f"wrote {out}: SCM policy \"{b['title']}\" — {len(b['rules'])} rules")
         print("import with:  disa_stig_tool.py import <same source> --target server …")
         return
@@ -1730,8 +2269,10 @@ def import_scm_benchmarks(swis, benchmarks, os_info, log=print):
     for b in benchmarks:
         yaml_text = xccdf_to_scm_yaml(b)
         policy_id, name = import_scm_policy(swis, yaml_text, log=log)
-        log(f"imported SCM policy \"{name}\" (PolicyID {policy_id}) — "
-            f"{len(b['rules'])} manual-review rules")
+        _say(log, "scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id}) — "
+                         f"{len(b['rules'])} manual-review rules")
+    log_event("scope", f"SCM policies are not assigned by this tool; suggested node query: "
+                       f"SELECT NodeID, Caption, MachineType FROM Orion.Nodes WHERE {swql}")
     log(f"Assign to your {os_name} nodes under Settings → SCM Settings → Policies "
         "(or Orion.PolicyEngine.Policy.AssignToEntity). Find them with:")
     log(f"  SELECT NodeID, Caption, MachineType FROM Orion.Nodes WHERE {swql}")
@@ -1745,15 +2286,20 @@ def import_scm_benchmarks(swis, benchmarks, os_info, log=print):
 
 def connect(args):
     """Build a SwisClient from the shared connection arguments."""
-    password = os.environ.get("SWIS_PASSWORD") or getpass.getpass(f"password for {args.user}: ")
+    password = os.environ.get("SWIS_PASSWORD")
+    log_event("swis", f"connecting to {args.host}:{args.port} as user '{args.user}'; password "
+                      + ("from SWIS_PASSWORD" if password else "prompted for"))
+    password = password or getpass.getpass(f"password for {args.user}: ")
     register_secret(password)
     pinned = None
     if args.pin_server_cert:
         pinned, fingerprint, stock = fetch_server_cert(args.host, args.port)
+        log_event("swis", f"pinned the certificate {args.host}:{args.port} presents: SHA-256 "
+                          f"{fingerprint}" + (" (stock SolarWinds-Orion)" if stock else ""))
         print(f"pinned the server certificate — SHA-256 {fingerprint}"
               + (" (stock SolarWinds-Orion certificate)" if stock else ""))
-    return SwisClient(args.host, args.user, password, port=args.port,
-                      verify=not args.insecure, ca_file=args.ca_file, pinned_pem=pinned)
+    return logged(SwisClient(args.host, args.user, password, port=args.port,
+                             verify=not args.insecure, ca_file=args.ca_file, pinned_pem=pinned))
 
 
 def cmd_test(args):
@@ -1770,7 +2316,7 @@ def cmd_test(args):
         sys.exit("error: give --config-file <path> or --config-id <NCM config GUID>. "
                  "Find one with: SELECT ConfigID, NodeID, ConfigType, DownloadTime "
                  "FROM NCM.ConfigArchive ORDER BY DownloadTime DESC")
-    swis = connect(args)
+    swis = logged(connect(args))
     benchmarks = load_benchmarks(args.path)
     kind, info, note = resolve_route(args.target, benchmarks,
                                      os.path.basename(args.path), args.node_where)
@@ -1791,11 +2337,15 @@ def cmd_remove(args):
     keeping any policy another report still uses and any rule another policy
     still uses. Prints exactly what was deleted and what was kept.
     """
-    swis = connect(args)
+    swis = logged(connect(args))
+    log_event("remove", f"remove requested for report name \"{args.name}\" "
+                        f"(dry run: {bool(args.dry_run)}, --yes: {bool(args.yes)})")
     found = swis.query("SELECT PolicyReportID, Name, Grouping FROM Cirrus.PolicyReports WHERE Name = @n",
                        {"n": args.name})
     if not found:
         sys.exit(f"error: no policy report named \"{args.name}\" on this server")
+    log_event("remove", f"{len(found)} report(s) named \"{args.name}\": "
+                        + ", ".join(str(r.get("PolicyReportID")) for r in found))
     if getattr(args, "delete_children", False):
         print("note: --delete-children is deprecated and ignored. remove now deletes the "
               "report's policies and rules itself, skipping any another report or policy "
@@ -1807,10 +2357,13 @@ def cmd_remove(args):
     describe_removal_plan(plan, print, prefix="  ")
     if args.dry_run:
         print("dry run: nothing was deleted.")
+        log_event("remove", "dry run: nothing was deleted")
         return
     if not args.yes:
         sys.exit("refusing to delete without --yes (preview with --dry-run)")
     left = remove_ncm_reports(swis, plan)
+    log_event("remove", f"done: deleted {len(ids)} report(s), {len(plan['delete_policies'])} "
+                        f"policy/policies and {len(plan['delete_rules'])} rule(s)")
     print(f"done: deleted {len(ids)} report(s), {len(plan['delete_policies'])} "
           f"policy/policies and {len(plan['delete_rules'])} rule(s); kept "
           f"{len(plan['keep_policies'])} shared policy/policies and "
@@ -1821,11 +2374,12 @@ def cmd_remove(args):
 
 
 def cmd_import(args):
-    swis = connect(args)
+    swis = logged(connect(args))
 
     if is_scm_path(args.path):
         text = load_scm_policy(args.path, log=print)
         policy_id, name = import_scm_policy(swis, text, log=print)
+        log_event("scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id})")
         print(f"imported SCM policy \"{name}\" (PolicyID {policy_id}).")
         print("Assign it to nodes under Settings → SCM Settings → Policies, or via "
               "Orion.PolicyEngine.Policy.AssignToEntity.")
@@ -1847,6 +2401,9 @@ def cmd_import(args):
         existing = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
                               {"n": report["Name"]})
         if existing:
+            log_event("import", f"name collision: report \"{report['Name']}\" already exists "
+                                f"({existing[0]['PolicyReportID']}); nothing was imported",
+                      "error")
             sys.exit(f"error: a report named \"{report['Name']}\" already exists "
                      f"({existing[0]['PolicyReportID']}). Rename with --name, delete it "
                      f"with \"remove --name\", or remove it in the console — this tool "
@@ -1867,6 +2424,8 @@ def cmd_import(args):
               + ", ".join(f"\"{rep['Name']}\"" for rep, _i, _n in imported))
     if isinstance(failure, NcmWireError):
         print(f"error: {failure}")
+        log_event("import", f"writing console-importable files for {len(remaining)} "
+                            "report(s) the API did not accept", "warn")
         for rep in remaining:
             print(f"wrote {write_console_file(rep)}")
         sys.exit("import the files written above through the web console: "
@@ -1898,6 +2457,17 @@ def add_source_args(p):
                    help="create the NCM report with ReportStatus Disabled and skip "
                         "caching, so a large benchmark can be reviewed and tuned "
                         "before it starts evaluating")
+
+
+def add_log_args(p):
+    p.add_argument("--log-file", metavar="PATH",
+                   help="write the run log here instead of the default location "
+                        "(Windows: %%LOCALAPPDATA%%\\DisaStigTool\\logs; elsewhere "
+                        "~/.local/state/disa-stig-tool/logs)")
+    p.add_argument("--log-level", choices=("debug", "info", "warn"), default="info",
+                   help="info (default) logs every decision and SWIS call; debug adds the "
+                        "redacted request and response bodies (cut to 4 KB); warn keeps "
+                        "only warnings and errors")
 
 
 def add_connection_args(p):
@@ -1952,6 +2522,14 @@ class WindowsAuthClient:
                 "packages (Windows only):\n    pip install requests requests-negotiate-sspi"
             ) from exc
         self.base = f"https://{host}:{port}{BASE_PATH}"
+        try:
+            who = getpass.getuser()
+        except Exception:   # getuser raises when no user name source exists
+            who = "(unknown)"
+        log_event("swis", f"SWIS endpoint {self.base} as the current Windows user '{who}' "
+                          f"(Negotiate); TLS "
+                          + ("verified against the system trust store" if verify
+                             else "NOT verified (lab only)"))
         self.session = requests.Session()
         self.session.auth = HttpNegotiateAuth()
         self.session.verify = verify
@@ -2023,8 +2601,9 @@ def show_disclaimer(root):
 
 
 class App:
-    def __init__(self, root):
+    def __init__(self, root, log_file=None):
         self.root = root
+        self.log_file = log_file or log_path()
         root.title("DISA STIG Conversion Tool")
         root.minsize(760, 640)
         self.log_queue = queue.Queue()
@@ -2145,6 +2724,11 @@ class App:
         self.detail.grid(row=5, column=0, columnspan=2, sticky="nsew", **pad)
         self.detail.grid_remove()
         frame.rowconfigure(5, weight=1)
+        # --- where the run log is written (the same file format as the CLI) ---
+        ttk.Label(frame, text=f"Log file: {self.log_file or '(not written)'}").grid(
+            row=6, column=0, columnspan=2, sticky="w", **pad)
+        if self.log_file:
+            self._summary_line(f"log file: {self.log_file}")
 
         self._toggle_auth()
         if HAVE_DND:
@@ -2169,6 +2753,7 @@ class App:
         widget.configure(state="disabled")
 
     def _summary_line(self, msg, tag=None):
+        log_event("gui", msg, {"fail": "error", "warn": "warn"}.get(tag, "info"))
         self.root.after(0, self._append, self.summary, msg, tag)
 
     def _log(self, msg):        # detailed log (worker threads use this)
@@ -2252,13 +2837,16 @@ class App:
         if not url:
             return
         def work():
-            name = os.path.basename(url.split("?")[0]) or "stig-download"
+            name = safe_file_name(os.path.basename(url.split("?")[0]) or "stig-download")
             dest = os.path.join(tempfile.gettempdir(), name)
+            log_event("file", f"downloading {url} to {dest}")
             self._log(f"downloading {url} …")
-            req = urllib.request.Request(url, headers={"User-Agent": "disa-stig-conversion-tool/1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as out:
                 while chunk := resp.read(1 << 16):
                     out.write(chunk)
+            _bump("files_written")
+            log_event("file", f"wrote {dest} ({os.path.getsize(dest)} bytes)")
             self._log(f"saved {dest} ({os.path.getsize(dest):,} bytes)")
             self.root.after(0, self._add_files, [dest])
         self._run_bg(work)
@@ -2291,14 +2879,16 @@ class App:
         verify = self.verify_tls.get()
         if self.win_auth.get():
             if self.pinned_pem:
-                self._log("note: certificate pinning applies to username/password "
-                          "connections; the Windows-user login uses the system trust store")
-            return WindowsAuthClient(host, port, verify)
+                msg = ("note: certificate pinning applies to username/password "
+                       "connections; the Windows-user login uses the system trust store")
+                log_event("swis", msg, "warn")
+                self._log(msg)
+            return logged(WindowsAuthClient(host, port, verify))
         user = self.user.get().strip()
         if not user:
             raise SwisError("enter a username (or tick Windows-user login)")
-        return SwisClient(host, user, self.password.get(), port=port, verify=verify,
-                          pinned_pem=self.pinned_pem)
+        return logged(SwisClient(host, user, self.password.get(), port=port, verify=verify,
+                                 pinned_pem=self.pinned_pem))
 
     def _target_choice(self):
         label = self.target.get()
@@ -2315,6 +2905,8 @@ class App:
                 raise SwisError("enter the SolarWinds server IP/FQDN first")
             port = int(self.port.get().strip() or DEFAULT_PORT)
             pem, fingerprint, stock = fetch_server_cert(host, port)
+            log_event("swis", f"pinned the certificate {host}:{port} presents: SHA-256 "
+                              f"{fingerprint}" + (" (stock SolarWinds-Orion)" if stock else ""))
             self.pinned_pem = pem  # memory only — dropped when the window closes
             note = " (stock SolarWinds-Orion certificate)" if stock else ""
             self._summary_line(f"trusted the certificate {host}:{port} presents — "
@@ -2327,6 +2919,7 @@ class App:
     def _on_test(self):
         self.test_btn.configure(bg="SystemButtonFace" if sys.platform == "win32" else "#d9d9d9")
         self.conn_status.set("Connection: testing …")
+        log_event("gui", "Test Connection pressed")
         def work():
             try:
                 swis = self._client()
@@ -2362,6 +2955,7 @@ class App:
                 self.conn_status.set(f"Connection: limited — platform {version} (see log)")
                 self._summary_line(f"connected with limitations — platform {version}", "warn")
                 for problem in problems:
+                    log_event("swis", problem, "warn")
                     self._log(problem)
                 self._show_issue()
             else:
@@ -2385,6 +2979,8 @@ class App:
         if not files:
             self._summary_line("select at least one file", "warn")
             return
+        log_event("gui", f"{'Local File Conversion Only' if offline else 'Import'} pressed: "
+                         f"{len(files)} {module} file(s): " + ", ".join(files))
         def work():
             swis = None if offline else self._client()
             ok = fail = 0
@@ -2405,6 +3001,10 @@ class App:
                     self._show_issue()
             color = BTN_GREEN if fail == 0 else (BTN_YELLOW if ok else BTN_RED)
             self._set_button(btn, color)
+            log_event("gui", f"batch finished: {ok} file(s) succeeded, {fail} failed",
+                      "info" if fail == 0 else "warn")
+            if self.log_file:
+                self._summary_line(f"details are in the log file: {self.log_file}")
         self._run_bg(work)
 
     def _do_scm(self, swis, path, offline, prefix):
@@ -2423,8 +3023,7 @@ class App:
         for b in load_benchmarks(path):
             if offline:
                 out = os.path.join(folder, scm_policy_filename(b))
-                with open(out, "w", encoding="utf-8") as fh:
-                    fh.write(xccdf_to_scm_yaml(b))
+                write_text_file(out, xccdf_to_scm_yaml(b), newline=None)
                 self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
                                    f"{len(b['rules'])} rules", "success")
             else:
@@ -2507,11 +3106,14 @@ def run_gui():
     root.withdraw()
     accepted = show_disclaimer(root)
     if not accepted:
+        log_event("gui", "the disclaimer was not acknowledged; the GUI closed")
         root.destroy()
         return
+    log_event("gui", "disclaimer acknowledged; main window opened")
     root.deiconify()
-    App(root)
+    App(root, log_path())
     root.mainloop()
+    log_event("gui", "main window closed")
 
 
 def configure_console_streams(streams=None):
@@ -2545,10 +3147,12 @@ def build_parser():
     d = sub.add_parser("download", help="fetch a STIG package zip from DISA's public mirror")
     d.add_argument("package", help="package name (e.g. U_Cisco_IOS_Router_Y26M07_STIG) or full URL")
     d.add_argument("--dir", default=".", help="directory to save into")
+    add_log_args(d)
 
     pp = sub.add_parser("parse", help="show what a STIG package contains")
     pp.add_argument("path", help="STIG zip, directory, *-xccdf.xml file, or SCM policy .yaml")
     pp.add_argument("--rules", action="store_true", help="list every rule")
+    add_log_args(pp)
 
     for alias in ("build", "convert"):
         b = sub.add_parser(alias, help="offline conversion, no server needed: write "
@@ -2556,6 +3160,7 @@ def build_parser():
                            ".scm-policy.yaml)")
         add_source_args(b)
         b.add_argument("-o", "--output", help="output file (single-benchmark sources only)")
+        add_log_args(b)
 
     imp = sub.add_parser("import", help="import into NCM via SWIS and start caching")
     add_source_args(imp)
@@ -2565,6 +3170,7 @@ def build_parser():
     imp.add_argument("--no-rollback", action="store_true",
                      help="on a failed import, leave the rules and policies it "
                           "already created on the server instead of deleting them")
+    add_log_args(imp)
 
     tst = sub.add_parser("test", help="evaluate the generated rules against a real "
                                       "config, server side, without importing anything")
@@ -2577,6 +3183,7 @@ def build_parser():
                           "This route resolves NCM macros; pasted text does not.")
     tst.add_argument("--limit", type=int, default=10,
                      help="how many rules to test (default 10, 0 for all)")
+    add_log_args(tst)
 
     rm = sub.add_parser("remove", help="delete an imported policy report by name, with "
                                        "its policies and rules unless another report "
@@ -2589,22 +3196,78 @@ def build_parser():
                     help="deprecated and ignored: remove always deletes the report's "
                          "unshared policies and rules, and never shared ones")
     rm.add_argument("--yes", action="store_true", help="confirm the deletion")
+    add_log_args(rm)
     return top
 
 
-def main():
+def build_gui_parser():
+    """``disa_stig_tool.py gui [--log-file PATH] [--log-level LEVEL]``."""
+    g = argparse.ArgumentParser(prog="disa_stig_tool.py gui",
+                                description="open the GUI (the same as no arguments)")
+    add_log_args(g)
+    return g
+
+
+def _announce_log(path):
+    """Print the log path (stderr keeps stdout exactly as it was)."""
+    print(f"log file: {path}", file=sys.stderr)
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    # Registered before anything is logged, so the start-of-run command line and
+    # every later line are redacted even when the password was never used.
+    register_secret(os.environ.get("SWIS_PASSWORD"))
     # No arguments (a double-click on Windows) or an explicit "gui" opens the GUI.
-    if len(sys.argv) == 1 or sys.argv[1:] == ["gui"]:
-        run_gui()
+    if not argv or argv[0] == "gui":
+        gui_args = build_gui_parser().parse_args(argv[1:])
+        path = setup_logging(gui_args.log_file, gui_args.log_level)
+        _announce_log(path)
+        log_run_start(argv, mode="gui")
+        code = 0
+        try:
+            run_gui()
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else 1
+            if isinstance(exc.code, str):
+                log_event("main", exc.code, "error")
+            raise
+        except Exception as exc:
+            code = 1
+            log_event("main", f"unexpected error: {exc!r}", "error")
+            raise
+        finally:
+            log_run_end(code)
+            _announce_log(path)
+            close_logging()
         return
     configure_console_streams()
-    args = build_parser().parse_args()
+    args = build_parser().parse_args(argv)
+    path = setup_logging(args.log_file, args.log_level)
+    _announce_log(path)
+    log_run_start(argv)
+    code = 0
     try:
         {"download": cmd_download, "parse": cmd_parse, "build": cmd_build,
          "convert": cmd_build, "import": cmd_import, "test": cmd_test,
          "remove": cmd_remove}[args.cmd](args)
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 1
+        if isinstance(exc.code, str):
+            log_event("main", exc.code, "error")
+        raise
     except (ValueError, OSError, SwisError) as exc:
+        code = 1
+        log_event("main", f"error: {exc}", "error")
         sys.exit(redact(f"error: {exc}"))
+    except Exception as exc:
+        code = 1
+        log_event("main", f"unexpected error: {exc!r}", "error")
+        raise
+    finally:
+        log_run_end(code)
+        _announce_log(path)
+        close_logging()
 
 
 if __name__ == "__main__":

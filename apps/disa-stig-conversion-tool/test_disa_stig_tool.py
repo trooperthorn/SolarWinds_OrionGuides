@@ -17,10 +17,12 @@ RuleIds, PolicyIds, SCM uniqueIds, report names and payloads can be compared.
 from __future__ import annotations
 
 import argparse
+import base64
 import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -39,6 +41,31 @@ import disa_stig_tool as tool  # noqa: E402
 POWERSHELL = shutil.which("powershell") or shutil.which("pwsh")
 PS_TOOL = os.path.join(HERE, "disa_stig_tool.ps1")
 PS_TEST = os.path.join(HERE, "test_disa_stig_tool.ps1")
+PY_TOOL = os.path.join(HERE, "disa_stig_tool.py")
+
+# The log line contract both editions follow (test_disa_stig_tool.ps1 uses the same
+# expression): UTC ISO-8601 with milliseconds and Z, level padded to 5, component
+# padded to 6, then the message on one line.
+LOG_LINE_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z (DEBUG|INFO |WARN |ERROR) "
+    r"(main  |parse |route |scope |build |swis  |import|verify|rollbk|remove|scm   "
+    r"|file  |gui   ) .*$")
+
+XXE_XML = (b'<?xml version="1.0" encoding="UTF-8"?>\n'
+           b'<!DOCTYPE Benchmark [<!ENTITY xxe SYSTEM "file:///C:/Windows/win.ini">]>\n'
+           b'<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1" id="XXE_STIG">'
+           b'<title>&xxe;</title><version>1</version></Benchmark>\n')
+DTD_ONLY_XML = (b'<?xml version="1.0"?>\n<!DOCTYPE Benchmark [<!ENTITY a "aaaaaaaaaa">]>\n'
+                b'<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1" id="DTD_STIG">'
+                b'<title>&a;</title></Benchmark>\n')
+NASTY_VULN = "V-77$(Remove-Item C:\\x)`\"'\u2019"
+
+
+def read_log_lines(path):
+    with open(path, encoding="utf-8", newline="") as fh:
+        text = fh.read()
+    assert "\r" not in text, "log lines must end in LF only"
+    return [line for line in text.split("\n") if line]
 
 
 # ---------------------------------------------------------------------------
@@ -589,6 +616,235 @@ class ImportFlowTests(TempDirTest):
 
 
 # ---------------------------------------------------------------------------
+# 8. Run log: format, redaction, default path, one line per SWIS call
+# ---------------------------------------------------------------------------
+
+class LoggingTests(TempDirTest):
+    def open_log(self, level="info"):
+        path = os.path.join(self.tmp, "run.log")
+        self.addCleanup(tool.close_logging)
+        self.assertEqual(tool.setup_logging(path, level), os.path.abspath(path))
+        return path
+
+    def test_line_format(self):
+        line = tool.format_log_line(1791547387.1234, "warn", "rollbk", "two\r\nlines\nhere")
+        self.assertEqual(line, "2026-10-09T12:03:07.123Z WARN  rollbk two\\nlines\\nhere")
+        for level in ("debug", "info", "warn", "error"):
+            for comp in tool.LOG_COMPONENTS:
+                self.assertRegex(tool.format_log_line(0.5, level, comp, "m"), LOG_LINE_RE)
+
+    def test_every_line_matches_and_levels_filter(self):
+        path = self.open_log("info")
+        tool.log_event("parse", "kept")
+        tool.log_event("swis", "dropped at info", "debug")
+        tool.log_event("not-a-component", "falls back to main", "warn")
+        tool.close_logging()
+        lines = read_log_lines(path)
+        self.assertEqual(len(lines), 2)
+        for line in lines:
+            self.assertRegex(line, LOG_LINE_RE)
+        self.assertIn(" WARN  main   falls back to main", lines[1])
+
+    def test_secrets_never_reach_the_file(self):
+        secret = "Pw-Log-Test-7731"
+        tool.register_secret(secret)
+        token = base64.b64encode(f"admin:{secret}".encode()).decode()
+        path = self.open_log("debug")
+        tool.log_event("swis", f"server echoed the password {secret}", "error")
+        swis = tool.logged(FakeSwis())
+        swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n", {"n": secret})
+        client = tool.SwisClient("orion.example.com", "admin", secret)
+        self.assertIsNotNone(client)
+        tool.close_logging()
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertNotIn(secret, text)
+        self.assertNotIn(token, text)
+        self.assertIn("as user 'admin'", text)
+        self.assertIn("orion.example.com", text)
+
+    def test_default_path_and_override(self):
+        win = tool.default_log_path(now=0, env={"LOCALAPPDATA": r"C:\Users\x\AppData\Local"},
+                                    platform_name="win32", home=r"C:\Users\x")
+        self.assertEqual(win, os.path.join(r"C:\Users\x\AppData\Local", "DisaStigTool", "logs",
+                                           "disa-stig-tool_19700101-000000.log"))
+        win_no_env = tool.default_log_path(now=0, env={}, platform_name="win32", home="H")
+        self.assertEqual(win_no_env, os.path.join("H", "AppData", "Local", "DisaStigTool", "logs",
+                                                  "disa-stig-tool_19700101-000000.log"))
+        other = tool.default_log_path(now=0, env={}, platform_name="linux", home="/home/u")
+        self.assertEqual(other, os.path.join("/home/u", ".local", "state", "disa-stig-tool", "logs",
+                                             "disa-stig-tool_19700101-000000.log"))
+        xdg = tool.default_log_path(now=0, env={"XDG_STATE_HOME": "/st"}, platform_name="linux")
+        self.assertEqual(xdg, os.path.join("/st", "disa-stig-tool", "logs",
+                                           "disa-stig-tool_19700101-000000.log"))
+        # Without --log-file the default location is used ...
+        default = os.path.join(self.tmp, "default", "logs", "d.log")
+        self.addCleanup(tool.close_logging)
+        with mock.patch.object(tool, "default_log_path", return_value=default):
+            self.assertEqual(tool.setup_logging(None), default)
+        # ... and --log-file overrides it.
+        override = os.path.join(self.tmp, "elsewhere", "mine.log")
+        self.assertEqual(tool.setup_logging(override), override)
+        self.assertTrue(os.path.isfile(override))
+
+    def test_one_line_per_swis_call(self):
+        path = self.open_log()
+        fake = FakeSwis()
+        out = io.StringIO()
+        with mock.patch.object(tool, "connect", return_value=fake), contextlib.redirect_stdout(out):
+            tool.cmd_import(import_args(self.router_zip()))
+        tool.close_logging()
+        calls = [line for line in read_log_lines(path)
+                 if " swis   " in line and (" -> ok " in line or " -> error " in line)]
+        self.assertEqual(len(calls), len(fake.calls))
+        self.assertGreater(len(calls), 5)
+        self.assertTrue(any("Cirrus.PolicyReports.AddPolicyRule(<object V-1001 [high]" in c
+                            for c in calls))
+        self.assertTrue(any(re.search(r"query SELECT .* -> ok \d+ ms, \d+ row\(s\)", c) for c in calls))
+
+    def test_failed_call_and_debug_bodies(self):
+        path = self.open_log("debug")
+        fake = FakeSwis()
+        fake.reject_all_after = 0
+        with self.assertRaises(tool.SwisError):
+            tool.logged(fake).invoke("Cirrus.PolicyReports", "AddPolicyRule", {"RuleName": "r"})
+        tool.logged(fake).invoke("Orion.PolicyEngine.Policy", "ImportPolicy", "x" * 10000)
+        tool.close_logging()
+        lines = read_log_lines(path)
+        self.assertTrue(any(" WARN  swis   Cirrus.PolicyReports.AddPolicyRule(<object r>) -> error "
+                            in line and "HTTP 400" in line for line in lines))
+        bodies = [line for line in lines if " DEBUG swis   request " in line]
+        self.assertEqual(len(bodies), 2)
+        self.assertTrue(any("[truncated, " in line for line in bodies))
+        self.assertTrue(all(len(line) < tool.LOG_BODY_LIMIT + 400 for line in lines))
+
+    def test_cli_run_logs_start_and_end_without_the_password(self):
+        secret = "Cli-Secret-5521"
+        env = dict(os.environ, SWIS_PASSWORD=secret)
+        log = os.path.join(self.tmp, "cli.log")
+        result = subprocess.run([sys.executable, PY_TOOL, "convert", self.router_zip(), "--name",
+                                 secret, "--log-file", log], cwd=self.tmp, env=env,
+                                capture_output=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+        self.assertEqual(result.stderr.decode(errors="replace").count(f"log file: {log}"), 2)
+        lines = read_log_lines(log)
+        for line in lines:
+            self.assertRegex(line, LOG_LINE_RE)
+        text = "\n".join(lines)
+        self.assertNotIn(secret, text)
+        self.assertIn(f"DISA STIG Conversion Tool {tool.TOOL_VERSION} (Python edition)", lines[0])
+        self.assertIn("command line: disa_stig_tool.py convert", text)
+        self.assertIn("run end: exit code 0; 0 SWIS call(s)", lines[-1])
+        self.assertIn("2 file(s) written", lines[-1])
+
+    def test_cli_failure_is_logged_with_exit_code(self):
+        log = os.path.join(self.tmp, "fail.log")
+        result = subprocess.run([sys.executable, PY_TOOL, "parse",
+                                 os.path.join(self.tmp, "missing.txt"), "--log-file", log],
+                                capture_output=True, timeout=120)
+        self.assertEqual(result.returncode, 1)
+        lines = read_log_lines(log)
+        self.assertTrue(any(" ERROR main   error: " in line for line in lines))
+        self.assertIn("run end: exit code 1;", lines[-1])
+
+    def test_version_constant(self):
+        self.assertEqual(tool.TOOL_VERSION, "2.0.0")
+        with open(PS_TOOL, encoding="ascii") as fh:
+            self.assertIn(f"$script:ToolVersion = '{tool.TOOL_VERSION}'", fh.read())
+
+
+# ---------------------------------------------------------------------------
+# 9. Security: DTD/XXE refusal, SCM probe quoting, file-name sanitizing
+# ---------------------------------------------------------------------------
+
+class SecurityTests(TempDirTest):
+    def test_dtd_and_external_entities_are_refused_with_a_logged_reason(self):
+        path = os.path.join(self.tmp, "sec.log")
+        self.addCleanup(tool.close_logging)
+        tool.setup_logging(path)
+        for raw in (XXE_XML, DTD_ONLY_XML):
+            with self.assertRaisesRegex(ValueError, "declares a DTD"):
+                tool.parse_benchmarks(raw, "evil-xccdf.xml")
+            self.assertEqual(tool._try_parse_xml(raw, "evil-xccdf.xml"), [])
+        # A zip carrying one hostile member still yields its good benchmark.
+        zpath = os.path.join(self.tmp, "U_Mixed_Cisco_STIG.zip")
+        with zipfile.ZipFile(zpath, "w") as zf:
+            zf.writestr("evil-xccdf.xml", XXE_XML)
+            zf.writestr("good-xccdf.xml", xccdf_xml("Good_STIG", "Good Cisco STIG", RTR_GROUPS))
+        self.assertEqual([b["benchmark_id"] for b in tool.load_benchmarks(zpath)], ["Good_STIG"])
+        bare = self.write("evil-xccdf.xml", XXE_XML)
+        with self.assertRaisesRegex(ValueError, "declares a DTD"):
+            tool.load_benchmarks(bare)
+        tool.close_logging()
+        refusals = [line for line in read_log_lines(path)
+                    if " WARN  parse  " in line and "declares a DTD" in line]
+        self.assertGreaterEqual(len(refusals), 3)
+
+    def test_declared_encoding_is_honoured(self):
+        xml = xccdf_xml("Enc_STIG", "Caf\u00e9 STIG", RTR_GROUPS).replace(
+            'encoding="UTF-8"', 'encoding="windows-1252"').encode("cp1252")
+        self.assertEqual(tool.parse_benchmarks(xml, "enc.xml")[0]["title"], "Caf\u00e9 STIG")
+        utf16 = xccdf_xml("U16_STIG", "Caf\u00e9 STIG", RTR_GROUPS).replace(
+            'encoding="UTF-8"', 'encoding="UTF-16"').encode("utf-16")
+        self.assertEqual(tool.parse_benchmarks(utf16, "u16.xml")[0]["title"], "Caf\u00e9 STIG")
+
+    def test_ps_single_quote(self):
+        self.assertEqual(tool.ps_single_quote("it's"), "'it''s'")
+        self.assertEqual(tool.ps_single_quote('a`b $(c) "d"'), "'a`b $(c) \"d\"'")
+        self.assertEqual(tool.ps_single_quote("x\u2019y"), "'x\u2019\u2019y'")
+
+    def test_probe_never_carries_stig_text_into_script_source(self):
+        path = os.path.join(self.tmp, "probe.log")
+        self.addCleanup(tool.close_logging)
+        tool.setup_logging(path)
+        bench = make_benchmark("Probe_STIG", [make_rule(1), dict(make_rule(2), vuln_id=NASTY_VULN,
+                                                                 rule_id="SV-2$(x)")])
+        text = tool.xccdf_to_scm_yaml(bench)
+        tool.close_logging()
+        scripts = [line for line in text.splitlines() if line.startswith("      script: ")]
+        self.assertEqual(scripts[0], "      script: \"Write-Host 'V-1 reviewed: False'\"")
+        self.assertEqual(scripts[1], "      script: \"Write-Host 'V-77_Remove-Item_C_x_ reviewed: False'\"")
+        for line in scripts:
+            self.assertNotIn("$(", line)
+            self.assertNotIn("`", line)
+        self.assertIn("    expression: \"V-77_Remove-Item_C_x_ reviewed: True\"", text)
+        warnings = [line for line in read_log_lines(path) if " WARN  scm    " in line]
+        self.assertEqual(len(warnings), 2)   # the vuln id and the rule id
+
+    def test_probe_id_accepts_scap_prefixes(self):
+        self.assertEqual(tool.scm_probe_id("xccdf_mil.disa.stig_group_V-123",
+                                           "xccdf_mil.disa.stig_rule_SV-123r2_rule"), "V-123")
+        self.assertEqual(tool.scm_probe_id("V-1\n"), "V-1_")
+
+    def test_safe_file_name(self):
+        name = tool.safe_file_name("../../x", ".ncm-report.xml")
+        self.assertEqual(name, "_.._x.ncm-report.xml")
+        self.assertNotIn("/", name)
+        self.assertNotIn("\\", name)
+        long_name = tool.safe_file_name("T" * 300, ".scm-policy.yaml")
+        self.assertEqual(len(long_name), tool.MAX_FILE_NAME)
+        self.assertTrue(long_name.endswith(".scm-policy.yaml"))
+        self.assertEqual(tool.safe_file_name("CON", ".ncm-report.xml"), "_CON.ncm-report.xml")
+        self.assertEqual(tool.safe_file_name("...", ".x"), "unnamed.x")
+        self.assertEqual(tool.safe_file_name("Caf\u00e9 / R\u00e9seau: V1", ""), "Caf_R_seau_V1")
+
+    def test_console_file_stays_in_its_folder_and_fits(self):
+        out_dir = os.path.join(self.tmp, "out")
+        os.makedirs(out_dir)
+        for report_name in ("../../evil", "N" * 250):
+            report = tool.build_reports([make_benchmark("B", [make_rule(1)])],
+                                        name=report_name)[0]
+            written = tool.write_console_file(report, out_dir)
+            self.assertEqual(os.path.dirname(os.path.abspath(written)), os.path.abspath(out_dir))
+            self.assertTrue(os.path.isfile(written))
+            self.assertLessEqual(len(os.path.basename(written)), tool.MAX_FILE_NAME)
+        long_bench = make_benchmark("", [make_rule(1)], title="Very long title " * 20)
+        self.assertLessEqual(len(tool.scm_policy_filename(long_bench)), tool.MAX_FILE_NAME)
+        self.assertLessEqual(len(tool.scm_policy_filename(long_bench, "S" * 300)),
+                             tool.MAX_FILE_NAME)
+
+
+# ---------------------------------------------------------------------------
 # PowerShell edition: parse, self-tests, and cross-edition parity
 # ---------------------------------------------------------------------------
 
@@ -634,6 +890,12 @@ class PowerShellEditionTests(TempDirTest):
                               xccdf_xml("Test_Router_NDM_STIG", "Test Cisco Router NDM STIG", NDM_GROUPS))
         no_id_xml = self.write("no-id-xccdf.xml",
                                xccdf_xml("", "Benchmark Without An Id", RTR_GROUPS))
+        # Declared windows-1252: both editions must decode by the declaration.
+        cp1252_xml = self.write("U_Café_Router-xccdf.xml", xccdf_xml(
+            "Cafe_STIG", "Café Router STIG", RTR_GROUPS).replace(
+            'encoding="UTF-8"', 'encoding="windows-1252"').encode("cp1252"))
+        refuse = [self.write("xxe-xccdf.xml", XXE_XML), self.write("dtd-xccdf.xml", DTD_ONLY_XML)]
+        ps_log = os.path.join(self.tmp, "ps-parity.log")
         where = "(Vendor = 'Cisco')"
         files = [
             dict(path=router_zip, name="", where=where, mode="manual", folder="DISA STIG",
@@ -644,6 +906,8 @@ class PowerShellEditionTests(TempDirTest):
                  folder="Team/STIG", enabled=True, configType="Any"),
             dict(path=no_id_xml, name="Named", where=where, mode="manual", folder="DISA STIG",
                  enabled=True, configType="Startup"),
+            dict(path=cp1252_xml, name="", where=where, mode="manual", folder="DISA STIG",
+                 enabled=True, configType="Any"),
         ]
         long_title = "Very Long Benchmark Title " * 15
         tricky = make_rule(9, "high",
@@ -658,9 +922,24 @@ class PowerShellEditionTests(TempDirTest):
             dict(benchmarks=[make_benchmark("", [make_rule(11)], title="No Id In Memory")],
                  baseName="Base", where=where, mode="manual", folder="DISA STIG", enabled=True,
                  configType="Any"),
+            # Hostile ids: the SCM probe must come out identical (and inert) in both.
+            dict(benchmarks=[make_benchmark("Probe_STIG", [
+                dict(make_rule(12), vuln_id=NASTY_VULN, rule_id="SV-12$(x)"),
+                dict(make_rule(13), vuln_id="xccdf_mil.disa.stig_group_V-13",
+                     rule_id="xccdf_mil.disa.stig_rule_SV-13r1_rule")])],
+                 baseName="", where=where, mode="manual", folder="DISA STIG", enabled=True,
+                 configType="Any"),
         ]
+        name_cases = [{"stem": stem, "suffix": suffix} for stem, suffix in (
+            ("../../x", ".ncm-report.xml"), ("T" * 300, ".scm-policy.yaml"), ("CON", ".x"),
+            ("...", ""), ("Café / Réseau: V1 — x", ".ncm-report.xml"),
+            ("a" * 250 + " - Bench_ID", ".ncm-report.xml"), ("plain_name-1.2", ".yaml"))]
+        quotes = ["it's", 'a`b $(c) "d"', "x’y‘z‚‛", ""]
+        probe_ids = ["V-1", NASTY_VULN, "xccdf_mil.disa.stig_group_V-5", "V-1\n", "", "v-1"]
         spec = {"files": files,
-                "memory": [dict(c, benchmarks=[ps_benchmark(b) for b in c["benchmarks"]]) for c in memory]}
+                "memory": [dict(c, benchmarks=[ps_benchmark(b) for b in c["benchmarks"]]) for c in memory],
+                "names": name_cases, "quotes": quotes, "probeIds": probe_ids,
+                "refuse": refuse, "logFile": ps_log}
         spec_path = self.write("parity-in.json", json.dumps(spec))
         out_path = os.path.join(self.tmp, "parity-out.json")
         result = run_powershell("-File", PS_TEST, "-ParityJson", spec_path, "-ParityOut", out_path)
@@ -693,7 +972,70 @@ class PowerShellEditionTests(TempDirTest):
         self.assertIn("Custom Name - Test_Router_RTR_STIG", names)
         self.assertIn("Test Cisco Router NDM STIG", names)       # .xml input: title, not file name
         self.assertIn("Named", names)                            # no benchmark id: name alone
+        self.assertIn("Café Router STIG", names)            # declared encoding honoured
         self.assertEqual(len(ps["memory"][0]["reports"][0]["Name"]), 250)
+        self.assertIn("script: \"Write-Host 'V-77_Remove-Item_C_x_ reviewed: False'\"",
+                      ps["memory"][2]["scm"][0])
+
+        # Shared helpers agree byte for byte.
+        self.assertEqual(ps["names"], [tool.safe_file_name(n["stem"], n["suffix"]) for n in name_cases])
+        self.assertEqual(ps["quoted"], [tool.ps_single_quote(q) for q in quotes])
+        self.assertEqual(ps["probeIds"], [tool.scm_probe_id(i) for i in probe_ids])
+
+        # Both editions refuse DTDs, and the PowerShell log says why in the same format.
+        self.assertEqual(ps["refused"], [0, 0])
+        for path in refuse:
+            with open(path, "rb") as fh:
+                self.assertEqual(tool._try_parse_xml(fh.read(), "x.xml"), [])
+        ps_lines = read_log_lines(ps_log)
+        for line in ps_lines:
+            self.assertRegex(line, LOG_LINE_RE)
+        self.assertEqual(len([line for line in ps_lines if "declares a DTD" in line]), 2)
+
+    def test_both_editions_write_the_same_log_format(self):
+        """Run a real conversion through each edition's CLI with a log file and a
+        password in the environment and on the command line: every line of both
+        logs matches the same contract, and neither carries the password."""
+        secret = "Parity-Secret-6630"
+        env = dict(os.environ, SWIS_PASSWORD=secret)
+        results = {}
+        for edition in ("py", "ps"):
+            folder = os.path.join(self.tmp, edition)
+            os.makedirs(folder)
+            source = shutil.copy(self.router_zip(), folder)
+            log = os.path.join(self.tmp, f"{edition}.log")
+            if edition == "py":
+                cmd = [sys.executable, PY_TOOL, "convert", source, "--name", secret,
+                       "--log-file", log]
+            else:
+                cmd = [POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                       "-File", PS_TOOL, "-Convert", "-Path", source, "-Name", secret,
+                       "-LogFile", log]
+            proc = subprocess.run(cmd, cwd=folder, env=env, capture_output=True, timeout=300)
+            self.assertEqual(proc.returncode, 0, (edition, proc.stdout.decode(errors="replace"),
+                                                  proc.stderr.decode(errors="replace")))
+            console = (proc.stdout + proc.stderr).decode(errors="replace")
+            self.assertEqual(console.count("log file: "), 2, (edition, console))
+            results[edition] = read_log_lines(log)
+        for edition, lines in results.items():
+            with self.subTest(edition=edition):
+                for line in lines:
+                    self.assertRegex(line, LOG_LINE_RE)
+                text = "\n".join(lines)
+                self.assertNotIn(secret, text)
+                self.assertIn(f"DISA STIG Conversion Tool {tool.TOOL_VERSION} (", lines[0])
+                self.assertTrue(lines[-1].endswith(" s") and "run end: exit code 0;" in lines[-1])
+                self.assertIn("2 file(s) written", lines[-1])
+                for needle in (" parse  benchmark Test_Router_NDM_STIG ", " route  ", " scope  ",
+                               " build  report ", " file   wrote "):
+                    self.assertIn(needle, text)
+        # The per-benchmark lines carry the same facts in both editions.
+        def benchmark_lines(lines):
+            # <24-char time stamp> <level 5> <component 6> <message>
+            return sorted({line[38:] for line in lines
+                           if line[31:37] == "parse " and line[38:].startswith("benchmark ")})
+        self.assertEqual(len(benchmark_lines(results["py"])), 2)
+        self.assertEqual(benchmark_lines(results["py"]), benchmark_lines(results["ps"]))
 
 
 if __name__ == "__main__":

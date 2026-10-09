@@ -16,8 +16,9 @@ The **Compliance target** dropdown (or `--target`) controls the routing:
 names as above; **Network Compliance** forces NCM; **Server Compliance** forces
 SCM. Auto falls back to NCM, saying so, when nothing is recognized.
 
-The tool ships in **two self-contained single-file editions**. The Python edition is the
-reference. For the same input both derive the same NCM `RuleId`s and `PolicyId`s, the
+The tool ships in **two self-contained single-file editions**, both at version
+**2.0.0** (`TOOL_VERSION` in the Python file, `$script:ToolVersion` in the PowerShell
+file; every run log records it). The Python edition is the reference. For the same input both derive the same NCM `RuleId`s and `PolicyId`s, the
 same SCM policy and rule `uniqueId`s, and the same report and policy names, and the
 generated basic-rule payloads are byte-identical; `test_disa_stig_tool.py` compares the
 two editions on fixed inputs whenever PowerShell is available. Do not assume full
@@ -73,7 +74,10 @@ account. **Import** and **Local File Conversion Only** turn green when everythin
 completed, yellow on a partial result, red on failure. Successful imports print a
 green **SUCCESS** line with the report/policy name; errors are prefixed `[NCM]` or
 `[SCM]`. The detailed log is hidden by default behind a **Show detailed log** button
-and expands automatically when there is an issue.
+and expands automatically when there is an issue. The path of the [run log](#run-log)
+is shown at the bottom of the window and in the summary when the window opens and after
+every batch; `python disa_stig_tool.py gui --log-file PATH --log-level debug` (or
+`disa_stig_tool.ps1 -LogFile PATH -LogLevel debug`) chooses where it goes.
 
 **Verify TLS certificate is on by default**; **Trust server certificate…** fetches the
 certificate SWIS presents (the stock self-signed `SolarWinds-Orion` one), shows its
@@ -192,6 +196,8 @@ them.
 | `--host` / `--port` / `--user` | `-Server` / `-Port` / `-Username` (or `-WindowsAuth`) | Connection; the password comes from `SWIS_PASSWORD` or a prompt in both |
 | `--pin-server-cert` / `--insecure` / `--ca-file` | `-PinServerCert` / `-Insecure` / none | TLS trust |
 | `-o` / `--output` | none | Output file for a single-benchmark convert |
+| `--log-file PATH` | `-LogFile PATH` | Where the [run log](#run-log) goes (default below) |
+| `--log-level debug\|info\|warn` | `-LogLevel debug\|info\|warn` | Run log detail; `info` by default |
 
 When no `--name` / `-Name` is given, a zip's reports are named `<zip file name> -
 <benchmark id>` and a bare `.xml` or a directory's reports take the benchmark title, in
@@ -302,7 +308,8 @@ for scope/config dependencies, version tracking, and the proposed import journal
 A server-OS XCCDF (manual or SCAP) is converted into an SCM compliance policy —
 one `!policy` YAML per benchmark — and imported through `ImportPolicy`. Manual STIGs
 carry no machine checks, so every generated rule is a **manual-review attestation**:
-its condition is a harmless `Write-Host` probe that always reports failed, keeping
+its condition is a harmless `Write-Host` probe (a single-quoted literal; see
+[Security rules](#security-rules)) that always reports failed, keeping
 the rule an open action item carrying the STIG's check and fix text until an engineer
 verifies the setting and replaces or disables the rule. Nothing in a generated policy
 changes server configuration. SCM policies carry no node scope in the file —
@@ -328,6 +335,53 @@ read-back rejects a policy holding no rules, which also catches a returned id of
 it does not compare the count or the content with the file. A ZIP containing policy
 YAML is not accepted by the XCCDF package reader.
 
+## Run log
+
+Every run, CLI or GUI, in either edition, writes a log file in addition to its console
+output, and prints the file's path when it starts and when it ends (the Python CLI
+prints it on stderr so stdout is unchanged). Both editions write the same line format,
+one event per line:
+
+```text
+2026-10-09T14:03:07.123Z INFO  swis   Cirrus.PolicyReports.AddPolicyRule(<object V-215662 [medium] ...>) -> ok 41 ms, "6f1c..."
+```
+
+That is the UTC time with milliseconds, the level padded to five characters (`DEBUG`,
+`INFO`, `WARN`, `ERROR`), the component padded to six, and the message; a line break
+inside a message is written as a literal `\n`. The components are `main`, `parse`,
+`route`, `scope`, `build`, `swis`, `import`, `verify`, `rollbk`, `remove`, `scm`,
+`file` and `gui`.
+
+| Default location | |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\DisaStigTool\logs\disa-stig-tool_<yyyyMMdd-HHmmss>.log` |
+| Elsewhere | `~/.local/state/disa-stig-tool/logs/disa-stig-tool_<yyyyMMdd-HHmmss>.log` (or under `$XDG_STATE_HOME`) |
+
+The time stamp in the file name is UTC. `--log-file` / `-LogFile` writes somewhere else
+instead; when the default folder cannot be created the log falls back to the temp
+directory. What a run records at `info`:
+
+- the tool version, the interpreter and OS, and the full command line;
+- each input file and zip member considered, and whether it was parsed or skipped and
+  why (not XML, not XCCDF, a refused DTD, malformed XML);
+- each benchmark found (id, title, version, release, edition, rule count) and every
+  dedupe decision;
+- the routing decision and the keyword that drove it, and the node scope and where it
+  came from;
+- each report or SCM policy built, every file written, and SCM probe ids that had to be
+  sanitized (as warnings);
+- every SWIS call: `entity.verb` or the query, a short argument summary, the duration,
+  and `ok` or the error message, plus the endpoint, the user name and the TLS mode of the
+  connection (never the password);
+- import, verification, rollback and removal decisions;
+- an end-of-run summary: exit code, SWIS calls and failures, files written, verified
+  imports, warnings and errors.
+
+`debug` adds the request and response body of every SWIS call, redacted and cut to
+4 KB. `warn` keeps only warnings and errors. Every line passes through the same secret
+redaction as the console, and the `SWIS_PASSWORD` value is registered before the first
+line is written, so it is masked even in the logged command line.
+
 ## Security rules
 
 - **TLS verification is on by default** (GUI checkbox and CLI alike; `--insecure` is a
@@ -343,6 +397,23 @@ YAML is not accepted by the XCCDF package reader.
   prompt — never a command-line argument.
 - **Passwords are always redacted** from everything the tool prints or logs, including
   server error messages that might echo them.
+- **XML is read without DTDs.** A STIG file that declares a `<!DOCTYPE>` is refused,
+  with the reason in the run log, so external entities (XXE) and entity expansion are
+  never processed. The PowerShell edition loads XML through an `XmlReader` with
+  `DtdProcessing=Prohibit` and no resolver, reading the bytes so the BOM and the
+  declared encoding are honoured (a `windows-1252` file decodes as `windows-1252`); the
+  Python edition refuses any DTD before parsing. XCCDF does not use DTDs.
+- **STIG text never becomes script source.** The SCM probe is
+  `Write-Host '<vuln id> reviewed: False'`, a single-quoted PowerShell literal in which
+  `'` (and the typographic single quotes PowerShell also honours) is doubled, so
+  `$(...)`, `$var`, backticks and double quotes stay inert. The vuln id must match
+  `V-<digits>` (rule ids `SV-<digits>r<digits>_rule`) after any SCAP `xccdf_` prefix is
+  stripped; anything else is reduced to `[A-Za-z0-9._-]` with a warning in the log.
+- **Generated file names are sanitized in one place.** Report, policy and download file
+  names keep `[A-Za-z0-9._-]`, every other run of characters becomes `_`, leading dots
+  are stripped, Windows device names (`CON`, `NUL`, ...) are prefixed, and the whole name
+  is capped at 200 characters, so a title can neither leave the output folder
+  (`../../x`) nor exceed the 255-character file name limit.
 - **"No Data Returned" is said plainly.** Every import is verified by reading the
   result back; an empty read-back is reported as *No data returned from &lt;call&gt;*,
   never as success.

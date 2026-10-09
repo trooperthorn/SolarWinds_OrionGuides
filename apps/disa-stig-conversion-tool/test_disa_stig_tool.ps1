@@ -61,6 +61,14 @@ if ($ParityJson) {
     }
     $out.files = @($fileResults)
     $out.memory = @($memResults)
+    # Helpers that must give the same answer as their Python counterparts.
+    $out['names'] = @(@($spec.names) | ForEach-Object { Get-SafeFileName $_.stem $_.suffix })
+    $out['quoted'] = @(@($spec.quotes) | ForEach-Object { ConvertTo-PsSingleQuoted $_ })
+    $out['probeIds'] = @(@($spec.probeIds) | ForEach-Object { Get-ScmProbeId $_ '' })
+    # XML the Python edition refuses must be refused here too, with a logged reason.
+    if ($spec.logFile) { [void](Initialize-ToolLog $spec.logFile 'info') }
+    $out['refused'] = @(@($spec.refuse) | ForEach-Object {
+        @(ConvertFrom-BenchmarkXml ([System.IO.File]::ReadAllBytes($_)) (Split-Path -Leaf $_)).Count })
     $json = ConvertTo-Json $out -Depth 30
     [System.IO.File]::WriteAllText($ParityOut, $json, (New-Object System.Text.UTF8Encoding($false)))
     exit 0
@@ -94,6 +102,114 @@ try {
     $bytes = [System.IO.File]::ReadAllBytes($toolFile)
     $nonAscii = @($bytes | Where-Object { $_ -gt 127 }).Count
     Assert-Equal 0 $nonAscii 'disa_stig_tool.ps1 contains only ASCII bytes'
+
+    # --- 2a. run log: line format, redaction, default path, override --------
+    # The same expression test_disa_stig_tool.py checks the Python edition with.
+    $lineRe = '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z (DEBUG|INFO |WARN |ERROR) (main  |parse |route |scope |build |swis  |import|verify|rollbk|remove|scm   |file  |gui   ) .*$'
+    $fixed = [datetime]::new(2026, 10, 9, 12, 3, 7, 123, [System.DateTimeKind]::Utc)
+    Assert-Equal "2026-10-09T12:03:07.123Z WARN  rollbk two\nlines\nhere" (Format-ToolLogLine $fixed 'warn' 'rollbk' "two`r`nlines`nhere") 'log line format matches the contract'
+    foreach ($lvl in @('debug', 'info', 'warn', 'error')) {
+        foreach ($comp in $script:LogComponents) {
+            Assert-True ((Format-ToolLogLine $fixed $lvl $comp 'm') -cmatch $lineRe) "log line regex: $lvl $comp"
+        }
+    }
+    $winPath = Get-DefaultLogPath -NowUtc ([datetime]::new(1970, 1, 1, 0, 0, 0, [System.DateTimeKind]::Utc)) -Platform 'windows' -Environment @{ LOCALAPPDATA = 'C:\L' } -HomeDir 'C:\H'
+    Assert-Equal ([System.IO.Path]::Combine('C:\L', 'DisaStigTool', 'logs', 'disa-stig-tool_19700101-000000.log')) $winPath 'default log path on Windows'
+    $winNoEnv = Get-DefaultLogPath -NowUtc ([datetime]::new(1970, 1, 1, 0, 0, 0, [System.DateTimeKind]::Utc)) -Platform 'windows' -Environment @{} -HomeDir 'H'
+    Assert-Equal ([System.IO.Path]::Combine('H', 'AppData', 'Local', 'DisaStigTool', 'logs', 'disa-stig-tool_19700101-000000.log')) $winNoEnv 'default log path without LOCALAPPDATA'
+    $otherPath = Get-DefaultLogPath -NowUtc ([datetime]::new(1970, 1, 1, 0, 0, 0, [System.DateTimeKind]::Utc)) -Platform 'linux' -Environment @{} -HomeDir '/home/u'
+    Assert-Equal ([System.IO.Path]::Combine('/home/u', '.local', 'state', 'disa-stig-tool', 'logs', 'disa-stig-tool_19700101-000000.log')) $otherPath 'default log path elsewhere'
+    $logOverride = Join-Path $scratch 'nested\run.log'
+    Assert-Equal $logOverride (Initialize-ToolLog $logOverride 'info') '-LogFile overrides the default path'
+    Register-Secret 'PsSecret-Log-9182'
+    Write-ToolLog main error 'server echoed PsSecret-Log-9182 back'
+    Write-ToolLog swis debug 'dropped at info level'
+    Write-ToolLog 'bogus' warn 'falls back to main'
+    $logged = @([System.IO.File]::ReadAllText($logOverride) -split "`n" | Where-Object { $_ })
+    Assert-Equal 2 $logged.Count 'info level drops debug lines'
+    Assert-True (@($logged | Where-Object { $_ -cnotmatch $lineRe }).Count -eq 0) 'every written line matches the contract'
+    Assert-True (-not ([System.IO.File]::ReadAllText($logOverride)).Contains('PsSecret-Log-9182')) 'a registered secret never reaches the log'
+    Assert-True ($logged[1] -like '* WARN  main   falls back to main') 'unknown component logs as main'
+
+    # --- 2b. one log line per SWIS call (Invoke-SwisRest stubbed) ------------
+    $swisLog = Join-Path $scratch 'swis.log'
+    [void](Initialize-ToolLog $swisLog 'debug')
+    $script:RestCalls = 0
+    $realRest = ${function:Invoke-SwisRest}
+    function Invoke-SwisRest($Conn, [string]$Method, [string]$RestPath, $Body) {
+        $script:RestCalls++
+        if ($RestPath -like '*Fail*') { throw 'SWIS HTTP 400 from Invoke/X/Fail' }
+        if ($RestPath -eq 'Query') { return [pscustomobject]@{ results = @([pscustomobject]@{ N = 1 }, [pscustomobject]@{ N = 2 }) } }
+        return 'ok-id'
+    }
+    $conn = New-SwisConnection 'orion.example.com' 17774 'admin' 'PsSecret-Conn-4471' $false $false $null
+    [void](Invoke-SwisQuery $conn 'SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n' @{ n = 'x' })
+    [void](Invoke-SwisVerbCall $conn 'Cirrus.PolicyReports' 'AddPolicyRule' @([ordered]@{ RuleName = 'V-1 [high] rule'; RuleId = 'a' }))
+    [void](Invoke-SwisVerbCall $conn 'Orion.PolicyEngine.Policy' 'ImportPolicy' @(('y' * 10000)))
+    try { [void](Invoke-SwisVerbCall $conn 'X' 'Fail' @(1, $true)) } catch { }
+    $swisText = [System.IO.File]::ReadAllText($swisLog)
+    $swisLines = @($swisText -split "`n" | Where-Object { $_ -match ' swis   ' -and ($_ -match ' -> ok ' -or $_ -match ' -> error ') })
+    Assert-Equal $script:RestCalls $swisLines.Count 'one log line per SWIS call'
+    Assert-True ($swisLines[0] -match 'query SELECT .* params \{n="x"\} -> ok \d+ ms, 2 row\(s\)') 'query line carries the row count'
+    Assert-True ($swisLines[1] -like '*Cirrus.PolicyReports.AddPolicyRule(<object V-1 `[high`] rule>) -> ok *') 'verb line names entity.verb and the rule'
+    Assert-True ($swisLines[3] -like '* WARN  swis   X.Fail(1, true) -> error *SWIS HTTP 400*') 'failed call logged with the error'
+    Assert-True ($swisText.Contains('[truncated, ')) 'debug bodies are cut to 4 KB'
+    Assert-True ($swisText.Contains("as user 'admin'") -and -not $swisText.Contains('PsSecret-Conn-4471')) 'user and host logged, password never'
+    Assert-True (@($swisText -split "`n" | Where-Object { $_ -and $_ -cnotmatch $lineRe }).Count -eq 0) 'debug lines match the contract too'
+    Set-Item -Path function:Invoke-SwisRest -Value $realRest
+
+    # --- 2c. XML: DTD/XXE refused with a logged reason; declared encoding ----
+    $xmlLog = Join-Path $scratch 'xml.log'
+    [void](Initialize-ToolLog $xmlLog 'info')
+    $xxe = [System.Text.Encoding]::UTF8.GetBytes('<?xml version="1.0" encoding="UTF-8"?>' + "`n" +
+        '<!DOCTYPE Benchmark [<!ENTITY xxe SYSTEM "file:///C:/Windows/win.ini">]>' + "`n" +
+        '<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1" id="XXE_STIG"><title>&xxe;</title></Benchmark>')
+    $dtdOnly = [System.Text.Encoding]::UTF8.GetBytes('<?xml version="1.0"?><!DOCTYPE Benchmark [<!ENTITY a "aaaa">]>' +
+        '<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1" id="DTD_STIG"><title>&a;</title></Benchmark>')
+    Assert-Equal 0 @(ConvertFrom-BenchmarkXml $xxe 'evil-xccdf.xml').Count 'external-entity document is refused'
+    Assert-Equal 0 @(ConvertFrom-BenchmarkXml $dtdOnly 'dtd-xccdf.xml').Count 'any DTD is refused'
+    $xmlText = [System.IO.File]::ReadAllText($xmlLog)
+    Assert-True ($xmlText -match 'WARN  parse  skipped evil-xccdf\.xml: refused: the document declares a DTD') 'the refusal reason is logged'
+    $eacute = [string][char]0xE9
+    $cp1252 = [System.Text.Encoding]::GetEncoding(1252).GetBytes('<?xml version="1.0" encoding="windows-1252"?>' +
+        '<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1" id="Enc_STIG"><title>Caf' + $eacute + ' STIG</title></Benchmark>')
+    Assert-Equal ('Caf' + $eacute + ' STIG') @(ConvertFrom-BenchmarkXml $cp1252 'enc.xml')[0].Title 'declared windows-1252 encoding is honoured'
+    $utf16 = [System.Text.Encoding]::Unicode.GetPreamble() + [System.Text.Encoding]::Unicode.GetBytes('<?xml version="1.0" encoding="UTF-16"?>' +
+        '<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1" id="U16_STIG"><title>Caf' + $eacute + ' STIG</title></Benchmark>')
+    Assert-Equal ('Caf' + $eacute + ' STIG') @(ConvertFrom-BenchmarkXml ([byte[]]$utf16) 'u16.xml')[0].Title 'UTF-16 with BOM is read'
+
+    # --- 2d. SCM probe: ids validated, single-quoted literal ----------------
+    $tick = [string][char]0x60
+    $rsquo = [string][char]0x2019
+    Assert-Equal "'it''s'" (ConvertTo-PsSingleQuoted "it's") 'single quote doubled'
+    Assert-Equal ("'a" + $tick + 'b $(c) "d"' + "'") (ConvertTo-PsSingleQuoted ('a' + $tick + 'b $(c) "d"')) 'backtick, $( ) and " stay literal'
+    Assert-Equal ("'x" + $rsquo + $rsquo + "y'") (ConvertTo-PsSingleQuoted ('x' + $rsquo + 'y')) 'typographic quote doubled'
+    Assert-Equal 'V-123' (Get-ScmProbeId 'xccdf_mil.disa.stig_group_V-123' 'xccdf_mil.disa.stig_rule_SV-123r2_rule') 'SCAP prefixes are accepted'
+    $nasty = 'V-77$(Remove-Item C:\x)' + $tick + '"' + "'" + $rsquo
+    $probeBench = @{ BenchmarkId = 'Probe_STIG'; Title = 'Probe'; Version = '1'; Release = 'R'; StatusDate = ''; Source = 's.xml'; Edition = 'manual'
+        Rules = @(@{ VulnId = 'V-1'; RuleId = 'SV-1r1_rule'; StigId = 'X-1'; Severity = 'medium'; Title = 't'; Discussion = ''; CheckContent = ''; OvalRef = ''; FixText = ''; Ccis = @() },
+                  @{ VulnId = $nasty; RuleId = 'SV-2$(x)'; StigId = 'X-2'; Severity = 'low'; Title = 't'; Discussion = ''; CheckContent = ''; OvalRef = ''; FixText = ''; Ccis = @() }) }
+    $probeYaml = ConvertTo-ScmPolicyYaml $probeBench
+    $scripts = @($probeYaml -split "`n" | Where-Object { $_.StartsWith('      script: ') })
+    Assert-Equal "      script: `"Write-Host 'V-1 reviewed: False'`"" $scripts[0] 'valid id probe is a single-quoted literal'
+    Assert-Equal "      script: `"Write-Host 'V-77_Remove-Item_C_x_ reviewed: False'`"" $scripts[1] 'hostile id is sanitized'
+    Assert-True (@($scripts | Where-Object { $_.Contains('$(') -or $_.Contains($tick) }).Count -eq 0) 'no $( or backtick reaches probe source'
+
+    # --- 2e. file names: one sanitizer, 200-character cap -------------------
+    Assert-Equal '_.._x.ncm-report.xml' (Get-SafeFileName '../../x' '.ncm-report.xml') '../../x cannot climb out'
+    $longName = Get-SafeFileName ('T' * 300) '.scm-policy.yaml'
+    Assert-Equal 200 $longName.Length 'a 300-character title is capped at 200'
+    Assert-True ($longName.EndsWith('.scm-policy.yaml')) 'the suffix survives the cap'
+    Assert-Equal '_CON.ncm-report.xml' (Get-SafeFileName 'CON' '.ncm-report.xml') 'reserved device names are prefixed'
+    $outDir = Join-Path $scratch 'out'
+    [void](New-Item -ItemType Directory -Path $outDir)
+    foreach ($reportName in @('../../evil', ('N' * 250))) {
+        $rep = (New-NcmReports @($probeBench) $reportName "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $true)[0]
+        $written = Write-ConsoleReportFile $rep $outDir
+        Assert-Equal $outDir (Split-Path -Parent $written) "console file for '$($reportName.Substring(0, 5))...' stays in its folder"
+        Assert-True (Test-Path -LiteralPath $written) "console file for '$($reportName.Substring(0, 5))...' is written"
+    }
+    $script:LogState.Path = $null   # later sections do not need the log
 
     # --- 3. seeds match the Python scheme (benchmark id, else title) --------
     $withId = @{ BenchmarkId = 'Cisco_IOS_Router_NDM_STIG'; Title = 'Cisco IOS Router NDM' }
