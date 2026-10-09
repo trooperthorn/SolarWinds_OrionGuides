@@ -26,7 +26,8 @@ and [version suffix](#version-suffix-and-the-upgrade-workflow) both derive the s
 `RuleId`s and `PolicyId`s, the same SCM policy and rule `uniqueId`s, the same report and
 policy names, the same node scope and the same SCM probe, and the generated basic-rule
 payloads are byte-identical; `test_disa_stig_tool.py` compares the two editions on fixed
-inputs (suffixes, Cisco platforms, scope refusals, probe templates) whenever PowerShell
+inputs (suffixes, Cisco platforms, scope refusals, probe templates, multi-rule Groups,
+release dedupe, nested zips, heuristic drafts) whenever PowerShell
 is available. Do not assume full
 serialization parity for advanced rules: the
 [NCM portability audit](../../docs/modules/ncm-compliance-portability-audit.md)
@@ -57,6 +58,91 @@ Both GUIs open with a disclaimer — *"This is not built by SolarWinds Inc. or D
 All Code is visible for Code Audit and documentation is available for SWIS calls."* —
 and require acknowledging that imported reports must be checked and that resolution
 falls on Agency application of the DISA STIG standards before the tool opens.
+
+## What changed in 2.0.0
+
+2.0.0 (2026-10-09) was built in four slices; both editions changed together. All of it is
+covered by the offline tests, and none of it has been exercised against a live server yet,
+which is what [How to test](#how-to-test-on-a-live-server) is for.
+
+1. **Run log and security.** Every run writes a [run log](#run-log) (one line per decision
+   and per SWIS call, secrets redacted). XML with a DTD is refused, so external entities
+   are never resolved, and the PowerShell edition honours the declared encoding. The SCM
+   probe is a single-quoted literal over a validated id, so STIG text never becomes script
+   source. Every generated file name goes through one sanitizer.
+2. **Import reliability.** Any failure during an import (timeouts, bodies that are not JSON,
+   not only HTTP errors) is logged and rolled back in both editions. Only the two documented
+   HTTP 400 rejections move on to another wire format. The account's NCM role is checked
+   before the first write, a refused `StartCaching` or `UpdateReportStatus` is reported
+   without stopping the run, a pinned certificate is enforced on every PowerShell call
+   (5.1 and 7), `IN @ids` is probed before any decision rests on it, and the read-back
+   compares policy and rule counts and rule names with what was submitted.
+3. **Scope, Linux and versions.** Linux STIGs route to SCM with an Unverified probe and a
+   `--scm-probe-template` override. Cisco STIGs are scoped by a Tentative `MachineType`
+   pattern per platform, an unrecognized network STIG is refused instead of defaulting to
+   Cisco, and an import counts the scoped nodes first. Every name and id seed carries a
+   version suffix (`_v1`), so a new release imports beside the old one with `--suffix _v2`.
+4. **Content fidelity.** `--mode heuristic` reads a check's polarity ("If ip source-route
+   is configured, this is a finding" drafts a must-not-exist rule) and keeps the sentinel
+   when the text is not plain. The Fix Text moved from the remediation script into the
+   rule comments under `Fix:`; the script is left empty. Every Rule of a Group is read,
+   with its legacy ids, its Group's SRG id and every description section. Duplicate
+   benchmarks keep the highest release, two levels of nested zips are read, zip members
+   are size-capped, and every skipped member is a warning. YAML escapes the characters
+   JSON leaves raw, missing or unrecognized severities become medium with a warning, rules
+   without an id get a deterministic one, the PowerShell edition cuts names without
+   splitting a surrogate pair, the Python console file keeps its `xmlns:xsd`/`xmlns:xsi`
+   declarations, `convert -o` names the NCM file too, and both editions write SCM files
+   with LF. Generated SCM rules still report Failed rather than Unknown
+   ([why](#why-un-reviewed-scm-rules-show-failed)).
+
+Upgrading from 1.x: every 2.0.0 name and id carries the suffix, so nothing imported by an
+earlier build is touched or matched; see [the upgrade workflow](#version-suffix-and-the-upgrade-workflow).
+
+## How to test on a live server
+
+Run these against a lab server first. Keep each run's log (`--log-file`), since most of
+the checks read it.
+
+1. **Convert offline.** `python disa_stig_tool.py convert U_Cisco_IOS-XE_Router_Y26M07_STIG.zip --log-file convert.log`
+   (PowerShell: `.\disa_stig_tool.ps1 -Convert -Path <zip> -LogFile convert.log`). Expect
+   one `.ncm-report.xml` per benchmark, each name ending in `_v1`, and exit code 0. Repeat
+   with `--mode heuristic` into another folder.
+2. **Inspect the files.** In each `.ncm-report.xml`: the root carries `xmlns:xsd` and
+   `xmlns:xsi`; every `PolicyRule` has `<RemediateScript />`,
+   `<RemediateScriptType>CLI</RemediateScriptType>` and
+   `<ExecuteScriptAutomatically>false</ExecuteScriptAutomatically>`, and its `Comments`
+   end with `Fix:` and the STIG's Fix Text; the `NodeSelectionString` ends in
+   `SQL:Where (Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')`. In the heuristic files,
+   find rules with `<PatternMustExist>false</PatternMustExist>` and read their comments'
+   `Polarity:` line against the check text. In `convert.log`, look for `WARN` lines: each
+   names a skipped member, a dropped duplicate benchmark or a defaulted severity.
+3. **Import with `--disabled` into the lab.** `python disa_stig_tool.py import <zip> --host <lab> --user <user> --disabled --log-file import.log`.
+   The report is created `Disabled` and nothing is cached.
+4. **Check the log.** The `scope` lines give the node count for each report's scope and
+   the `Vendor, MachineType` sample (up to 25 rows with counts). Confirm the Tentative
+   pattern matches your devices' `MachineType` values; if it does not, remove the import
+   (step 6) and rerun with `--machine-type`. Then check the `verify` lines (stored policy
+   and rule counts equal to what was sent), that there is no `ERROR` line, and the last
+   line's summary (exit code 0, files, SWIS calls, warnings).
+5. **Test the rules.** `python disa_stig_tool.py test <zip> --config-id <ConfigID> --limit 0 --mode heuristic --host <lab> --user <user>`
+   with a backed-up config of a compliant device (`SELECT ConfigID, NodeID, ConfigType,
+   DownloadTime FROM NCM.ConfigArchive ORDER BY DownloadTime DESC`). A drafted
+   must-not-exist rule that flags a compliant config is the Unverified substring case
+   described under [heuristic mode](#how-stig-fields-map-to-ncm).
+6. **Remove it.** `remove --name "<zip name> - <benchmark id>_v1" --dry-run`, read the plan,
+   then repeat with `--yes`. The log's `remove` lines list what was deleted and kept, and
+   `SELECT PolicyReportID, Name FROM Cirrus.PolicyReports WHERE Name LIKE 'U_Cisco%'`
+   no longer returns the report.
+7. **Linux SCM.** Convert or import one RHEL or Ubuntu STIG and follow
+   [Testing Linux STIGs in SCM](#testing-linux-stigs-in-scm) on one test node: the intended
+   state is `Orion.PolicyEngine.AssignedRule.Status` `2` (failed); `0` or rows in
+   `Orion.PolicyEngine.AssignedRuleError` mean the probe did not collect on Linux.
+8. **The `_v2` upgrade path.** Import the same package again without `--suffix`: it must
+   be refused before anything is written, naming what collided and suggesting `_v2`. Import
+   it with `--suffix _v2 --disabled`, check that both reports exist with different
+   `PolicyId`s and rule ids, remove the `_v1` report as in step 6, and check that the
+   `_v2` report still holds all its rules.
 
 ## The GUI
 
@@ -217,7 +303,7 @@ them.
 | `--dry-run` / `--yes` | `-DryRun` / `-Yes` | Preview or confirm `remove` |
 | `--host` / `--port` / `--user` | `-Server` / `-Port` / `-Username` (or `-WindowsAuth`) | Connection; the password comes from `SWIS_PASSWORD` or a prompt in both |
 | `--pin-server-cert` / `--insecure` / `--ca-file` | `-PinServerCert` / `-Insecure` / none | TLS trust |
-| `-o` / `--output` | none | Output file for a single-benchmark convert |
+| `-o` / `--output` | none | Output file for a convert that yields one NCM report or SCM policy (ignored, with a warning, when there are several) |
 | `--log-file PATH` | `-LogFile PATH` | Where the [run log](#run-log) goes (default below) |
 | `--log-level debug\|info\|warn` | `-LogLevel debug\|info\|warn` | Run log detail; `info` by default |
 
@@ -348,12 +434,27 @@ not filename, since the naming varies (`*-xccdf.xml`, `*Manualxccdf.xml`,
   (stripped on parse), the same fix text as the manual edition, **no** check prose —
   each check is an OVAL machine-check reference, which the tool records in the rule
   comments.
-- **Compilation zips** nesting one zip per STIG.
+- **Compilation zips** nesting one zip per STIG, which can in turn nest one zip per
+  edition. Two levels of nesting are read; a zip nested deeper is skipped with a warning.
 
 A package can hold several benchmarks (the Cisco IOS Router package has NDM and RTR).
-When both editions of the *same* benchmark are present, the manual one is kept:
-verified on real files, the fix text matches between editions and only the manual has
-the check prose — importing both would just duplicate rules. Packages download from
+Since 2.0.0 (2026-10-09), when one benchmark id appears more than once the tool keeps one
+copy: the highest release, compared by the benchmark's `<version>` and the N of its
+`Release: N` text (each falling back to the `VnRm` in the file name), and at the same
+release the manual edition, because, verified on real files, the fix text matches between
+editions and only the manual one has the check prose. An XCCDF 1.1 benchmark whose every
+rule is an OVAL reference without check prose counts as a SCAP edition here. Every dropped
+copy is a warning naming both releases, and so is a benchmark present only in its SCAP
+edition, whose rules carry no check prose and which can leave out rules that cannot be
+automated. Earlier builds kept the first copy found unless a manual one followed a SCAP
+one, without comparing releases.
+
+Every skipped member is a warning with its reason (not XML, malformed XML, a refused DTD,
+XML that is not an XCCDF benchmark, a document or other content, nested too deep, too
+large, unreadable); only the `.xsl` stylesheet is noted at `info`, since every package
+carries one. Members are read into memory, so a member whose uncompressed size is over
+200 MB is skipped and an input whose members add up to more than 1 GB is refused, both
+with the reason in the log. Packages download from
 `https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/<PackageName>.zip`
 (case-sensitive names).
 
@@ -361,11 +462,11 @@ the check prose — importing both would just duplicate rules. Packages download
 
 | XCCDF | NCM rule (verb contract field) |
 | --- | --- |
-| Group id + severity + Rule title | `RuleName` — `V-215662 [medium] The Cisco router must…` |
-| severity high / medium / low | `ErrorLevel` 2 / 1 / 0 (console names critical / warning / info by default; the names are editable per server) |
-| VulnDiscussion + check-content + IDs (SV, STIG ID, CCIs) | `Comments` |
-| fixtext (the Fix Text) | `RemediateScript`, type CLI, **never auto-executed** |
-| one XCCDF Group/Rule (each check) | one NCM rule |
+| Group id + severity + Rule title | `RuleName` — `V-215662 [medium] The Cisco router must…`; when one Group holds several Rules, each is named `V-215662/SV-215662r1_rule [medium] …` so names stay unique |
+| severity high / medium / low | `ErrorLevel` 2 / 1 / 0 (console names critical / warning / info by default; the names are editable per server). A missing, `unknown` or `info` severity is imported as medium, with a warning that lists the rules |
+| IDs (V, SV, STIG ID, CCIs, the Group title's SRG id, the legacy V- and SV- ids) + every description section (VulnDiscussion, FalsePositives, FalseNegatives, Mitigations, PotentialImpacts, ThirdPartyTools, MitigationControl, Responsibility, IAControls; empty ones are left out) + check-content + fixtext | `Comments`, in that order, the Fix Text last under `Fix:` |
+| fixtext (the Fix Text) | Not a script: since 2.0.0 it is kept in `Comments`, and `RemediateScript` is sent empty (type `CLI`); **never auto-executed** |
+| every Rule of every Group (each check) | one NCM rule. A Rule without an id gets `noid-<uuid5 of its title and position>`, and a rule id that repeats gets `-dup2`, `-dup3`, each with a warning |
 | one benchmark | one policy — the device scope ([node scope](#node-scope-vendor-and-cisco-platform): the vendor, plus the Cisco platform's `MachineType`, or `--node-where`) |
 | one benchmark | one report **named `<zip name> - <benchmark>_v1`** (the router zip yields an NDM report with 35 rules and an RTR report with 92), `Enabled`, in the `DISA STIG` folder — a converter packaging choice, not a one-policy limit in the console format |
 
@@ -375,12 +476,31 @@ tool is honest about that:
 - **`--mode manual` (default)** — every rule gets a sentinel pattern
   (`STIG-MANUAL-REVIEW-V-…`, must-exist) that no configuration contains, so every rule
   reports a violation on every node in scope. That is the point: each finding is an
-  open action item carrying the full check text and the fix script, until an engineer
-  replaces the sentinel with a real pattern for that rule in the console.
-- **`--mode heuristic`** — seeds each rule with the first config-looking line found in
-  the STIG's check text (121 of the 127 Cisco IOS rules get one). These are drafts to
-  accelerate rule authoring, not audits — the STIG's examples include sample values
-  (`hostname R1`) that must be reviewed per environment. A drafted line containing `*`
+  open action item carrying the full check and fix text, until an engineer replaces the
+  sentinel with a real pattern for that rule in the console.
+- **`--mode heuristic`** — since 2.0.0 drafts a pattern only where the check text says
+  plainly whether a config line must be present or absent, and keeps the sentinel
+  everywhere else. A sentence counts when it states a finding ("If X is configured, this
+  is a finding" means X must be absent; "If X is not configured", "is missing" means it
+  must be present) or says "must not" or "is not permitted". The config line it is about
+  is the one quoted in it, the subject of its "If X is" clause, a config line of the
+  check text it mentions (case and hyphens aside), or else the only config line in the
+  check text. So "If ip source-route is configured, this is a finding" drafts
+  `ip source-route` with `PatternMustExist` false (a violation when it is found); "The ip
+  directed-broadcast command must not be configured on any interface" does the same for
+  `ip directed-broadcast`; and `If telnet is enabled ("transport input telnet" or
+  "transport input all"), this is a finding` drafts `transport input telnet`, must not
+  exist. A `no <cmd>` line that must be present becomes `<cmd>` that must not be. Prose
+  lines (ending in `:`, `.`, `?`, `,` or `;`), lines with a `<placeholder>` or an escaped
+  `\*`, conditions that mix a negation with "disabled" ("is not disabled"), and
+  sentences that name two config lines equally all keep the sentinel, and the rule's
+  comments say why. Each rule's decision and source sentence are logged at `debug` and
+  the counts per report at `info`. **Unverified:** whether NCM matches a pattern inside a
+  longer line; if it does, a must-not-exist `ip source-route` also matches an explicit
+  `no ip source-route` line, so run a drafted rule through `test` against a compliant
+  config before trusting it. These are drafts to accelerate rule authoring, not audits —
+  the STIG's examples include sample values (`hostname R1`) that must be reviewed per
+  environment. A drafted line containing `*`
   or `?` is emitted as `PatternType` `Regex` over the escaped literal rather than as a
   `Like` pattern, because NCM treats those two characters as wildcards only when the
   server's `ComplianceRulesWildcardsEnabled` advanced setting is on (NCM 2023.1.1 and
@@ -407,7 +527,8 @@ with the generated id.
 
 The input parser reads XCCDF benchmarks; it is not an importer for an existing
 `PolicyReport` XML file. Porter is the repository's reader for that artifact. The current
-XCCDF model omits profile selection and retains only the first direct Rule per Group.
+XCCDF model omits profile selection; since 2.0.0 it reads every Rule in a Group
+(earlier builds kept only the first).
 OVAL references are recorded, not evaluated. A generated sentinel or heuristic is not
 an implemented automated STIG assessment.
 
@@ -444,6 +565,27 @@ run log records the OS family detected and the probe used, and a Linux STIG adds
 warning that points here. `--scm-probe-template FILE` / `-ScmProbeTemplate FILE` replaces
 the probe's source block for one run, so another source type can be tried without
 changing code.
+
+Each generated rule's `description` carries every description section of the STIG rule
+(the discussion first, the others under their labels) and ends with the identifier line
+(rule id, STIG ID, CCIs, SRG id, legacy ids); `remediationDescription` holds the Fix Text
+and `checkText` the check. A rule from a multi-rule Group gets the `displayId`
+`V-…/SV-…_rule`. Scalars are JSON-quoted, and since 2.0.0 DEL, the C1 controls, U+2028,
+U+2029, U+FEFF, U+FFFE and U+FFFF are written as escapes too, since YAML does not allow
+them raw. Both editions write the file with LF line endings (the Python edition wrote CRLF
+on Windows before 2.0.0).
+
+### Why un-reviewed SCM rules show Failed
+
+SolarWinds' shipped STIG policies wrap some conditions in `!translate` to turn Failed
+into Unknown for checks that need a manual review
+([SCM export audit](../../docs/modules/scm-policy-portability-audit.md#status-translations-and-rule-dependencies)).
+The tool does not emit it. This repository describes that node only in prose (a
+mapping-valued `of` holding the condition, then an ordered `status` sequence of `when`,
+`then` and an optional `statusDescription`), not as an exact serialized example, so a
+generated one would be a guess that no import has tested; and Unknown is also what a
+polling or evaluation error looks like. A generated rule therefore reports `2` (failed)
+until an engineer verifies the setting and disables or replaces the rule.
 
 ### Testing Linux STIGs in SCM
 
@@ -530,9 +672,12 @@ directory. What a run records at `info`:
 
 - the tool version, the interpreter and OS, and the full command line;
 - each input file and zip member considered, and whether it was parsed or skipped and
-  why (not XML, not XCCDF, a refused DTD, malformed XML);
+  why (not XML, not XCCDF, a refused DTD, malformed XML, nested more than two levels,
+  over the size limits); every skip is a warning except the `.xsl` stylesheet;
 - each benchmark found (id, title, version, release, edition, rule count) and every
-  dedupe decision;
+  dedupe decision (a dropped copy is a warning naming both releases), a warning for a
+  benchmark present only in its SCAP edition, and warnings for rules whose severity was
+  missing or unrecognized (with the count), rules without an id and repeated rule ids;
 - the routing decision and the keyword that drove it, and the node scope and where it
   came from: the Cisco platform per benchmark (Tentative), the NCM SQL and SWQL forms of
   the scope preflight, the node count, and the `MachineType` values the vendor's nodes
@@ -540,8 +685,9 @@ directory. What a run records at `info`:
 - the version suffix of each report, the collision check (what collided, the names that
   share the base, the next free suffix), and for SCM the OS family, the probe or probe
   template used, and a warning for Linux;
-- each report or SCM policy built, every file written, and SCM probe ids that had to be
-  sanitized (as warnings);
+- each report or SCM policy built (with where the Fix Text went and, in heuristic mode,
+  how many rules got a draft of each polarity), every file written, and SCM probe ids
+  that had to be sanitized (as warnings);
 - every SWIS call: `entity.verb` or the query, a short argument summary, the duration,
   and `ok` or the error message, plus the endpoint, the user name and the TLS mode of the
   connection (never the password);
@@ -553,7 +699,7 @@ directory. What a run records at `info`:
   imports, warnings and errors.
 
 `debug` adds the request and response body of every SWIS call, redacted and cut to
-4 KB. `warn` keeps only warnings and errors. Every line passes through the same secret
+4 KB, and each rule's heuristic decision with the sentence it came from. `warn` keeps only warnings and errors. Every line passes through the same secret
 redaction as the console, and the `SWIS_PASSWORD` value is registered before the first
 line is written, so it is masked even in the logged command line.
 
@@ -628,8 +774,10 @@ line is written, so it is masked even in the logged command line.
 ## Safety posture
 
 - `ExecuteScriptAutomatically` is always false. A downloaded checklist must never be
-  allowed to push configuration to devices on its own — remediation scripts are stored
-  for an operator to review and run per node from the console. The same caution applies
+  allowed to push configuration to devices on its own. Since 2.0.0 the tool writes no
+  remediation script at all: the Fix Text is guidance, kept in the rule comments under
+  `Fix:`, and an engineer writes reviewed commands into the script field before anything
+  can be run from the console. The same caution applies
   in reverse to SCM YAML: its `!scm.powershell` scripts run on every assigned node, so
   read them before importing a file from outside the organisation.
 - The importer never updates or deletes an existing report: a collision on any name or
@@ -701,9 +849,9 @@ line is written, so it is masked even in the logged command line.
 ## Where to see the results
 
 NCM: My Dashboards → Network Configuration → Compliance. Each policy report lists its
-policies and rules; violations link to the node and show the rule comments (the STIG
-check text) and the remediation script (the STIG fix text), which can be executed per
-device after review.
+policies and rules; violations link to the node and show the rule comments: the STIG
+identifiers, discussion and check text, and the Fix Text under `Fix:`. The remediation
+script stays empty until an engineer writes reviewed commands into it.
 
 SCM: assign the imported policy to nodes under Settings → SCM Settings → Policies, then
 My Dashboards → Home → Server Configuration shows per-node, per-rule pass/fail.
@@ -818,16 +966,16 @@ that actually filters nodes, e.g.
 | Field | Type | The tool sets |
 | --- | --- | --- |
 | `RuleId` | string GUID | uuid5 of the DISA rule id and the version suffix (stable across re-imports with the same suffix) |
-| `RuleName`, `Comments`, `Grouping`, `Owner` | string | Name ≤250 chars; comments carry discussion + check text + CCIs |
+| `RuleName`, `Comments`, `Grouping`, `Owner` | string | Name ≤250 chars; comments carry the identifiers (CCIs, SRG id, legacy ids), the draft or sentinel note, every description section, the check text and the Fix Text under `Fix:` |
 | `SimplePatternText` | string | Sentinel or heuristic pattern |
 | `PatternType` | string | `Like`, or `Regex` when a heuristic pattern carries `*` or `?` (see above). Regular expressions are evaluated by the .NET engine, and NCM reports the first line of a multi-line match as the violation |
-| `PatternMustExist` | boolean | `true` = violation when the pattern is missing |
+| `PatternMustExist` | boolean | `true` = violation when the pattern is missing; a heuristic draft for a must-not check sets `false` (violation when found) |
 | `AdvancedMode` | boolean | `false` — simple pattern, not `MultiLineRulePatterns` |
 | `MultiLineRulePatterns` | array | Empty; the contract's ten members are `{Pattern, PatternType, IsRegEx, Condition, Criteria, BeginBracket, EndBracket}` plus `RuleId`, `PatternId` and `FoundMatch`, which the server fills in. `Condition` is the `AND`/`OR` joining a pattern to the previous one and the brackets are the grouping parentheses |
 | `ConfigBlockStart` / `ConfigBlockEnd` / `ConfigBlockPatternType` / `ConfigBlockMustExist` / `IsConfigBlockPatternRegEx` | string/boolean | Unused (`""` / `Like` / `false`) — restricts matching to a config stanza |
 | `ErrorLevel` | number | `0` info, `1` warning, `2` critical. The console's *names* for these are editable per server (NCM Settings → Compliance Policy Report Management → Manage Violation Levels), so the words this tool prints may not match what an operator sees |
-| `RemediateScript` | string | The STIG Fix Text |
-| `RemediateScriptType` | string | `CLI` |
+| `RemediateScript` | string | Empty since 2.0.0; the Fix Text is prose and is in `Comments`. It is sent empty rather than left out: the contract (`types.json`) marks no member optional, and every rule in the audited console exports carries the element |
+| `RemediateScriptType` | string | `CLI`, the value every audited rule carries, the one with an empty script included |
 | `ExecuteScriptAutomatically` | boolean | **Always `false`** — `true` pushes remediation to failing devices on its own |
 | `ExecuteRemediationScriptPerBlock`, `ExecuteScriptInConfigMode` | boolean | `false` |
 

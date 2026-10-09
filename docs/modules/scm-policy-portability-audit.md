@@ -239,6 +239,23 @@ since changed:
   unless a policy with that id exists. This is not the full verification the row asks
   for: the count is not compared with the file and no exported content is read back.
 
+**Status on 2026-10-09 (DISA STIG tool 2.0.0).** For generated XCCDF policies:
+
+- The "Generated XCCDF policies are manual-review sentinels" row stands. The tool still
+  does not emit `!translate`: this audit describes the node's structure in prose (above)
+  but records no exact serialized example, so a generated Failed-to-Unknown wrapper would
+  be untested guesswork, and an un-reviewed generated rule keeps reporting Failed.
+- The "Source identity and revision model" row is partly addressed: each generated rule
+  now keeps its legacy V- and SV- identifiers, its Group's SRG id and every description
+  pseudo-section in the rule description, and every Rule of a multi-rule Group is
+  converted. Generated uniqueIds still derive from the revision-bearing rule id plus the
+  version suffix; reviewed old-to-new mappings remain open.
+- The "SCAP parsing is lossy" row is unchanged, apart from deduplication: one benchmark
+  keeps its highest release, and a benchmark present only in its SCAP edition is a
+  logged warning.
+- Generated YAML now escapes DEL, the C1 controls, U+2028, U+2029, U+FEFF, U+FFFE and
+  U+FFFF inside quoted scalars, and both editions write it with LF line endings.
+
 The offline tests in `apps/disa-stig-conversion-tool/test_disa_stig_tool.py` cover the
 CRLF case and the refusal of SCM collection profiles (`.scm-profile` JSON), which the
 tool previously routed to `ImportPolicy` by extension. The remaining rows stand.

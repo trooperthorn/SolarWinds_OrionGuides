@@ -87,19 +87,32 @@ documents in full. The mapping that works:
   benchmark**, with a basic rule for each parsed requirement. This is a packaging choice: a
   report can have several policies, and policies can share rules. `NodeSelectionString`
   carries both picker state and a SQL-like suffix; use a target-validated scope and preserve
-  both representations. The current parser selects the first Rule in each Group and does
+  both representations. Since tool 2.0.0 the parser reads every Rule in a Group (a
+  multi-rule Group's rules are named `V-id/rule id` so names stay unique), but it does
   not retain profiles, so it is not a complete general XCCDF reader.
-- Severity → `ErrorLevel`: high `2` (critical), medium `1` (warning), low `0` (info).
-- Discussion, selected check content and the supported IDs land in `Comments`; this is
-  not lossless preservation of all XCCDF metadata. The current tool copies fix text into
-  `RemediateScript` (CLI) with `ExecuteScriptAutomatically` **false**. Fix prose is not
-  necessarily executable CLI; future generation should separate guidance from reviewed
-  commands. Retain full source provenance in a companion manifest.
+- Severity → `ErrorLevel`: high `2` (critical), medium `1` (warning), low `0` (info). A
+  missing severity, and XCCDF's `unknown` and `info`, are imported as medium with a
+  logged warning.
+- The identifiers (V-, SV-, STIG ID, CCIs, the Group title's SRG id, the legacy V- and SV-
+  ids), every description section (VulnDiscussion, FalsePositives, FalseNegatives,
+  Mitigations, PotentialImpacts, ThirdPartyTools, MitigationControl, Responsibility,
+  IAControls), the check content and the fix text land in `Comments`; this is still not
+  lossless preservation of all XCCDF metadata. Fix prose is not executable CLI, so since
+  tool 2.0.0 it sits in `Comments` under `Fix:` and `RemediateScript` is sent empty, with
+  `RemediateScriptType` `CLI` and `ExecuteScriptAutomatically` **false**, until an
+  engineer writes reviewed commands into it. Retain full source provenance in a
+  companion manifest.
 - Because the checks are prose, the rule pattern is a choice: a sentinel that never
   matches with must-exist set, so every rule flags a violation and each finding is an
-  open action item until an engineer writes the real pattern — or a heuristic draft
-  pattern lifted from the first config-looking line of the check text, to accelerate
-  authoring. Both are honest; silently importing green is not.
+  open action item until an engineer writes the real pattern — or a heuristic draft, to
+  accelerate authoring. Since tool 2.0.0 a draft is made only where the check text says
+  plainly whether a config line must be present or absent, and it carries that polarity:
+  "If ip source-route is configured, this is a finding" drafts `ip source-route` with
+  `PatternMustExist` false. Prose, placeholders and ambiguous wording keep the sentinel.
+  **Unverified:** whether NCM matches a pattern inside a longer line, which would let a
+  must-not-exist `ip source-route` also match `no ip source-route`; test a draft with
+  `TestRule` against a compliant config. Both are honest; silently importing green is
+  not.
 - A drafted pattern carrying `*` or `?` cannot be left as a `Like` pattern. From NCM
   2023.1.1 those characters are wildcards only when the server's
   `ComplianceRulesWildcardsEnabled` advanced setting is selected, and it is not
@@ -187,7 +200,11 @@ The import is one verb, because the file itself is the payload:
 For a converted manual STIG, whose rules are attestations rather than machine checks,
 the end state of a check an engineer has verified by hand is a rule disabled with a
 reason (`Orion.PolicyEngine.Rule.Enabled` and `DisableReason`) rather than one that
-reports failed forever. Disabling is global, never per node.
+reports failed forever. Disabling is global, never per node. SolarWinds' shipped
+policies map some manual checks from Failed to Unknown with `!translate`; the tool does
+not, because this repository describes that node only in prose rather than as an exact
+serialized example, and Unknown also reads like a polling error. An un-reviewed generated
+rule therefore reports failed.
 
 Audit before importing: the `!scm.powershell` scripts in a policy run on every assigned
 node. Treat a YAML from outside the organisation as executable content.
@@ -297,6 +314,24 @@ editions:
   SCM" section gives the test procedure. `--scm-probe-template` replaces the probe's
   source block per run; it is validated as a small YAML fragment, and its `{id}`
   placeholder receives only the validated vulnerability id, inside a quoted value.
+
+Tool 2.0.0 (2026-10-09) also changes how STIG content is read and written, in both
+editions:
+
+- **Inputs.** One benchmark id keeps one copy: the highest release (the benchmark's
+  `<version>` and the N of `Release: N`, else the `VnRm` in the file name), and the manual
+  edition at the same release; an XCCDF 1.1 benchmark whose checks are all OVAL references
+  counts as SCAP. Every dropped copy, every skipped zip member and a benchmark present only
+  in its SCAP edition are warnings in the run log. Zips nested two levels deep are read and
+  deeper ones skipped; a member over 200 MB uncompressed is skipped and an input over 1 GB
+  in total is refused.
+- **Output details.** SCM YAML escapes DEL, the C1 controls, U+2028, U+2029, U+FEFF,
+  U+FFFE and U+FFFF, and both editions write SCM files with LF. A Rule without an id gets
+  a deterministic one from its title and position, and a repeated rule id is suffixed,
+  each with a warning. The PowerShell edition cuts names by code point, as the Python
+  edition does, so a surrogate pair is never split. The Python console file keeps the
+  `xmlns:xsd`/`xmlns:xsi` declarations real exports carry, and `convert -o` names the NCM
+  file as well as the SCM one.
 
 These are offline-tested behaviors against an in-memory stand-in and a local listener,
 not a live import test.

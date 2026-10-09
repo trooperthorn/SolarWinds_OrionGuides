@@ -1748,6 +1748,384 @@ class LinuxProbeTests(TempDirTest):
 
 
 # ---------------------------------------------------------------------------
+# Slice 4: content fidelity (items 4, 7, 8, 17, 18, 19)
+# ---------------------------------------------------------------------------
+
+# Characters a YAML double-quoted scalar must not carry raw (item 18), built with chr()
+# so this file stays readable: DEL, NEL (C1), LINE SEPARATOR and a byte order mark.
+YAML_HOSTILE = ("DEL[" + chr(0x7F) + "] NEL[" + chr(0x85) + "] LS[" + chr(0x2028) + "] BOM["
+                + chr(0xFEFF) + "]")
+ASTRAL = chr(0x1F600)
+
+# Paraphrases of the research examples (the published check texts are not in this
+# repository): directed broadcast (V-216645, "must not"), SSH-only VTY lines,
+# "If ip source-route is configured", and checks that are prose or placeholders.
+HX_DIRECTED_BROADCAST = (
+    "Review the router configuration and verify that ip directed-broadcast is not enabled "
+    "on any interface.\n\ninterface GigabitEthernet0/1\n ip address 10.1.12.1 255.255.255.0\n"
+    " ip directed-broadcast\n\nThe ip directed-broadcast command must not be configured on "
+    "any interface.\n\nIf IP directed broadcast is enabled on any interface, this is a finding.")
+HX_SSH_ONLY = ("Review the VTY line configuration:\nline vty 0 4\n transport input ssh\n"
+               "If telnet is enabled (\"transport input telnet\" or \"transport input all\"), "
+               "this is a finding.")
+HX_SOURCE_ROUTE = "Review the router configuration.\nIf ip source-route is configured, this is a finding."
+HX_PROSE = ("Review the router configuration to determine whether it is compliant.\n"
+            "If the router is not configured as required, this is a finding.")
+HX_PLACEHOLDER = ("Verify the SNMP host:\nsnmp-server host <ip-address> version 3 priv <user>\n"
+                  "If it is missing, this is a finding.")
+HX_ESCAPED_STAR = "Verify logging:\nlogging host 10.1.1.\\*\nIf it is missing, this is a finding."
+HX_NO_FORM = "Verify the HTTP server is off:\nno ip http server\nIf it is not configured, this is a finding."
+HX_NOT_DISABLED = ("Verify:\nip directed-broadcast\nIf IP directed broadcast is not disabled on all "
+                   "interfaces, this is a finding.")
+HX_CASES = [HX_DIRECTED_BROADCAST, HX_SSH_ONLY, HX_SOURCE_ROUTE, HX_PROSE, HX_PLACEHOLDER,
+            HX_ESCAPED_STAR, HX_NO_FORM, HX_NOT_DISABLED]
+
+
+def xml_text(value):
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def fidelity_xml(bid="Fidelity_STIG", release=2, version=1, oval_only=False, ns="1.1"):
+    """An XCCDF benchmark exercising items 4, 18 and 19: a two-rule Group, a rule with no
+    id, missing/unknown/info severities, a repeated rule id, legacy idents, every
+    description pseudo-section, YAML-hostile characters and the research check texts."""
+    def rule(rid, sev, title, check, fix="Configure it.", extra_desc="", idents=""):
+        sev_attr = f' severity="{sev}"' if sev is not None else ""
+        id_attr = f' id="{rid}"' if rid is not None else ""
+        if oval_only:
+            check_xml = (f'<check system="http://oval.mitre.org/XMLSchema/oval-definitions-5">'
+                         f'<check-content-ref name="oval:fid:def:{rid}" href="oval.xml"/></check>')
+        else:
+            check_xml = f'<check system="C-1"><check-content>{xml_text(check)}</check-content></check>'
+        desc = xml_text(f"<VulnDiscussion>Why {title}</VulnDiscussion>{extra_desc}")
+        return (f'<Rule{id_attr}{sev_attr}><version>FID-{rid}</version><title>{xml_text(title)}</title>'
+                f'<description>{desc}</description>{idents}'
+                f'<ident system="http://cyber.mil/cci">CCI-002385</ident>'
+                f'<fixtext fixref="F-1">{xml_text(fix)}</fixtext>{check_xml}</Rule>')
+    sections = ("<FalsePositives>None known.</FalsePositives><FalseNegatives></FalseNegatives>"
+                "<Mitigations>Filter at the edge.</Mitigations><PotentialImpacts>Some.</PotentialImpacts>"
+                "<ThirdPartyTools>None.</ThirdPartyTools><MitigationControl>MC-1</MitigationControl>"
+                "<Responsibility>Network Administrator</Responsibility><IAControls>ECSC-1</IAControls>"
+                "<Documentable>false</Documentable>")
+    legacy = ('<ident system="http://cyber.mil/legacy">V-78221</ident>'
+              '<ident system="http://cyber.mil/legacy">SV-92927</ident>')
+    groups = [
+        ("V-3001", "SRG-NET-000362-RTR-000112",
+         rule("SV-3001r1_rule", "high", "The router must not forward directed broadcasts.",
+              HX_DIRECTED_BROADCAST, fix="Remove it:\nno ip directed-broadcast " + YAML_HOSTILE,
+              extra_desc=sections, idents=legacy)
+         + rule("SV-3001r2_rule", "info", "The router must use SSH only on VTY lines.", HX_SSH_ONLY)),
+        ("V-3002", "SRG-NET-000001", rule(None, None, "A rule without an id.", HX_SOURCE_ROUTE)),
+        ("V-3003", "SRG-NET-000002", rule("SV-3001r1_rule", "unknown", "A repeated rule id.", HX_PROSE)),
+        ("V-3004", "SRG-NET-000003", rule("SV-3004r1_rule", "low", "Placeholder check.", HX_PLACEHOLDER)),
+        ("V-3005", "SRG-NET-000004", rule("SV-3005r1_rule", "medium", "The no form.", HX_NO_FORM)),
+    ]
+    xmlns = ("http://checklists.nist.gov/xccdf/1.2" if ns == "1.2"
+             else "http://checklists.nist.gov/xccdf/1.1")
+    body = "".join(f'<Group id="{g}"><title>{t}</title>{r}</Group>' for g, t, r in groups)
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            f'<Benchmark xmlns="{xmlns}" id="{bid}" xml:lang="en">'
+            '<status date="2026-07-01">accepted</status>'
+            f'<title>Fidelity Cisco IOS Router STIG</title>'
+            f'<plain-text id="release-info">Release: {release} Benchmark Date: 01 Jul 2026</plain-text>'
+            f'<version>{version}</version>{body}</Benchmark>\n')
+
+
+def zip_bytes(members):
+    """A zip in memory: members is [(name, bytes or str)]."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in members:
+            zf.writestr(name, data)
+    return buf.getvalue()
+
+
+def dedupe_zip(path):
+    """Two releases of one benchmark, a SCAP-only benchmark, an XCCDF 1.1 OVAL-only
+    copy, and zips nested one, two and three levels deep (the last one is skipped)."""
+    deepest = zip_bytes([("deep-xccdf.xml", fidelity_xml("Too_Deep_STIG"))])
+    level2 = zip_bytes([("u_level2-xccdf.xml", fidelity_xml("Level2_STIG")),
+                        ("level3.zip", deepest)])
+    level1 = zip_bytes([("u_level1-xccdf.xml", fidelity_xml("Level1_STIG")),
+                        ("level2.zip", level2), ("Overview.pdf", b"%PDF-1.4")])
+    members = [
+        ("old/U_Fidelity_V1R2_Manual-xccdf.xml", fidelity_xml(release=2)),
+        ("new/U_Fidelity_V1R3_Manual-xccdf.xml", fidelity_xml(release=3)),
+        ("oval/U_Fidelity_V1R3_Oval-xccdf.xml", fidelity_xml(release=3, oval_only=True)),
+        ("scap/U_OnlyScap_V2R1_Benchmark-xccdf.xml", fidelity_xml("Only_Scap_STIG", ns="1.2")),
+        ("norel/U_NoRelease_V4R6_Manual-xccdf.xml",
+         fidelity_xml("No_Release_STIG").replace("Release: 2 Benchmark", "Benchmark")),
+        ("norel/U_NoRelease_V4R5_Manual-xccdf.xml",
+         fidelity_xml("No_Release_STIG").replace("Release: 2 Benchmark", "Benchmark")),
+        ("lib/level1.zip", level1),
+        ("broken-xccdf.xml", "<Benchmark><unclosed>"),
+        ("not-xccdf.xml", "<?xml version=\"1.0\"?><catalog/>"),
+        ("STIG_unclass.xsl", "<xsl:stylesheet/>"),
+    ]
+    with open(path, "wb") as fh:
+        fh.write(zip_bytes(members))
+    return path
+
+
+class ContentFidelityTests(TempDirTest):
+    def setUp(self):
+        super().setUp()
+        self.log = os.path.join(self.tmp, "fidelity.log")
+        tool.setup_logging(self.log, "debug")
+        self.addCleanup(tool.close_logging)
+
+    def lines(self):
+        return read_log_lines(self.log)
+
+    def fidelity(self, **kwargs):
+        return tool.load_benchmarks(self.write("U_Fidelity_V1R2_Manual-xccdf.xml",
+                                               fidelity_xml(**kwargs)))[0]
+
+    # item 4 ---------------------------------------------------------------
+    def test_heuristic_polarity_from_the_research_examples(self):
+        expected = [
+            ("ip directed-broadcast", False), ("transport input telnet", False),
+            ("ip source-route", False), None, None, None, ("ip http server", False), None,
+        ]
+        for text, want in zip(HX_CASES, expected):
+            with self.subTest(text=text[:50]):
+                draft = tool.heuristic_draft(text)
+                got = (draft["pattern"], draft["must_exist"]) if draft["pattern"] else None
+                self.assertEqual(got, want, draft)
+                if not want:
+                    self.assertTrue(draft["reason"])
+        positive = tool.heuristic_draft("Verify logging:\nlogging host 10.1.1.*\nIf missing, this is a finding.")
+        self.assertEqual((positive["pattern"], positive["must_exist"]), ("logging host 10.1.1.*", True))
+        self.assertIsNone(tool.heuristic_draft("Check:\ninterface Loopback0\nOtherwise a finding.")["pattern"])
+
+    def test_heuristic_rules_carry_the_polarity_and_manual_mode_is_unchanged(self):
+        rule = make_rule(1, check=HX_SOURCE_ROUTE)
+        draft = tool.rule_object(rule, "G", "heuristic")
+        self.assertEqual((draft["SimplePatternText"], draft["PatternMustExist"], draft["PatternType"]),
+                         ("ip source-route", False, "Like"))
+        self.assertIn("must not be present", draft["Comments"])
+        self.assertIn("Unverified: whether NCM matches a pattern inside a longer line", draft["Comments"])
+        wildcard = tool.rule_object(make_rule(2, check="Verify:\nlogging host 10.*\nIf missing, this is a finding."),
+                                    "G", "heuristic")
+        self.assertEqual((wildcard["SimplePatternText"], wildcard["PatternType"], wildcard["PatternMustExist"]),
+                         ("logging host 10\\.\\*", "Regex", True))
+        kept = tool.rule_object(make_rule(3, check=HX_PLACEHOLDER), "G", "heuristic")
+        self.assertEqual(kept["SimplePatternText"], "STIG-MANUAL-REVIEW-V-3")
+        self.assertIn("Heuristic mode kept the sentinel: no config line", kept["Comments"])
+        for n, text in enumerate(HX_CASES):
+            manual = tool.rule_object(make_rule(n, check=text), "G", "manual")
+            self.assertEqual((manual["SimplePatternText"], manual["PatternMustExist"], manual["PatternType"]),
+                             (f"STIG-MANUAL-REVIEW-V-{n}", True, "Like"))
+            self.assertNotIn("Heuristic", manual["Comments"])
+
+    def test_heuristic_decisions_are_logged(self):
+        bench = make_benchmark("Hx_STIG", [make_rule(n, check=t) for n, t in enumerate(HX_CASES)])
+        tool.build_reports([bench], mode="heuristic")
+        text = "\n".join(self.lines())
+        self.assertIn("V-2 heuristic: pattern 'ip source-route' must not exist (named in the sentence)", text)
+        self.assertIn("V-3 heuristic: sentinel kept (", text)
+        counts = [line for line in self.lines() if "heuristic drafted" in line]
+        self.assertEqual(len(counts), 1)
+        self.assertIn(" INFO  build  ", counts[0])
+        self.assertIn("heuristic drafted 4 of 8 rule(s) (0 must exist, 4 must not exist); 4 kept the sentinel",
+                      counts[0])
+
+    # item 7 ---------------------------------------------------------------
+    def test_fix_text_moves_to_comments_and_the_script_stays_empty(self):
+        rule = tool.rule_object(make_rule(5, fix="Configure:\nno ip http server"), "G", "manual")
+        self.assertEqual((rule["RemediateScript"], rule["RemediateScriptType"]), ("", "CLI"))
+        self.assertFalse(rule["ExecuteScriptAutomatically"])
+        self.assertTrue(rule["Comments"].endswith("Fix:\nConfigure:\nno ip http server"))
+        no_fix = tool.rule_object(make_rule(6, fix=""), "G", "manual")
+        self.assertNotIn("Fix:", no_fix["Comments"])
+        reports = tool.build_reports([make_benchmark("Fix_STIG", [make_rule(5), make_rule(6, fix="")])])
+        out = tool.write_console_file(reports[0], self.tmp)
+        with open(out, encoding="utf-8", newline="") as fh:
+            text = fh.read()
+        self.assertIn("<RemediateScript />", text)
+        self.assertIn("<RemediateScriptType>CLI</RemediateScriptType>", text)
+        self.assertIn("Fix:\r\nConfigure it.", text)
+        self.assertIn('Fix Text of 1 rule(s) kept in the rule Comments under "Fix:"', "\n".join(self.lines()))
+        for fmt in ("xml-dc", "xml-plain"):
+            dc = tool.WIRE_FORMATS[fmt]["rule"](reports[0]["AssignedPolicies"][0]["AssignedPolicyRules"][0])
+            self.assertIn("RemediateScript />", dc)
+
+    # item 8 ---------------------------------------------------------------
+    def test_scm_rules_stay_failed_without_a_translate_node(self):
+        text = tool.xccdf_to_scm_yaml(self.fidelity())
+        self.assertNotIn("!translate", text)
+        self.assertIn("reports failed, with the STIG check and fix text attached", text)
+
+    # item 17 --------------------------------------------------------------
+    def test_release_key_and_dedupe_edition(self):
+        self.assertEqual(tool.release_key(make_benchmark("A", [])), (3, 8))
+        self.assertEqual(tool.release_key(dict(make_benchmark("A", []), version="", release="",
+                                               source="U_X_V2R11_Manual-xccdf.xml")), (2, 11))
+        self.assertEqual(tool.release_key(dict(make_benchmark("A", []), version="x", release="",
+                                               source="none.xml")), (-1, -1))
+        self.assertEqual(tool.release_text((-1, 4)), "V?R4")
+        oval = make_benchmark("A", [make_rule(1, oval="oval:x:def:1")])
+        self.assertEqual(tool.dedupe_edition(oval), "scap")
+        self.assertEqual(tool.dedupe_edition(make_benchmark("A", [make_rule(1, check="x")])), "manual")
+        self.assertEqual(tool.dedupe_edition(make_benchmark("A", [])), "manual")
+
+    def test_dedupe_keeps_the_highest_release_and_reads_two_nesting_levels(self):
+        benches = tool.load_benchmarks(dedupe_zip(os.path.join(self.tmp, "U_Dedupe.zip")))
+        by_id = {b["benchmark_id"]: b for b in benches}
+        self.assertEqual(sorted(by_id), ["Fidelity_STIG", "Level1_STIG", "Level2_STIG",
+                                         "No_Release_STIG", "Only_Scap_STIG"])
+        self.assertEqual(by_id["Fidelity_STIG"]["source"], "U_Fidelity_V1R3_Manual-xccdf.xml")
+        self.assertEqual(by_id["No_Release_STIG"]["source"], "U_NoRelease_V4R6_Manual-xccdf.xml")
+        warns = [line for line in self.lines() if " WARN  parse  " in line]
+        text = "\n".join(warns)
+        self.assertIn("dedupe Fidelity_STIG: kept V1R3 manual edition from U_Fidelity_V1R3_Manual-xccdf.xml, "
+                      "dropped V1R2 manual edition from U_Fidelity_V1R2_Manual-xccdf.xml", text)
+        self.assertIn("dropped V1R3 scap edition from U_Fidelity_V1R3_Oval-xccdf.xml", text)
+        self.assertIn("dropped V1R5 manual edition", text)
+        self.assertIn("only the SCAP edition of Only_Scap_STIG is present", text)
+        self.assertIn("lib/level1.zip/level2.zip/level3.zip: a zip nested more than 2 levels deep", text)
+        self.assertIn("skipped lib/level1.zip/Overview.pdf: not an .xml or .zip member", text)
+        self.assertIn("skipped broken-xccdf.xml: not well-formed XML", text)
+        self.assertIn("skipped not-xccdf.xml: no XCCDF Benchmark element found", text)
+        self.assertNotIn("STIG_unclass.xsl", text)
+        self.assertTrue(any("skipped STIG_unclass.xsl: the XCCDF stylesheet" in line and " INFO " in line
+                            for line in self.lines()))
+        self.assertTrue(any("nested zip lib/level1.zip/level2.zip (level 2)" in line for line in self.lines()))
+
+    def test_newer_scap_release_beats_an_older_manual_one(self):
+        path = os.path.join(self.tmp, "U_Mixed.zip")
+        with open(path, "wb") as fh:
+            fh.write(zip_bytes([("a-xccdf.xml", fidelity_xml(release=2)),
+                                ("b-xccdf.xml", fidelity_xml(release=4, oval_only=True))]))
+        kept = tool.load_benchmarks(path)
+        self.assertEqual([b["source"] for b in kept], ["b-xccdf.xml"])
+        self.assertNotIn("only the SCAP edition", "\n".join(self.lines()))
+
+    def test_zip_size_limits_skip_or_refuse_with_a_logged_reason(self):
+        path = os.path.join(self.tmp, "U_Big.zip")
+        small = fidelity_xml("Small_STIG")
+        with open(path, "wb") as fh:
+            fh.write(zip_bytes([("a-xccdf.xml", small), ("b-xccdf.xml", small + " " * 4000)]))
+        with mock.patch.object(tool, "ZIP_MEMBER_MAX", len(small.encode()) + 10):
+            kept = tool.load_benchmarks(path)
+        self.assertEqual([b["source"] for b in kept], ["a-xccdf.xml"])
+        self.assertTrue(any("skipped b-xccdf.xml: refused:" in line and "member limit" in line
+                            and " WARN " in line for line in self.lines()))
+        with mock.patch.object(tool, "ZIP_TOTAL_MAX", len(small.encode()) + 10):
+            with self.assertRaisesRegex(ValueError, "total limit"):
+                tool.load_benchmarks(path)
+        self.assertTrue(any("refused: reading b-xccdf.xml would take the input past" in line
+                            for line in self.lines()))
+
+    # item 18 --------------------------------------------------------------
+    def test_yaml_scalars_escape_hostile_characters(self):
+        quoted = tool._yq("a" + YAML_HOSTILE + chr(0xFFFE) + "\n\x01")
+        self.assertEqual(quoted, '"aDEL[\\u007f] NEL[\\u0085] LS[\\u2028] BOM[\\ufeff]\\ufffe\\n\\u0001"')
+        self.assertEqual(json.loads(quoted), "a" + YAML_HOSTILE + chr(0xFFFE) + "\n\x01")
+        text = tool.xccdf_to_scm_yaml(self.fidelity())
+        for ch in YAML_HOSTILE[4], YAML_HOSTILE[11], chr(0x2028), chr(0xFEFF):
+            self.assertNotIn(ch, text)
+        self.assertIn("\\u2028", text)
+
+    def test_severity_defaults_and_rules_without_an_id(self):
+        bench = self.fidelity()
+        by_title = {r["title"]: r for r in bench["rules"]}
+        self.assertEqual(by_title["The router must use SSH only on VTY lines."]["severity"], "medium")
+        no_id = by_title["A rule without an id."]
+        self.assertEqual(no_id["severity"], "medium")
+        self.assertEqual(no_id["rule_id"], tool.no_id_rule_id("A rule without an id.", 3))
+        self.assertRegex(no_id["rule_id"], r"^noid-[0-9a-f-]{36}$")
+        self.assertEqual(self.fidelity()["rules"][2]["rule_id"], no_id["rule_id"], "deterministic")
+        self.assertEqual(by_title["A repeated rule id."]["severity"], "medium")
+        text = "\n".join(self.lines())
+        self.assertIn("rule 3 in group V-3002 has no id; using the deterministic id", text)
+        self.assertIn("3 rule(s) had a missing or unrecognized severity and were imported as medium: "
+                      "SV-3001r2_rule ('info'), " + no_id["rule_id"] + " (missing), SV-3001r1_rule ('unknown')",
+                      text)
+        yaml_text = tool.xccdf_to_scm_yaml(bench)
+        self.assertEqual(set(re.findall(r"^  severity: (\S+)$", yaml_text, re.MULTILINE)),
+                         {"High", "Medium", "Low"})
+
+    def test_console_file_keeps_the_xsd_and_xsi_declarations(self):
+        report = tool.build_reports([make_benchmark("Ns_STIG", [make_rule(1)])])[0]
+        with open(tool.write_console_file(report, self.tmp), encoding="utf-8", newline="") as fh:
+            text = fh.read()
+        self.assertIn('<PolicyReport xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
+                      'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\r\n', text)
+        self.assertNotIn("\r\r", text)
+        self.assertEqual(text.count("\n"), text.count("\r\n"))
+
+    def convert(self, source, *extra):
+        result = subprocess.run([sys.executable, PY_TOOL, "convert", source, "--vendor", "Cisco",
+                                 "--log-file", os.path.join(self.tmp, "cli.log"), *extra],
+                                cwd=self.tmp, capture_output=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result
+
+    def test_convert_output_is_honoured_for_ncm(self):
+        single = self.write("U_Fidelity_V1R2_Manual-xccdf.xml", fidelity_xml())
+        target = os.path.join(self.tmp, "chosen.xml")
+        self.convert(single, "-o", target)
+        with open(target, encoding="utf-8") as fh:
+            self.assertIn("<PolicyName>Fidelity Cisco IOS Router STIG V1 (Release: 2", fh.read())
+        result = self.convert(self.router_zip(), "-o", os.path.join(self.tmp, "ignored.xml"))
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "ignored.xml")))
+        self.assertIn(b"is ignored: this source converts to 2 NCM reports", result.stdout)
+        self.assertEqual(len([f for f in os.listdir(self.tmp) if f.endswith(".ncm-report.xml")]), 2)
+
+    def test_offline_scm_policy_is_written_with_lf(self):
+        xml = self.write("U_MS_Windows_Server_Fidelity-xccdf.xml", fidelity_xml("Windows_Server_Fid_STIG"))
+        self.convert(xml)
+        name = "U_MS_Windows_Server_Fidelity-xccdf.Windows_Server_Fid_STIG_v1.scm-policy.yaml"
+        with open(os.path.join(self.tmp, name), "rb") as fh:
+            raw = fh.read()
+        self.assertNotIn(b"\r", raw)
+        self.assertTrue(raw.startswith(b"!policy\n"))
+
+    # item 19 --------------------------------------------------------------
+    def test_every_rule_in_a_group_is_read_and_names_stay_unique(self):
+        bench = self.fidelity()
+        rules = bench["rules"]
+        self.assertEqual(len(rules), 6)
+        self.assertEqual([r["display_id"] for r in rules[:2]],
+                         ["V-3001/SV-3001r1_rule", "V-3001/SV-3001r2_rule"])
+        self.assertEqual(rules[3]["rule_id"], "SV-3001r1_rule-dup2")
+        self.assertEqual(rules[3]["display_id"], "V-3003")
+        report = tool.build_reports([bench], mode="heuristic")[0]
+        built = report["AssignedPolicies"][0]["AssignedPolicyRules"]
+        self.assertEqual(len({r["RuleId"] for r in built}), 6)
+        self.assertEqual(len({r["RuleName"] for r in built}), 6)
+        self.assertTrue(built[0]["RuleName"].startswith("V-3001/SV-3001r1_rule [high] "))
+        yaml_text = tool.xccdf_to_scm_yaml(bench)
+        ids = re.findall(r"^- displayId: (.+)$", yaml_text, re.MULTILINE)
+        self.assertEqual(len(set(ids)), 6)
+        self.assertEqual(len(set(re.findall(r"^  uniqueId: (\S+)$", yaml_text, re.MULTILINE))), 6)
+        text = "\n".join(self.lines())
+        self.assertIn("Fidelity_STIG: group V-3001 holds 2 rules; each becomes its own rule", text)
+        self.assertIn("rule id SV-3001r1_rule appears more than once; this occurrence is imported as "
+                      "SV-3001r1_rule-dup2", text)
+
+    def test_legacy_ids_srg_id_and_every_section_are_kept(self):
+        rule = self.fidelity()["rules"][0]
+        self.assertEqual(rule["legacy_ids"], ["V-78221", "SV-92927"])
+        self.assertEqual(rule["srg_id"], "SRG-NET-000362-RTR-000112")
+        self.assertEqual([label for label, _ in rule["sections"]],
+                         ["Discussion", "False positives", "Mitigations", "Potential impacts",
+                          "Third-party tools", "Mitigation control", "Responsibility", "IA controls"])
+        comments = tool.rule_object(rule, "G", "manual")["Comments"]
+        self.assertTrue(comments.startswith("V-3001 / SV-3001r1_rule / STIG ID FID-SV-3001r1_rule / CCI-002385 "
+                                            "/ SRG SRG-NET-000362-RTR-000112 / legacy V-78221, SV-92927\n\n"))
+        for needle in ("Discussion:\nWhy The router", "False positives:\nNone known.",
+                       "Mitigations:\nFilter at the edge.", "IA controls:\nECSC-1",
+                       "Responsibility:\nNetwork Administrator", "Fix:\nRemove it:"):
+            self.assertIn(needle, comments)
+        description = tool.scm_rule_description(rule)
+        self.assertTrue(description.startswith("Why The router must not forward directed broadcasts.\n\n"
+                                               "False positives:\nNone known."))
+        self.assertTrue(description.endswith("/ legacy V-78221, SV-92927"))
+
+
+# ---------------------------------------------------------------------------
 # Shared cases for items 5, 6 and 11 (Python tests and the parity comparison)
 # ---------------------------------------------------------------------------
 
@@ -1888,7 +2266,12 @@ def ps_benchmark(b):
         "Rules": [{"VulnId": r["vuln_id"], "RuleId": r["rule_id"], "StigId": r["stig_id"],
                    "Severity": r["severity"], "Title": r["title"], "Discussion": r["discussion"],
                    "CheckContent": r["check_content"], "OvalRef": r["oval_ref"],
-                   "FixText": r["fix_text"], "Ccis": r["ccis"]} for r in b["rules"]],
+                   "FixText": r["fix_text"], "Ccis": r["ccis"],
+                   # Parser-only fields (2.0.0); None (JSON null) when a fixture leaves
+                   # them out, which both editions treat as absent.
+                   "DisplayId": r.get("display_id"), "SrgId": r.get("srg_id"),
+                   "LegacyIds": r.get("legacy_ids"), "Sections": r.get("sections")}
+                  for r in b["rules"]],
     }
 
 
@@ -1921,6 +2304,8 @@ class PowerShellEditionTests(TempDirTest):
             "Cafe_STIG", "Café Router STIG", RTR_GROUPS).replace(
             'encoding="UTF-8"', 'encoding="windows-1252"').encode("cp1252"))
         refuse = [self.write("xxe-xccdf.xml", XXE_XML), self.write("dtd-xccdf.xml", DTD_ONLY_XML)]
+        fidelity = self.write("U_Fidelity_V1R2_Manual-xccdf.xml", fidelity_xml())
+        dedupe = dedupe_zip(os.path.join(self.tmp, "U_Dedupe_Y26M07_STIG.zip"))
         ps_log = os.path.join(self.tmp, "ps-parity.log")
         where = "(Vendor = 'Cisco')"
         files = [
@@ -1941,6 +2326,16 @@ class PowerShellEditionTests(TempDirTest):
             dict(path=bare_xml, name="Upgrade", where="(Vendor = 'O''Brien')", mode="manual",
                  folder="DISA STIG", enabled=True, configType="Any", suffix="_v10", family="linux",
                  template=PROBE_TEMPLATE),
+            # Slice 4: a multi-rule Group, a rule without an id, defaulted severities, a
+            # repeated rule id, legacy ids, every description section, YAML-hostile
+            # characters and the heuristic research examples (both modes); then release
+            # dedupe, OVAL-only and SCAP-only editions and two levels of nested zips.
+            dict(path=fidelity, name="", where=where, mode="manual", folder="DISA STIG",
+                 enabled=True, configType="Any"),
+            dict(path=fidelity, name="", where=where, mode="heuristic", folder="DISA STIG",
+                 enabled=True, configType="Any"),
+            dict(path=dedupe, name="", where=where, mode="heuristic", folder="DISA STIG",
+                 enabled=True, configType="Any"),
         ]
         long_title = "Very Long Benchmark Title " * 15
         tricky = make_rule(9, "high",
@@ -1967,6 +2362,13 @@ class PowerShellEditionTests(TempDirTest):
                 dict(make_rule(14), vuln_id=NASTY_VULN, rule_id="SV-14$(x)")], title=long_title)],
                  baseName="", where=where, mode="manual", folder="DISA STIG", enabled=True,
                  configType="Any", suffix="_v7", family="linux", template=PROBE_TEMPLATE),
+            # Slice 4: the heuristic research examples, and names cut where a surrogate
+            # pair sits on the 250-character boundary (PowerShell counts code points).
+            dict(benchmarks=[make_benchmark("Hx_STIG", [
+                make_rule(20 + n, check=t, fix="Fix " + YAML_HOSTILE) for n, t in enumerate(HX_CASES)]
+                + [make_rule(30, title="A" * 230 + ASTRAL * 20)], title="B" * 240 + ASTRAL * 20)],
+                 baseName="", where=where, mode="heuristic", folder="DISA STIG", enabled=True,
+                 configType="Any"),
         ]
         name_cases = [{"stem": stem, "suffix": suffix} for stem, suffix in (
             ("../../x", ".ncm-report.xml"), ("T" * 300, ".scm-policy.yaml"), ("CON", ".x"),
@@ -1997,7 +2399,7 @@ class PowerShellEditionTests(TempDirTest):
                 "scopes": [dict(c, benchmarks=[ps_benchmark(b) for b in c["benchmarks"]])
                            for c in SCOPE_CASES],
                 "platforms": PLATFORM_TITLES, "selections": SELECTION_WHERES,
-                "templates": TEMPLATE_CASES, "suffixes": SUFFIX_CASES,
+                "templates": TEMPLATE_CASES, "suffixes": SUFFIX_CASES, "drafts": HX_CASES,
                 "suffixed": [{"name": n, "suffix": x} for n, x in SUFFIXED_CASES],
                 "nextFree": [{"names": n, "base": b, "current": c} for n, b, c in NEXT_FREE_CASES]}
         spec_path = self.write("parity-in.json", json.dumps(spec))
@@ -2041,6 +2443,23 @@ class PowerShellEditionTests(TempDirTest):
         self.assertEqual(ps["suffixes"], [py_suffix_ok(x) for x in SUFFIX_CASES])
         self.assertEqual(ps["suffixed"], [tool.with_suffix(n, x) for n, x in SUFFIXED_CASES])
         self.assertEqual(ps["nextFree"], [tool.next_free_suffix(n, b, c) for n, b, c in NEXT_FREE_CASES])
+
+        def py_draft(text):
+            d = tool.heuristic_draft(text)
+            return [d["pattern"], d["must_exist"], d["source"], d["how"]] if d["pattern"]                 else [None, d["reason"]]
+        self.assertEqual(ps["drafts"], [py_draft(t) for t in HX_CASES])
+        # Slice 4 spot checks: the multi-rule Group and the dedupe decisions came out
+        # the same in both editions, and the cut names kept whole surrogate pairs.
+        fid_rules = ps["files"][7]["reports"][0]["AssignedPolicies"][0]["AssignedPolicyRules"]
+        self.assertEqual(len(fid_rules), 6)
+        self.assertTrue(fid_rules[0]["RuleName"].startswith("V-3001/SV-3001r1_rule [high] "))
+        self.assertEqual([r["PatternMustExist"] for r in ps["files"][8]["reports"][0]["AssignedPolicies"][0]
+                          ["AssignedPolicyRules"]], [False, False, False, True, True, False])
+        self.assertEqual(len(ps["files"][9]["reports"]), 5)
+        self.assertIn("\\u2028", ps["files"][7]["scm"][0])
+        cut = ps["memory"][4]["reports"][0]["AssignedPolicies"][0]["AssignedPolicyRules"][-1]["RuleName"]
+        self.assertEqual(cut, "V-30 [medium] " + "A" * 230 + ASTRAL * 6)
+        self.assertTrue(ps["memory"][4]["reports"][0]["Name"].endswith(ASTRAL * 7 + "_v1"))
         # The comparison covered real decisions, not only refusals.
         self.assertEqual(sum(1 for r in ps["scopes"] if r.get("error")), 6)
         self.assertIn("(Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')",

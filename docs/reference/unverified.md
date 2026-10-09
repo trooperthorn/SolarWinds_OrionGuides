@@ -8,7 +8,7 @@ This index extracts explicit uncertainty markers from authored pages under docs/
 
 The extractor recognizes selected phrases and explicit labels such as **Unverified:**, **Unknown:**, **Unconfirmed:**, **Not tested:**, and **Runtime validation required:**. It skips generated pages, headings, and fenced code. Absence from this index does not mean a claim is verified; app and script READMEs are outside its collection scope. See [the documentation audit](documentation-audit-2026-09-18.md) for coverage and evidence rules.
 
-**315 statements across 76 pages.**
+**317 statements across 76 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -101,6 +101,10 @@ Read this before relying on this repository for something load-bearing. If you h
 - The precise algorithm that selects a root, and what the counts are used for once calculated, are **not recorded in the published schema** and are unverified here.
 
 ## [disa-stig-import.md](../automation/disa-stig-import.md)
+
+**[Path one: network STIGs into NCM](../automation/disa-stig-import.md#path-one-network-stigs-into-ncm)**
+
+- **Unverified:** whether NCM matches a pattern inside a longer line, which would let a must-not-exist `ip source-route` also match `no ip source-route`; test a draft with `TestRule` against a compliant config.
 
 **[The tool that does all of this](../automation/disa-stig-import.md#the-tool-that-does-all-of-this)**
 
@@ -494,6 +498,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Scope and collected configuration are portable dependencies](../modules/ncm-compliance-portability-audit.md#scope-and-collected-configuration-are-portable-dependencies)**
 
 - Runtime precedence if the two representations disagree is **unverified** here.
+
+**[Code gaps affecting the STIG Tool and Porter](../modules/ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter)**
+
+- P1 — `rule_object` / `New-NcmRule` — Default generation creates basic literal sentinel/draft rules and copies fix prose into a CLI script field. It does not compile advanced/block conditions from DISA prose. **Fix prose addressed in DISA STIG tool 2.0.0 (2026-10-09):** both editions keep the fix text in the rule comments under `Fix:` and send `RemediateScript` empty with `RemediateScriptType` `...
 
 ## [ncm-device-templates.md](../modules/ncm-device-templates.md)
 

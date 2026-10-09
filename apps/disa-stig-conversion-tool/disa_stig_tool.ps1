@@ -223,7 +223,7 @@ function Send-Log([scriptblock]$Log, [string]$Component, [string]$Level, [string
 function Limit-LogBody([string]$Text) {
     if ($null -eq $Text) { return '' }
     if ($Text.Length -le $script:LogBodyLimit) { return $Text }
-    return $Text.Substring(0, $script:LogBodyLimit) + "... [truncated, $($Text.Length) chars]"
+    return (Limit-Text $Text $script:LogBodyLimit) + "... [truncated, $($Text.Length) chars]"
 }
 
 function Format-ToolCommandLine($Bound) {
@@ -342,8 +342,7 @@ function Get-SuffixedName([string]$Name, [string]$Suffix, [int]$Limit = 250) {
     # itself is never cut, so the base can be recovered for the collision check.
     if ($null -eq $Name) { $Name = '' }
     $max = [Math]::Max(0, $Limit - $Suffix.Length)
-    if ($Name.Length -gt $max) { $Name = $Name.Substring(0, $max) }
-    return $Name + $Suffix
+    return (Limit-Text $Name $max) + $Suffix
 }
 
 function Split-NameSuffix([string]$Name) {
@@ -538,7 +537,7 @@ function ConvertFrom-BenchmarkXml([byte[]]$Bytes, [string]$SourceName) {
     # Zip discovery goes by content, and every skip is logged with its reason.
     $headLength = [Math]::Min(200, $Bytes.Length)
     if ($headLength -eq 0 -or [Array]::IndexOf($Bytes, [byte]0x3C, 0, $headLength) -lt 0) {
-        Write-ToolLog parse info "skipped ${SourceName}: does not look like XML"
+        Write-ToolLog parse warn "skipped ${SourceName}: does not look like XML"
         return @()
     }
     try { $doc = Read-SafeXmlDocument $Bytes }
@@ -563,11 +562,66 @@ function ConvertFrom-BenchmarkXml([byte[]]$Bytes, [string]$SourceName) {
     if ($found.Count -eq 0) {
         $rootName = '(none)'
         if ($doc.DocumentElement) { $rootName = '{' + $doc.DocumentElement.NamespaceURI + '}' + $doc.DocumentElement.LocalName }
-        Write-ToolLog parse info "skipped ${SourceName}: no XCCDF Benchmark element found (root is $rootName)"
+        Write-ToolLog parse warn "skipped ${SourceName}: no XCCDF Benchmark element found (root is $rootName)"
     } else {
         Write-ToolLog parse info "parsed ${SourceName}: $($found.Count) benchmark(s)"
     }
     return @($found)
+}
+
+# The pseudo-sections DISA embeds in a rule's <description>, in the order they are
+# carried into the NCM rule Comments and the SCM rule description (Python
+# DESCRIPTION_SECTIONS). Empty sections are left out.
+$script:DescriptionSections = @(
+    @('VulnDiscussion', 'Discussion'), @('FalsePositives', 'False positives'),
+    @('FalseNegatives', 'False negatives'), @('Mitigations', 'Mitigations'),
+    @('PotentialImpacts', 'Potential impacts'), @('ThirdPartyTools', 'Third-party tools'),
+    @('MitigationControl', 'Mitigation control'), @('Responsibility', 'Responsibility'),
+    @('IAControls', 'IA controls'))
+
+function Get-NormalizedSeverity([string]$Raw) {
+    # @{ Severity; Note }: high/medium/low are kept; a missing severity, unknown, info
+    # and anything else become medium, and Note says what was there (Python
+    # normalize_severity).
+    $value = ([string]$Raw).Trim().ToLowerInvariant()
+    if (@('high', 'medium', 'low') -ccontains $value) { return @{ Severity = $value; Note = $null } }
+    if (-not $value) { return @{ Severity = 'medium'; Note = 'missing' } }
+    return @{ Severity = 'medium'; Note = "'$value'" }
+}
+
+function Get-NoIdRuleId([string]$Title, [int]$Index) {
+    # The deterministic id of a Rule without an id attribute (Python no_id_rule_id).
+    return 'noid-' + (Get-DeterministicGuid ("stig2ncm-noid:$Title#$Index"))
+}
+
+function Set-UniqueRuleIds($Rules, [string]$BenchLabel) {
+    # Python _unique_rule_ids: a repeated rule id gets -dup<n> with a warning, and every
+    # rule gets DisplayId: the V- id, or V-id/rule id when the V- id is shared.
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($r in $Rules) {
+        $rid = [string]$r.RuleId
+        if ($seen.Contains($rid)) {
+            $n = 2
+            while ($seen.Contains("$rid-dup$n")) { $n++ }
+            $r.RuleId = "$rid-dup$n"
+            Write-ToolLog parse warn "${BenchLabel}: rule id $rid appears more than once; this occurrence is imported as $($r.RuleId)"
+        }
+        [void]$seen.Add([string]$r.RuleId)
+    }
+    $counts = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::Ordinal)
+    foreach ($r in $Rules) {
+        $v = [string]$r.VulnId
+        if ($counts.ContainsKey($v)) { $counts[$v]++ } else { $counts[$v] = 1 }
+    }
+    foreach ($r in $Rules) {
+        $v = [string]$r.VulnId
+        if ($counts[$v] -gt 1) {
+            $r.DisplayId = "$v/$($r.RuleId)"
+            Write-ToolLog parse debug "${BenchLabel}: $v is shared by $($counts[$v]) rules; this one is named $($r.DisplayId)"
+        } else {
+            $r.DisplayId = $v
+        }
+    }
 }
 
 function Read-OneBenchmark($Root, [string]$Ns, [string]$SourceName) {
@@ -586,44 +640,86 @@ function Read-OneBenchmark($Root, [string]$Ns, [string]$SourceName) {
     $edition = 'manual'
     if ($Ns -eq $script:XccdfNamespaces[1]) { $edition = 'scap' }
     $rules = New-Object System.Collections.ArrayList
+    $defaulted = New-Object System.Collections.ArrayList
+    $benchLabel = Remove-ScapPrefix $Root.GetAttribute('id'); if (-not $benchLabel) { $benchLabel = '(no id)' }
     $mgr = New-Object System.Xml.XmlNamespaceManager($Root.OwnerDocument.NameTable)
     $mgr.AddNamespace('x', $Ns)
     foreach ($group in $Root.SelectNodes('.//x:Group', $mgr)) {
-        $rule = $group.SelectSingleNode('x:Rule', $mgr)
-        if ($null -eq $rule) { continue }
-        $desc = Get-XmlText $rule 'description' $Ns
-        $checkContent = ''
-        $ovalRef = ''
-        $check = $rule.SelectSingleNode('x:check', $mgr)
-        if ($null -ne $check) {
-            $cc = $check.SelectSingleNode('x:check-content', $mgr)
-            if ($null -ne $cc) { $checkContent = ('' + $cc.InnerText).Trim() }
-            $ref = $check.SelectSingleNode('x:check-content-ref', $mgr)
-            if ($null -ne $ref -and ('' + $ref.GetAttribute('name')).StartsWith('oval:')) {
-                $ovalRef = $ref.GetAttribute('name')
-            }
+        # Every Rule in a Group becomes a rule (2.0.0; earlier builds read the first
+        # only). A multi-rule Group shares its V- id, so those rules are named by
+        # V-id/rule id (Set-UniqueRuleIds) to keep names unique.
+        $groupRules = @($group.SelectNodes('x:Rule', $mgr))
+        if ($groupRules.Count -eq 0) { continue }
+        $vulnId = Remove-ScapPrefix $group.GetAttribute('id')
+        $vulnShown = $vulnId; if (-not $vulnShown) { $vulnShown = '(no id)' }
+        $srgId = Get-XmlText $group 'title' $Ns
+        if ($groupRules.Count -gt 1) {
+            Write-ToolLog parse info "${benchLabel}: group $vulnShown holds $($groupRules.Count) rules; each becomes its own rule"
         }
-        $ccis = New-Object System.Collections.ArrayList
-        foreach ($ident in $rule.SelectNodes('x:ident', $mgr)) {
-            if (('' + $ident.GetAttribute('system')).EndsWith('/cci')) {
-                [void]$ccis.Add(('' + $ident.InnerText).Trim())
+        foreach ($rule in $groupRules) {
+            $index = $rules.Count + 1
+            $title = Get-XmlText $rule 'title' $Ns
+            $ruleId = Remove-ScapPrefix $rule.GetAttribute('id')
+            if (-not $ruleId) {
+                $ruleId = Get-NoIdRuleId $title $index
+                Write-ToolLog parse warn ("${benchLabel}: rule $index in group $vulnShown has no id; using the " +
+                    "deterministic id $ruleId (from its title and position)")
             }
+            $sevInfo = Get-NormalizedSeverity $rule.GetAttribute('severity')
+            if ($sevInfo.Note) {
+                [void]$defaulted.Add("$ruleId ($($sevInfo.Note))")
+                Write-ToolLog parse debug "${benchLabel}: $ruleId severity $($sevInfo.Note); imported as medium"
+            }
+            $desc = Get-XmlText $rule 'description' $Ns
+            $checkContent = ''
+            $ovalRef = ''
+            $check = $rule.SelectSingleNode('x:check', $mgr)
+            if ($null -ne $check) {
+                $cc = $check.SelectSingleNode('x:check-content', $mgr)
+                if ($null -ne $cc) { $checkContent = ('' + $cc.InnerText).Trim() }
+                $ref = $check.SelectSingleNode('x:check-content-ref', $mgr)
+                if ($null -ne $ref -and ('' + $ref.GetAttribute('name')).StartsWith('oval:')) {
+                    $ovalRef = $ref.GetAttribute('name')
+                }
+            }
+            $ccis = New-Object System.Collections.ArrayList
+            $legacy = New-Object System.Collections.ArrayList
+            foreach ($ident in $rule.SelectNodes('x:ident', $mgr)) {
+                $identText = ('' + $ident.InnerText).Trim()
+                if (-not $identText) { continue }
+                $system = '' + $ident.GetAttribute('system')
+                if ($system.EndsWith('/cci')) { [void]$ccis.Add($identText) }
+                elseif ($system.EndsWith('/legacy')) { [void]$legacy.Add($identText) }
+            }
+            $sections = New-Object System.Collections.ArrayList
+            foreach ($pair in $script:DescriptionSections) {
+                $body = Get-PseudoTag $desc $pair[0]
+                if ($body) { [void]$sections.Add(@($pair[1], $body)) }
+            }
+            [void]$rules.Add(@{
+                VulnId       = $vulnId
+                RuleId       = $ruleId
+                StigId       = Get-XmlText $rule 'version' $Ns
+                Severity     = $sevInfo.Severity
+                Title        = $title
+                Discussion   = Get-PseudoTag $desc 'VulnDiscussion'
+                CheckContent = $checkContent
+                OvalRef      = $ovalRef
+                FixText      = Get-XmlText $rule 'fixtext' $Ns
+                Ccis         = @($ccis)
+                LegacyIds    = @($legacy)
+                SrgId        = $srgId
+                Sections     = @($sections)
+            })
         }
-        $sev = ('' + $rule.GetAttribute('severity')).ToLower()
-        if (-not $sev) { $sev = 'medium' }
-        [void]$rules.Add(@{
-            VulnId       = Remove-ScapPrefix $group.GetAttribute('id')
-            RuleId       = Remove-ScapPrefix $rule.GetAttribute('id')
-            StigId       = Get-XmlText $rule 'version' $Ns
-            Severity     = $sev
-            Title        = Get-XmlText $rule 'title' $Ns
-            Discussion   = Get-PseudoTag $desc 'VulnDiscussion'
-            CheckContent = $checkContent
-            OvalRef      = $ovalRef
-            FixText      = Get-XmlText $rule 'fixtext' $Ns
-            Ccis         = @($ccis)
-        })
     }
+    if ($defaulted.Count -gt 0) {
+        $shown = (@($defaulted)[0..([Math]::Min(10, $defaulted.Count) - 1)]) -join ', '
+        if ($defaulted.Count -gt 10) { $shown += ", and $($defaulted.Count - 10) more" }
+        Write-ToolLog parse warn ("${benchLabel}: $($defaulted.Count) rule(s) had a missing or unrecognized " +
+            "severity and were imported as medium: $shown")
+    }
+    Set-UniqueRuleIds $rules $benchLabel
     $benchmark = @{
         Source      = $SourceName
         BenchmarkId = Remove-ScapPrefix $Root.GetAttribute('id')
@@ -641,10 +737,186 @@ function Read-OneBenchmark($Root, [string]$Ns, [string]$SourceName) {
     return $benchmark
 }
 
+function Get-ReleaseKey($Benchmark) {
+    # Python release_key: @(version, release) as integers, -1 when unknown. The
+    # version is a whole-number <version>, the release the N of "Release: N"; either
+    # one missing falls back to the VnRm in the source file name.
+    $rawVersion = ([string]$Benchmark.Version).Trim()
+    $version = -1
+    if ($rawVersion -cmatch '^[0-9]{1,9}\z') { $version = [int]$rawVersion }
+    $release = -1
+    $m = [regex]::Match([string]$Benchmark.Release, 'Release:\s*([0-9]{1,9})(?![0-9])', 'IgnoreCase')
+    if ($m.Success) { $release = [int]$m.Groups[1].Value }
+    if ($version -lt 0 -or $release -lt 0) {
+        $n = [regex]::Match([string]$Benchmark.Source, '(?<![A-Za-z0-9])V([0-9]{1,9})R([0-9]{1,9})(?![0-9])', 'IgnoreCase')
+        if ($n.Success) {
+            if ($version -lt 0) { $version = [int]$n.Groups[1].Value }
+            if ($release -lt 0) { $release = [int]$n.Groups[2].Value }
+        }
+    }
+    return , @($version, $release)
+}
+
+function Format-ReleaseKey($Key) {
+    $v = '?'; if ($Key[0] -ge 0) { $v = [string]$Key[0] }
+    $r = '?'; if ($Key[1] -ge 0) { $r = [string]$Key[1] }
+    return "V${v}R${r}"
+}
+
+function Get-DedupeEdition($Benchmark) {
+    # Python dedupe_edition: XCCDF 1.2 is SCAP, and so is XCCDF 1.1 whose every rule
+    # carries an OVAL reference and no check prose.
+    if ($Benchmark.Edition -eq 'scap') { return 'scap' }
+    $rules = @($Benchmark.Rules)
+    if ($rules.Count -eq 0) { return 'manual' }
+    foreach ($r in $rules) { if (-not $r.OvalRef -or $r.CheckContent) { return 'manual' } }
+    return 'scap'
+}
+
+function Compare-BenchmarkRank($A, $B) {
+    # 1 when $A outranks $B (higher version, then release, then manual over SCAP), else 0.
+    $ka = Get-ReleaseKey $A; $kb = Get-ReleaseKey $B
+    for ($i = 0; $i -lt 2; $i++) {
+        if ($ka[$i] -gt $kb[$i]) { return 1 }
+        if ($ka[$i] -lt $kb[$i]) { return 0 }
+    }
+    if ((Get-DedupeEdition $A) -eq 'manual' -and (Get-DedupeEdition $B) -eq 'scap') { return 1 }
+    return 0
+}
+
+function Select-UniqueBenchmarks($Benchmarks) {
+    # Python _dedupe_benchmarks: one benchmark per id, the highest release, manual over
+    # SCAP at the same release. Every drop is a warning, and so is a benchmark present
+    # only in its SCAP edition.
+    $groups = [ordered]@{}
+    foreach ($b in $Benchmarks) {
+        $key = $b.BenchmarkId; if (-not $key) { $key = $b.Title }
+        if (-not $groups.Contains($key)) { $groups[$key] = New-Object System.Collections.ArrayList }
+        [void]$groups[$key].Add($b)
+    }
+    $kept = New-Object System.Collections.ArrayList
+    foreach ($key in @($groups.Keys)) {
+        $items = @($groups[$key])
+        $best = $items[0]
+        for ($i = 1; $i -lt $items.Count; $i++) {
+            if ((Compare-BenchmarkRank $items[$i] $best) -eq 1) { $best = $items[$i] }
+        }
+        $allScap = $true
+        foreach ($b in $items) {
+            if ((Get-DedupeEdition $b) -ne 'scap') { $allScap = $false }
+            if ([object]::ReferenceEquals($b, $best)) { continue }
+            Write-ToolLog parse warn ("dedupe ${key}: kept $(Format-ReleaseKey (Get-ReleaseKey $best)) " +
+                "$(Get-DedupeEdition $best) edition from $($best.Source), dropped " +
+                "$(Format-ReleaseKey (Get-ReleaseKey $b)) $(Get-DedupeEdition $b) edition from $($b.Source)")
+        }
+        if ($allScap) {
+            Write-ToolLog parse warn ("only the SCAP edition of $key is present ($($best.Source)): its rules " +
+                'carry OVAL references instead of check prose, and a SCAP benchmark can leave out rules ' +
+                'that cannot be automated; use the manual STIG for the full rule set')
+        }
+        [void]$kept.Add($best)
+    }
+    return , @($kept)
+}
+
+# Zip input limits (Python ZIP_MEMBER_MAX, ZIP_TOTAL_MAX, ZIP_NEST_MAX): a member whose
+# uncompressed size is over the member limit is skipped, reading past the total limit
+# refuses the whole input, and zips nest at most two levels deep; all are logged.
+$script:ZipMemberMax = 200MB
+$script:ZipTotalMax = 1GB
+$script:ZipNestMax = 2
+
+function Skip-ZipMember([string]$Label, [string]$Why) {
+    # Every skipped member is a warning, except the XCCDF stylesheet DISA ships in
+    # every package, which is expected and only noted.
+    $level = 'warn'; if ($Label -match '\.xsl$') { $level = 'info' }
+    Write-ToolLog parse $level "skipped ${Label}: $Why"
+}
+
+function Read-ZipEntryBytes($Entry, [long]$Max) {
+    # The entry's bytes, read in chunks and never more than $Max + 1 of them, so a
+    # member whose declared size understates its content cannot exhaust memory.
+    $ms = New-Object System.IO.MemoryStream
+    $s = $Entry.Open()
+    try {
+        $buf = New-Object byte[] 65536
+        while ($true) {
+            $n = $s.Read($buf, 0, $buf.Length)
+            if ($n -le 0) { break }
+            $ms.Write($buf, 0, $n)
+            if ($ms.Length -gt $Max) { throw "the member holds more than its declared $($Entry.Length) bytes" }
+        }
+    } finally { $s.Dispose() }
+    return , $ms.ToArray()
+}
+
+function Read-StigZip($Archive, [string]$Prefix, [int]$Depth, $Budget, $Out) {
+    # Python _read_zip: parse every XCCDF member, recursing into nested zips.
+    # Ordinal order by full name, as Python sorts (a stable sort keeps duplicates in
+    # archive order). [Array]::Sort(keys, items) would sort a converted copy of the
+    # items, so the names are sorted alone and mapped back.
+    $byName = New-Object 'System.Collections.Generic.Dictionary[string,System.Collections.ArrayList]' ([System.StringComparer]::Ordinal)
+    foreach ($e in $Archive.Entries) {
+        if (-not $byName.ContainsKey($e.FullName)) { $byName[$e.FullName] = New-Object System.Collections.ArrayList }
+        [void]$byName[$e.FullName].Add($e)
+    }
+    $names = [string[]]@($byName.Keys)
+    [Array]::Sort($names, [System.StringComparer]::Ordinal)
+    $entries = @(foreach ($n in $names) { $byName[$n] })
+    foreach ($entry in $entries) {
+        if (-not $entry.Name) { continue }   # a directory entry
+        $label = $Prefix + $entry.FullName
+        $isXml = $entry.Name -match '\.xml$'
+        $isZip = $entry.Name -match '\.zip$'
+        if (-not $isXml -and -not $isZip) {
+            if ($entry.Name -match '\.xsl$') { Skip-ZipMember $label 'the XCCDF stylesheet, not data' }
+            else { Skip-ZipMember $label 'not an .xml or .zip member (document or other content)' }
+            continue
+        }
+        if ($isZip -and $Depth -ge $script:ZipNestMax) {
+            Skip-ZipMember $label "a zip nested more than $($script:ZipNestMax) levels deep is not read"
+            continue
+        }
+        if ($entry.Length -gt $script:ZipMemberMax) {
+            Skip-ZipMember $label "refused: $($entry.Length) bytes uncompressed is over the $($script:ZipMemberMax)-byte member limit"
+            continue
+        }
+        if ($Budget[0] + $entry.Length -gt $script:ZipTotalMax) {
+            $reason = "refused: reading $label would take the input past the $($script:ZipTotalMax)-byte total limit for zip members"
+            Write-ToolLog parse warn $reason
+            throw $reason
+        }
+        try { $bytes = Read-ZipEntryBytes $entry ([long]$entry.Length) }
+        catch {
+            $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+            Skip-ZipMember $label "the member cannot be read ($($e.Message))"
+            continue
+        }
+        $Budget[0] += $bytes.Length
+        if ($isXml) {
+            foreach ($b in (ConvertFrom-BenchmarkXml $bytes $entry.Name)) { [void]$Out.Add($b) }
+            continue
+        }
+        # Compilation zips (SRG-STIG Library) nest one zip per STIG, and those can
+        # nest one zip per edition.
+        $ms = New-Object System.IO.MemoryStream(, $bytes)
+        try { $inner = New-Object System.IO.Compression.ZipArchive($ms) }
+        catch {
+            $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+            Skip-ZipMember $label "not a readable zip ($($e.Message))"
+            $ms.Dispose()
+            continue
+        }
+        Write-ToolLog parse info "nested zip $label (level $($Depth + 1)): reading its members"
+        try { Read-StigZip $inner ($label + '/') ($Depth + 1) $Budget $Out }
+        finally { $inner.Dispose(); $ms.Dispose() }
+    }
+}
+
 function Get-StigBenchmarks([string]$SourcePath) {
     # Zip, directory, .xml, or .xsl (resolves the benchmark XML next to it).
-    # Discovery is by content, not filename; both editions of one benchmark
-    # dedupe to the manual one (richer: check prose; fix text is identical).
+    # Discovery is by content, not filename; zips nest up to two levels deep; one
+    # benchmark id keeps its highest release, manual over SCAP (Select-UniqueBenchmarks).
     $benchmarks = New-Object System.Collections.ArrayList
     $addXml = {
         param($Bytes, $Name)
@@ -655,42 +927,19 @@ function Get-StigBenchmarks([string]$SourcePath) {
         foreach ($f in Get-ChildItem -LiteralPath $SourcePath -Recurse -File) {
             if ($f.Name -match '\.xml$') {
                 & $addXml ([System.IO.File]::ReadAllBytes($f.FullName)) $f.Name
+            } elseif ($f.Name -match '\.xsl$') {
+                Skip-ZipMember $f.Name 'the XCCDF stylesheet, not data'
             } else {
-                Write-ToolLog parse info "skipped $($f.Name): not an .xml file"
+                Skip-ZipMember $f.Name 'not an .xml file'
             }
         }
     } elseif ($SourcePath -match '\.(zip)$') {
         Write-ToolLog parse info "input ${SourcePath}: zip ($((Get-Item -LiteralPath $SourcePath).Length) bytes)"
+        Add-Type -AssemblyName System.IO.Compression
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($SourcePath)
-        try {
-            foreach ($entry in ($zip.Entries | Sort-Object FullName)) {
-                if (-not $entry.Name) { continue }   # a directory entry
-                if ($entry.Name -match '\.xml$') {
-                    $ms = New-Object System.IO.MemoryStream
-                    $s = $entry.Open(); $s.CopyTo($ms); $s.Dispose()
-                    & $addXml $ms.ToArray() $entry.Name
-                } elseif ($entry.Name -match '\.zip$') {
-                    Write-ToolLog parse info "nested zip $($entry.FullName): reading its members"
-                    $ms = New-Object System.IO.MemoryStream
-                    $s = $entry.Open(); $s.CopyTo($ms); $s.Dispose()
-                    $ms.Position = 0
-                    $inner = New-Object System.IO.Compression.ZipArchive($ms)
-                    foreach ($ie in ($inner.Entries | Sort-Object FullName)) {
-                        if (-not $ie.Name) { continue }
-                        if ($ie.Name -match '\.xml$') {
-                            $ims = New-Object System.IO.MemoryStream
-                            $is2 = $ie.Open(); $is2.CopyTo($ims); $is2.Dispose()
-                            & $addXml $ims.ToArray() $ie.Name
-                        } else {
-                            Write-ToolLog parse info "skipped $($entry.FullName)/$($ie.FullName): not an .xml member"
-                        }
-                    }
-                } else {
-                    Write-ToolLog parse info "skipped $($entry.FullName): not an .xml or .zip member (stylesheet, document or other content)"
-                }
-            }
-        } finally { $zip.Dispose() }
+        try { Read-StigZip $zip '' 0 ([long[]]@(0)) $benchmarks }
+        finally { $zip.Dispose() }
     } elseif ($SourcePath -match '\.xml$') {
         Write-ToolLog parse info "input ${SourcePath}: XML file"
         & $addXml ([System.IO.File]::ReadAllBytes($SourcePath)) (Split-Path -Leaf $SourcePath)
@@ -703,27 +952,13 @@ function Get-StigBenchmarks([string]$SourcePath) {
         Write-ToolLog parse warn "refused ${SourcePath}: not a zip, directory, or XCCDF .xml file"
         throw "$SourcePath is not a zip, directory, or XCCDF .xml file"
     }
-    # dedupe: manual edition wins over scap for the same benchmark id
-    $byId = [ordered]@{}
-    foreach ($b in $benchmarks) {
-        $key = $b.BenchmarkId; if (-not $key) { $key = $b.Title }
-        if (-not $byId.Contains($key)) {
-            $byId[$key] = $b
-        } elseif ($byId[$key].Edition -eq 'scap' -and $b.Edition -eq 'manual') {
-            Write-ToolLog parse info ("dedupe ${key}: kept the manual edition from $($b.Source), " +
-                "dropped the SCAP edition from $($byId[$key].Source)")
-            $byId[$key] = $b
-        } else {
-            Write-ToolLog parse info ("dedupe ${key}: kept the $($byId[$key].Edition) edition from " +
-                "$($byId[$key].Source), dropped the $($b.Edition) edition from $($b.Source)")
-        }
-    }
-    if ($byId.Count -eq 0) {
+    $kept = Select-UniqueBenchmarks $benchmarks
+    if ($kept.Count -eq 0) {
         Write-ToolLog parse warn "${SourcePath}: no XCCDF benchmark found inside"
         throw "$SourcePath contains no XCCDF benchmark"
     }
-    Write-ToolLog parse info "${SourcePath}: $($byId.Count) benchmark(s) after dedupe"
-    return , @($byId.Values)   # unary comma: stay an array even with one benchmark
+    Write-ToolLog parse info "${SourcePath}: $($kept.Count) benchmark(s) after dedupe"
+    return , @($kept)   # unary comma: stay an array even with one benchmark
 }
 
 # =========================================================================
@@ -858,10 +1093,17 @@ $script:SeverityToErrorLevel = @{ high = 2; medium = 1; low = 0 }
 $script:EmDash = [string][char]0x2014
 
 function Limit-Text([string]$Text, [int]$Max = 250) {
-    # Python's text[:250]: names are capped at 250 characters in both editions.
+    # Python's text[:Max]: counts code points, not UTF-16 units, so a surrogate pair
+    # is never split and both editions cut a name at the same character (2.0.0).
     if ($null -eq $Text) { return '' }
-    if ($Text.Length -gt $Max) { return $Text.Substring(0, $Max) }
-    return $Text
+    if ($Text.Length -le $Max) { return $Text }
+    $units = 0; $points = 0
+    while ($units -lt $Text.Length -and $points -lt $Max) {
+        if ([char]::IsHighSurrogate($Text[$units]) -and $units + 1 -lt $Text.Length -and
+            [char]::IsLowSurrogate($Text[$units + 1])) { $units += 2 } else { $units += 1 }
+        $points++
+    }
+    return $Text.Substring(0, $units)
 }
 
 function Get-NcmPolicyId($Benchmark, [string]$Suffix = '_v1') {
@@ -899,7 +1141,7 @@ function Get-ReportBaseName([string]$SourcePath, [string]$ReportName) {
 }
 $script:ConfigTokens = @('aaa ', 'ip ', 'ipv6 ', 'line ', 'snmp-server ', 'ntp ', 'logging ',
     'login ', 'banner ', 'crypto ', 'interface ', 'router ', 'access-list ', 'username ',
-    'service ', 'no ', 'hostname ', 'enable ', 'archive', 'clock ', 'boot ')
+    'service ', 'no ', 'hostname ', 'enable ', 'archive', 'clock ', 'boot ', 'transport ')
 
 # NCM reads a `Like` pattern literally unless the advanced setting
 # ComplianceRulesWildcardsEnabled is turned on, which it is not by default
@@ -940,49 +1182,212 @@ function Get-XmlConfigWarning([string]$Where) {
     return $null
 }
 
+# -Mode heuristic (2.0.0): a draft pattern is emitted only when the check text says
+# plainly whether a config line must be present or absent. The expressions are the
+# Python edition's (_HX_*), so both editions draft the same rules.
+$script:HxOptions = [System.Text.RegularExpressions.RegexOptions]'IgnoreCase, CultureInvariant'
+$script:HxLines = '\r\n|\r|\n'
+$script:HxSentenceSplit = '(?<=[.!?])\s+(?=[A-Z"''(])'
+$script:HxPlaceholder = '<[^<>]*>'
+$script:HxFinding = '\bthis is a finding\b'
+$script:HxIfClause = '\bif\b(.*?)\bthis is a finding\b'
+$script:HxNegCue = '\bmust not\b|\b(?:is|are) not permitted\b'
+$script:HxNegation = '\bnot\b|n''t\b|\bmissing\b|\babsent\b|\bwithout\b|\bfails?\b'
+$script:HxDisabling = '\bdisabled?\b|\bremoved?\b|\bdeleted?\b|\bturned off\b|\bshut ?down\b'
+$script:HxQuoted = '["\u201c\u201d]([^"\u201c\u201d]+)["\u201c\u201d]|''([^'']+)'''
+$script:HxSubject = '^\s*(?:the\s+)?(?:command\s+)?(.+?)\s+(?:is|are)\b'
+
+function Get-HxConfigLine([string]$Text) {
+    # Python _hx_config_line: the text stripped when it reads as one config command.
+    $t = ([string]$Text).Trim()
+    if (-not $t -or $t.Length -gt 200) { return $null }
+    foreach ($end in @(':', '.', '?', ',', ';')) { if ($t.EndsWith($end, [StringComparison]::Ordinal)) { return $null } }
+    if ([regex]::IsMatch($t, $script:HxPlaceholder) -or $t.Contains('\*') -or $t.Contains('"')) { return $null }
+    foreach ($tok in $script:ConfigTokens) {
+        if ($t.StartsWith($tok, [StringComparison]::Ordinal)) { return $t }
+    }
+    return $null
+}
+
+function Get-HxNorm([string]$Text) {
+    return [regex]::Replace(([string]$Text).ToLowerInvariant(), '[^a-z0-9./]+', ' ').Trim()
+}
+
+function Get-HxSentences([string]$Text) {
+    $out = New-Object System.Collections.ArrayList
+    foreach ($line in [regex]::Split([string]$Text, $script:HxLines)) {
+        foreach ($part in [regex]::Split($line.Trim(), $script:HxSentenceSplit)) {
+            if ($part.Trim()) { [void]$out.Add($part.Trim()) }
+        }
+    }
+    return , @($out)
+}
+
+function Get-HxPolarity([string]$Sentence) {
+    # Python _hx_polarity: @{ Polarity = 'absent' | 'present' | $null; Cond }.
+    if ([regex]::IsMatch($Sentence, $script:HxFinding, $script:HxOptions)) {
+        $m = [regex]::Match($Sentence, $script:HxIfClause, $script:HxOptions)
+        if (-not $m.Success) { return @{ Polarity = $null; Cond = $null } }
+        $cond = $m.Groups[1].Value
+        if ([regex]::IsMatch($cond, $script:HxDisabling, $script:HxOptions)) { return @{ Polarity = $null; Cond = $cond } }
+        $p = 'absent'; if ([regex]::IsMatch($cond, $script:HxNegation, $script:HxOptions)) { $p = 'present' }
+        return @{ Polarity = $p; Cond = $cond }
+    }
+    if ([regex]::IsMatch($Sentence, $script:HxNegCue, $script:HxOptions)) {
+        $rest = [regex]::Replace($Sentence, $script:HxNegCue, ' ', $script:HxOptions)
+        if ([regex]::IsMatch($rest, $script:HxDisabling, $script:HxOptions) -or
+            [regex]::IsMatch($rest, $script:HxNegation, $script:HxOptions)) { return @{ Polarity = $null; Cond = $null } }
+        return @{ Polarity = 'absent'; Cond = $null }
+    }
+    return @{ Polarity = $null; Cond = $null }
+}
+
+function Get-HxReferent([string]$Sentence, $Cond, $Candidates) {
+    # Python _hx_referent: @{ Line; How } for the config line the sentence is about.
+    foreach ($m in [regex]::Matches($Sentence, $script:HxQuoted)) {
+        $inner = $m.Groups[2].Value; if ($m.Groups[1].Success) { $inner = $m.Groups[1].Value }
+        $line = Get-HxConfigLine $inner
+        if ($line) { return @{ Line = $line; How = 'quoted in the sentence' } }
+    }
+    if ($null -ne $Cond) {
+        $sm = [regex]::Match([string]$Cond, $script:HxSubject, $script:HxOptions)
+        if ($sm.Success) {
+            $line = Get-HxConfigLine $sm.Groups[1].Value
+            if ($line) { return @{ Line = $line; How = 'named in the sentence' } }
+        }
+    }
+    $padded = ' ' + (Get-HxNorm $Sentence) + ' '
+    $hits = @(@($Candidates) | Where-Object { $n = Get-HxNorm $_; $n -and $padded.Contains(' ' + $n + ' ') })
+    if ($hits.Count -gt 0) {
+        $longest = ($hits | ForEach-Object { (Get-HxNorm $_).Length } | Measure-Object -Maximum).Maximum
+        $best = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+        foreach ($h in $hits) { if ((Get-HxNorm $h).Length -eq $longest) { [void]$best.Add($h) } }
+        if ($best.Count -eq 1) { return @{ Line = @($best)[0]; How = 'a config line the sentence mentions' } }
+        return @{ Line = $null; How = 'the sentence mentions more than one config line' }
+    }
+    $distinct = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($c in @($Candidates)) { [void]$distinct.Add($c) }
+    if ($distinct.Count -eq 1) { return @{ Line = @($distinct)[0]; How = 'the only config line in the check text' } }
+    return @{ Line = $null; How = $null }
+}
+
+function Get-HeuristicDraft([string]$CheckContent) {
+    # Python heuristic_draft: @{ Pattern; MustExist; Source; How } when one sentence
+    # names a config line and says plainly whether it must be present or absent, else
+    # @{ Pattern = $null; Reason }, and the rule keeps the manual-review sentinel.
+    $candidates = @([regex]::Split([string]$CheckContent, $script:HxLines) |
+        ForEach-Object { Get-HxConfigLine $_ } | Where-Object { $_ })
+    $stated = $false
+    foreach ($sentence in (Get-HxSentences $CheckContent)) {
+        $pol = Get-HxPolarity $sentence
+        if ($null -eq $pol.Polarity) { continue }
+        $stated = $true
+        $ref = Get-HxReferent $sentence $pol.Cond $candidates
+        if (-not $ref.Line) { continue }
+        $line = $ref.Line; $how = $ref.How
+        $mustExist = $pol.Polarity -eq 'present'
+        if ($line.StartsWith('no ', [StringComparison]::Ordinal)) {
+            if (-not $mustExist) { continue }
+            $line = Get-HxConfigLine $line.Substring(3)
+            $mustExist = $false
+            $how += ', inverted from its "no" form'
+            if (-not $line) { continue }
+        }
+        return @{ Pattern = $line; MustExist = $mustExist; Source = $sentence; How = $how }
+    }
+    if ($candidates.Count -eq 0) { $reason = 'no config line in the check text (only prose, placeholders or escaped *)' }
+    elseif (-not $stated) { $reason = 'the check text does not say plainly whether its config line must be present or absent' }
+    else { $reason = 'no sentence that states a finding names one config line unambiguously' }
+    return @{ Pattern = $null; Reason = $reason }
+}
+
+function Test-RuleField($Rule, [string]$Field) {
+    # Whether a rule carries a field that older callers (and tests) may leave out,
+    # for a hashtable and for an object read from JSON alike (Set-StrictMode 2 refuses
+    # a missing property, so it is tested before it is read).
+    if ($Rule -is [System.Collections.IDictionary]) { return ($Rule.Contains($Field) -and $null -ne $Rule[$Field]) }
+    $prop = $Rule.PSObject.Properties[$Field]
+    return ($null -ne $prop -and $null -ne $prop.Value)
+}
+
+function Get-RuleReferenceLine($Rule) {
+    # Python rule_reference_line.
+    $line = "$($Rule.VulnId) / $($Rule.RuleId) / STIG ID $($Rule.StigId)"
+    if ($Rule.Ccis.Count -gt 0) { $line += ' / ' + ($Rule.Ccis -join ', ') }
+    if ((Test-RuleField $Rule 'SrgId') -and $Rule.SrgId) { $line += ' / SRG ' + $Rule.SrgId }
+    if (Test-RuleField $Rule 'LegacyIds') {
+        $legacy = @($Rule.LegacyIds | Where-Object { $_ })
+        if ($legacy.Count -gt 0) { $line += ' / legacy ' + ($legacy -join ', ') }
+    }
+    return $line
+}
+
+function Get-RuleSections($Rule) {
+    # Python rule_sections: @(label, text) pairs; a rule built without Sections falls
+    # back to its discussion.
+    if (-not (Test-RuleField $Rule 'Sections')) {
+        if ($Rule.Discussion) { return , @(, @('Discussion', [string]$Rule.Discussion)) }
+        return , @()
+    }
+    return , @($Rule.Sections | ForEach-Object { , @([string]$_[0], [string]$_[1]) })
+}
+
 function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string]$Suffix = '_v1') {
     $pattern = 'STIG-MANUAL-REVIEW-' + $Rule.VulnId
+    $display = $Rule.VulnId; if ((Test-RuleField $Rule 'DisplayId') -and $Rule.DisplayId) { $display = $Rule.DisplayId }
     $patternType = 'Like'
+    $mustExist = $true
     $note = 'PATTERN NOT SET: this sentinel never matches, so the rule flags every ' +
             'node as a violation until you replace it with a real pattern for this check.'
-    if ($PatternMode -eq 'heuristic' -and $Rule.CheckContent) {
-        foreach ($line in ($Rule.CheckContent -split "`n")) {
-            $t = $line.Trim()
-            if (-not $t -or $t -match '[:?.]$') { continue }
-            $lower = $t.ToLower()
-            foreach ($tok in $script:ConfigTokens) {
-                if ($lower.StartsWith($tok)) {
-                    $pattern = $t
-                    $note = 'DRAFT PATTERN extracted automatically from the STIG check ' +
-                            'text ' + $script:EmDash + ' verify it before trusting this rule''s results.'
-                    break
-                }
+    if ($PatternMode -eq 'heuristic') {
+        $draft = Get-HeuristicDraft $Rule.CheckContent
+        if (-not $draft.Pattern) {
+            $note += ' Heuristic mode kept the sentinel: ' + $draft.Reason + '.'
+            Write-ToolLog build debug "$display heuristic: sentinel kept ($($draft.Reason))"
+        } else {
+            $found = $draft.Pattern
+            $mustExist = [bool]$draft.MustExist
+            $pattern = $found
+            $note = 'DRAFT PATTERN extracted automatically from the STIG check ' +
+                    'text ' + $script:EmDash + ' verify it before trusting this rule''s results.'
+            if ($mustExist) {
+                $note += ' Polarity: the check text says this line must be present ' +
+                         '(PatternMustExist true), from: "' + $draft.Source + '"'
+            } else {
+                $note += ' Polarity: the check text says this line must not be present ' +
+                         '(PatternMustExist false: the rule reports a violation when the ' +
+                         'pattern is found), from: "' + $draft.Source + '". Unverified: ' +
+                         'whether NCM matches a pattern inside a longer line, so an explicit ' +
+                         '"no ' + $found + '" line may also match; run the rule through ' +
+                         'the test command against a compliant config before trusting it.'
             }
-            if ($note.StartsWith('DRAFT')) { break }
-        }
-        if ($note.StartsWith('DRAFT') -and ($pattern.Contains('*') -or $pattern.Contains('?'))) {
-            $patternType = 'Regex'
-            $pattern = ConvertTo-EscapedRegex $pattern
-            $note += ' Emitted as an escaped Regex rather than a Like pattern because ' +
-                     'the extracted text contains * or ?, which a Like pattern only ' +
-                     'treats as wildcards when the server''s ' +
-                     'ComplianceRulesWildcardsEnabled advanced setting is on ' +
-                     '(NCM 2023.1.1 and later; off by default).'
+            $mustWord = 'exist'; if (-not $mustExist) { $mustWord = 'not exist' }
+            Write-ToolLog build debug ("$display heuristic: pattern '$found' must $mustWord ($($draft.How)) " +
+                "from '$($draft.Source)'")
+            if ($found.Contains('*') -or $found.Contains('?')) {
+                $patternType = 'Regex'
+                $pattern = ConvertTo-EscapedRegex $found
+                $note += ' Emitted as an escaped Regex rather than a Like pattern because ' +
+                         'the extracted text contains * or ?, which a Like pattern only ' +
+                         'treats as wildcards when the server''s ' +
+                         'ComplianceRulesWildcardsEnabled advanced setting is on ' +
+                         '(NCM 2023.1.1 and later; off by default).'
+            }
         }
     }
     $parts = New-Object System.Collections.ArrayList
-    $ids = "$($Rule.VulnId) / $($Rule.RuleId) / STIG ID $($Rule.StigId)"
-    if ($Rule.Ccis.Count -gt 0) { $ids += ' / ' + ($Rule.Ccis -join ', ') }
-    [void]$parts.Add($ids); [void]$parts.Add($note)
-    if ($Rule.Discussion) { [void]$parts.Add("Discussion:`n" + $Rule.Discussion) }
+    [void]$parts.Add((Get-RuleReferenceLine $Rule)); [void]$parts.Add($note)
+    foreach ($pair in (Get-RuleSections $Rule)) { [void]$parts.Add($pair[0] + ":`n" + $pair[1]) }
     if ($Rule.CheckContent) { [void]$parts.Add("Check:`n" + $Rule.CheckContent) }
     elseif ($Rule.OvalRef) {
         [void]$parts.Add('Machine check (SCAP edition): OVAL definition ' + $Rule.OvalRef +
             ' ' + $script:EmDash + ' no manual check text in this edition; the manual ' +
             'STIG for this product carries the prose.')
     }
-    $name = "$($Rule.VulnId) [$($Rule.Severity)] $($Rule.Title)"
-    if ($name.Length -gt 250) { $name = $name.Substring(0, 250) }
+    # The Fix Text is guidance for an engineer, not a script (2.0.0): it lives here,
+    # and RemediateScript stays empty until reviewed commands are written into it.
+    if ($Rule.FixText) { [void]$parts.Add("Fix:`n" + $Rule.FixText) }
+    $name = Limit-Text "$display [$($Rule.Severity)] $($Rule.Title)" 250
     $lvl = 1
     if ($script:SeverityToErrorLevel.ContainsKey($Rule.Severity)) {
         $lvl = $script:SeverityToErrorLevel[$Rule.Severity]
@@ -994,7 +1399,7 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
         Grouping = $RuleGrouping
         SimplePatternText = $pattern
         PatternType = $patternType
-        PatternMustExist = $true
+        PatternMustExist = $mustExist
         AdvancedMode = $false
         MultiLineRulePatterns = @()
         ConfigBlockStart = ''
@@ -1003,13 +1408,32 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
         ConfigBlockMustExist = $false
         IsConfigBlockPatternRegEx = $false
         ErrorLevel = $lvl
-        RemediateScript = $Rule.FixText   # never auto-executed
+        # No remediation script (2.0.0): the Fix Text is prose and goes into Comments.
+        # Sent empty rather than omitted (the contract marks no member optional and
+        # the audited exports carry it on every rule), with RemediateScriptType CLI
+        # as every audited rule has. Nothing is ever auto-executed.
+        RemediateScript = ''
         RemediateScriptType = 'CLI'
         ExecuteScriptAutomatically = $false
         ExecuteRemediationScriptPerBlock = $false
         ExecuteScriptInConfigMode = $false
         Owner = 'DISA STIG Conversion Tool'
     }
+}
+
+function Write-NcmBuildCounts([string]$ReportName, $SourceRules, $Rules, [string]$PatternMode) {
+    # Python log_build_counts: where the Fix Text went and, in heuristic mode, how many
+    # rules got a draft of each polarity.
+    $withFix = @(@($SourceRules) | Where-Object { $_.FixText }).Count
+    Write-ToolLog build info ("report `"$ReportName`": Fix Text of $withFix rule(s) kept in the rule Comments " +
+        'under "Fix:"; RemediateScript is left empty')
+    if ($PatternMode -ne 'heuristic') { return }
+    $all = @($Rules)
+    $drafted = @($all | Where-Object { -not ([string]$_.SimplePatternText).StartsWith('STIG-MANUAL-REVIEW-', [StringComparison]::Ordinal) })
+    $absent = @($drafted | Where-Object { -not $_.PatternMustExist }).Count
+    Write-ToolLog build info ("report `"$ReportName`": heuristic drafted $($drafted.Count) of $($all.Count) " +
+        "rule(s) ($($drafted.Count - $absent) must exist, $absent must not exist); " +
+        "$($all.Count - $drafted.Count) kept the sentinel")
 }
 
 function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
@@ -1057,6 +1481,7 @@ function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
         Write-ToolLog build info ("report `"$($last.Name)`": policy `"$($policy.PolicyName)`" " +
             "(PolicyId $($policy.PolicyId)), $($rules.Count) rule(s), mode $PatternMode, " +
             "ReportStatus $($last.ReportStatus), ConfigTypes $ConfigTypes, grouping $ruleGroup, suffix $Suffix")
+        Write-NcmBuildCounts $last.Name $b.Rules $rules $PatternMode
     }
     return , @($reports)   # unary comma: stay an array even with one report
 }
@@ -1164,13 +1589,32 @@ function Y([string]$Value) {
             8  { [void]$sb.Append('\b') }   # json.dumps spells these two out
             12 { [void]$sb.Append('\f') }
             default {
-                if ([int]$ch -lt 32) { [void]$sb.AppendFormat('\u{0:x4}', [int]$ch) }
+                # Control characters as JSON writes them, plus what JSON leaves raw but a
+                # YAML double-quoted scalar must not hold: DEL and the C1 controls (U+0085
+                # among them), U+2028/U+2029, U+FEFF, U+FFFE/U+FFFF (Python _YAML_ESCAPES).
+                $code = [int]$ch
+                if ($code -lt 32 -or ($code -ge 0x7f -and $code -le 0x9f) -or $code -eq 0x2028 -or
+                    $code -eq 0x2029 -or $code -eq 0xfeff -or $code -eq 0xfffe -or $code -eq 0xffff) {
+                    [void]$sb.AppendFormat('\u{0:x4}', $code)
+                }
                 else { [void]$sb.Append($ch) }
             }
         }
     }
     [void]$sb.Append('"')
     return $sb.ToString()
+}
+
+function Get-ScmRuleDescription($Rule) {
+    # Python scm_rule_description: the pseudo-sections (the discussion unlabeled, the
+    # others under their labels), then the identifier line.
+    $parts = New-Object System.Collections.ArrayList
+    foreach ($pair in (Get-RuleSections $Rule)) {
+        if ($pair[0] -ceq 'Discussion') { [void]$parts.Add($pair[1]) }
+        else { [void]$parts.Add($pair[0] + ":`n" + $pair[1]) }
+    }
+    [void]$parts.Add((Get-RuleReferenceLine $Rule))
+    return ($parts -join "`n`n")
 }
 
 function ConvertTo-ScmPolicyYaml($Benchmark, [string]$Suffix = '_v1', [string]$OsFamily = 'windows', $ProbeTemplate = $null) {
@@ -1200,12 +1644,18 @@ function ConvertTo-ScmPolicyYaml($Benchmark, [string]$Suffix = '_v1', [string]$O
                      'The manual STIG for this product carries the prose check text.'
         }
         $sev = $r.Severity.Substring(0, 1).ToUpper() + $r.Severity.Substring(1)
-        [void]$lines.Add('- displayId: ' + (Y $r.VulnId))
+        # Unverified: SCM's !translate (SolarWinds' shipped policies use it to map Failed
+        # to Unknown) is not emitted. The repository describes that node only in prose
+        # (scm-policy-portability-audit.md), not as an exact serialized example, and
+        # Unknown is also what a polling error looks like, so an un-reviewed rule stays
+        # Failed (same as the Python edition).
+        $displayId = $r.VulnId; if ((Test-RuleField $r 'DisplayId') -and $r.DisplayId) { $displayId = $r.DisplayId }
+        [void]$lines.Add('- displayId: ' + (Y $displayId))
         [void]$lines.Add('  uniqueId: ' + (Get-ScmRuleUniqueId $r $Suffix))
-        $title = $r.Title; if ($title.Length -gt 250) { $title = $title.Substring(0, 250) }
+        $title = Limit-Text $r.Title 250
         [void]$lines.Add('  name: ' + (Y $title))
         [void]$lines.Add("  severity: $sev")
-        [void]$lines.Add('  description: ' + (Y $r.Discussion))
+        [void]$lines.Add('  description: ' + (Y (Get-ScmRuleDescription $r)))
         [void]$lines.Add('  remediationDescription: ' + (Y $r.FixText))
         [void]$lines.Add('  checkText: ' + (Y $check))
         # The probe runs as PowerShell on every assigned node: the id is validated
@@ -1651,7 +2101,7 @@ function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$
 function Limit-OneLine([string]$Text, [int]$Width) {
     $t = (([string]$Text) -split '\s+' | Where-Object { $_ }) -join ' '
     if ($t.Length -le $Width) { return $t }
-    return $t.Substring(0, $Width) + '...'
+    return (Limit-Text $t $Width) + '...'
 }
 
 # =========================================================================

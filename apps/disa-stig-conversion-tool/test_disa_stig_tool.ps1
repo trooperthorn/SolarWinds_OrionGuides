@@ -95,6 +95,10 @@ if ($ParityJson) {
     $out['suffixes'] = @(@($spec.suffixes) | ForEach-Object { try { [void](Test-Suffix ([string]$_)); $true } catch { $false } })
     $out['suffixed'] = @(@($spec.suffixed) | ForEach-Object { Get-SuffixedName ([string]$_.name) ([string]$_.suffix) })
     $out['nextFree'] = @(@($spec.nextFree) | ForEach-Object { Get-NextFreeSuffix @($_.names) ([string]$_.base) ([string]$_.current) })
+    # Heuristic drafts (slice 4): pattern, polarity, source sentence and how, or the reason.
+    $out['drafts'] = @(@($spec.drafts) | ForEach-Object {
+        $d = Get-HeuristicDraft ([string]$_)
+        if ($d.Pattern) { , @($d.Pattern, [bool]$d.MustExist, $d.Source, $d.How) } else { , @($null, $d.Reason) } })
     $out.files = @($fileResults)
     $out.memory = @($memResults)
     # Helpers that must give the same answer as their Python counterparts.
@@ -386,6 +390,79 @@ try {
 
     # --- 8. YAML scalar quoting matches json.dumps for \b and \f -----------
     Assert-Equal '"a\bb\fc\u0001"' (Y ("a" + [char]8 + "b" + [char]12 + "c" + [char]1)) 'Y escapes like json.dumps'
+
+    # --- 8a. content fidelity (2.0.0 slice 4) --------------------------------
+    # YAML escapes beyond JSON's (DEL, C1, U+2028/2029, U+FEFF, U+FFFE/FFFF).
+    $bs = [string][char]92
+    Assert-Equal ('"a' + $bs + 'u007f' + $bs + 'u0085' + $bs + 'u2028' + $bs + 'ufeffz"') (Y ('a' + [char]0x7f + [char]0x85 + [char]0x2028 + [char]0xfeff + 'z')) 'Y escapes DEL, C1, U+2028 and U+FEFF'
+    # Truncation counts code points, so a surrogate pair is never split.
+    $smile = [char]::ConvertFromUtf32(0x1F600)
+    Assert-Equal ('ab' + $smile) (Limit-Text ('ab' + $smile * 3) 3) 'Limit-Text keeps a surrogate pair whole'
+    Assert-Equal 250 (Get-SuffixedName ('x' * 300) '_v1').Length 'Get-SuffixedName still cuts plain names to 250'
+    Assert-Equal ('n' * 240 + $smile * 7 + '_v1') (Get-SuffixedName ('n' * 240 + $smile * 20) '_v1') 'Get-SuffixedName cuts at 247 code points'
+    # Severity: missing, unknown and info become medium with a note.
+    Assert-Equal 'medium' (Get-NormalizedSeverity '').Severity 'a missing severity is medium'
+    Assert-Equal "'info'" (Get-NormalizedSeverity 'INFO').Note 'info is noted'
+    Assert-True ($null -eq (Get-NormalizedSeverity 'High').Note) 'high is kept without a note'
+    # Heuristic polarity: the research examples.
+    $hx = Get-HeuristicDraft "Review the router configuration.`nIf ip source-route is configured, this is a finding."
+    Assert-True ($hx.Pattern -ceq 'ip source-route' -and $hx.MustExist -eq $false) 'If ip source-route is configured: must not exist'
+    $hx = Get-HeuristicDraft "Verify:`nsnmp-server host <ip-address> version 3`nIf it is missing, this is a finding."
+    Assert-True ($null -eq $hx.Pattern -and $hx.Reason -like 'no config line*') 'a placeholder line keeps the sentinel'
+    # Zips: two nesting levels read, a third skipped; member and total limits; dedupe.
+    Add-Type -AssemblyName System.IO.Compression
+    function New-TestZipBytes($Members) {
+        $zms = New-Object System.IO.MemoryStream
+        $za = New-Object System.IO.Compression.ZipArchive($zms, [System.IO.Compression.ZipArchiveMode]::Create, $true)
+        foreach ($k in $Members.Keys) {
+            $v = $Members[$k]; if ($v -is [string]) { $v = $utf8.GetBytes($v) }
+            $ze = $za.CreateEntry($k); $zs = $ze.Open(); $zs.Write($v, 0, $v.Length); $zs.Dispose()
+        }
+        $za.Dispose()
+        return , $zms.ToArray()
+    }
+    function New-TestBenchXml([string]$Id, [int]$Rel) {
+        return ('<?xml version="1.0"?><Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1" id="' + $Id + '">' +
+            '<title>T ' + $Id + '</title><plain-text id="release-info">Release: ' + $Rel + ' Benchmark Date: x</plain-text>' +
+            '<version>1</version><Group id="V-1"><title>SRG-NET-1</title>' +
+            '<Rule id="SV-1r1_rule" severity="high"><title>a</title><fixtext>f</fixtext></Rule>' +
+            '<Rule id="SV-1r2_rule"><title>b</title><ident system="http://cyber.mil/legacy">V-9</ident></Rule></Group></Benchmark>')
+    }
+    $deep = New-TestZipBytes ([ordered]@{ 'deep-xccdf.xml' = (New-TestBenchXml 'Deep_STIG' 1) })
+    $lvl2 = New-TestZipBytes ([ordered]@{ 'l2-xccdf.xml' = (New-TestBenchXml 'L2_STIG' 1); 'l3.zip' = $deep })
+    $lvl1 = New-TestZipBytes ([ordered]@{ 'l1-xccdf.xml' = (New-TestBenchXml 'L1_STIG' 1); 'l2.zip' = $lvl2 })
+    $outer = New-TestZipBytes ([ordered]@{ 'b/U_Dup_V1R1-xccdf.xml' = (New-TestBenchXml 'Dup_STIG' 1)
+        'a/U_Dup_V1R2-xccdf.xml' = (New-TestBenchXml 'Dup_STIG' 2); 'lib/l1.zip' = $lvl1; 'readme.txt' = 'x' })
+    $zipPath = Join-Path $scratch 'U_S4_Test.zip'
+    [System.IO.File]::WriteAllBytes($zipPath, $outer)
+    $s4Log = Join-Path $scratch 's4.log'
+    [void](Initialize-ToolLog $s4Log 'debug')
+    $s4 = Get-StigBenchmarks $zipPath
+    Assert-Equal 'Dup_STIG,L1_STIG,L2_STIG' ((@($s4) | ForEach-Object { $_.BenchmarkId } | Sort-Object) -join ',') 'two nesting levels read, the third skipped, one Dup_STIG kept'
+    $dup = @($s4 | Where-Object { $_.BenchmarkId -eq 'Dup_STIG' })[0]
+    Assert-Equal 'U_Dup_V1R2-xccdf.xml' $dup.Source 'dedupe keeps the highest release'
+    Assert-Equal 2 @($dup.Rules).Count 'both rules of the Group are read'
+    Assert-Equal 'V-1/SV-1r1_rule,V-1/SV-1r2_rule' ((@($dup.Rules) | ForEach-Object { $_.DisplayId }) -join ',') 'a shared V- id names each rule by V-id/rule id'
+    Assert-Equal 'medium' @($dup.Rules)[1].Severity 'a missing severity is medium'
+    Assert-Equal 'V-9' (@(@($dup.Rules)[1].LegacyIds) -join ',') 'legacy idents are kept'
+    $s4Text = [System.IO.File]::ReadAllText($s4Log)
+    Assert-True ($s4Text -match 'WARN  parse  dedupe Dup_STIG: kept V1R2 manual edition from U_Dup_V1R2-xccdf.xml, dropped V1R1') 'the dropped release is a warning'
+    Assert-True ($s4Text -match 'WARN  parse  skipped lib/l1.zip/l2.zip/l3.zip: a zip nested more than 2 levels deep') 'a third nesting level is a warning'
+    Assert-True ($s4Text -match 'WARN  parse  skipped readme.txt: not an .xml or .zip member') 'a skipped member is a warning'
+    $savedMember = $script:ZipMemberMax; $savedTotal = $script:ZipTotalMax
+    try {
+        $script:ZipMemberMax = 600
+        $small = @(Get-StigBenchmarks $zipPath)
+        Assert-Equal 1 $small.Count 'members over the member limit are skipped (the nested zip here)'
+        Assert-True ([System.IO.File]::ReadAllText($s4Log) -match 'skipped lib/l1.zip: refused: \d+ bytes uncompressed is over the 600-byte member limit') 'the member limit is logged'
+        $script:ZipMemberMax = $savedMember; $script:ZipTotalMax = 1000
+        Assert-Throws { Get-StigBenchmarks $zipPath } 'total limit' 'the total limit refuses the input'
+    } finally { $script:ZipMemberMax = $savedMember; $script:ZipTotalMax = $savedTotal }
+    # Fix Text in Comments, RemediateScript empty, CLI kept.
+    $fixRule = New-NcmRule @($dup.Rules)[0] 'G' 'manual'
+    Assert-True ($fixRule.RemediateScript -eq '' -and $fixRule.RemediateScriptType -eq 'CLI') 'RemediateScript is empty and CLI'
+    Assert-True ($fixRule.Comments.EndsWith("Fix:`nf")) 'the Fix Text ends the Comments'
+    Assert-True ($fixRule.Comments.StartsWith('V-1 / SV-1r1_rule / STIG ID  / SRG SRG-NET-1')) 'the SRG id is in the reference line'
 
     # --- 9. stubbed SWIS: removal plan keeps shared policies and rules ------
     # Report rA: policies p1 (rules r1, r2) and p2 (rule r3). Report rB shares
