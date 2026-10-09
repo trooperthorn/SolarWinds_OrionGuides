@@ -9,10 +9,21 @@ namespace DashboardPorter.Core;
 /// iterations). File layout: magic "DBPORTA1" | 16-byte salt | 12-byte nonce |
 /// 16-byte tag | ciphertext. Uses Windows CNG primitives, so it runs under FIPS policy.
 /// Plaintext package bytes are only ever held in memory — never written to disk.
+/// Porter (apps/porter) writes the identical layout under the magic "PORTERA1"; decrypt
+/// accepts either magic so a Porter .zip.aes opens here too. Writing stays "DBPORTA1".
+/// The magic is a format label, not authenticated data — the GCM tag covers the
+/// ciphertext, so accepting two labels does not weaken the integrity check.
 /// </summary>
 public static class PackageCrypto
 {
-    private static readonly byte[] Magic = Encoding.ASCII.GetBytes("DBPORTA1");
+    /// <summary>The magic this tool writes.</summary>
+    internal const string WriteMagic = "DBPORTA1";
+    /// <summary>Every magic decrypt accepts: our own, then Porter's.</summary>
+    internal static readonly string[] ReadMagics = { WriteMagic, "PORTERA1" };
+
+    private static readonly byte[] Magic = Encoding.ASCII.GetBytes(WriteMagic);
+    private static readonly byte[][] AcceptedMagics =
+        ReadMagics.Select(m => Encoding.ASCII.GetBytes(m)).ToArray();
     private const int Iterations = 600_000;
 
     /// <summary>Cap on the encrypted file size accepted for decryption (zip-bomb hygiene).</summary>
@@ -46,8 +57,8 @@ public static class PackageCrypto
             throw new InvalidDataException(
                 $"package is {info.Length / (1024 * 1024)} MB — larger than the {MaxPackageBytes / (1024 * 1024)} MB limit");
         var all = File.ReadAllBytes(path);
-        if (all.Length < 8 + 16 + 12 + 16 || !all.AsSpan(0, 8).SequenceEqual(Magic))
-            throw new InvalidDataException("Not a DashboardPorter encrypted package (.zip.aes).");
+        if (all.Length < 8 + 16 + 12 + 16 || !AcceptedMagics.Any(m => all.AsSpan(0, 8).SequenceEqual(m)))
+            throw new InvalidDataException("Not a DashboardPorter or Porter encrypted package (.zip.aes).");
         var salt = all.AsSpan(8, 16).ToArray();
         var nonce = all.AsSpan(24, 12).ToArray();
         var tag = all.AsSpan(36, 16).ToArray();

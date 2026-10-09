@@ -16,7 +16,18 @@ public sealed record PackageItem(string RelPath, string Name, byte[] Data, strin
 /// </summary>
 public static class PackageWriter
 {
-    private const string ImportVia = "Orion.Dashboards.Instances.Import";
+    private const string ImportVia = DashboardsCore.ImportVia;
+
+    /// <summary>"DashboardPorter 0.2.0" — read from the assembly so the manifest can never
+    /// drift from the version the csproj actually ships (as Porter does).</summary>
+    internal static string ToolName
+    {
+        get
+        {
+            var v = typeof(PackageWriter).Assembly.GetName().Version;
+            return v is null ? "DashboardPorter" : $"DashboardPorter {v.Major}.{v.Minor}.{Math.Max(v.Build, 0)}";
+        }
+    }
 
     public static string WriteRaw(string destDir, IEnumerable<PackageItem> items)
     {
@@ -49,7 +60,7 @@ public static class PackageWriter
         return aesPath;
     }
 
-    private static byte[] BuildZipInMemory(string server, string platformVersion,
+    internal static byte[] BuildZipInMemory(string server, string platformVersion,
         IReadOnlyList<PackageItem> items)
     {
         var manifestItems = new List<object>();
@@ -74,7 +85,8 @@ public static class PackageWriter
             }
             var manifest = JsonSerializer.Serialize(new
             {
-                tool = "DashboardPorter 0.1",
+                manifestVersion = PackageReader.SupportedManifestVersion,
+                tool = ToolName,
                 source = new { server, platform = platformVersion, swis = "v3" },
                 created = DateTime.UtcNow.ToString("o"),
                 items = manifestItems,

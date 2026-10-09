@@ -9,7 +9,7 @@
     <RootNamespace>DashboardPorter</RootNamespace>
     <AssemblyName>DashboardPorter</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
 
     <!-- Single-file publish (dotnet publish, Release, win-x64, self-contained,
          PublishSingleFile=true): bundle WPF's native interop DLLs into the exe itself
@@ -42,5 +42,9 @@
          are unaffected, so local debugging still gets full symbols. -->
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DashboardPorter.Tests" />
+  </ItemGroup>
 
 </Project>

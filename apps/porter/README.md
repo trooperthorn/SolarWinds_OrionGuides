@@ -89,7 +89,9 @@ line to un-pin (pins are written atomically). On startup Porter **hardens
 only (inheritance off), recursively, with the outcome logged as `appdirs` — refuses to operate through a junction/symlink, and logs
 every connection that is accepted via a pin — so a pre-planted pin cannot act silently.
 Encrypted packages are assembled entirely in memory: plaintext never touches the
-destination disk. Hostile input is bounded — 64 MB per dashboard file or zip entry
+destination disk. Porter also opens `.zip.aes` packages written by
+[DashboardPorter](../dashboard-porter/README.md) (same layout under the magic `DBPORTA1`),
+read-only; it always writes its own `PORTERA1` format. Hostile input is bounded — 64 MB per dashboard file or zip entry
 (counted as it decompresses, since a zip's directory can lie), 256 MB decompressed per
 package, and at most 5,000 entries per archive.
 

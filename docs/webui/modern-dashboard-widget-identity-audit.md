@@ -199,8 +199,11 @@ for complete definition comparison; a configuration column alone omits other wid
 ## Gaps in the repository import applications
 
 At baseline commit `614cbb7`, Dashboard Porter's
-[`FindCollisionsAsync`](../../apps/dashboard-porter/DashboardPorter/Core/DashboardsCore.cs)
-checks dashboard keys only. Its `VerifyAsync` confirms dashboard presence, not widget
+[`FindCollisionsAsync`](../../apps/porter/Porter/Areas/DashboardsArea.cs)
+checks dashboard keys only. (2026-10-08: the link now points at Porter's copy of the same
+dashboards code, the maintained one, where
+[`DashboardsProvider`](../../apps/porter/Porter/Areas/DashboardsProvider.cs) also lists
+target widget keys in its dry-run plan.) Its `VerifyAsync` confirms dashboard presence, not widget
 isolation. Its `AsCopy` remaps widget and dashboard keys within one definition string, but
 one old widget key receives only one new key. That does not resolve ambiguous conflicting
 definitions already consolidated into one payload. Batch behavior must also declare whether
