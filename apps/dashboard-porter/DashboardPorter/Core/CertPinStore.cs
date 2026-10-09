@@ -48,9 +48,31 @@ public static class CertPinStore
             var key = $"{server}:{port}".ToLowerInvariant();
             if (!pins.TryGetValue(key, out var list)) pins[key] = list = new List<string>();
             if (!list.Contains(thumbprint, StringComparer.OrdinalIgnoreCase)) list.Add(thumbprint);
-            File.WriteAllText(PinPath, JsonSerializer.Serialize(pins,
+            WriteAtomically(PinPath, JsonSerializer.Serialize(pins,
                 new JsonSerializerOptions { WriteIndented = true }));
         }
         SessionLog.Log("cert-pin", $"{server}:{port}", "pinned", thumbprint);
+    }
+
+    /// <summary>
+    /// Refuse a planted link, then write a temp file beside the target and move it into
+    /// place: a crash mid-write can never leave a truncated pins.json (which Load would read
+    /// as "no pins" and silently drop every pinned certificate). Ported from Porter's
+    /// CertPinStore.Pin; split out so it can be tested against a scratch directory.
+    /// </summary>
+    internal static void WriteAtomically(string path, string contents)
+    {
+        AppDirs.RefuseReparse(path);
+        var dir = Path.GetDirectoryName(path)!;
+        var temp = Path.Combine(dir, $"{Path.GetFileNameWithoutExtension(path)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(temp, contents);
+            File.Move(temp, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temp)) File.Delete(temp);
+        }
     }
 }

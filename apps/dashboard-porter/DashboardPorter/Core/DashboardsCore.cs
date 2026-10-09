@@ -79,6 +79,80 @@ public sealed class DashboardsCore
         return hits;
     }
 
+    /// <summary>
+    /// Dry-run plan, ported from Porter's DashboardsProvider.PlanAsync: which dashboards the
+    /// file would create, and any widget unique_keys that already exist on the target.
+    /// Widget keys are reported here rather than treated as collisions: the dashboard key
+    /// is the identity DashboardPorter matches on, and how the server treats a repeated
+    /// widget key on Import is not documented, so it is surfaced as a warning for the
+    /// operator instead of silently skipping or importing. The widget query targets
+    /// Orion.Dashboards.Widgets.UniqueKey (inherited from Orion.Dashboards.Entity in the
+    /// 2026.2 schema, checked with tools/schema_query.py); it is still wrapped in a
+    /// SwisException catch so a schema difference on another build degrades to "not
+    /// checked" rather than a failed dry run. Read-only — never writes.
+    /// </summary>
+    public async Task<List<string>> PlanAsync(string text, CancellationToken ct = default)
+    {
+        var widgetKeys = WidgetKeys(text);
+        if (widgetKeys.Count == 0) return PlanLines(text, null, null);
+        try
+        {
+            var rows = await _swis.QueryAsync(
+                "SELECT UniqueKey FROM Orion.Dashboards.Widgets", null, ct);
+            var onTarget = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in rows.EnumerateArray())
+                if (row.TryGetProperty("UniqueKey", out var k) && k.GetString() is string s) onTarget.Add(s);
+            return PlanLines(text, onTarget, null);
+        }
+        catch (SwisException ex)
+        {
+            return PlanLines(text, null, ex.Message);
+        }
+    }
+
+    /// <summary>The pure half of <see cref="PlanAsync"/>: given the widget keys already on
+    /// the target (null when they could not be read, with the reason), the plan lines.</summary>
+    internal static List<string> PlanLines(string text, IReadOnlySet<string>? widgetKeysOnTarget,
+        string? notCheckedReason)
+    {
+        var lines = new List<string>();
+        var validation = DashboardValidator.Validate(text);
+        foreach (var (key, name) in validation.Dashboards)
+            lines.Add($"would create dashboard \"{name}\" (key {key})");
+
+        var widgetKeys = WidgetKeys(text);
+        if (widgetKeys.Count == 0) return lines;
+        if (widgetKeysOnTarget is null)
+        {
+            lines.Add($"widget keys not checked against the target: {notCheckedReason ?? "no data"}");
+            return lines;
+        }
+        var hits = widgetKeys.Where(widgetKeysOnTarget.Contains).ToList();
+        foreach (var key in hits.Take(20))
+            lines.Add($"WARNING: widget {key} (already on target)");
+        if (hits.Count > 20)
+            lines.Add($"WARNING: … and {hits.Count - 20} more widget key(s) already on target");
+        if (hits.Count == 0)
+            lines.Add($"{widgetKeys.Count} widget definition(s), none already on target");
+        return lines;
+    }
+
+    /// <summary>The distinct widgets[].unique_key values of one export file.</summary>
+    internal static List<string> WidgetKeys(string text)
+    {
+        var keys = new List<string>();
+        try
+        {
+            if (JsonNode.Parse(text) is JsonObject root && root["widgets"] is JsonArray widgets)
+                foreach (var w in widgets.OfType<JsonObject>())
+                    if (w["unique_key"] is JsonValue v && v.TryGetValue<string>(out var k) &&
+                        !string.IsNullOrEmpty(k))
+                        keys.Add(k);
+        }
+        catch (JsonException) { /* Validate already reported the file as unreadable */ }
+        return keys.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     public async Task ImportAsync(string definition, CancellationToken ct = default)
         => await _swis.InvokeAsync("Orion.Dashboards.Instances", "Import",
             new object?[] { definition }, ct);
@@ -217,12 +291,19 @@ public sealed class DashboardValidation
     public List<(string Key, string Name)> Dashboards { get; } = new();
     public int WidgetCount { get; set; }
     public int QueryCount { get; set; }
+    /// <summary>Where the file came from ("from server · platform · time" for a package
+    /// with a manifest), shown ahead of the counts; empty when nothing vouches for it.</summary>
+    public string Source { get; set; } = "";
     public bool Ok => Errors.Count == 0;
+
+    private string Detail => Source.Length > 0
+        ? $"{Source} — {WidgetCount} widgets · {QueryCount} queries"
+        : $"{WidgetCount} widgets · {QueryCount} queries";
 
     public string Summary =>
         Errors.Count > 0 ? Errors[0]
-        : Warnings.Count > 0 ? $"{WidgetCount} widgets · {QueryCount} queries · {Warnings[0]}"
-        : $"{WidgetCount} widgets · {QueryCount} queries · all checks pass";
+        : Warnings.Count > 0 ? $"{Detail} · {Warnings[0]}"
+        : $"{Detail} · all checks pass";
 }
 
 /// <summary>

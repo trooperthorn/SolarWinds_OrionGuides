@@ -1,8 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -206,6 +204,31 @@ public partial class ExportImportView : UserControl
         if (dialog.ShowDialog() == true) DestBox.Text = dialog.FolderName;
     }
 
+    /// <summary>Ported from Porter's ExportView: the destination must be a full path that
+    /// exists (or can be created) and accepts a write, checked before anything is fetched —
+    /// so an unusable folder fails up front instead of after every dashboard was exported.</summary>
+    private static bool TryPrepareDestination(string dest, out string problem)
+    {
+        problem = "";
+        if (string.IsNullOrWhiteSpace(dest))
+        { problem = "Choose a destination folder for the export first."; return false; }
+        if (!Path.IsPathFullyQualified(dest))
+        { problem = "The destination must be a full path, such as C:\\Exports\\DashboardPorter."; return false; }
+        try
+        {
+            Directory.CreateDirectory(dest);
+            var probe = Path.Combine(dest, $".dashboardporter-write-test-{Guid.NewGuid():N}.tmp");
+            File.WriteAllBytes(probe, new byte[] { 0 });
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            problem = $"DashboardPorter cannot write to that folder: {ex.Message}";
+            return false;
+        }
+    }
+
     private void Export_Click(object sender, RoutedEventArgs e)
     {
         if (_shell.Session is null) return;
@@ -217,55 +240,149 @@ public partial class ExportImportView : UserControl
                 "Password required", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        var dest = DestBox.Text;
+        var dest = DestBox.Text.Trim();
+        if (!TryPrepareDestination(dest, out var destProblem))
+        {
+            MessageBox.Show(destProblem, "Destination not usable",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
         var asZip = FmtZip.IsChecked == true || FmtAes.IsChecked == true;
         var aesPassword = FmtAes.IsChecked == true ? AesPass.Password : null;
         var session = _shell.Session;
         var platform = _shell.PlatformLabel;
         var core = _core;
 
+        // Ported from Porter's ExportView: package modes collect everything and write once
+        // at the end, so "ok" (an audit claim that the output exists) is held in `pending`
+        // until the package is on disk. Raw mode writes each file the moment its export
+        // finishes, so an abort keeps what was already written.
         _shell.Go(new RunView(_shell, "Exporting Modern Dashboards",
-            async (log, ct) =>
+            async (log, summary, ct) =>
         {
+            var started = DateTime.UtcNow;
+            var outcome = RunOutcome.Completed;
+            var rawDir = Path.Combine(dest, PackageReader.AreaKey);
             var items = new List<PackageItem>();
-            var summary = new RunSummary();
-            foreach (var item in picked)
+            var pending = new List<(string Target, string Detail)>();
+
+            void Recorded(string target, string outcomeText, string detail)
             {
+                summary.Items.Add(new RunItem(target, outcomeText, detail));
+                SessionLog.Log("export", target, outcomeText, detail);
+            }
+
+            void Accept(PackageItem package, string target, string detail)
+            {
+                if (asZip)
+                {
+                    items.Add(package);
+                    pending.Add((target, detail));
+                    return;
+                }
                 try
                 {
-                    log.Report($"Export \"{item.Name}\" (id {item.Id})");
-                    var definition = await core.ExportAsync(item.Id, ct);
-                    var fileName = PackageWriter.Sanitize(item.Name) + FileExtension;
-                    items.Add(new PackageItem($"dashboards/{fileName}", item.Name,
-                        Encoding.UTF8.GetBytes(definition), "skip-or-copy-selected-at-import"));
-                    SessionLog.Log("export", item.Name, "ok", $"dashboard {item.Id}");
+                    PackageWriter.WriteRaw(rawDir, new[] { package });
+                    summary.OutputPath = rawDir;
                     summary.Ok++;
+                    Recorded(target, "ok", detail);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    log.Report($"  FAILED: {ex.Message}");
-                    SessionLog.Log("export", item.Name, "failed", ex.Message);
+                    log.Report($"  FAILED: output not written: {ex.Message}");
                     summary.Failed++;
+                    Recorded(target, "failed", $"output not written: {ex.Message}");
                 }
             }
-            string where;
-            if (items.Count == 0)
+
+            try
             {
-                log.Report("Nothing exported — no output written.");
-                where = dest;
+                foreach (var item in picked)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        log.Report($"Export \"{item.Name}\" (id {item.Id})");
+                        var definition = await core.ExportAsync(item.Id, ct);
+                        var fileName = PackageWriter.Sanitize(item.Name) + FileExtension;
+                        Accept(new PackageItem($"{PackageReader.AreaKey}/{fileName}", item.Name,
+                            Encoding.UTF8.GetBytes(definition), "skip-or-copy-selected-at-import"),
+                            item.Name, $"dashboard {item.Id}");
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        log.Report($"  FAILED: {ex.Message}");
+                        summary.Failed++;
+                        Recorded(item.Name, "failed", ex.Message);
+                    }
+                }
+
+                if (items.Count == 0)
+                {
+                    if (summary.OutputPath is null) log.Report("Nothing exported — no output written.");
+                    else log.Report($"Output → {summary.OutputPath}");
+                    return;
+                }
+
+                // Package modes: the single write happens here.
+                ct.ThrowIfCancellationRequested();
+                string where;
+                try
+                {
+                    where = PackageWriter.WritePackage(dest, session.Server, platform, items, aesPassword);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // The dashboards were fetched but nothing reached the disk: none of them
+                    // may be recorded as exported.
+                    log.Report($"  FAILED: output not written: {ex.Message}");
+                    foreach (var (target, _) in pending)
+                    {
+                        summary.Failed++;
+                        Recorded(target, "failed", $"output not written: {ex.Message}");
+                    }
+                    outcome = RunOutcome.Failed;
+                    return;
+                }
+                foreach (var (target, detail) in pending)
+                {
+                    summary.Ok++;
+                    Recorded(target, "ok", detail);
+                }
+                log.Report($"Output → {where}");
+                summary.OutputPath = where;
             }
-            else if (asZip)
+            catch (OperationCanceledException)
             {
-                where = PackageWriter.WritePackage(dest, session.Server, platform, items, aesPassword);
+                outcome = RunOutcome.Cancelled;
+                if (pending.Count > 0)
+                {
+                    // Package modes write once at the end, so an abort means no output.
+                    foreach (var (target, _) in pending)
+                    {
+                        summary.Skipped++;
+                        Recorded(target, "cancelled", "aborted before the package was written");
+                    }
+                    log.Report($"Aborted — {pending.Count} dashboard(s) were fetched but " +
+                        "no package was written. Nothing was saved.");
+                }
+                else
+                    log.Report("Aborted.");
+                throw;
             }
-            else
+            catch (Exception)
             {
-                var rawDir = Path.Combine(dest, "dashboards");
-                where = PackageWriter.WriteRaw(rawDir, items);
+                outcome = RunOutcome.Failed;
+                throw;
             }
-            log.Report($"Output → {where}");
-            summary.OutputPath = items.Count > 0 ? where : null;
-            return summary;
+            finally
+            {
+                if (outcome == RunOutcome.Completed && summary.Failed > 0 && summary.Ok == 0)
+                    outcome = RunOutcome.Failed;
+                RunReport.WriteAndLog(dest, new RunReportData("export", PackageReader.AreaKey,
+                    session.Server, false, started, DateTime.UtcNow, outcome, summary));
+                if (summary.ReportPath is not null) log.Report($"Run report → {summary.ReportPath}");
+            }
         }), "Export · Modern Dashboards");
     }
 
@@ -299,13 +416,22 @@ public partial class ExportImportView : UserControl
         {
             try
             {
-                foreach (var (name, text) in ReadCandidates(path))
+                var contents = PackageReader.Read(path, PromptPassword);
+                foreach (var entry in contents.Entries)
+                {
+                    var validation = DashboardValidator.Validate(entry.Text);
+                    // Origin findings lead the lists so they become the row summary: a
+                    // modified or unlisted file must never read as "all checks pass".
+                    validation.Errors.InsertRange(0, entry.Errors);
+                    validation.Warnings.InsertRange(0, entry.Warnings);
+                    validation.Source = SourceLine(contents.Info);
                     _staged.Add(new StagedFile
                     {
-                        FileName = name,
-                        Text = text,
-                        Validation = DashboardValidator.Validate(text),
+                        FileName = entry.DisplayName,
+                        Text = entry.Text,
+                        Validation = validation,
                     });
+                }
             }
             catch (Exception ex)
             {
@@ -320,94 +446,28 @@ public partial class ExportImportView : UserControl
         UpdateImportButtons();
     }
 
+    /// <summary>The only UI the package reader needs: ask for a package password, null on cancel.</summary>
+    private string? PromptPassword(string fileName)
+    {
+        var dialog = new PasswordDialog($"Package password for {fileName}")
+            { Owner = Window.GetWindow(this) };
+        return dialog.ShowDialog() == true ? dialog.Password : null;
+    }
+
+    /// <summary>"from core-orion · Orion 2026.2 · 2026-09-01T…" for a package with a
+    /// manifest, else empty. Shown as recorded — no version arithmetic is done on it.</summary>
+    private static string SourceLine(PackageInfo info)
+    {
+        if (!info.HasManifest) return "";
+        var parts = new[] { info.SourceServer, info.SourcePlatform, info.Created }
+            .Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+        return parts.Count == 0 ? "" : $"from {string.Join(" · ", parts)}";
+    }
+
     private void ClearStaged_Click(object sender, RoutedEventArgs e)
     {
         _staged.Clear();
         UpdateImportButtons();
-    }
-
-    /// <summary>A path may be one raw export, a .zip of them, or an AES-encrypted package.</summary>
-    private IEnumerable<(string Name, string Text)> ReadCandidates(string path)
-    {
-        if (path.EndsWith(".aes", StringComparison.OrdinalIgnoreCase))
-        {
-            var dialog = new PasswordDialog($"Package password for {Path.GetFileName(path)}")
-                { Owner = Window.GetWindow(this) };
-            if (dialog.ShowDialog() != true)
-                throw new OperationCanceledException("password entry cancelled");
-            byte[] zipBytes;
-            try { zipBytes = PackageCrypto.DecryptFile(path, dialog.Password); }
-            catch (CryptographicException)
-            { throw new InvalidDataException("wrong password, or the package was modified"); }
-            using var archive = new ZipArchive(new MemoryStream(zipBytes), ZipArchiveMode.Read);
-            foreach (var pair in ReadZip(archive, Path.GetFileName(path))) yield return pair;
-        }
-        else if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-        {
-            using var archive = ZipFile.OpenRead(path);
-            foreach (var pair in ReadZip(archive, Path.GetFileName(path))) yield return pair;
-        }
-        else
-        {
-            if (new FileInfo(path).Length > MaxItemBytes)
-                throw new InvalidDataException($"{Path.GetFileName(path)} exceeds the {MaxItemBytes / (1024 * 1024)} MB limit");
-            yield return (Path.GetFileName(path), ReadTextSniffed(File.ReadAllBytes(path)));
-        }
-    }
-
-    /// <summary>Exports are small; anything past this is not a configuration export.</summary>
-    private const long MaxItemBytes = 64L * 1024 * 1024;
-
-    /// <summary>Platform exports lie about their encoding sometimes — trust the bytes (BOM),
-    /// never a declaration inside the file.</summary>
-    private static string ReadTextSniffed(byte[] bytes)
-    {
-        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
-            return Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2);
-        if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
-            return Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
-        if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-            return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
-        return Encoding.UTF8.GetString(bytes);
-    }
-
-    /// <summary>Reads to the cap and no further — a hostile zip's central directory can lie
-    /// about entry sizes, so the guard counts what actually decompresses.</summary>
-    private static string ReadLimited(Stream stream, long cap)
-    {
-        using var buffer = new MemoryStream();
-        var chunk = new byte[81920];
-        long total = 0;
-        int n;
-        while ((n = stream.Read(chunk, 0, chunk.Length)) > 0)
-        {
-            total += n;
-            if (total > cap)
-                throw new InvalidDataException($"entry decompresses past the {cap / (1024 * 1024)} MB limit");
-            buffer.Write(chunk, 0, n);
-        }
-        return ReadTextSniffed(buffer.ToArray());
-    }
-
-    private IEnumerable<(string, string)> ReadZip(ZipArchive archive, string label)
-    {
-        var matching = archive.Entries.Where(en =>
-            en.Name.EndsWith(FileExtension, StringComparison.OrdinalIgnoreCase) &&
-            !en.Name.Equals("manifest.json", StringComparison.OrdinalIgnoreCase)).ToList();
-        // A DashboardPorter package folders files under dashboards/ — prefer that folder so
-        // a mixed package (e.g. from Porter) stages only the dashboards; flat zips still stage fully.
-        var inFolder = matching.Where(en => en.FullName.StartsWith(
-            "dashboards/", StringComparison.OrdinalIgnoreCase)).ToList();
-        if (inFolder.Count > 0) matching = inFolder;
-        var found = false;
-        foreach (var entry in matching)
-        {
-            found = true;
-            using var stream = entry.Open();
-            yield return ($"{label} › {entry.Name}", ReadLimited(stream, MaxItemBytes));
-        }
-        if (!found)
-            throw new InvalidDataException($"the package contains no {FileExtension} files for Modern Dashboards");
     }
 
     private void UpdateImportButtons()
@@ -437,90 +497,134 @@ public partial class ExportImportView : UserControl
         var asCopy = PolicyCopy.IsChecked == true;
         var core = _core;
 
+        var server = _shell.Session.Server;
+
         // Captures the same staged-file snapshot (files/skippedInvalid/asCopy) regardless
         // of which mode runs, so "Import Now" after a dry run acts on exactly what the dry
         // run just checked, even if the user has since changed something on the tab.
-        Func<IProgress<string>, CancellationToken, Task<RunSummary>> BuildJob(bool dry) => async (log, ct) =>
+        // Ported from Porter's ImportView: cancellation between files, a read-only dry-run
+        // plan (dashboards it would create, widget keys already on the target), and a JSON
+        // run report in the log folder whatever the outcome.
+        Func<IProgress<string>, RunSummary, CancellationToken, Task> BuildJob(bool dry) => async (log, summary, ct) =>
         {
-            var summary = new RunSummary();
-
-            foreach (var file in skippedInvalid)
+            var started = DateTime.UtcNow;
+            var outcome = RunOutcome.Completed;
+            try
             {
-                summary.Skipped++;
-                summary.SkippedNames.Add($"{file.FileName} — {file.Validation.Summary}");
-                log.Report($"{(dry ? "NO-GO" : "SKIP")} {file.FileName}: {file.Validation.Summary}");
-            }
-
-            foreach (var file in files)
-            {
-                try
+                foreach (var file in skippedInvalid)
                 {
-                    var keys = file.Validation.Dashboards.Select(d => d.Key).ToList();
-                    var collisionHits = await core.FindCollisionsAsync(keys, ct);
-                    var collisions = collisionHits.ToDictionary(h => h.Key, h => h.ExistingName,
-                        StringComparer.OrdinalIgnoreCase);
-                    var text = file.Text;
-                    var verifyKeys = keys;
-                    var note = "";
+                    summary.Skipped++;
+                    summary.SkippedNames.Add($"{file.FileName} — {file.Validation.Summary}");
+                    summary.Items.Add(new RunItem(file.FileName, dry ? "no-go" : "skipped", file.Validation.Summary));
+                    log.Report($"{(dry ? "NO-GO" : "SKIP")} {file.FileName}: {file.Validation.Summary}");
+                }
 
-                    if (collisions.Count > 0 && !asCopy)
+                foreach (var file in files)
+                {
+                    // Between files only: a file already in flight finishes, so an abort
+                    // never leaves a half-imported definition behind.
+                    ct.ThrowIfCancellationRequested();
+                    try
                     {
-                        summary.Skipped++;
-                        var parts = file.Validation.Dashboards.Select(d =>
-                            collisions.TryGetValue(d.Key, out var existing)
-                            ? $"\"{existing}\" (already on target)"
-                            : $"\"{d.Name}\" (skipped with its file)").ToList();
-                        var detail = string.Join(", ", parts);
-                        summary.SkippedNames.Add($"{file.FileName} — {detail}");
-                        log.Report($"{(dry ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
-                        SessionLog.Log(dry ? "dry-run" : "import", file.FileName, "skipped", detail);
-                        continue;
-                    }
-                    if (collisions.Count > 0)
-                    {
-                        var rewrite = DashboardsCore.AsCopy(file.Text);
-                        text = rewrite.Text;
-                        verifyKeys = rewrite.NewKeys;
-                        note = $" as copy: {string.Join(", ", rewrite.NewNames.Select(n => $"\"{n}\""))}";
-                        summary.CopyNotes.Add($"{file.FileName} → {string.Join(", ", rewrite.NewNames)}");
-                        foreach (var extra in rewrite.Notes) log.Report($"  note: {extra}");
-                    }
+                        var keys = file.Validation.Dashboards.Select(d => d.Key).ToList();
+                        var collisionHits = await core.FindCollisionsAsync(keys, ct);
+                        var collisions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var (key, name) in collisionHits) collisions[key] = name;
+                        var text = file.Text;
+                        var verifyKeys = keys;
+                        var note = "";
 
-                    if (dry)
-                    {
-                        log.Report($"GO — would import {file.FileName}{note}");
-                        summary.Ok++;
-                        continue;
-                    }
+                        if (collisions.Count > 0 && !asCopy)
+                        {
+                            summary.Skipped++;
+                            var parts = file.Validation.Dashboards.Select(d =>
+                                collisions.TryGetValue(d.Key, out var existing)
+                                ? $"\"{existing}\" (already on target)"
+                                : $"\"{d.Name}\" (skipped with its file)").ToList();
+                            var detail = string.Join(", ", parts);
+                            summary.SkippedNames.Add($"{file.FileName} — {detail}");
+                            summary.Items.Add(new RunItem(file.FileName, dry ? "no-go" : "skipped", detail));
+                            log.Report($"{(dry ? "NO-GO" : "SKIP")} {file.FileName}: {detail}");
+                            SessionLog.Log(dry ? "dry-run" : "import", file.FileName, "skipped", detail);
+                            continue;
+                        }
+                        if (collisions.Count > 0)
+                        {
+                            var rewrite = DashboardsCore.AsCopy(file.Text);
+                            text = rewrite.Text;
+                            verifyKeys = rewrite.NewKeys;
+                            note = $" as copy: {string.Join(", ", rewrite.NewNames.Select(n => $"\"{n}\""))}";
+                            summary.CopyNotes.Add($"{file.FileName} → {string.Join(", ", rewrite.NewNames)}");
+                            foreach (var extra in rewrite.Notes) log.Report($"  note: {extra}");
+                        }
 
-                    log.Report($"Import {file.FileName}{note} → {DashboardsCore.ImportVia}");
-                    await core.ImportAsync(text, ct);
-                    var found = await core.VerifyAsync(verifyKeys, ct);
-                    var expected = verifyKeys.Count(k => k.Length > 0);
+                        if (dry)
+                        {
+                            log.Report($"GO — would import {file.FileName}{note}");
+                            summary.Items.Add(new RunItem(file.FileName, "go", note.Trim()));
+                            summary.Ok++;
+                            // Read-only narration of what the import would touch. A plan that
+                            // cannot be gathered never turns a GO into a failure.
+                            try
+                            {
+                                foreach (var line in await core.PlanAsync(text, ct))
+                                    log.Report($"  plan: {line}");
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                log.Report($"  plan unavailable: {ex.Message}");
+                            }
+                            continue;
+                        }
 
-                    if (found.Count >= expected && found.Count > 0)
-                    {
-                        var detail = string.Join(", ", found.Select(f => $"\"{f.Name}\" (id {f.Id})"));
-                        log.Report($"  verified: {detail}");
-                        SessionLog.Log("import", file.FileName, "ok", detail);
-                        summary.Ok++;
+                        log.Report($"Import {file.FileName}{note} → {DashboardsCore.ImportVia}");
+                        await core.ImportAsync(text, ct);
+                        var found = await core.VerifyAsync(verifyKeys, ct);
+                        var expected = verifyKeys.Count(k => k.Length > 0);
+
+                        if (found.Count >= expected && found.Count > 0)
+                        {
+                            var detail = string.Join(", ", found.Select(f => $"\"{f.Name}\" (id {f.Id})"));
+                            log.Report($"  verified: {detail}");
+                            SessionLog.Log("import", file.FileName, "ok", detail);
+                            summary.Items.Add(new RunItem(file.FileName, "ok", detail));
+                            summary.Ok++;
+                        }
+                        else
+                        {
+                            var detail = "import call succeeded but no data returned when reading it back (No Data Returned)";
+                            log.Report($"  WARNING: {detail}");
+                            SessionLog.Log("import", file.FileName, "unverified", detail);
+                            summary.Items.Add(new RunItem(file.FileName, "unverified", detail));
+                            summary.Warn++;
+                        }
                     }
-                    else
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
-                        var detail = "import call succeeded but no data returned when reading it back (No Data Returned)";
-                        log.Report($"  WARNING: {detail}");
-                        SessionLog.Log("import", file.FileName, "unverified", detail);
-                        summary.Warn++;
+                        log.Report($"{(dry ? "NO-GO" : "FAILED")} {file.FileName}: {ex.Message}");
+                        SessionLog.Log(dry ? "dry-run" : "import", file.FileName, "failed", ex.Message);
+                        summary.Items.Add(new RunItem(file.FileName, "failed", ex.Message));
+                        summary.Failed++;
                     }
                 }
-                catch (Exception ex)
-                {
-                    log.Report($"{(dry ? "NO-GO" : "FAILED")} {file.FileName}: {ex.Message}");
-                    SessionLog.Log(dry ? "dry-run" : "import", file.FileName, "failed", ex.Message);
-                    summary.Failed++;
-                }
             }
-            return summary;
+            catch (OperationCanceledException)
+            {
+                outcome = RunOutcome.Cancelled;
+                log.Report("Aborted — files not yet started were left untouched.");
+                throw;
+            }
+            catch (Exception)
+            {
+                outcome = RunOutcome.Failed;
+                throw;
+            }
+            finally
+            {
+                RunReport.WriteAndLog(SessionLog.LogDir, new RunReportData("import", PackageReader.AreaKey,
+                    server, dry, started, DateTime.UtcNow, outcome, summary));
+                if (summary.ReportPath is not null) log.Report($"Run report → {summary.ReportPath}");
+            }
         };
 
         if (dryRun)

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
-  <assemblyIdentity version="0.1.0.0" name="DashboardPorter.app"/>
+  <assemblyIdentity version="0.2.0.0" name="DashboardPorter.app"/>
   <!-- DISA STIG requirement: the tool must run elevated. requireAdministrator is baked
        into the binary's manifest, so Windows itself refuses an un-elevated launch. -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">

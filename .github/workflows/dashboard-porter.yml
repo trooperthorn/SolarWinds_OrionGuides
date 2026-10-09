@@ -1,0 +1,32 @@
+name: dashboard-porter
+
+# DashboardPorter is a Windows WPF app (net10.0-windows), so it builds and tests on a
+# Windows runner. Mirrors porter.yml.
+on:
+  push:
+    paths:
+      - "apps/dashboard-porter/**"
+      - ".github/workflows/dashboard-porter.yml"
+  pull_request:
+    paths:
+      - "apps/dashboard-porter/**"
+      - ".github/workflows/dashboard-porter.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build apps/dashboard-porter/DashboardPorter.sln -c Release
+
+      - name: Test
+        run: dotnet test apps/dashboard-porter/DashboardPorter.sln -c Release --no-build
