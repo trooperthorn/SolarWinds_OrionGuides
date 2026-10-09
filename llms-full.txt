@@ -22632,8 +22632,8 @@ The relevant sources are the [Python tool](../../apps/disa-stig-conversion-tool/
 | P0 | Porter `ImportAsync` | At baseline, read-back checked the report row's name and then started caching; it did not read the nested tree. **Addressed in code in Porter 0.3.0 (2026-10-08):** the report is created `Disabled`, `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true is read back, and policy and rule counts and names are compared with the file. A mismatch is reported as a partial import with both counts, and caching starts only for a verified report the operator chose to keep `Enabled`. Covered by offline unit tests; no live import was run. | Verify the complete imported definition before evaluation. A report row alone is insufficient. Still open: canonical comparison of rule content beyond names and counts, and a live acceptance test. |
 | P1 | Python `_parse_one_benchmark`; PowerShell `Read-OneBenchmark` | Only the first direct Rule per Group is selected. A synthetic two-rule Group produced one rule. Profile metadata is not retained. | Preserve all rules and group ancestry; represent profile selection explicitly. |
 | P1 | XCCDF parsers and deduplication | Only one check/reference and one fix text are selected; check-reference href/system and tailoring are not modeled. Namespace 1.2 is treated as SCAP edition, and deduplication prefers manual by benchmark ID without release comparison. | Keep source structure and versions before deciding how much can be converted; namespace alone is not an edition test. |
-| P1 | `make_node_selection_string` / `New-NodeSelectionString` | The picker is synthesized from Vendor alone with equality, while the SQL suffix can retain LIKE and additional properties. An offline probe reproduced that disagreement. | Generate both representations from the same scope model; test save/reopen behavior on the target. |
-| P1 | Import orchestration / `_clean_id` | Probe calls create rules. A missing returned rule/policy ID can fall back to the submitted ID. No durable dependency/import ledger is maintained. Partly addressed in tool 2.0.0 (2026-10-09): only the two documented 400 rejections move the probe on, a call that fails without an HTTP status is reported as an unknown outcome naming the submitted id, and every rollback or removal decision based on `IN @ids` is preceded by a probe for an id known to exist. | Treat probes as writes, verify returned identities, account for partial progress, and support deliberate resume/cleanup. Still open: a durable import ledger and resume. |
+| P1 | `make_node_selection_string` / `New-NodeSelectionString` | The picker is synthesized from Vendor alone with equality, while the SQL suffix can retain LIKE and additional properties. An offline probe reproduced that disagreement. **Partly addressed in DISA STIG tool 2.0.0 (2026-10-09):** both editions now derive the scope from one model (`resolve_ncm_scope` / `Resolve-NcmScope`): the SQL part is `Vendor =` plus, for Cisco, a `MachineType LIKE` pattern per platform (IOS-XE, IOS-XR, NX-OS, ASA, classic IOS; **Tentative:** the `MachineType` values are to be verified against a live server), and the picker deliberately keeps the Vendor criterion only, its value XML-escaped and quotes doubled in the SQL. The disagreement is now documented rather than accidental. An unrecognized network STIG is refused instead of defaulting to Cisco, and an import counts the matching `Orion.Nodes` rows first, refusing an empty scope. Covered by offline tests only. | Generate both representations from the same scope model; test save/reopen behavior on the target. Still open: save/reopen behavior and the live `MachineType` values. |
+| P1 | Import orchestration / `_clean_id` | Probe calls create rules. A missing returned rule/policy ID can fall back to the submitted ID. No durable dependency/import ledger is maintained. Partly addressed in tool 2.0.0 (2026-10-09): only the two documented 400 rejections move the probe on, a call that fails without an HTTP status is reported as an unknown outcome naming the submitted id, and every rollback or removal decision based on `IN @ids` is preceded by a probe for an id known to exist. Also since 2.0.0, every generated name and id seed carries a version suffix (`_v1` by default), and an import whose report name, policy name, `PolicyId` or `RuleId` already exists is refused before the first write with the next free suffix suggested, so a fallback to a submitted id can no longer meet an earlier import's object; the existing-id snapshot remains as defense in depth. | Treat probes as writes, verify returned identities, account for partial progress, and support deliberate resume/cleanup. Still open: a durable import ledger and resume. |
 | P1 | `rule_object` / `New-NcmRule` | Default generation creates basic literal sentinel/draft rules and copies fix prose into a CLI script field. It does not compile advanced/block conditions from DISA prose. | Separate review status, guidance, machine-check implementation, and executable remediation. |
 
 The advanced-rule serialization findings do not imply that today's default converter
@@ -30117,6 +30117,25 @@ since changed:
 The offline tests in `apps/disa-stig-conversion-tool/test_disa_stig_tool.py` cover the
 CRLF case and the refusal of SCM collection profiles (`.scm-profile` JSON), which the
 tool previously routed to `ImportPolicy` by extension. The remaining rows stand.
+
+**Status on 2026-10-09 (DISA STIG tool 2.0.0).** Two more rows have changed in part:
+
+- *Source identity and revision model.* The generated policy and rule `uniqueId`s are
+  still uuid5 values of the benchmark id and the revision-bearing XCCDF Rule ID, now
+  followed by a version suffix (`--suffix`, `_v1` by default) that also ends the policy
+  name. Before importing converted STIGs, both editions refuse when a policy name, policy
+  `uniqueId` or any rule `uniqueId` already exists and suggest the next free suffix, so a
+  new release is imported next to the old one with fresh identities. Whether SCM itself
+  rejects a rule `uniqueId` used by another policy remains **Unverified**; the tool checks
+  it anyway. This does not provide the legacy-alias mapping the row asks for.
+- *Manual-review sentinels.* The probe now comes from a per-OS table. Windows STIGs keep
+  the `!scm.powershell` attestation; Linux STIGs stay routed to SCM with the same probe,
+  labeled **Unverified** because no SCM policy source for Linux nodes is documented here,
+  with a logged warning and a test procedure in the tool README. `--scm-probe-template`
+  replaces the source block per run; the template is validated as a small tagged-YAML
+  fragment, and its `{id}` placeholder receives only the validated vulnerability id,
+  inside a quoted value. Generated policies are still draft review tasks, not compiled
+  automated checks.
 
 ## Field mapping and import acceptance contract
 
@@ -41026,14 +41045,18 @@ documents in full. The mapping that works:
   Emit it as a `Regex` over the escaped literal instead.
 - **Check what the STIG's node scope implies.** A policy report cannot evaluate a
   config downloaded in XML format, which is how Palo Alto devices back up by default,
-  and the result is an empty report rather than an error.
+  and the result is an empty report rather than an error. A scope that matches no node
+  fails the same silent way, so count the nodes it selects in `Orion.Nodes` before
+  importing, and scope a platform-specific STIG (Cisco IOS XE versus IOS XR, NX-OS or
+  ASA) to that platform rather than to the whole vendor.
 
 The calls, in order (all on `Cirrus.PolicyReports`, positional JSON bodies). The tiers
 are created bottom-up and linked by ID lists — the one-call nested alternative,
 `AddPolicyReport(report, importFlag)` with `importFlag` true, is documented to persist the whole tree
 but has been observed in the field creating only the report row over JSON REST:
 
-1. `SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n` — collision check.
+1. `SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n` — collision check
+   (the tool also checks policy names and the ids it will submit; see below).
 2. `AddPolicyRule(rule)` once per check — each returns the new rule GUID.
 3. `AddPolicy(policy, importFlag)` once per benchmark, `importFlag` false with
    `AssignedRulesList` carrying the rule GUIDs — returns the policy GUID.
@@ -41180,6 +41203,38 @@ Tool 2.0.0 (2026-10-09) also changes how an import fails, in both editions:
   exist, and stops unless exactly one row comes back. **Unverified:** the documented
   array binding uses integers; whether every server binds GUID strings the same way is
   not documented.
+
+Tool 2.0.0 (2026-10-09) also changes naming, node scope and Linux handling, in both
+editions:
+
+- **Version suffix.** Every report, NCM policy and SCM policy name ends in `--suffix`
+  (`_v1` by default), and the suffix is part of the uuid5 seed of every generated id (NCM
+  `PolicyId` and `RuleId`s, SCM policy and rule `uniqueId`s). Before the first write, the
+  import refuses when any name or id it would create already exists and suggests the next
+  free suffix, found by listing names with the same base. A new STIG release therefore
+  imports next to the old one with `--suffix _v2`, shares no id with it, and the old one
+  is removed afterwards by its full `_v1` name. The existing-id snapshot described above
+  stays as defense in depth. Imports made before 2.0.0 carry no suffix and share no id
+  with suffixed ones.
+- **Node scope.** A network STIG's NCM scope is its vendor, and for Cisco also a
+  `MachineType LIKE` pattern per platform: `%IOS-XE%`, `%IOS-XR%`, `%NX-OS%`, `%ASA%`,
+  and `%IOS%` for classic IOS only when none of those match. **Tentative:** these
+  `MachineType` values are to be verified against a live server; nothing in this
+  repository records what `Orion.Nodes.MachineType` holds for them. `--machine-type`
+  overrides the pattern and `--vendor` the vendor. An unrecognized network STIG (a Router
+  or NDM SRG, ESXi) and a Cisco STIG without a recognized platform are refused, offline
+  conversion included, instead of being scoped to every Cisco node. The console node
+  picker part of `NodeSelectionString` stays Vendor-only; the `MachineType` condition is
+  in the SQL part. Before writing, the import counts the matching nodes with the same
+  condition as bound SWQL parameters on `Orion.Nodes`, logs both forms and a sample of the
+  `MachineType` values the vendor's nodes report, and refuses an empty scope unless
+  `--allow-empty-scope` is given.
+- **Linux STIGs** stay routed to SCM with the same `!scm.powershell` attestation probe as
+  Windows. **Unverified:** no SCM policy source for Linux nodes is documented in this
+  repository, so the tool logs a warning and the tool README's "Testing Linux STIGs in
+  SCM" section gives the test procedure. `--scm-probe-template` replaces the probe's
+  source block per run; it is validated as a small YAML fragment, and its `{id}`
+  placeholder receives only the validated vulnerability id, inside a quoted value.
 
 These are offline-tested behaviors against an in-memory stand-in and a local listener,
 not a live import test.
@@ -66065,7 +66120,7 @@ This index extracts explicit uncertainty markers from authored pages under docs/
 
 The extractor recognizes selected phrases and explicit labels such as **Unverified:**, **Unknown:**, **Unconfirmed:**, **Not tested:**, and **Runtime validation required:**. It skips generated pages, headings, and fenced code. Absence from this index does not mean a claim is verified; app and script READMEs are outside its collection scope. See [the documentation audit](documentation-audit-2026-09-18.md) for coverage and evidence rules.
 
-**312 statements across 76 pages.**
+**315 statements across 76 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -66162,6 +66217,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The tool that does all of this](../automation/disa-stig-import.md#the-tool-that-does-all-of-this)**
 
 - **Unverified:** the documented array binding uses integers; whether every server binds GUID strings the same way is not documented.
+- **Unverified:** no SCM policy source for Linux nodes is documented in this repository, so the tool logs a warning and the tool README's "Testing Linux STIGs in SCM" section gives the test procedure.
 
 ## [discovery.md](../automation/discovery.md)
 
@@ -66672,6 +66728,11 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Historical-source limitation](../modules/scm-policy-portability-audit.md#historical-source-limitation)**
 
 - The archive itself was unavailable, so its precise contained release was not verified.
+
+**[Verified gaps in the current conversion tool](../modules/scm-policy-portability-audit.md#verified-gaps-in-the-current-conversion-tool)**
+
+- Whether SCM itself rejects a rule `uniqueId` used by another policy remains **Unverified**; the tool checks it anyway.
+- Windows STIGs keep the `!scm.powershell` attestation; Linux STIGs stay routed to SCM with the same probe, labeled **Unverified** because no SCM policy source for Linux nodes is documented here, with a logged warning and a test procedure in the tool README.
 
 ## [scm-profile-portability-audit.md](../modules/scm-profile-portability-audit.md)
 

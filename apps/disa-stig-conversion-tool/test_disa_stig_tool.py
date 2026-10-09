@@ -181,6 +181,9 @@ class FakeSwis:
               observed doing), or "full" (it stores the whole tree)
       in_ids_broken: every IN @ids query returns no rows
       drop_rule_on_readback: GetPolicyReport leaves the last rule of each policy out
+      nodes: (Vendor, MachineType) rows of Orion.Nodes for the scope preflight
+      explicit_scope_count: the count an explicit --node-where query returns, or an
+                            exception to raise (NCM SQL that is not valid SWQL)
     """
 
     def __init__(self, tree_has_policy_ids=True):
@@ -199,6 +202,10 @@ class FakeSwis:
         self.nested = None
         self.in_ids_broken = False
         self.drop_rule_on_readback = False
+        self.nodes = [("Cisco", "Cisco IOS Software C2960"), ("Cisco", "Cisco IOS-XE C9300"),
+                      ("Juniper", "Juniper SRX 340")]
+        self.explicit_scope_count = 1
+        self.scm_rule_ids = set()
 
     # -- helpers ------------------------------------------------------------
     def add_report(self, name, policies, report_id=None):
@@ -241,6 +248,36 @@ class FakeSwis:
         ids = {_n(i) for i in p.get("ids", [])}
         if "IN @ids" in swql and self.in_ids_broken:
             return []
+        if swql.startswith("SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE "):
+            if "@vendor" not in swql:
+                if isinstance(self.explicit_scope_count, Exception):
+                    raise self.explicit_scope_count
+                return [{"N": self.explicit_scope_count}]
+            like = re.compile("^" + ".*".join(map(re.escape, p.get("machineType", "%").split("%")))
+                              + "$", re.IGNORECASE)
+            return [{"N": sum(1 for v, m in self.nodes if v == p["vendor"] and like.match(m))}]
+        if swql == tool.SCOPE_SAMPLE_SWQL:
+            counts = {}
+            for v, m in self.nodes:
+                if v == p["vendor"]:
+                    counts[m] = counts.get(m, 0) + 1
+            return [{"Vendor": p["vendor"], "MachineType": m, "N": n} for m, n in sorted(counts.items())]
+        if " WHERE Name LIKE @p" in swql:
+            prefix = re.compile("^" + ".*".join(map(re.escape, p["p"].split("%"))), re.DOTALL)
+            if "Cirrus.PolicyReports" in swql:
+                names = [v["Name"] for v in self.reports.values()]
+                return [{"PolicyReportID": k, "Name": v["Name"]} for k, v in self.reports.items()
+                        if prefix.match(v["Name"])]
+            names = ([v["PolicyName"] for v in self.policies.values()] if "Cirrus.Policies" in swql
+                     else [row["Name"] for row in self.scm])
+            return [{"Name": n} for n in names if prefix.match(n)]
+        if swql == "SELECT PolicyID, Name FROM Cirrus.Policies WHERE Name = @n":
+            return [{"PolicyID": k, "Name": v["PolicyName"]} for k, v in self.policies.items()
+                    if v["PolicyName"] == p["n"]]
+        if swql == "SELECT TOP 1 UniqueId FROM Orion.PolicyEngine.Rule":
+            return [{"UniqueId": u} for u in sorted(self.scm_rule_ids)[:1]]
+        if "FROM Orion.PolicyEngine.Rule WHERE UniqueId IN @ids" in swql:
+            return [{"UniqueId": u} for u in self.scm_rule_ids if _n(u) in ids]
         if swql == "SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules":
             return [{"PolicyRuleID": k} for k in list(self.rules)[:1]]
         if swql == "SELECT TOP 1 PolicyID FROM Cirrus.Policies":
@@ -360,6 +397,7 @@ class FakeSwis:
     # -- Orion.PolicyEngine.Policy ------------------------------------------
     def _ImportPolicy(self, yaml_text):
         info = tool.scan_scm_policy(yaml_text)
+        self.scm_rule_ids.update(re.findall(r"^  uniqueId: (\S+)$", yaml_text, re.MULTILINE))
         self.next_scm_id += 1
         self.scm.append({"PolicyID": self.next_scm_id, "Name": info["name"],
                          "UniqueId": info["uniqueId"], "Rules": len(info["rules"])})
@@ -369,7 +407,8 @@ class FakeSwis:
 def import_args(path, **overrides):
     values = dict(path=path, name=None, grouping="DISA STIG", target="auto", node_where="auto",
                   config_type="Any", mode="manual", disabled=False, no_cache=False,
-                  no_rollback=False)
+                  no_rollback=False, suffix="_v1", vendor=None, machine_type=None,
+                  allow_empty_scope=False, scm_probe_template=None)
     values.update(overrides)
     return argparse.Namespace(**values)
 
@@ -387,13 +426,13 @@ class TempDirTest(unittest.TestCase):
             fh.write(data)
         return path
 
-    def router_zip(self, name="U_Test_Cisco_Router_STIG.zip"):
+    def router_zip(self, name="U_Test_Cisco_IOS_Router_STIG.zip"):
         path = os.path.join(self.tmp, name)
         with zipfile.ZipFile(path, "w") as zf:
             zf.writestr("a_ndm/a_ndm-xccdf.xml",
-                        xccdf_xml("Test_Router_NDM_STIG", "Test Cisco Router NDM STIG", NDM_GROUPS))
+                        xccdf_xml("Test_Router_NDM_STIG", "Test Cisco IOS Router NDM STIG", NDM_GROUPS))
             zf.writestr("b_rtr/b_rtr-xccdf.xml",
-                        xccdf_xml("Test_Router_RTR_STIG", "Test Cisco Router RTR STIG", RTR_GROUPS))
+                        xccdf_xml("Test_Router_RTR_STIG", "Test Cisco IOS Router RTR STIG", RTR_GROUPS))
             zf.writestr("a_ndm/STIG_unclass.xsl", "<xsl:stylesheet/>")
         return path
 
@@ -517,17 +556,24 @@ class RemoveTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class SeedTests(unittest.TestCase):
-    def test_seeds_use_benchmark_id_else_title(self):
+    def test_seeds_use_benchmark_id_else_title_then_the_suffix(self):
+        def u(seed):
+            return str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
         with_id = make_benchmark("Test_NDM", [make_rule(1)], title="Some Title")
         no_id = make_benchmark("", [make_rule(1)], title="Some Title")
-        pid = tool.build_reports([with_id])[0]["AssignedPolicies"][0]["PolicyId"]
-        self.assertEqual(pid, str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-policy:Test_NDM")))
-        pid = tool.build_reports([no_id])[0]["AssignedPolicies"][0]["PolicyId"]
-        self.assertEqual(pid, str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-policy:Some Title")))
-        self.assertIn(f"uniqueId: {uuid.uuid5(uuid.NAMESPACE_URL, 'stig2ncm-scm:Test_NDM')}\n",
-                      tool.xccdf_to_scm_yaml(with_id))
-        self.assertIn(f"uniqueId: {uuid.uuid5(uuid.NAMESPACE_URL, 'stig2ncm-scm:Some Title')}\n",
-                      tool.xccdf_to_scm_yaml(no_id))
+        report = tool.build_reports([with_id])[0]
+        self.assertEqual(report["AssignedPolicies"][0]["PolicyId"], u("stig2ncm-policy:Test_NDM_v1"))
+        self.assertEqual(report["AssignedPolicies"][0]["AssignedPolicyRules"][0]["RuleId"],
+                         u("stig2ncm:SV-1r1_rule_v1"))
+        pid = tool.build_reports([no_id], suffix="_v2")[0]["AssignedPolicies"][0]["PolicyId"]
+        self.assertEqual(pid, u("stig2ncm-policy:Some Title_v2"))
+        yaml_text = tool.xccdf_to_scm_yaml(with_id)
+        self.assertIn(f"uniqueId: {u('stig2ncm-scm:Test_NDM_v1')}\n", yaml_text)
+        self.assertIn(f"  uniqueId: {u('stig2ncm-scm-rule:SV-1r1_rule_v1')}\n", yaml_text)
+        self.assertIn(f"uniqueId: {u('stig2ncm-scm:Some Title_v3')}\n",
+                      tool.xccdf_to_scm_yaml(no_id, "_v3"))
+        # The pre-2.0.0 unsuffixed seeds are not used any more.
+        self.assertNotEqual(report["AssignedPolicies"][0]["PolicyId"], u("stig2ncm-policy:Test_NDM"))
 
 
 # ---------------------------------------------------------------------------
@@ -600,7 +646,7 @@ class ScmRoutingTests(TempDirTest):
         with contextlib.redirect_stdout(io.StringIO()):
             tool.cmd_build(import_args(xml, output=None))
         written = [f for f in os.listdir(self.tmp) if f.endswith(tool.SCM_POLICY_SUFFIX)]
-        self.assertEqual(written, ["U_MS_Windows_Server_Test-xccdf.Windows_Server_Test_STIG.scm-policy.yaml"])
+        self.assertEqual(written, ["U_MS_Windows_Server_Test-xccdf.Windows_Server_Test_STIG_v1.scm-policy.yaml"])
         self.assertFalse([f for f in os.listdir(self.tmp) if f.endswith(".scm-profile")])
         with open(os.path.join(self.tmp, written[0]), encoding="utf-8") as fh:
             self.assertTrue(fh.read().startswith("!policy\n"))
@@ -638,13 +684,13 @@ class ImportFlowTests(TempDirTest):
         first_id = next(iter(fake.reports))
         self.assertEqual(fake.verbs("StartCaching"), [("invoke", "StartCaching", ([first_id],))])
         written = sorted(f for f in os.listdir(self.tmp) if f.endswith(".ncm-report.xml"))
-        self.assertEqual(written, ["U_Test_Cisco_Router_STIG_-_Test_Router_RTR_STIG.ncm-report.xml"])
+        self.assertEqual(written, ["U_Test_Cisco_IOS_Router_STIG_-_Test_Router_RTR_STIG_v1.ncm-report.xml"])
         self.assertIn("1 of 2 report(s) were imported before the failure", self.output)
 
     def test_server_error_on_second_report_still_disables_first(self):
         path = self.router_zip()
         fake = FakeSwis()
-        fake.fail_add_report.add("U_Test_Cisco_Router_STIG - Test_Router_RTR_STIG")
+        fake.fail_add_report.add("U_Test_Cisco_IOS_Router_STIG - Test_Router_RTR_STIG_v1")
         with self.assertRaisesRegex(tool.SwisError, "simulated server error"):
             self.run_import(fake, path, disabled=True)
         self.assertEqual(len(fake.reports), 1)
@@ -1152,7 +1198,7 @@ class LoggingTests(TempDirTest):
     def test_log_path_is_printed_once_at_start_and_once_at_end(self):
         """With stdout and stderr in one stream (2>&1), buffered stdout used to land
         after both announcements, so the path looked printed twice at the start."""
-        xml = self.write("U_Cisco_X-xccdf.xml", xccdf_xml("X_STIG", "Cisco X STIG", RTR_GROUPS))
+        xml = self.write("U_Cisco_ASA_X-xccdf.xml", xccdf_xml("X_STIG", "Cisco ASA X STIG", RTR_GROUPS))
         log = os.path.join(self.tmp, "once.log")
         result = subprocess.run([sys.executable, PY_TOOL, "convert", xml, "--log-file", log],
                                 cwd=self.tmp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -1384,6 +1430,447 @@ $out.pinCalls = 0; if ($conn.PinCheck) { $out.pinCalls = $conn.PinCheck.Calls }
 
 
 # ---------------------------------------------------------------------------
+# 10. Item 11: the version suffix, collision refusal and the next free suffix
+# ---------------------------------------------------------------------------
+
+class SuffixTests(TempDirTest):
+    def run_cmd(self, fn, fake, args):
+        out = io.StringIO()
+        with mock.patch.object(tool, "connect", return_value=fake), contextlib.redirect_stdout(out):
+            try:
+                fn(args)
+            finally:
+                self.output = out.getvalue()
+
+    def test_validation(self):
+        for good in ("_v1", "_v2", "_v10", "_v007"):
+            self.assertEqual(tool.validate_suffix(good), good)
+        self.assertEqual(tool.validate_suffix(None), "_v1")
+        self.assertEqual(tool.validate_suffix(""), "_v1")
+        for bad in ("v1", "_V1", "_v", "_v1a", "_v-1", "_v1\n", " _v1", "_v١"):
+            with self.assertRaisesRegex(ValueError, "not valid"):
+                tool.validate_suffix(bad)
+        with self.assertRaisesRegex(ValueError, "not valid"):
+            tool.build_reports([make_benchmark("B", [make_rule(1)])], suffix="v2")
+
+    def test_names_files_and_ids_carry_the_suffix(self):
+        bench = make_benchmark("NDM", [make_rule(1), make_rule(2)], title="Long " * 80)
+        v1 = tool.build_reports([bench], name="Pkg")[0]
+        v2 = tool.build_reports([bench], name="Pkg", suffix="_v2")[0]
+        self.assertEqual(v1["Name"], "Pkg - NDM_v1")
+        self.assertEqual(v2["Name"], "Pkg - NDM_v2")
+        for report, suffix in ((v1, "_v1"), (v2, "_v2")):
+            policy = report["AssignedPolicies"][0]
+            self.assertEqual(len(policy["PolicyName"]), 250)
+            self.assertTrue(policy["PolicyName"].endswith(suffix), "the suffix survives the cut")
+        ids = lambda rep: {rep["AssignedPolicies"][0]["PolicyId"]} | {
+            r["RuleId"] for r in rep["AssignedPolicies"][0]["AssignedPolicyRules"]}
+        self.assertEqual(ids(v1) & ids(v2), set(), "_v2 shares no id with _v1")
+        self.assertEqual([r["RuleName"] for r in v1["AssignedPolicies"][0]["AssignedPolicyRules"]],
+                         [r["RuleName"] for r in v2["AssignedPolicies"][0]["AssignedPolicyRules"]])
+        self.assertTrue(tool.write_console_file(v2, self.tmp).endswith("Pkg_-_NDM_v2.ncm-report.xml"))
+        self.assertEqual(tool.scm_policy_filename(bench, "stem", "_v3"), "stem.NDM_v3.scm-policy.yaml")
+        y1, y2 = tool.xccdf_to_scm_yaml(bench), tool.xccdf_to_scm_yaml(bench, "_v2")
+        uids = lambda y: set(re.findall(r"uniqueId: (\S+)", y))
+        self.assertEqual(len(uids(y1)), 3)
+        self.assertEqual(uids(y1) & uids(y2), set())
+        self.assertIn('_v2"\nuniqueId: ', y2)
+
+    def test_next_free_suffix(self):
+        self.assertEqual(tool.strip_suffix("Pkg - NDM_v12"), ("Pkg - NDM", 12))
+        self.assertEqual(tool.strip_suffix("Pkg - NDM"), ("Pkg - NDM", None))
+        self.assertEqual(tool.next_free_suffix(["A_v1", "A_v3", "B_v9", "A"], "A", "_v1"), "_v4")
+        self.assertEqual(tool.next_free_suffix([], "A", "_v5"), "_v6")
+        self.assertEqual(tool.like_prefix("Cisco [IOS] x"), "Cisco %")
+
+    def test_second_import_is_refused_before_any_write_with_the_next_suffix(self):
+        path = self.router_zip()
+        fake = FakeSwis()
+        self.run_cmd(tool.cmd_import, fake, import_args(path))
+        self.assertEqual(sorted(v["Name"] for v in fake.reports.values()),
+                         ["U_Test_Cisco_IOS_Router_STIG - Test_Router_NDM_STIG_v1",
+                          "U_Test_Cisco_IOS_Router_STIG - Test_Router_RTR_STIG_v1"])
+        writes = len([c for c in fake.verbs() if c[1].startswith(("Add", "Delete"))])
+        with self.assertRaises(tool.CollisionError) as ctx:
+            self.run_cmd(tool.cmd_import, fake, import_args(path))
+        msg = str(ctx.exception)
+        self.assertIn("next free suffix is _v2", msg)
+        self.assertIn('report "U_Test_Cisco_IOS_Router_STIG - Test_Router_NDM_STIG_v1"', msg)
+        self.assertIn("RuleId(s)", msg)
+        self.assertEqual(len([c for c in fake.verbs() if c[1].startswith(("Add", "Delete"))]), writes,
+                         "nothing was written or deleted by the refused run")
+        self.run_cmd(tool.cmd_import, fake, import_args(path, suffix="_v2"))
+        self.assertEqual(len(fake.reports), 4)
+        with self.assertRaisesRegex(tool.CollisionError, "next free suffix is _v3"):
+            self.run_cmd(tool.cmd_import, fake, import_args(path, suffix="_v1"))
+
+    def test_an_id_collision_alone_is_refused(self):
+        path = self.router_zip()
+        fake = FakeSwis()
+        self.run_cmd(tool.cmd_import, fake, import_args(path))
+        for rep in fake.reports.values():
+            rep["Name"] += " (renamed in the console)"
+        for pol in fake.policies.values():
+            pol["PolicyName"] += " (renamed)"
+        with self.assertRaisesRegex(tool.CollisionError, r"RuleId\(s\)"):
+            self.run_cmd(tool.cmd_import, fake, import_args(path))
+
+    def test_snapshot_stays_as_defense_in_depth(self):
+        # Called directly (no collision check in front), an earlier rule is still kept.
+        report = tool.build_reports([make_benchmark("NDM", [make_rule(1), make_rule(2)])], name="P")[0]
+        rules = report["AssignedPolicies"][0]["AssignedPolicyRules"]
+        fake = FakeSwis()
+        fake.add_policy("earlier", [rules[0]["RuleId"]])
+        fake.add_report("Earlier", ["earlier"], "earlier-report")
+        fake.fail_add_report.add(report["Name"])
+        with self.assertRaises(tool.SwisError):
+            tool.import_ncm_report(fake, report, log=lambda m: None)
+        self.assertIn(rules[0]["RuleId"], fake.rules)
+
+    def test_remove_takes_suffixed_names_and_suggests_them(self):
+        path = self.router_zip()
+        fake = FakeSwis()
+        self.run_cmd(tool.cmd_import, fake, import_args(path))
+        name = "U_Test_Cisco_IOS_Router_STIG - Test_Router_NDM_STIG"
+        args = argparse.Namespace(name=name, dry_run=True, yes=False, delete_children=False)
+        with self.assertRaises(SystemExit) as ctx:
+            self.run_cmd(tool.cmd_remove, fake, args)
+        self.assertIn(f'"{name}_v1"', str(ctx.exception))
+        self.assertIn("version suffix", str(ctx.exception))
+        args.name, args.dry_run, args.yes = name + "_v1", False, True
+        self.run_cmd(tool.cmd_remove, fake, args)
+        self.assertEqual([v["Name"] for v in fake.reports.values()],
+                         ["U_Test_Cisco_IOS_Router_STIG - Test_Router_RTR_STIG_v1"])
+
+    def test_test_command_uses_the_suffix(self):
+        config = self.write("cfg.txt", "hostname R1\n")
+        fake = FakeSwis()
+        fake._TestRule = lambda rule, text: "ok"
+        args = import_args(self.router_zip(), suffix="_v4", config_file=config, config_id=None,
+                           limit=1)
+        self.run_cmd(tool.cmd_test, fake, args)
+        sent = fake.verbs("TestRule")[0][2][0]
+        self.assertEqual(sent["RuleId"], str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm:SV-1001r1_rule_v4")))
+        with self.assertRaisesRegex(ValueError, "not valid"):
+            self.run_cmd(tool.cmd_test, FakeSwis(), import_args(self.router_zip(), suffix="4",
+                                                                 config_file=config, config_id=None,
+                                                                 limit=1))
+
+    def test_scm_collision_and_suffix(self):
+        xml = self.write("U_MS_Windows_Server_Test-xccdf.xml",
+                         xccdf_xml("Windows_Server_Test_STIG", "Microsoft Windows Server Test STIG",
+                                   RTR_GROUPS))
+        fake = FakeSwis()
+        self.run_cmd(tool.cmd_import, fake, import_args(xml))
+        self.assertEqual([r["Name"] for r in fake.scm],
+                         ["Microsoft Windows Server Test STIG V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1"])
+        with self.assertRaisesRegex(tool.CollisionError, "next free suffix is _v2"):
+            self.run_cmd(tool.cmd_import, fake, import_args(xml))
+        self.assertEqual(len(fake.verbs("ImportPolicy")), 1)
+        # A rule uniqueId alone (another policy holds it) is refused too.
+        fake.scm[0]["Name"], fake.scm[0]["UniqueId"] = "renamed", "other"
+        with self.assertRaisesRegex(tool.CollisionError, r"rule uniqueId\(s\)"):
+            self.run_cmd(tool.cmd_import, fake, import_args(xml))
+        self.run_cmd(tool.cmd_import, fake, import_args(xml, suffix="_v2"))
+        self.assertEqual(len(fake.verbs("ImportPolicy")), 2)
+
+
+# ---------------------------------------------------------------------------
+# 11. Item 6: Cisco scope by MachineType (Tentative), refusals, preflight
+# ---------------------------------------------------------------------------
+
+class ScopeTests(TempDirTest):
+    def bench_xml(self, name, bid, title):
+        return self.write(name, xccdf_xml(bid, title, RTR_GROUPS))
+
+    def test_platform_table_order_and_spellings(self):
+        expected = {"U_Cisco_IOS-XE_Router_NDM_STIG": "IOS-XE", "Cisco IOS XE Switch L2S": "IOS-XE",
+                    "Cisco_IOS_XE_Switch_RTR_STIG": "IOS-XE", "IOSXE Router": "IOS-XE",
+                    "Cisco IOS XR Router": "IOS-XR", "Cisco_IOS-XR_Router_RTR_STIG": "IOS-XR",
+                    "Cisco NX OS Switch": "NX-OS", "U_Cisco_NX-OS_Switch_Y26M07_STIG": "NX-OS",
+                    "Cisco ASA Firewall": "ASA", "Cisco IOS Router NDM": "IOS",
+                    "U_Cisco_IOS_Switch_Y26M07_STIG": "IOS", "Cisco ISE NAC": None,
+                    "Cisco Biosphere": None}
+        for title, platform in expected.items():
+            self.assertEqual(tool.detect_cisco_platform(title)[0], platform, title)
+        self.assertEqual([p[2] for p in tool.CISCO_PLATFORMS],
+                         ["%IOS-XE%", "%IOS-XR%", "%NX-OS%", "%ASA%", "%IOS%"])
+
+    def test_scope_decisions(self):
+        b = make_benchmark("Cisco_IOS_XE_Router_NDM_STIG", [], title="Cisco IOS XE Router NDM")
+        kind, scope, note = tool.resolve_route("auto", [b], "U_Cisco_IOS-XE_Router_Y26M07_STIG.zip")
+        self.assertEqual(scope["where"], "(Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')")
+        self.assertIn("Tentative", note)
+        sel = tool.make_node_selection_string(scope["where"])
+        picker, sql = sel.split("SQL:Where ")
+        self.assertIn("<SelectedValue>Cisco</SelectedValue>", picker)
+        self.assertNotIn("MachineType", picker)
+        self.assertIn("MachineType LIKE '%IOS-XE%'", sql)
+        j = make_benchmark("Juniper_SRX", [], title="Juniper SRX SG NDM")
+        self.assertEqual(tool.resolve_route("auto", [j], "U_Juniper_SRX.zip")[1]["where"],
+                         "(Vendor = 'Juniper')")
+        srg = make_benchmark("Router_SRG", [], title="Router Security Requirements Guide")
+        with self.assertRaisesRegex(tool.ScopeError, "no longer assumes Cisco"):
+            tool.resolve_route("auto", [srg], "U_Router_V5R2_SRG.zip")
+        self.assertIn("node scope not decided",
+                      tool.resolve_route("auto", [srg], "U_Router_V5R2_SRG.zip", strict=False)[2])
+        scope = tool.resolve_route("auto", [srg], "U_Router_V5R2_SRG.zip", vendor="O'Brien",
+                                   machine_type="%x'y%")[1]
+        self.assertEqual(scope["where"], "(Vendor = 'O''Brien' AND MachineType LIKE '%x''y%')")
+        ise = make_benchmark("Cisco_ISE", [], title="Cisco ISE NAC")
+        with self.assertRaisesRegex(tool.ScopeError, "--machine-type PATTERN"):
+            tool.resolve_route("auto", [ise], "U_Cisco_ISE.zip")
+        self.assertEqual(tool.resolve_route("auto", [ise], "U_Cisco_ISE.zip", machine_type="%")[1]["where"],
+                         "(Vendor = 'Cisco' AND MachineType LIKE '%')")
+        with self.assertRaisesRegex(tool.ScopeError, "different Cisco platforms"):
+            tool.resolve_route("auto", [b, make_benchmark("ASA", [], title="Cisco ASA NDM")],
+                               "U_Cisco_Mix.zip")
+        with self.assertRaisesRegex(tool.ScopeError, "not both"):
+            tool.resolve_route("auto", [b], "x.zip", node_where="(Vendor = 'Cisco')", vendor="Cisco")
+        with self.assertRaisesRegex(tool.ScopeError, "printable"):
+            tool.resolve_route("auto", [srg], "x.zip", vendor="Cis\nco")
+
+    def test_convert_refuses_an_unknown_network_stig_offline(self):
+        xml = self.bench_xml("U_Router_V5R2_SRG-xccdf.xml", "Router_SRG", "Router SRG")
+        cwd = os.getcwd()
+        os.chdir(self.tmp)
+        self.addCleanup(os.chdir, cwd)
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(tool.ScopeError, "--vendor"):
+                tool.cmd_build(import_args(xml, output=None))
+            self.assertEqual([f for f in os.listdir(self.tmp) if f.endswith(".ncm-report.xml")], [])
+            tool.cmd_build(import_args(xml, output=None, vendor="Juniper"))
+        self.assertEqual([f for f in os.listdir(self.tmp) if f.endswith(".ncm-report.xml")],
+                         ["Router_SRG_v1.ncm-report.xml"])
+        result = subprocess.run([sys.executable, PY_TOOL, "convert", xml, "--log-file",
+                                 os.path.join(self.tmp, "c.log")], cwd=self.tmp, capture_output=True,
+                                timeout=120)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(b"no longer assumes Cisco", result.stderr)
+
+    def test_empty_scope_refuses_the_import_before_any_write(self):
+        path = os.path.join(self.tmp, "U_Cisco_NX-OS_Switch_STIG.zip")
+        with zipfile.ZipFile(path, "w") as zf:
+            zf.writestr("nx-xccdf.xml", xccdf_xml("Cisco_NX-OS_Switch_L2S_STIG",
+                                                  "Cisco NX OS Switch L2S", RTR_GROUPS))
+        log = os.path.join(self.tmp, "scope.log")
+        self.addCleanup(tool.close_logging)
+        tool.setup_logging(log)
+        fake = FakeSwis()     # no NX-OS node
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(tool.ScopeError, "matches no node"):
+                tool.cmd_import(import_args(path))
+            self.assertEqual([c for c in fake.verbs() if c[1].startswith("Add")], [])
+            tool.cmd_import(import_args(path, allow_empty_scope=True))
+        self.assertEqual(len(fake.reports), 1)
+        tool.close_logging()
+        text = "\n".join(read_log_lines(log))
+        self.assertIn("SWQL SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE Vendor = @vendor AND "
+                      "MachineType LIKE @machineType params {vendor='Cisco', machineType='%NX-OS%'}", text)
+        self.assertIn("NCM SQL Where (Vendor = 'Cisco' AND MachineType LIKE '%NX-OS%')", text)
+        self.assertIn("MachineType values reported by Vendor 'Cisco' nodes (up to 25): Cisco IOS "
+                      "Software C2960 (1); Cisco IOS-XE C9300 (1) - Tentative", text)
+        self.assertIn(" WARN  scope  warning: the node scope (Vendor = 'Cisco' AND MachineType LIKE "
+                      "'%NX-OS%') matches no node", text)
+
+    def test_explicit_scope_that_swql_cannot_count_is_inconclusive(self):
+        fake = FakeSwis()
+        fake.explicit_scope_count = tool.SwisError("HTTP 400 from Query\nmismatched input")
+        lines, log = capture()
+        scope = tool.resolve_ncm_scope([], "x.zip", "(Nodes.SysName LIKE 'core%')")
+        self.assertIsNone(tool.scope_preflight(fake, scope, log=log))
+        self.assertEqual(fake.calls[0][1], "SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE "
+                                           "(SysName LIKE 'core%')")
+        self.assertTrue(any("could not be counted" in line for line in lines))
+
+
+# ---------------------------------------------------------------------------
+# 12. Item 5: Linux STIGs in SCM, the probe table and --scm-probe-template
+# ---------------------------------------------------------------------------
+
+class LinuxProbeTests(TempDirTest):
+    def linux_xml(self):
+        return self.write("U_RHEL_9_STIG-xccdf.xml",
+                          xccdf_xml("RHEL_9_STIG", "Red Hat Enterprise Linux 9 STIG", RTR_GROUPS))
+
+    def convert(self, *extra):
+        log = os.path.join(self.tmp, "linux.log")
+        result = subprocess.run([sys.executable, PY_TOOL, "convert", self.linux_xml(), "--log-file",
+                                 log, *extra], cwd=self.tmp, capture_output=True, timeout=120)
+        return result, read_log_lines(log)
+
+    def test_linux_routes_to_scm_with_a_warning(self):
+        result, lines = self.convert()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        text = "\n".join(lines)
+        self.assertIn("OS family linux", text)
+        self.assertIn("SCM probe: OS family linux; probe !scm.powershell Write-Host attestation "
+                      "(Unverified on Linux nodes)", text)
+        warn = [line for line in lines if " WARN  scm    " in line and "Linux STIG routed to SCM" in line]
+        self.assertEqual(len(warn), 1)
+        self.assertIn("Testing Linux STIGs in SCM", warn[0])
+        written = os.path.join(self.tmp, "U_RHEL_9_STIG-xccdf.RHEL_9_STIG_v1.scm-policy.yaml")
+        with open(written, encoding="utf-8") as fh:
+            self.assertIn("      script: \"Write-Host 'V-2001 reviewed: False'\"", fh.read())
+
+    def test_probe_template_replaces_the_source_block(self):
+        template = self.write("probe.yaml", PROBE_TEMPLATE)
+        result, lines = self.convert("--scm-probe-template", template, "--suffix", "_v2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with open(os.path.join(self.tmp, "U_RHEL_9_STIG-xccdf.RHEL_9_STIG_v2.scm-policy.yaml"),
+                  encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("    expression: \"V-2001 reviewed: True\"\n    source: !scm.powershell\n"
+                      "      description: \"attest V-2001\"\n"
+                      "      script: 'Write-Host ''V-2001 reviewed: False'''\n", text)
+        self.assertTrue(any("probe template" in line and "{id} used" in line for line in lines))
+
+    def test_bad_templates_are_refused_before_anything_is_written(self):
+        for text in TEMPLATE_CASES[5:]:
+            with self.subTest(text=text[:40]):
+                with self.assertRaises(ValueError):
+                    tool.parse_probe_template(text)
+        bad = self.write("bad.yaml", "!scm.powershell\nscript: Write-Host {id}\n")
+        result, _lines = self.convert("--scm-probe-template", bad)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(b"only allowed inside a quoted string", result.stderr)
+        self.assertFalse([f for f in os.listdir(self.tmp) if f.endswith(".scm-policy.yaml")])
+
+    def test_template_never_receives_raw_stig_text(self):
+        template = tool.parse_probe_template(PROBE_TEMPLATE)
+        bench = make_benchmark("Probe_STIG", [dict(make_rule(1), vuln_id=NASTY_VULN)])
+        text = tool.xccdf_to_scm_yaml(bench, "_v1", "linux", template)
+        probe = text.split("condition:")[1]
+        self.assertIn("attest V-77_Remove-Item_C_x_", probe)
+        for raw in ("$(", "`", "Remove-Item C"):
+            self.assertNotIn(raw, probe)
+
+
+# ---------------------------------------------------------------------------
+# Shared cases for items 5, 6 and 11 (Python tests and the parity comparison)
+# ---------------------------------------------------------------------------
+
+PROBE_TEMPLATE = ("# A test source block\n!scm.powershell\ndescription: \"attest {id}\"\n"
+                  "script: 'Write-Host ''{id} reviewed: False'''\n")
+PLATFORM_TITLES = [
+    "U_Cisco_IOS-XE_Router_NDM_STIG", "Cisco IOS XE Switch L2S", "Cisco_IOS_XE_Switch_RTR_STIG",
+    "U_Cisco_IOS_XE_Router", "IOSXE Router", "Cisco IOS XR Router", "Cisco_IOS-XR_Router_RTR_STIG",
+    "Cisco NX OS Switch", "U_Cisco_NX-OS_Switch_Y26M07_STIG", "Cisco NXOS", "Cisco ASA Firewall",
+    "U_Cisco_ASA_Y26M07_STIG", "Cisco IOS Router NDM", "U_Cisco_IOS_Switch_Y26M07_STIG",
+    "Cisco ISE NAC", "Router SRG", "Cisco Biosphere", "",
+]
+
+
+def scope_bench(bid, title):
+    return make_benchmark(bid, [], title=title, source=f"{bid or 'x'}-xccdf.xml")
+
+
+SCOPE_CASES = [
+    dict(source="U_Cisco_IOS-XE_Router_Y26M07_STIG.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("Cisco_IOS_XE_Router_NDM_STIG",
+                                 "Cisco IOS XE Router NDM Security Technical Implementation Guide"),
+                     scope_bench("Cisco_IOS_XE_Router_RTR_STIG",
+                                 "Cisco IOS XE Router RTR Security Technical Implementation Guide")]),
+    dict(source="U_Cisco_IOS-XR_Router_Y26M04_STIG.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("Cisco_IOS-XR_Router_RTR_STIG", "Cisco IOS XR Router RTR")]),
+    dict(source="U_Cisco_NX-OS_Switch_Y26M07_STIG.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("Cisco_NX-OS_Switch_L2S_STIG", "Cisco NX OS Switch L2S")]),
+    dict(source="U_Cisco_ASA_Y26M07_STIG.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("Cisco_ASA_FW_STIG", "Cisco ASA Firewall")]),
+    dict(source="U_Cisco_IOS_Router_Y26M07_STIG.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("Cisco_IOS_Router_NDM_STIG", "Cisco IOS Router NDM")]),
+    dict(source="U_Juniper_SRX_SG_Y25M01_STIG.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("Juniper_SRX_SG_VPN_STIG", "Juniper SRX SG VPN")]),
+    # refused: an SRG, ESXi, a Cisco STIG without a platform, mixed platforms, Cisco
+    # given as the vendor of an SRG without a platform, -NodeWhere together with -Vendor
+    dict(source="U_Router_V5R2_SRG.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("Router_SRG", "Router Security Requirements Guide")]),
+    dict(source="U_VMW_vSphere_ESXi.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("ESXi_8_STIG", "VMware vSphere 8.0 ESXi")]),
+    dict(source="U_Cisco_ISE_Y26M01_STIG.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("Cisco_ISE_NAC_STIG", "Cisco ISE NAC")]),
+    dict(source="U_Cisco_Mixed.zip", where="auto", vendor="", machineType="",
+         benchmarks=[scope_bench("A_STIG", "Cisco IOS XE Router NDM"),
+                     scope_bench("B_STIG", "Cisco ASA NDM")]),
+    dict(source="U_Router_V5R2_SRG.zip", where="auto", vendor="Cisco", machineType="",
+         benchmarks=[scope_bench("Router_SRG", "Router Security Requirements Guide")]),
+    dict(source="U_Router_V5R2_SRG.zip", where="(Vendor = 'Cisco')", vendor="Cisco",
+         machineType="", benchmarks=[scope_bench("Router_SRG", "Router SRG")]),
+    # overrides and an explicit scope
+    dict(source="U_Router_V5R2_SRG.zip", where="auto", vendor="O'Brien", machineType="%x'y%",
+         benchmarks=[scope_bench("Router_SRG", "Router Security Requirements Guide")]),
+    dict(source="U_Cisco_ISE_Y26M01_STIG.zip", where="auto", vendor="", machineType="%ISE%",
+         benchmarks=[scope_bench("Cisco_ISE_NAC_STIG", "Cisco ISE NAC")]),
+    dict(source="U_Router_V5R2_SRG.zip", where="(Nodes.Vendor = 'Cisco' AND SysName LIKE 'core%')",
+         vendor="", machineType="", benchmarks=[scope_bench("Router_SRG", "Router SRG")]),
+    dict(source="U_Router_V5R2_SRG.zip", where="auto", vendor="A&B <Networks>", machineType="",
+         benchmarks=[scope_bench("Router_SRG", "Router SRG")]),
+]
+SELECTION_WHERES = [
+    "(Vendor = 'Cisco')", "(Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')",
+    "(Vendor LIKE '%Juniper%')", "(Vendor = 'O''Brien & <Co>')", "Nodes.Vendor = 'F5'",
+    "(Vendor LIKE '%a%b%')", "(MachineType LIKE '%NX-OS%')", "(Vendor = '')",
+]
+TEMPLATE_CASES = [
+    PROBE_TEMPLATE,
+    "!scm.registry\nkey: HKEY_LOCAL_MACHINE\\SOFTWARE\\X\nname: \"{id}\"\n",
+    "\ufeff!scm.powershell\r\nscript: \"Write-Host '{id}'\"\r\n",
+    "!scm.powershell\nouter:\n  inner: '{id}'\n  other: x\nlast: \"y\"\n",
+    "!scm.powershell\nscript: \"no placeholder\"\n",
+    "description: x\n",                          # no source tag
+    "!scm.powershell\nscript: Write-Host {id}\n",  # placeholder outside quotes
+    "!scm.powershell\n{id}: x\n",                 # placeholder in a key
+    "!scm.powershell\n- item\n",                  # a sequence
+    "!scm.powershell\nscript: |\n  x\n",          # a block scalar
+    "!scm.powershell\nscript: &a x\n",            # an anchor
+    "!scm.powershell\n\tscript: x\n",             # a tab
+    "!scm.powershell\nscript: \"\\{id}\"\n",      # a backslash before {id}
+    "!scm.powershell\n  script: x\n",             # indented first key
+    "!scm.powershell\nouter:\n",                  # a key with nothing under it
+    "!scm.powershell\nscript: \"" + "x" * 5000 + "\"\n",   # too large
+    "!scm.powershell\nscript: \"unterminated\n",
+    "!scm.power shell\nscript: x\n",
+    "",
+]
+SUFFIX_CASES = ["_v1", "_v2", "_v10", "", "v1", "_V1", "_v", "_v1a", "_v-1", "_v1\n", "_v1 ",
+                "_v\u0661"]
+SUFFIXED_CASES = [("Name", "_v1"), ("N" * 300, "_v1"), ("N" * 248, "_v12"), ("", "_v3")]
+NEXT_FREE_CASES = [(["Base_v1", "Base_v2", "Other_v9", "Base"], "Base", "_v1"),
+                   (["Base_v1"], "Base", "_v4"), ([], "Base", "_v1"),
+                   (["Base - X_v3", "Base_v20"], "Base - X", "_v1")]
+
+
+def py_scope(c):
+    """What the parity test expects from Resolve-NcmScope for one SCOPE_CASES entry."""
+    detected, info = tool.detect_target(c["benchmarks"], c["source"])
+    try:
+        sc = tool.resolve_ncm_scope(c["benchmarks"], c["source"], c["where"], c["vendor"],
+                                    c["machineType"], info if detected == "network" else None)
+    except tool.ScopeError:
+        return {"error": True}
+    swql, params = tool.scope_swql(sc)
+    return {"where": sc["where"], "vendor": sc["vendor"], "machineType": sc["machine_type"],
+            "platform": sc["platform"], "explicit": sc["explicit"], "swql": swql,
+            "params": params or None, "selection": tool.make_node_selection_string(sc["where"])}
+
+
+def py_template(text):
+    try:
+        return tool.parse_probe_template(text)
+    except ValueError:
+        return []
+
+
+def py_suffix_ok(value):
+    try:
+        tool.validate_suffix(value)
+        return True
+    except ValueError:
+        return False
+
+
+# ---------------------------------------------------------------------------
 # PowerShell edition: parse, self-tests, and cross-edition parity
 # ---------------------------------------------------------------------------
 
@@ -1447,6 +1934,13 @@ class PowerShellEditionTests(TempDirTest):
                  enabled=True, configType="Startup"),
             dict(path=cp1252_xml, name="", where=where, mode="manual", folder="DISA STIG",
                  enabled=True, configType="Any"),
+            # Item 11: another suffix gives other names and ids; item 6: a MachineType
+            # scope and a quoted vendor; item 5: the Linux family and a probe template.
+            dict(path=router_zip, name="", where="(Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')",
+                 mode="manual", folder="DISA STIG", enabled=True, configType="Any", suffix="_v2"),
+            dict(path=bare_xml, name="Upgrade", where="(Vendor = 'O''Brien')", mode="manual",
+                 folder="DISA STIG", enabled=True, configType="Any", suffix="_v10", family="linux",
+                 template=PROBE_TEMPLATE),
         ]
         long_title = "Very Long Benchmark Title " * 15
         tricky = make_rule(9, "high",
@@ -1468,6 +1962,11 @@ class PowerShellEditionTests(TempDirTest):
                      rule_id="xccdf_mil.disa.stig_rule_SV-13r1_rule")])],
                  baseName="", where=where, mode="manual", folder="DISA STIG", enabled=True,
                  configType="Any"),
+            # A template receives the same sanitized id as the default probe.
+            dict(benchmarks=[make_benchmark("Probe_STIG", [
+                dict(make_rule(14), vuln_id=NASTY_VULN, rule_id="SV-14$(x)")], title=long_title)],
+                 baseName="", where=where, mode="manual", folder="DISA STIG", enabled=True,
+                 configType="Any", suffix="_v7", family="linux", template=PROBE_TEMPLATE),
         ]
         name_cases = [{"stem": stem, "suffix": suffix} for stem, suffix in (
             ("../../x", ".ncm-report.xml"), ("T" * 300, ".scm-policy.yaml"), ("CON", ".x"),
@@ -1494,7 +1993,13 @@ class PowerShellEditionTests(TempDirTest):
         spec = {"files": files,
                 "memory": [dict(c, benchmarks=[ps_benchmark(b) for b in c["benchmarks"]]) for c in memory],
                 "names": name_cases, "quotes": quotes, "probeIds": probe_ids,
-                "refuse": refuse, "logFile": ps_log, "wire": wire, "trees": trees}
+                "refuse": refuse, "logFile": ps_log, "wire": wire, "trees": trees,
+                "scopes": [dict(c, benchmarks=[ps_benchmark(b) for b in c["benchmarks"]])
+                           for c in SCOPE_CASES],
+                "platforms": PLATFORM_TITLES, "selections": SELECTION_WHERES,
+                "templates": TEMPLATE_CASES, "suffixes": SUFFIX_CASES,
+                "suffixed": [{"name": n, "suffix": x} for n, x in SUFFIXED_CASES],
+                "nextFree": [{"names": n, "base": b, "current": c} for n, b, c in NEXT_FREE_CASES]}
         spec_path = self.write("parity-in.json", json.dumps(spec))
         out_path = os.path.join(self.tmp, "parity-out.json")
         result = run_powershell("-File", PS_TEST, "-ParityJson", spec_path, "-ParityOut", out_path)
@@ -1503,31 +2008,58 @@ class PowerShellEditionTests(TempDirTest):
         with open(out_path, encoding="utf-8-sig") as fh:
             ps = json.load(fh)
 
+        def scm(c, benches):
+            template = tool.parse_probe_template(c["template"]) if c.get("template") else None
+            return [tool.xccdf_to_scm_yaml(b, c.get("suffix", "_v1"), c.get("family", "windows"),
+                                           template) for b in benches]
+
         for i, c in enumerate(files):
             with self.subTest(file_case=i):
                 benches = tool.load_benchmarks(c["path"])
                 py_reports = tool.build_reports(
                     benches, name=c["name"] or None, grouping=c["folder"], node_where=c["where"],
                     config_type=c["configType"], mode=c["mode"], source_path=c["path"],
-                    enabled=c["enabled"])
+                    enabled=c["enabled"], suffix=c.get("suffix", "_v1"))
                 self.assertEqual(strip_advisory(ps["files"][i]["reports"]), strip_advisory(py_reports))
-                self.assertEqual(ps["files"][i]["scm"], [tool.xccdf_to_scm_yaml(b) for b in benches])
+                self.assertEqual(ps["files"][i]["scm"], scm(c, benches))
+                self.assertEqual(ps["files"][i]["scmIds"],
+                                 [tool.scm_policy_uid(b, c.get("suffix", "_v1")) for b in benches])
         for i, c in enumerate(memory):
             with self.subTest(memory_case=i):
                 py_reports = tool.build_reports(
                     c["benchmarks"], name=c["baseName"] or None, grouping=c["folder"],
                     node_where=c["where"], config_type=c["configType"], mode=c["mode"],
-                    enabled=c["enabled"])
+                    enabled=c["enabled"], suffix=c.get("suffix", "_v1"))
                 self.assertEqual(strip_advisory(ps["memory"][i]["reports"]), strip_advisory(py_reports))
-                self.assertEqual(ps["memory"][i]["scm"], [tool.xccdf_to_scm_yaml(b) for b in c["benchmarks"]])
+                self.assertEqual(ps["memory"][i]["scm"], scm(c, c["benchmarks"]))
+        for i, c in enumerate(SCOPE_CASES):
+            with self.subTest(scope_case=i, source=c["source"]):
+                self.assertEqual(ps["scopes"][i], py_scope(c))
+        self.assertEqual(ps["platforms"], [list(tool.detect_cisco_platform(t)) for t in PLATFORM_TITLES])
+        self.assertEqual(ps["selections"], [tool.make_node_selection_string(w) for w in SELECTION_WHERES])
+        self.assertEqual(ps["templates"], [py_template(t) for t in TEMPLATE_CASES])
+        self.assertEqual(ps["suffixes"], [py_suffix_ok(x) for x in SUFFIX_CASES])
+        self.assertEqual(ps["suffixed"], [tool.with_suffix(n, x) for n, x in SUFFIXED_CASES])
+        self.assertEqual(ps["nextFree"], [tool.next_free_suffix(n, b, c) for n, b, c in NEXT_FREE_CASES])
+        # The comparison covered real decisions, not only refusals.
+        self.assertEqual(sum(1 for r in ps["scopes"] if r.get("error")), 6)
+        self.assertIn("(Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')",
+                      [r.get("where") for r in ps["scopes"]])
+        # The template got the same sanitized id the default probe gets, never the raw one.
+        self.assertIn("      script: 'Write-Host ''V-77_Remove-Item_C_x_ reviewed: False'''\n",
+                      ps["memory"][3]["scm"][0])
+        self.assertIn('      description: "attest V-77_Remove-Item_C_x_"\n', ps["memory"][3]["scm"][0])
+        self.assertNotIn("Remove-Item C", ps["memory"][3]["scm"][0].split("condition:")[1])
 
         # Spot-check that the comparison covered what matters.
         names = [r["Name"] for case in ps["files"] for r in case["reports"]]
-        self.assertIn("U_Test_Cisco_Router_STIG - Test_Router_NDM_STIG", names)
-        self.assertIn("Custom Name - Test_Router_RTR_STIG", names)
-        self.assertIn("Test Cisco Router NDM STIG", names)       # .xml input: title, not file name
-        self.assertIn("Named", names)                            # no benchmark id: name alone
-        self.assertIn("Café Router STIG", names)            # declared encoding honoured
+        self.assertIn("U_Test_Cisco_IOS_Router_STIG - Test_Router_NDM_STIG_v1", names)
+        self.assertIn("U_Test_Cisco_IOS_Router_STIG - Test_Router_NDM_STIG_v2", names)
+        self.assertIn("Custom Name - Test_Router_RTR_STIG_v1", names)
+        self.assertIn("Test Cisco Router NDM STIG_v1", names)    # .xml input: title, not file name
+        self.assertIn("Named_v1", names)                         # no benchmark id: name alone
+        self.assertIn("Café Router STIG_v1", names)         # declared encoding honoured
+        self.assertIn("Upgrade - Test_Router_NDM_STIG_v10", names)
         self.assertEqual(len(ps["memory"][0]["reports"][0]["Name"]), 250)
         self.assertIn("script: \"Write-Host 'V-77_Remove-Item_C_x_ reviewed: False'\"",
                       ps["memory"][2]["scm"][0])

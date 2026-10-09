@@ -48,6 +48,11 @@ Dry-runs the generated rules with TestRuleOnBackedUpConfig; creates nothing.
 .EXAMPLE
 .\disa_stig_tool.ps1 -Remove -Name "<report name>" -Server orion.example.com -Username admin -DryRun
 Shows what removing that report would delete and keep; add -Yes instead of -DryRun to delete.
+Report names end in the version suffix (_v1 by default), so give the full name.
+
+.EXAMPLE
+.\disa_stig_tool.ps1 -Path .\U_Cisco_IOS-XE_Router_Y26M07_STIG.zip -Server orion.example.com -Username admin -Suffix _v2
+Imports a new release next to the _v1 import: every name ends in _v2 and every id is fresh.
 #>
 [CmdletBinding()]
 param(
@@ -63,6 +68,11 @@ param(
     [switch]$PinServerCert,
     [ValidateSet('auto', 'network', 'server')][string]$Target = 'auto',
     [string]$NodeWhere = 'auto',
+    [string]$Vendor,
+    [string]$MachineType,
+    [switch]$AllowEmptyScope,
+    [string]$Suffix = '_v1',
+    [string]$ScmProbeTemplate,
     [ValidateSet('manual', 'heuristic')][string]$Mode = 'manual',
     [string]$Name,
     [string]$Grouping = 'DISA STIG',
@@ -305,6 +315,175 @@ function Get-ScmProbeId([string]$VulnId, [string]$RuleId = '') {
     if (-not $safe) { $safe = 'V-unknown' }
     Write-ToolLog scm warn "vuln id '$vid' does not match V-<n>; the SCM probe uses the sanitized id '$safe'"
     return $safe
+}
+
+# =========================================================================
+# Version suffix: every name and every generated id carries it
+# =========================================================================
+# Since 2.0.0 every NCM report name, NCM policy name and SCM policy name ends in a
+# version suffix (_v1 by default), and the same suffix is part of the uuid5 seed of
+# every generated id (NCM PolicyId and RuleIds, SCM policy uniqueId and rule
+# uniqueIds), so -Suffix _v2 imports a new release with entirely fresh names and
+# ids. Same rules as the Python edition (validate_suffix, with_suffix).
+$script:DefaultSuffix = '_v1'
+$script:NameLimit = 250
+
+function Test-Suffix([string]$Value) {
+    # Returns the suffix to use, or throws. Empty means the default (_v1).
+    if (-not $Value) { $Value = $script:DefaultSuffix }
+    if ($Value -cnotmatch '^_v[0-9]+\z') {
+        throw "-Suffix '$Value' is not valid: it must be _v followed by digits (_v1, _v2, ...)"
+    }
+    return $Value
+}
+
+function Get-SuffixedName([string]$Name, [string]$Suffix, [int]$Limit = 250) {
+    # Python with_suffix: the name is cut so name + suffix fits the limit; the suffix
+    # itself is never cut, so the base can be recovered for the collision check.
+    if ($null -eq $Name) { $Name = '' }
+    $max = [Math]::Max(0, $Limit - $Suffix.Length)
+    if ($Name.Length -gt $max) { $Name = $Name.Substring(0, $max) }
+    return $Name + $Suffix
+}
+
+function Split-NameSuffix([string]$Name) {
+    # @{ Base; N } for a name ending in _v<n>; N is $null when there is none.
+    $m = [regex]::Match([string]$Name, '_v([0-9]+)\z')
+    if (-not $m.Success) { return @{ Base = [string]$Name; N = $null } }
+    return @{ Base = $Name.Substring(0, $m.Index); N = [long]$m.Groups[1].Value }
+}
+
+function Get-NextFreeSuffix($Names, [string]$Base, [string]$CurrentSuffix) {
+    # One above the highest _v<n> any existing name base + _v<n> carries, and above
+    # the suffix that collided (Python next_free_suffix).
+    [long]$highest = [long]$CurrentSuffix.Substring(2)
+    foreach ($n in @($Names)) {
+        $parts = Split-NameSuffix ([string]$n)
+        if ($null -ne $parts.N -and $parts.Base -ceq $Base -and $parts.N -gt $highest) { $highest = $parts.N }
+    }
+    return '_v' + ($highest + 1)
+}
+
+# =========================================================================
+# SCM probe per OS family, and the -ScmProbeTemplate override
+# =========================================================================
+# Every family uses the same manual-review attestation today: a !scm.powershell
+# source whose script is a single-quoted Write-Host literal. Windows is the source
+# type SolarWinds' shipped STIG policies use. Linux STIGs also route to SCM with the
+# same probe, but that is Unverified: no SCM policy source for Linux is documented
+# in this repository, and script data sources on Linux are understood to be
+# unsupported. -ScmProbeTemplate replaces the source block; README "Testing Linux
+# STIGs in SCM" says what to check. Same as the Python edition (SCM_PROBES).
+$script:ScmProbes = @{
+    windows = @{ Tag = '!scm.powershell'; Verified = $true
+                 Label = "!scm.powershell Write-Host attestation (the source type SolarWinds' shipped Windows STIG policies use)" }
+    linux   = @{ Tag = '!scm.powershell'; Verified = $false
+                 Label = '!scm.powershell Write-Host attestation (Unverified on Linux nodes)' }
+}
+$script:LinuxProbeWarning = ('Linux STIG routed to SCM: the generated probe is !scm.powershell, which is Unverified on ' +
+    'Linux nodes (no SCM policy source for Linux is documented in this repository, and script data sources on Linux ' +
+    'are understood to be unsupported), so its rules may report an error or Unknown rather than failed. Import one ' +
+    "policy, assign it to one test node and check it as README.md 'Testing Linux STIGs in SCM' describes; " +
+    '-ScmProbeTemplate FILE tries another source type.')
+$script:ProbeTemplateMax = 4096
+
+function ConvertFrom-ProbeTemplate([string]$Text, [string]$Source = 'template') {
+    # Python parse_probe_template: the source tag (!scm.<type>) on the first line,
+    # then 'key: value' mapping lines nested by spaces. {id} becomes the validated
+    # probe id (Get-ScmProbeId), never raw STIG text, and is accepted only inside a
+    # quoted scalar ("..." or '...'). Anything else is refused before any file is written.
+    if ([System.Text.Encoding]::UTF8.GetByteCount($Text) -gt $script:ProbeTemplateMax) {
+        throw "${Source}: the probe template is larger than $($script:ProbeTemplateMax) bytes"
+    }
+    $norm = $Text.TrimStart([char]0xFEFF) -replace "`r`n", "`n" -replace "`r", "`n"
+    $lines = New-Object System.Collections.ArrayList
+    foreach ($raw in ($norm -split "`n")) {
+        $line = $raw.TrimEnd()
+        if (-not $line.Trim() -or $line.TrimStart().StartsWith('#')) { continue }
+        [void]$lines.Add($line)
+    }
+    if ($lines.Count -eq 0) { throw "${Source}: the probe template is empty" }
+    if (($lines -join '').Contains("`t")) { throw "${Source}: tabs are not allowed in the probe template (YAML indents with spaces)" }
+    if ($lines[0] -cnotmatch '^!scm\.[A-Za-z][A-Za-z0-9_.]*\z') {
+        $shown = $lines[0]; if ($shown.Length -gt 60) { $shown = $shown.Substring(0, 60) }
+        throw "${Source}: the probe template must start with an SCM source tag on its own line, such as !scm.powershell (found '$shown')"
+    }
+    $levels = New-Object System.Collections.ArrayList
+    [void]$levels.Add(0)
+    $opened = $false
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $number = $i + 1
+        $line = $lines[$i]
+        $m = [regex]::Match($line, '^( *)([A-Za-z_][A-Za-z0-9_-]*):(?: (.*))?\z')
+        if (-not $m.Success) {
+            throw "${Source}: line $number is not a 'key: value' mapping line; sequences, anchors and flow collections are not supported"
+        }
+        $indent = $m.Groups[1].Value.Length
+        $value = $m.Groups[3].Value.Trim()
+        if ($opened -and $indent -gt $levels[$levels.Count - 1]) {
+            [void]$levels.Add($indent)
+        } elseif ($levels.Contains($indent)) {
+            $at = $levels.IndexOf($indent)
+            while ($levels.Count -gt $at + 1) { $levels.RemoveAt($levels.Count - 1) }
+        } else {
+            throw "${Source}: line $number is indented inconsistently"
+        }
+        if ($m.Groups[2].Value.Contains('{id}')) { throw "${Source}: line ${number}: {id} is not allowed in a key" }
+        $opened = -not $value
+        if (-not $value) { continue }
+        if ($value -cmatch '^"(?:[^"\\\x00-\x1f]|\\[^\x00-\x1f])*"\z' -or $value -cmatch "^'(?:[^'\x00-\x1f]|'')*'\z") {
+            if ($value.Contains('\{id}')) { throw "${Source}: line ${number}: a backslash directly before {id} would turn the id into an escape sequence" }
+            continue
+        }
+        if ($value.Contains('{id}')) { throw "${Source}: line ${number}: {id} is only allowed inside a quoted string (`"...`" or '...')" }
+        if ($value -cnotmatch '^[A-Za-z0-9_./\\$(][^#\x00-\x1f]*\z' -or $value.Contains(': ') -or $value.EndsWith(':')) {
+            throw "${Source}: line ${number}: the value is neither a quoted string nor a plain scalar this tool accepts"
+        }
+    }
+    if ($opened) { throw "${Source}: the last key has no value" }
+    return , [string[]]@($lines)
+}
+
+function Read-ProbeTemplate([string]$FilePath) {
+    # Read and validate -ScmProbeTemplate (UTF-8, optional BOM); returns its lines.
+    $bytes = [System.IO.File]::ReadAllBytes($FilePath)
+    $strict = New-Object System.Text.UTF8Encoding($false, $true)
+    try { $text = $strict.GetString($bytes) } catch { throw "${FilePath}: the probe template is not UTF-8 ($($_.Exception.Message))" }
+    $lines = ConvertFrom-ProbeTemplate $text $FilePath
+    $usesId = @($lines | Where-Object { $_.Contains('{id}') }).Count -gt 0
+    $used = 'not used'; if ($usesId) { $used = 'used' }
+    Write-ToolLog scm info "probe template ${FilePath}: source $($lines[0]), $($lines.Count - 1) mapping line(s), {id} $used"
+    if (-not $usesId) {
+        Write-ToolLog scm warn "probe template $FilePath does not use {id}, so every rule collects the same value; the expression '<id> reviewed: True' still never matches"
+    }
+    return , $lines
+}
+
+function Get-ScmProbeLines([string]$ProbeId, [string]$StigId, $Template) {
+    # The source: block of one generated rule (Python scm_probe_lines).
+    if ($Template) {
+        $out = New-Object System.Collections.ArrayList
+        [void]$out.Add("    source: $($Template[0])")
+        for ($i = 1; $i -lt $Template.Count; $i++) { [void]$out.Add('      ' + $Template[$i].Replace('{id}', $ProbeId)) }
+        return , @($out)
+    }
+    return , @('    source: !scm.powershell',
+               ('      description: ' + (Y ('STIG ' + $StigId + ' manual-review attestation'))),
+               ('      script: ' + (Y ('Write-Host ' + (ConvertTo-PsSingleQuoted ($ProbeId + ' reviewed: False'))))))
+}
+
+function Write-ScmProbePlan([string]$Family, $Template, [string]$TemplatePath, [scriptblock]$Log) {
+    # One log line for the OS detected and the probe used; a WARN for Linux.
+    if ($Template) {
+        $shownPath = $TemplatePath; if (-not $shownPath) { $shownPath = '(given)' }
+        $probe = "template $shownPath ($($Template[0]))"
+    } elseif ($script:ScmProbes.ContainsKey($Family)) { $probe = $script:ScmProbes[$Family].Label }
+    else { $probe = $script:ScmProbes['windows'].Label }
+    Write-ToolLog scm info "SCM probe: OS family $Family; probe $probe"
+    if ($Family -eq 'unknown' -and -not $Template) {
+        Write-ToolLog scm warn 'the OS was not recognized from the file or benchmark names; the Windows probe is used'
+    }
+    if ($Family -eq 'linux') { Send-Log $Log 'scm' 'warn' ('[SCM] warning: ' + $script:LinuxProbeWarning) }
 }
 
 # =========================================================================
@@ -561,24 +740,26 @@ $script:NetworkVendors = [ordered]@{
     'huawei' = 'Huawei'; 'dell os10' = 'Dell'
     'router' = ''; 'switch' = ''; 'firewall' = ''; 'network device' = ''
 }
+# keyword -> @(display OS name, SWQL filter for assignment, OS family for $script:ScmProbes)
 $script:ServerOses = [ordered]@{
-    'red hat'    = @('Red Hat Enterprise Linux', "MachineType LIKE '%Red Hat%'")
-    'rhel'       = @('Red Hat Enterprise Linux', "MachineType LIKE '%Red Hat%'")
-    'ubuntu'     = @('Ubuntu', "MachineType LIKE '%Ubuntu%'")
-    'debian'     = @('Debian', "MachineType LIKE '%Debian%'")
-    'centos'     = @('CentOS', "MachineType LIKE '%CentOS%'")
-    'linux'      = @('Linux', "MachineType LIKE '%Linux%'")
-    'windows'    = @('Windows', "MachineType LIKE '%Windows%'")
-    'sql server' = @('Windows', "MachineType LIKE '%Windows%'")
-    'iis'        = @('Windows', "MachineType LIKE '%Windows%'")
-    'exchange'   = @('Windows', "MachineType LIKE '%Windows%'")
+    'red hat'    = @('Red Hat Enterprise Linux', "MachineType LIKE '%Red Hat%'", 'linux')
+    'rhel'       = @('Red Hat Enterprise Linux', "MachineType LIKE '%Red Hat%'", 'linux')
+    'ubuntu'     = @('Ubuntu', "MachineType LIKE '%Ubuntu%'", 'linux')
+    'debian'     = @('Debian', "MachineType LIKE '%Debian%'", 'linux')
+    'centos'     = @('CentOS', "MachineType LIKE '%CentOS%'", 'linux')
+    'linux'      = @('Linux', "MachineType LIKE '%Linux%'", 'linux')
+    'windows'    = @('Windows', "MachineType LIKE '%Windows%'", 'windows')
+    'sql server' = @('Windows', "MachineType LIKE '%Windows%'", 'windows')
+    'iis'        = @('Windows', "MachineType LIKE '%Windows%'", 'windows')
+    'exchange'   = @('Windows', "MachineType LIKE '%Windows%'", 'windows')
 }
+$script:UnknownServerOs = @('(OS not recognized)', "MachineType LIKE '%'", 'unknown')
 
 function Resolve-StigTarget($Benchmarks, [string]$SourceName) {
     $text = ($SourceName + ' ' + (($Benchmarks | ForEach-Object { $_.Title + ' ' + $_.Source }) -join ' ')).ToLower()
     foreach ($kw in $script:ServerOses.Keys) {
         if ($text.Contains($kw)) {
-            Write-ToolLog route info "server keyword '$kw' matched in the file/benchmark names -> server ($($script:ServerOses[$kw][0]))"
+            Write-ToolLog route info "server keyword '$kw' matched in the file/benchmark names -> server ($($script:ServerOses[$kw][0]), OS family $($script:ServerOses[$kw][2]))"
             return @('server', $script:ServerOses[$kw])
         }
     }
@@ -623,18 +804,36 @@ function Get-DeterministicGuid([string]$Seed) {
         $hex.Substring(12, 4), $hex.Substring(16, 4), $hex.Substring(20, 12))
 }
 
+function Get-PickerVendor([string]$Where) {
+    # The Vendor value a WHERE fragment compares with ('' doubled quotes undone, one
+    # leading and trailing % dropped), or $null (Python picker_vendor).
+    $m = [regex]::Match([string]$Where, "\bVendor\s*(?:=|LIKE)\s*'((?:[^']|'')*)'",
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if (-not $m.Success) { return $null }
+    $value = $m.Groups[1].Value.Replace("''", "'")
+    if ($value.StartsWith('%')) { $value = $value.Substring(1) }
+    if ($value.EndsWith('%')) { $value = $value.Substring(0, $value.Length - 1) }
+    if (-not $value -or $value.Contains('%')) { return $null }
+    return $value
+}
+
+function ConvertTo-XmlText([string]$Value) {
+    # Escape a value for XML element text (&, <, >), as XmlSerializer writes it.
+    return $Value.Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;')
+}
+
 function New-NodeSelectionString([string]$Where) {
     # The format real 2026.2.2 console exports carry: WebCriteria:<picker
     # XML>SQL:Where (...) - bare column names (Vendor, not Nodes.Vendor).
     # Joined with explicit LF so the bytes match the Python edition whatever
     # line endings this file is checked out with.
+    # The picker state is Vendor-only by design: a MachineType condition (the Cisco
+    # platform scope) lives in the SQL part alone, which is what NCM filters on.
     $w = ($Where -replace '\bNodes\.', '').Trim()
     if (-not $w.ToLower().StartsWith('(')) { $w = "($w)" }
     $criteria = ''
-    $m = [regex]::Match($w, "Vendor\s*(?:=|LIKE)\s*'%?([^%']+)%?'",
-        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    if ($m.Success) {
-        $vendor = $m.Groups[1].Value
+    $vendor = Get-PickerVendor $w
+    if ($vendor) {
         $id = Get-DeterministicGuid ("stig2ncm-criteria:" + $vendor)
         $criteria = (@(
             '<?xml version="1.0" encoding="utf-16"?>',
@@ -644,7 +843,7 @@ function New-NodeSelectionString([string]$Where) {
             '    <LogicalCondition />',
             '    <SelectedColumn>Vendor</SelectedColumn>',
             '    <MatchType>=</MatchType>',
-            "    <SelectedValue>$vendor</SelectedValue>",
+            "    <SelectedValue>$(ConvertTo-XmlText $vendor)</SelectedValue>",
             '  </WebSelectionCriteria>',
             '</ArrayOfWebSelectionCriteria>') -join "`n")
     }
@@ -665,16 +864,25 @@ function Limit-Text([string]$Text, [int]$Max = 250) {
     return $Text
 }
 
-function Get-NcmPolicyId($Benchmark) {
+function Get-NcmPolicyId($Benchmark, [string]$Suffix = '_v1') {
     # Same seed as the Python edition: the benchmark id, or the title when the
-    # benchmark has no id. Builds before this one concatenated id + title.
+    # benchmark has no id, then the version suffix. Builds before this one
+    # concatenated id + title; builds before 2.0.0 had no suffix.
     $key = $Benchmark.BenchmarkId; if (-not $key) { $key = $Benchmark.Title }
-    return Get-DeterministicGuid ('stig2ncm-policy:' + $key)
+    return Get-DeterministicGuid ('stig2ncm-policy:' + $key + $Suffix)
 }
 
-function Get-ScmPolicyUniqueId($Benchmark) {
+function Get-ScmPolicyUniqueId($Benchmark, [string]$Suffix = '_v1') {
     $key = $Benchmark.BenchmarkId; if (-not $key) { $key = $Benchmark.Title }
-    return Get-DeterministicGuid ('stig2ncm-scm:' + $key)
+    return Get-DeterministicGuid ('stig2ncm-scm:' + $key + $Suffix)
+}
+
+function Get-ScmRuleUniqueId($Rule, [string]$Suffix = '_v1') {
+    return Get-DeterministicGuid ('stig2ncm-scm-rule:' + $Rule.RuleId + $Suffix)
+}
+
+function Get-ScmPolicyName($Benchmark, [string]$Suffix = '_v1') {
+    return Get-SuffixedName "$($Benchmark.Title) V$($Benchmark.Version) ($($Benchmark.Release))" $Suffix
 }
 
 function Get-ReportBaseName([string]$SourcePath, [string]$ReportName) {
@@ -732,7 +940,7 @@ function Get-XmlConfigWarning([string]$Where) {
     return $null
 }
 
-function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode) {
+function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string]$Suffix = '_v1') {
     $pattern = 'STIG-MANUAL-REVIEW-' + $Rule.VulnId
     $patternType = 'Like'
     $note = 'PATTERN NOT SET: this sentinel never matches, so the rule flags every ' +
@@ -780,7 +988,7 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode) {
         $lvl = $script:SeverityToErrorLevel[$Rule.Severity]
     }
     return [ordered]@{
-        RuleId = Get-DeterministicGuid ('stig2ncm:' + $Rule.RuleId)  # matches the Python edition
+        RuleId = Get-DeterministicGuid ('stig2ncm:' + $Rule.RuleId + $Suffix)  # matches the Python edition (ncm_rule_id)
         RuleName = $name
         Comments = ($parts -join "`n`n")
         Grouping = $RuleGrouping
@@ -806,19 +1014,21 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode) {
 
 function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
                         [string]$PatternMode, [string]$Folder, [bool]$Enabled = $true,
-                        [string]$ConfigTypes = 'Any') {
+                        [string]$ConfigTypes = 'Any', [string]$Suffix = '_v1') {
     # One report per benchmark (matching the console's own one-policy-per-report
     # exports): the router zip yields NDM (35 rules) and RTR (92 rules) reports.
-    # $BaseName comes from Get-ReportBaseName, mirroring Python's `name`.
+    # $BaseName comes from Get-ReportBaseName, mirroring Python's `name`. $Suffix
+    # ends every report and policy name and seeds the PolicyId and RuleIds.
     if (-not $ConfigTypes) { $ConfigTypes = 'Any' }
+    $Suffix = Test-Suffix $Suffix
     $reports = New-Object System.Collections.ArrayList
     foreach ($b in $Benchmarks) {
         $ruleGroup = $Folder
         if ($b.BenchmarkId) { $ruleGroup = "$Folder/$($b.BenchmarkId)" }
-        $rules = @($b.Rules | ForEach-Object { New-NcmRule $_ $ruleGroup $PatternMode })
+        $rules = @($b.Rules | ForEach-Object { New-NcmRule $_ $ruleGroup $PatternMode $Suffix })
         $policy = [ordered]@{
-            PolicyId = Get-NcmPolicyId $b
-            PolicyName = Limit-Text "$($b.Title) V$($b.Version) ($($b.Release))"
+            PolicyId = Get-NcmPolicyId $b $Suffix
+            PolicyName = Get-SuffixedName "$($b.Title) V$($b.Version) ($($b.Release))" $Suffix
             Comments = ("Imported by the DISA STIG Conversion Tool from $($b.Source) " +
                         "(benchmark $($b.BenchmarkId), status date $($b.StatusDate)).")
             Grouping = $Folder
@@ -834,7 +1044,7 @@ function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
         }
         [void]$reports.Add([ordered]@{
             ID = [guid]::NewGuid().ToString()
-            Name = Limit-Text $name
+            Name = Get-SuffixedName $name $Suffix
             Comments = "DISA STIG imported by the DISA STIG Conversion Tool from $($b.Source) ($($b.Release))."
             Group = $Folder
             ShowSummaryFlag = $true
@@ -846,7 +1056,7 @@ function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
         $last = $reports[$reports.Count - 1]
         Write-ToolLog build info ("report `"$($last.Name)`": policy `"$($policy.PolicyName)`" " +
             "(PolicyId $($policy.PolicyId)), $($rules.Count) rule(s), mode $PatternMode, " +
-            "ReportStatus $($last.ReportStatus), ConfigTypes $ConfigTypes, grouping $ruleGroup")
+            "ReportStatus $($last.ReportStatus), ConfigTypes $ConfigTypes, grouping $ruleGroup, suffix $Suffix")
     }
     return , @($reports)   # unary comma: stay an array even with one report
 }
@@ -963,9 +1173,13 @@ function Y([string]$Value) {
     return $sb.ToString()
 }
 
-function ConvertTo-ScmPolicyYaml($Benchmark) {
-    $name = Limit-Text "$($Benchmark.Title) V$($Benchmark.Version) ($($Benchmark.Release))"
-    $uid = Get-ScmPolicyUniqueId $Benchmark
+function ConvertTo-ScmPolicyYaml($Benchmark, [string]$Suffix = '_v1', [string]$OsFamily = 'windows', $ProbeTemplate = $null) {
+    # $Suffix ends the policy name and seeds every uniqueId; $OsFamily picks the
+    # probe from $script:ScmProbes; $ProbeTemplate (Read-ProbeTemplate) replaces the
+    # probe's source block. Same output as Python xccdf_to_scm_yaml.
+    $Suffix = Test-Suffix $Suffix
+    $name = Get-ScmPolicyName $Benchmark $Suffix
+    $uid = Get-ScmPolicyUniqueId $Benchmark $Suffix
     $desc = 'DISA STIG imported by the DISA STIG Conversion Tool from ' + $Benchmark.Source +
         '. Every rule is a manual-review attestation: it reports failed, with the STIG ' +
         'check and fix text attached, until an engineer verifies the setting and replaces ' +
@@ -987,7 +1201,7 @@ function ConvertTo-ScmPolicyYaml($Benchmark) {
         }
         $sev = $r.Severity.Substring(0, 1).ToUpper() + $r.Severity.Substring(1)
         [void]$lines.Add('- displayId: ' + (Y $r.VulnId))
-        [void]$lines.Add('  uniqueId: ' + (Get-DeterministicGuid ('stig2ncm-scm-rule:' + $r.RuleId)))
+        [void]$lines.Add('  uniqueId: ' + (Get-ScmRuleUniqueId $r $Suffix))
         $title = $r.Title; if ($title.Length -gt 250) { $title = $title.Substring(0, 250) }
         [void]$lines.Add('  name: ' + (Y $title))
         [void]$lines.Add("  severity: $sev")
@@ -997,14 +1211,15 @@ function ConvertTo-ScmPolicyYaml($Benchmark) {
         # The probe runs as PowerShell on every assigned node: the id is validated
         # and the whole text is a single-quoted literal, so no STIG content can
         # expand ($(...), $var) or escape (backtick or ") inside the script source.
+        # A probe template receives the same validated id, inside a quoted scalar only.
         $probeId = Get-ScmProbeId $r.VulnId $r.RuleId
         [void]$lines.Add('  condition: !matches')
         [void]$lines.Add('    expression: ' + (Y ($probeId + ' reviewed: True')))
-        [void]$lines.Add('    source: !scm.powershell')
-        [void]$lines.Add('      description: ' + (Y ('STIG ' + $r.StigId + ' manual-review attestation')))
-        [void]$lines.Add('      script: ' + (Y ('Write-Host ' + (ConvertTo-PsSingleQuoted ($probeId + ' reviewed: False')))))
+        foreach ($probeLine in (Get-ScmProbeLines $probeId $r.StigId $ProbeTemplate)) { [void]$lines.Add($probeLine) }
     }
-    Write-ToolLog build info "SCM policy `"$name`" uniqueId ${uid}: $(@($Benchmark.Rules).Count) manual-review rule(s)"
+    $probeShown = 'default'; if ($ProbeTemplate) { $probeShown = 'template ' + $ProbeTemplate[0] }
+    Write-ToolLog build info ("SCM policy `"$name`" uniqueId ${uid}: $(@($Benchmark.Rules).Count) manual-review rule(s), " +
+        "OS family $OsFamily, probe $probeShown")
     return ($lines -join "`n") + "`n"
 }
 
@@ -1016,10 +1231,12 @@ $script:ScmPolicySuffix = '.scm-policy.yaml'
 $script:LegacyScmPolicySuffix = '.scm-profile'
 $script:ScmInputPattern = '\.(yaml|yml|scm-profile)$'
 
-function Write-ScmPolicyFile($Benchmark, [string]$Folder) {
+function Write-ScmPolicyFile($Benchmark, [string]$Folder, [string]$Suffix = '_v1', [string]$OsFamily = 'windows', $ProbeTemplate = $null) {
+    # The version suffix is part of the file name, so a _v2 conversion does not
+    # overwrite the _v1 file.
     $base = $Benchmark.BenchmarkId; if (-not $base) { $base = $Benchmark.Title }
-    $out = Join-Path $Folder (Get-SafeFileName $base $script:ScmPolicySuffix)
-    return Write-GeneratedFile $out (ConvertTo-ScmPolicyYaml $Benchmark)
+    $out = Join-Path $Folder (Get-SafeFileName ($base + $Suffix) $script:ScmPolicySuffix)
+    return Write-GeneratedFile $out (ConvertTo-ScmPolicyYaml $Benchmark $Suffix $OsFamily $ProbeTemplate)
 }
 
 function Test-ScmPolicyText([string]$Text) {
@@ -2316,6 +2533,10 @@ function Import-ScmPolicyYaml($Conn, [string]$Yaml, [scriptblock]$Log) {
             $msg = ("[SCM] a policy with $why already exists: ""$($existing[0].Name)"" " +
                 "(PolicyID $($existing[0].PolicyID), UniqueId $($existing[0].UniqueId)); " +
                 'refusing to duplicate. SolarWinds rejects an import that matches either field.')
+            $parts = Split-NameSuffix $name
+            if ($null -ne $parts.N) {
+                $msg += ' ' + (Get-SuffixAdvice $Conn @(, @('Orion.PolicyEngine.Policy', $parts.Base)) "_v$($parts.N)")
+            }
             Write-ToolLog scm error $msg
             throw $msg
         }
@@ -2341,8 +2562,11 @@ function Import-ScmPolicyYaml($Conn, [string]$Yaml, [scriptblock]$Log) {
     return @{ PolicyId = $policyId; Name = $name; Rules = $storedRules }
 }
 
-function Import-ScmBenchmark($Conn, $Benchmark, [scriptblock]$Log) {
-    $yaml = ConvertTo-ScmPolicyYaml $Benchmark
+function Import-ScmBenchmark($Conn, $Benchmark, [scriptblock]$Log, [string]$Suffix = '_v1',
+                             [string]$OsFamily = 'windows', $ProbeTemplate = $null) {
+    # Callers run Test-ScmCollision for the whole batch first, so a collision refuses
+    # before any policy is created; Import-ScmPolicyYaml still checks name/uniqueId.
+    $yaml = ConvertTo-ScmPolicyYaml $Benchmark $Suffix $OsFamily $ProbeTemplate
     $result = Import-ScmPolicyYaml $Conn $yaml $Log
     Send-Log $Log 'scm' 'info' "[SCM] imported policy ""$($result.Name)"" (PolicyID $($result.PolicyId)) - $($Benchmark.Rules.Count) manual-review rules"
     return $result
@@ -2416,21 +2640,350 @@ function Get-FileModule([string]$FilePath, [string]$TargetChoice = 'auto') {
     return 'NCM'
 }
 
-function Resolve-NcmWhere($Benchmarks, [string]$SourcePath, [string]$Where) {
-    # 'auto' (or empty) derives the scope from the detected vendor, as Python's
-    # node_where_for does; anything else is used as given.
-    if ($Where -and -not $Where.ToLower().StartsWith('auto') -and -not $Where.StartsWith('(auto')) {
+# =========================================================================
+# NCM node scope: Vendor, and for Cisco the platform by MachineType
+# =========================================================================
+# Tentative: MachineType values to be verified against a live server. The
+# patterns are what Cisco nodes are expected to report in Orion.Nodes.MachineType;
+# no export or schema in this repository records the actual strings. The platform
+# is read from the package file name plus each benchmark's title and source member
+# name, with -, _ and white space treated alike ("IOS-XE", "IOS_XE", "IOS XE" and
+# "IOSXE" all match), and the specific platforms are tried before classic IOS.
+# '%IOS%' also matches a MachineType containing IOS-XE or IOS-XR; that overlap is
+# part of what the live check has to settle. Same table as Python CISCO_PLATFORMS.
+$script:CiscoPlatforms = @(
+    @('IOS-XE', '\bios ?xe\b', '%IOS-XE%'),
+    @('IOS-XR', '\bios ?xr\b', '%IOS-XR%'),
+    @('NX-OS', '\bnx ?os\b', '%NX-OS%'),
+    @('ASA', '\basa\b', '%ASA%'),
+    @('IOS', '\bios\b', '%IOS%'))
+$script:TentativeNote = 'Tentative: MachineType values to be verified against a live server'
+$script:ScopeValueMax = 200
+$script:ScopeSampleSwql = ('SELECT TOP 25 Vendor, MachineType, COUNT(NodeID) AS N FROM Orion.Nodes ' +
+    'WHERE Vendor = @vendor GROUP BY Vendor, MachineType ORDER BY MachineType')
+
+function New-ScopeError([string]$Message) {
+    $e = New-Object System.Exception $Message
+    $e.Data['ScopeError'] = $true
+    return $e
+}
+
+function ConvertTo-SqlLiteral([string]$Value) {
+    # A single-quoted SQL/SWQL string literal (a ' inside is doubled).
+    return "'" + ([string]$Value).Replace("'", "''") + "'"
+}
+
+function Test-ScopeValue([string]$Value, [string]$Option) {
+    # -Vendor / -MachineType: one line of printable text, at most 200 characters.
+    $v = ([string]$Value).Trim()
+    if (-not $v -or $v.Length -gt $script:ScopeValueMax -or $v -match '[\x00-\x1f\x7f]') {
+        throw (New-ScopeError "$Option must be 1 to $($script:ScopeValueMax) printable characters")
+    }
+    return $v
+}
+
+function Get-PlatformText([string]$Text) {
+    # Lower case, with every run of '-', '_' and white space made one space.
+    return (([string]$Text).ToLowerInvariant() -replace '[\s_\-]+', ' ')
+}
+
+function Get-CiscoPlatform([string]$Text) {
+    # @(platform, MachineType pattern) for the first table entry that matches.
+    $norm = Get-PlatformText $Text
+    foreach ($p in $script:CiscoPlatforms) {
+        if ($norm -cmatch $p[1]) { return @($p[0], $p[2]) }
+    }
+    return @($null, $null)
+}
+
+function Get-NodeWhere([string]$VendorName, [string]$Pattern) {
+    # The NCM SQL fragment (bare column names, as real console exports carry it).
+    if ($Pattern) { return "(Vendor = $(ConvertTo-SqlLiteral $VendorName) AND MachineType LIKE $(ConvertTo-SqlLiteral $Pattern))" }
+    return "(Vendor = $(ConvertTo-SqlLiteral $VendorName))"
+}
+
+function Resolve-NcmScope($Benchmarks, [string]$SourcePath, [string]$Where, [string]$VendorOverride,
+                          [string]$MachineTypeOverride) {
+    # Python resolve_ncm_scope. An explicit -NodeWhere is used as written; otherwise
+    # the vendor is -Vendor, else the detected one, and with no vendor the STIG is
+    # refused (an SRG, ESXi or unrecognized network STIG no longer defaults to Cisco).
+    # For Cisco the platform's MachineType pattern is added (-MachineType overrides
+    # it, and applies to any vendor when given); an unrecognized Cisco platform, or
+    # a package naming different platforms, is refused. Throws an exception with
+    # Data['ScopeError'] set; returns @{ Where; Vendor; MachineType; Platform; Explicit; How }.
+    $leaf = Split-Path -Leaf $SourcePath
+    $explicit = $Where -and -not $Where.ToLower().StartsWith('auto') -and -not $Where.StartsWith('(auto')
+    if ($explicit) {
+        if ($VendorOverride -or $MachineTypeOverride) { throw (New-ScopeError 'give either -NodeWhere or -Vendor/-MachineType, not both') }
         Write-ToolLog scope info "NCM node scope $Where (explicit -NodeWhere)"
-        return $Where
+        return @{ Where = $Where; Vendor = (Get-PickerVendor $Where); MachineType = $null; Platform = $null
+                  Explicit = $true; How = 'explicit -NodeWhere' }
     }
+    $how = New-Object System.Collections.ArrayList
+    $vendorName = $null
+    if ($VendorOverride) {
+        $vendorName = Test-ScopeValue $VendorOverride '-Vendor'
+        [void]$how.Add('-Vendor')
+    } else {
+        $t = Resolve-StigTarget $Benchmarks $leaf
+        if ($t[0] -eq 'network' -and $t[1]) { $vendorName = $t[1]; [void]$how.Add('vendor detected from the names') }
+    }
+    if (-not $vendorName) {
+        $msg = ("[NCM] ${leaf}: no network vendor was recognized in the file or benchmark names (an SRG such as " +
+            'the Router or NDM SRG, ESXi, or an unlisted product), so there is no safe node scope; the tool no ' +
+            'longer assumes Cisco. Pass -Vendor NAME (the Vendor value your nodes report, with -MachineType ' +
+            'PATTERN for Cisco) or -NodeWhere "(...)".')
+        Write-ToolLog scope error $msg
+        throw (New-ScopeError $msg)
+    }
+    $platform = $null
+    $pattern = $null
+    if ($MachineTypeOverride) {
+        $pattern = Test-ScopeValue $MachineTypeOverride '-MachineType'
+        [void]$how.Add('-MachineType')
+    } elseif ($vendorName.ToLower() -eq 'cisco') {
+        $found = New-Object System.Collections.ArrayList
+        foreach ($b in $Benchmarks) {
+            $bid = $b.BenchmarkId; if (-not $bid) { $bid = $b.Title }
+            $hit = Get-CiscoPlatform ($leaf + ' ' + $b.Title + ' ' + $b.Source)
+            [void]$found.Add(@{ Id = $bid; Platform = $hit[0]; Pattern = $hit[1] })
+            if ($hit[0]) { Write-ToolLog scope info "Cisco platform for ${bid}: $($hit[0]) -> MachineType LIKE '$($hit[1])' ($($script:TentativeNote))" }
+            else { Write-ToolLog scope info "Cisco platform for ${bid}: not recognized" }
+        }
+        $names = @($found | ForEach-Object { if ($_.Platform) { $_.Platform } else { 'not recognized' } } | Sort-Object -Unique)
+        if ($names.Count -gt 1) {
+            $listed = (@($found | ForEach-Object { $n = $_.Platform; if (-not $n) { $n = 'not recognized' }; "$($_.Id): $n" }) -join ', ')
+            $msg = ("[NCM] ${leaf}: the benchmarks name different Cisco platforms ($listed); one run uses one node " +
+                'scope, so convert or import them separately, or pass -MachineType PATTERN or -NodeWhere "(...)".')
+            Write-ToolLog scope error $msg
+            throw (New-ScopeError $msg)
+        }
+        if ($found.Count -gt 0) { $platform = $found[0].Platform; $pattern = $found[0].Pattern }
+        if (-not $platform) {
+            $msg = ("[NCM] ${leaf}: a Cisco STIG, but no platform (IOS-XE, IOS-XR, NX-OS, ASA, IOS) was recognized " +
+                'in the file or benchmark names, so the node scope would be every Cisco node. Pass -MachineType ' +
+                "PATTERN (for example '%IOS-XE%', or '%' for every Cisco node that reports a MachineType) or " +
+                '-NodeWhere "(...)".')
+            Write-ToolLog scope error $msg
+            throw (New-ScopeError $msg)
+        }
+        [void]$how.Add("platform $platform detected ($($script:TentativeNote))")
+    }
+    $w = Get-NodeWhere $vendorName $pattern
+    Write-ToolLog scope info ("NCM node scope $w (" + ($how -join ', ') + '); the console node picker shows ' +
+        'Vendor only, the MachineType condition is in the SQL part')
+    return @{ Where = $w; Vendor = $vendorName; MachineType = $pattern; Platform = $platform
+              Explicit = $false; How = ($how -join ', ') }
+}
+
+function Get-ScopeSwql($Scope) {
+    # Python scope_swql: a generated scope is counted with bound parameters; an
+    # explicit -NodeWhere (the operator's own NCM SQL) is used as written, Nodes.
+    # prefix dropped, in a read-only query that can fail if it is not valid SWQL.
+    if ($Scope.Vendor -and -not $Scope.Explicit) {
+        if ($Scope.MachineType) {
+            return @{ Swql = 'SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE Vendor = @vendor AND MachineType LIKE @machineType'
+                      Params = @{ vendor = $Scope.Vendor; machineType = $Scope.MachineType } }
+        }
+        return @{ Swql = 'SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE Vendor = @vendor'
+                  Params = @{ vendor = $Scope.Vendor } }
+    }
+    $w = ($Scope.Where -replace '\bNodes\.', '').Trim()
+    return @{ Swql = ('SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE ' + $w); Params = $null }
+}
+
+function Invoke-ScopePreflight($Conn, $Scope, [bool]$AllowEmpty, [scriptblock]$Log) {
+    # Python scope_preflight: count the nodes the scope selects before anything is
+    # written, log both forms of the condition and a MachineType sample for the
+    # vendor; zero nodes refuses unless -AllowEmptyScope; a count that cannot be run
+    # is inconclusive and the import goes on. Returns the count, or $null.
+    $q = Get-ScopeSwql $Scope
+    $shownParams = ''
+    if ($q.Params) { $shownParams = ' params {' + (@($q.Params.Keys | ForEach-Object { "$_='$($q.Params[$_])'" }) -join ', ') + '}' }
+    Write-ToolLog scope info "scope preflight: NCM SQL Where $($Scope.Where); SWQL $($q.Swql)$shownParams"
+    try {
+        $rows = @(Invoke-SwisQuery $Conn $q.Swql $q.Params)
+        $count = 0
+        if ($rows.Count -gt 0) { $n = Get-RowValue $rows[0] 'N'; if ($n) { $count = [int]$n } }
+    } catch {
+        Send-Log $Log 'scope' 'warn' ("[NCM] warning: the node scope could not be counted ($($_.Exception.Message)); the " +
+            'import goes on without the empty-scope check, so check the scope in the console')
+        return $null
+    }
+    if ($Scope.Vendor) {
+        try {
+            $sample = @(Invoke-SwisQuery $Conn $script:ScopeSampleSwql @{ vendor = $Scope.Vendor })
+            $seen = (@($sample | ForEach-Object { "$(Get-RowValue $_ 'MachineType') ($(Get-RowValue $_ 'N'))" }) -join '; ')
+            if (-not $seen) { $seen = 'none' }
+            $tail = ''; if ($Scope.Platform) { $tail = " - $($script:TentativeNote)" }
+            Write-ToolLog scope info "MachineType values reported by Vendor '$($Scope.Vendor)' nodes (up to 25): $seen$tail"
+        } catch { Write-ToolLog scope warn "could not sample MachineType values: $($_.Exception.Message)" }
+    }
+    if ($count -gt 0) {
+        Send-Log $Log 'scope' 'info' "[NCM] node scope selects $count node(s): $($Scope.Where)"
+        return $count
+    }
+    $msg = "the node scope $($Scope.Where) matches no node on this server"
+    if ($Scope.Platform) { $msg += " ($($script:TentativeNote); the MachineType values Vendor '$($Scope.Vendor)' nodes report are in the run log)" }
+    $msg += '. A report scoped to no node evaluates nothing, which reads like compliance.'
+    if ($AllowEmpty) {
+        Send-Log $Log 'scope' 'warn' "[NCM] warning: $msg Importing anyway (-AllowEmptyScope)."
+        return 0
+    }
+    Write-ToolLog scope error "$msg Refused; nothing was created."
+    throw (New-ScopeError ("[NCM] $msg Nothing was created. Correct -MachineType, -Vendor or -NodeWhere, or pass " +
+        '-AllowEmptyScope to import it anyway.'))
+}
+
+# =========================================================================
+# Collision check: refuse before anything is written, suggest the next suffix
+# =========================================================================
+# Every generated name ends in (and every id is seeded with) the version suffix,
+# so a collision means this STIG was already imported with that suffix. The run is
+# refused before the first write, naming what collided, with the next free suffix
+# found by listing the names that share the base. Get-ExistingNcmIds inside
+# Import-NcmReport stays as defense in depth. Same as the Python edition.
+$script:NameLikeQueries = @{
+    'Cirrus.PolicyReports'      = 'SELECT TOP 200 Name FROM Cirrus.PolicyReports WHERE Name LIKE @p'
+    'Cirrus.Policies'           = 'SELECT TOP 200 Name FROM Cirrus.Policies WHERE Name LIKE @p'
+    'Orion.PolicyEngine.Policy' = 'SELECT TOP 200 Name FROM Orion.PolicyEngine.Policy WHERE Name LIKE @p'
+}
+$script:InIdsProbes['scmrule'] = @('SELECT UniqueId FROM Orion.PolicyEngine.Rule WHERE UniqueId IN @ids', 'UniqueId')
+
+function Get-LikePrefix([string]$Text) {
+    # A LIKE pattern matching every name starting with $Text: cut at the first '['
+    # (a character class in SQL Server LIKE; Unverified whether SWIS passes LIKE
+    # through unchanged); _ and % stay wildcards, so callers filter exactly.
+    $i = $Text.IndexOf('[')
+    if ($i -ge 0) { $Text = $Text.Substring(0, $i) }
+    return $Text + '%'
+}
+
+function Get-SuffixAdvice($Conn, $Bases, [string]$CurrentSuffix) {
+    # 're-run with -Suffix _vN' text; $Bases is a list of @(entity, base name).
+    $names = New-Object System.Collections.ArrayList
+    foreach ($pair in @($Bases)) {
+        try {
+            foreach ($row in @(Invoke-SwisQuery $Conn $script:NameLikeQueries[$pair[0]] @{ p = (Get-LikePrefix $pair[1]) })) {
+                [void]$names.Add(@($pair[1], [string](Get-RowValue $row 'Name')))
+            }
+        } catch { Write-ToolLog import warn "could not list $($pair[0]) names starting with `"$($pair[1])`": $($_.Exception.Message)" }
+    }
+    [long]$highest = [long]$CurrentSuffix.Substring(2) + 1
+    foreach ($base in @($Bases | ForEach-Object { $_[1] } | Sort-Object -Unique)) {
+        $candidate = Get-NextFreeSuffix @($names | Where-Object { $_[0] -ceq $base } | ForEach-Object { $_[1] }) $base $CurrentSuffix
+        if ([long]$candidate.Substring(2) -gt $highest) { $highest = [long]$candidate.Substring(2) }
+    }
+    $suggestion = "_v$highest"
+    $used = (@($names | ForEach-Object { $_[1] } | Sort-Object -Unique) -join ', '); if (-not $used) { $used = 'none listed' }
+    Write-ToolLog import info "names already using these bases: $used; next free suffix $suggestion"
+    return ("The next free suffix is ${suggestion}: re-run with -Suffix $suggestion (Python: --suffix $suggestion) " +
+        'to import alongside, or remove the existing import first.')
+}
+
+function New-CollisionError([string]$Message) {
+    $e = New-Object System.Exception $Message
+    $e.Data['Collision'] = $true
+    return $e
+}
+
+function Test-NcmCollision($Conn, $Reports, [string]$Suffix, [scriptblock]$Log) {
+    # Throws (Data['Collision']) before anything is written when a report name,
+    # policy name, PolicyId or RuleId the reports would create already exists.
+    $Suffix = Test-Suffix $Suffix
+    $hits = New-Object System.Collections.ArrayList
+    foreach ($r in $Reports) {
+        $found = @(Invoke-SwisQuery $Conn 'SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n' @{ n = $r.Name })
+        if ($found.Count -gt 0) { [void]$hits.Add("report `"$($r.Name)`" ($(Get-RowValue $found[0] 'PolicyReportID'))") }
+        foreach ($p in $r.AssignedPolicies) {
+            $found = @(Invoke-SwisQuery $Conn 'SELECT PolicyID, Name FROM Cirrus.Policies WHERE Name = @n' @{ n = $p.PolicyName })
+            if ($found.Count -gt 0) { [void]$hits.Add("policy `"$($p.PolicyName)`" ($(Get-RowValue $found[0] 'PolicyID'))") }
+        }
+        $existing = Get-ExistingNcmIds $Conn $r
+        if ($existing.Policies.Count -gt 0) {
+            [void]$hits.Add("$($existing.Policies.Count) PolicyId(s) of `"$($r.Name)`" (" + ((@($existing.Policies.Keys) | Sort-Object | Select-Object -First 3) -join ', ') + ')')
+        }
+        if ($existing.Rules.Count -gt 0) {
+            $more = ''; if ($existing.Rules.Count -gt 3) { $more = ', ...' }
+            [void]$hits.Add("$($existing.Rules.Count) RuleId(s) of `"$($r.Name)`" (" + ((@($existing.Rules.Keys) | Sort-Object | Select-Object -First 3) -join ', ') + "$more)")
+        }
+    }
+    if ($hits.Count -eq 0) {
+        Write-ToolLog import info "collision check: none of the $(@($Reports).Count) report(s), their policies or ids exist yet (suffix $Suffix)"
+        return
+    }
+    $bases = New-Object System.Collections.ArrayList
+    foreach ($r in $Reports) {
+        [void]$bases.Add(@('Cirrus.PolicyReports', (Split-NameSuffix $r.Name).Base))
+        foreach ($p in $r.AssignedPolicies) { [void]$bases.Add(@('Cirrus.Policies', (Split-NameSuffix $p.PolicyName).Base)) }
+    }
+    $msg = ("[NCM] already on the server with suffix ${Suffix}: " + ($hits -join '; ') +
+        '. Nothing was imported; this tool never overwrites. ' + (Get-SuffixAdvice $Conn @($bases) $Suffix))
+    Write-ToolLog import error ('collision: ' + $msg)
+    throw (New-CollisionError $msg)
+}
+
+function Test-ScmCollision($Conn, $Benchmarks, [string]$Suffix, [scriptblock]$Log) {
+    # Python scm_collision_check: every converted policy's name, uniqueId and rule
+    # uniqueIds are checked before any of them is imported. Whether the server
+    # rejects a rule uniqueId another policy uses is Unverified; it is checked so a
+    # new suffix really means fresh ids, after the IN @ids sanity probe.
+    $Suffix = Test-Suffix $Suffix
+    $hits = New-Object System.Collections.ArrayList
+    foreach ($b in $Benchmarks) {
+        $found = @(Invoke-SwisQuery $Conn ('SELECT PolicyID, Name, UniqueId, BuiltIn FROM Orion.PolicyEngine.Policy ' +
+            'WHERE Name = @n OR UniqueId = @u') @{ n = (Get-ScmPolicyName $b $Suffix); u = (Get-ScmPolicyUniqueId $b $Suffix) })
+        foreach ($row in $found) {
+            [void]$hits.Add("policy `"$(Get-RowValue $row 'Name')`" (PolicyID $(Get-RowValue $row 'PolicyID'), UniqueId $(Get-RowValue $row 'UniqueId'))")
+        }
+    }
+    $ruleIds = @($Benchmarks | ForEach-Object { $bench = $_; @($bench.Rules) | ForEach-Object { Get-ScmRuleUniqueId $_ $Suffix } })
+    if ($ruleIds.Count -gt 0) {
+        $sample = @(Invoke-SwisQuery $Conn 'SELECT TOP 1 UniqueId FROM Orion.PolicyEngine.Rule' $null)
+        $known = $null
+        if ($sample.Count -gt 0) { $known = Get-RowValue $sample[0] 'UniqueId' }
+        if ($known) {
+            Confirm-InIds $Conn 'scmrule' ([string]$known) 'the SCM rule uniqueId check' 'scm'
+            $rows = @(Invoke-SwisQueryIds $Conn $script:InIdsProbes['scmrule'][0] $ruleIds)
+            if ($rows.Count -gt 0) {
+                $ids = @($rows | ForEach-Object { Get-NormId (Get-RowValue $_ 'UniqueId') } | Sort-Object -Unique)
+                $more = ''; if ($ids.Count -gt 3) { $more = ', ...' }
+                [void]$hits.Add("$($ids.Count) rule uniqueId(s) (" + (($ids | Select-Object -First 3) -join ', ') + "$more)")
+            }
+        } else {
+            Write-ToolLog scm info "the server returned no SCM rule rows, so none of the $($ruleIds.Count) rule uniqueId(s) can already exist"
+        }
+    }
+    if ($hits.Count -eq 0) {
+        Write-ToolLog scm info "collision check: none of the $(@($Benchmarks).Count) SCM policy name(s), uniqueId(s) or rule uniqueId(s) exist yet (suffix $Suffix)"
+        return
+    }
+    $bases = @($Benchmarks | ForEach-Object { , @('Orion.PolicyEngine.Policy', (Split-NameSuffix (Get-ScmPolicyName $_ $Suffix)).Base) })
+    $msg = ("[SCM] already on the server with suffix ${Suffix}: " + ($hits -join '; ') +
+        '. Nothing was imported; this tool never overwrites. ' + (Get-SuffixAdvice $Conn $bases $Suffix))
+    Write-ToolLog scm error ('collision: ' + $msg)
+    throw (New-CollisionError $msg)
+}
+
+function Get-SimilarReportNames($Conn, [string]$ReportName) {
+    # For a -Remove -Name that matched nothing: the report names starting with it
+    # (typically the same name with its version suffix), as text to append.
+    try {
+        $rows = @(Invoke-SwisQuery $Conn 'SELECT TOP 50 PolicyReportID, Name FROM Cirrus.PolicyReports WHERE Name LIKE @p' @{ p = (Get-LikePrefix $ReportName) })
+    } catch { return '' }
+    $names = @($rows | ForEach-Object { [string](Get-RowValue $_ 'Name') } | Where-Object { $_.StartsWith($ReportName, [System.StringComparison]::Ordinal) } | Sort-Object -Unique)
+    $shown = $names -join ', '; if (-not $shown) { $shown = 'none' }
+    Write-ToolLog remove info "no report named `"$ReportName`"; names starting with it: $shown"
+    if ($names.Count -eq 0) { return '' }
+    return ('; reports whose names start with it (since 2.0.0 every name ends in a version suffix such as _v1): ' +
+        ((@($names | Select-Object -First 10) | ForEach-Object { '"' + $_ + '"' }) -join ', '))
+}
+
+function Get-ScmOsFamily($Benchmarks, [string]$SourcePath) {
+    # 'windows', 'linux' or 'unknown' (forced to SCM without a recognized OS).
     $t = Resolve-StigTarget $Benchmarks (Split-Path -Leaf $SourcePath)
-    if ($t[0] -eq 'network' -and $t[1]) {
-        $w = "(Vendor = '$($t[1])')"
-        Write-ToolLog scope info "NCM node scope $w (derived from vendor $($t[1]))"
-        return $w
-    }
-    Write-ToolLog scope warn "no vendor identified; the node scope defaults to (Vendor = 'Cisco')"
-    return "(Vendor = 'Cisco')"
+    if ($t[0] -eq 'server') { return $t[1][2] }
+    return 'unknown'
 }
 
 # =========================================================================
@@ -2477,7 +3030,7 @@ function Invoke-CliRemove {
     $log = { param($m) Write-Host (Hide-Secrets $m) }
     Write-ToolLog remove info "remove requested for report name `"$Name`" (dry run: $([bool]$DryRun), -Yes: $([bool]$Yes))"
     $found = @(Invoke-SwisQuery $conn 'SELECT PolicyReportID, Name, Grouping FROM Cirrus.PolicyReports WHERE Name = @n' @{ n = $Name })
-    if ($found.Count -eq 0) { throw "no policy report named `"$Name`" on this server" }
+    if ($found.Count -eq 0) { throw ("no policy report named `"$Name`" on this server" + (Get-SimilarReportNames $conn $Name)) }
     $ids = @($found | ForEach-Object { Get-RowValue $_ 'PolicyReportID' })
     Write-ToolLog remove info ("$($ids.Count) report(s) named `"$Name`": " + ($ids -join ', '))
     if (-not $DryRun) { [void](Invoke-NcmPreflight $conn $log) }
@@ -2513,9 +3066,9 @@ function Invoke-CliTest($Conn, [string]$SourcePath) {
             'SELECT ConfigID, NodeID, ConfigType, DownloadTime FROM NCM.ConfigArchive ORDER BY DownloadTime DESC')
     }
     $benchmarks = Get-StigBenchmarks $SourcePath
-    $where = Resolve-NcmWhere $benchmarks $SourcePath $NodeWhere
-    $reports = New-NcmReports $benchmarks (Get-ReportBaseName $SourcePath $Name) $where $Mode $Grouping `
-        (-not $ImportDisabled) $ConfigType
+    $scope = Resolve-NcmScope $benchmarks $SourcePath $NodeWhere $Vendor $MachineType
+    $reports = New-NcmReports $benchmarks (Get-ReportBaseName $SourcePath $Name) $scope.Where $Mode $Grouping `
+        (-not $ImportDisabled) $ConfigType $Suffix
     $rules = @($reports | ForEach-Object { $_.AssignedPolicies } | ForEach-Object { $_.AssignedPolicyRules })
     $total = $rules.Count
     if ($Limit -gt 0 -and $rules.Count -gt $Limit) { $rules = @($rules[0..($Limit - 1)]) }
@@ -2562,6 +3115,10 @@ function Invoke-CliRun {
     Write-Host "module for this run: $module"
     Write-ToolLog route info "module for this run: $module ($($Path.Count) file(s))"
     $log = { param($m) Write-Host (Hide-Secrets $m) }
+    # Validated before anything is converted or sent, like the Python edition.
+    $runSuffix = Test-Suffix $Suffix
+    $template = $null
+    if ($ScmProbeTemplate) { $template = Read-ProbeTemplate $ScmProbeTemplate }
 
     if ($Convert) {
         foreach ($p in $Path) {
@@ -2573,16 +3130,19 @@ function Invoke-CliRun {
             }
             $benchmarks = Get-StigBenchmarks $p
             if ($module -eq 'SCM') {
+                $family = Get-ScmOsFamily $benchmarks $p
+                Write-ScmProbePlan $family $template $ScmProbeTemplate $log
                 foreach ($b in $benchmarks) {
-                    $out = Write-ScmPolicyFile $b $folder
+                    $out = Write-ScmPolicyFile $b $folder $runSuffix $family $template
                     Write-Host "[SCM] wrote $out - $($b.Rules.Count) rules"
                 }
             } else {
-                $where = Resolve-NcmWhere $benchmarks $p $NodeWhere
-                $xmlWarning = Get-XmlConfigWarning $where
+                # An undecidable scope is refused offline too: the console file carries it.
+                $scope = Resolve-NcmScope $benchmarks $p $NodeWhere $Vendor $MachineType
+                $xmlWarning = Get-XmlConfigWarning $scope.Where
                 if ($xmlWarning) { Write-Host $xmlWarning -ForegroundColor Yellow }
-                $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $where $Mode `
-                    $Grouping (-not $ImportDisabled) $ConfigType
+                $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $scope.Where $Mode `
+                    $Grouping (-not $ImportDisabled) $ConfigType $runSuffix
                 foreach ($r in $reports) {
                     $out = Write-ConsoleReportFile $r $folder
                     Write-Host "[NCM] wrote $out"
@@ -2612,23 +3172,27 @@ function Invoke-CliRun {
                 Write-ToolLog scm info "imported SCM policy `"$($r.Name)`" (PolicyID $($r.PolicyId))"
                 Write-Host "SUCCESS [SCM] imported policy `"$($r.Name)`" (PolicyID $($r.PolicyId))" -ForegroundColor Green
             } else {
-                foreach ($b in (Get-StigBenchmarks $p)) {
-                    $r = Import-ScmBenchmark $conn $b $log
+                $benchmarks = Get-StigBenchmarks $p
+                $family = Get-ScmOsFamily $benchmarks $p
+                Write-ScmProbePlan $family $template $ScmProbeTemplate $log
+                Test-ScmCollision $conn $benchmarks $runSuffix $log
+                foreach ($b in $benchmarks) {
+                    $r = Import-ScmBenchmark $conn $b $log $runSuffix $family $template
                     Write-Host "SUCCESS [SCM] `"$($r.Name)`" (PolicyID $($r.PolicyId))" -ForegroundColor Green
                 }
             }
         } else {
             $benchmarks = Get-StigBenchmarks $p
-            $where = Resolve-NcmWhere $benchmarks $p $NodeWhere
-            $xmlWarning = Get-XmlConfigWarning $where
+            $scope = Resolve-NcmScope $benchmarks $p $NodeWhere $Vendor $MachineType
+            $xmlWarning = Get-XmlConfigWarning $scope.Where
             if ($xmlWarning) { Write-Host $xmlWarning -ForegroundColor Yellow }
-            $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $where $Mode $Grouping `
-                (-not $ImportDisabled) $ConfigType
+            $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $scope.Where $Mode $Grouping `
+                (-not $ImportDisabled) $ConfigType $runSuffix
             [void](Invoke-NcmPreflight $conn $log)
-            foreach ($r in $reports) {
-                $existing = @(Invoke-SwisQuery $conn 'SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n' @{ n = $r.Name })
-                if ($existing.Count -gt 0) { Write-ToolLog import error "name collision: report `"$($r.Name)`" already exists; nothing was imported"; throw "[NCM] a report named `"$($r.Name)`" already exists - rename with -Name, delete it with -Remove, or remove it in the console; this tool never overwrites" }
-            }
+            # Before the first write: the scope must select nodes, and nothing this run
+            # would create (names, PolicyIds, RuleIds) may exist already.
+            [void](Invoke-ScopePreflight $conn $scope $AllowEmptyScope.IsPresent $log)
+            Test-NcmCollision $conn $reports $runSuffix $log
             $run = Import-NcmReports $conn $reports $log (-not $NoRollback)
             foreach ($i in $run.Imported) {
                 Write-Host "SUCCESS [NCM] `"$($i.Report.Name)`" - $($i.Rules) rules ($($i.ReportId))" -ForegroundColor Green
@@ -2707,7 +3271,7 @@ function Show-StigGui {
     $red    = [System.Drawing.Color]::FromArgb(255, 199, 206)
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'DISA STIG Conversion Tool'
-    $form.Size = New-Object System.Drawing.Size(760, 730)
+    $form.Size = New-Object System.Drawing.Size(760, 760)
     $form.StartPosition = 'CenterScreen'
 
     $script:y = 12
@@ -2768,6 +3332,14 @@ function Show-StigGui {
     $importDisabledBox = & $mk (New-Object System.Windows.Forms.CheckBox) 12 718 22
     $importDisabledBox.Text = 'Import the NCM report disabled (no caching) so it can be reviewed first'
     $importDisabledBox.Checked = [bool]$ImportDisabled
+    $script:y += 26
+    # The version suffix ends every generated name and seeds every id (-Suffix).
+    L 'Name suffix' 12 90 | Out-Null
+    $suffixBox = & $mk (New-Object System.Windows.Forms.TextBox) 104 60 22
+    $suffixBox.Text = $Suffix
+    $emptyScopeBox = & $mk (New-Object System.Windows.Forms.CheckBox) 190 540 22
+    $emptyScopeBox.Text = 'Import even when the NCM node scope matches no node'
+    $emptyScopeBox.Checked = [bool]$AllowEmptyScope
     $script:y += 30
 
     $testBtn = & $mk (New-Object System.Windows.Forms.Button) 12 150 30
@@ -2906,24 +3478,33 @@ function Show-StigGui {
                         $policyId = $scmResult.PolicyId
                         Add-Summary ("SUCCESS " + $prefix + (Split-Path -Leaf $f) + " (PolicyID $policyId)") ([System.Drawing.Color]::Green); $ok++
                     } else {
-                        foreach ($b in (Get-StigBenchmarks $f)) {
+                        $guiSuffix = Test-Suffix $suffixBox.Text.Trim()
+                        $benchmarks = Get-StigBenchmarks $f
+                        $family = Get-ScmOsFamily $benchmarks $f
+                        Write-ScmProbePlan $family $null '' $logBlock
+                        if (-not $Offline) { Test-ScmCollision $conn $benchmarks $guiSuffix $logBlock }
+                        foreach ($b in $benchmarks) {
                             if ($Offline) {
-                                $out = Write-ScmPolicyFile $b (Split-Path -Parent $f)
+                                $out = Write-ScmPolicyFile $b (Split-Path -Parent $f) $guiSuffix $family
                                 Add-Summary ("SUCCESS " + $prefix + "wrote " + (Split-Path -Leaf $out)) ([System.Drawing.Color]::Green)
                             } else {
-                                $r = Import-ScmBenchmark $conn $b $logBlock
+                                $r = Import-ScmBenchmark $conn $b $logBlock $guiSuffix $family
                                 Add-Summary ("SUCCESS " + $prefix + '"' + $r.Name + '"') ([System.Drawing.Color]::Green)
                             }
+                        }
+                        if ($family -eq 'linux') {
+                            Add-Summary ($prefix + "Linux: the SCM probe is Unverified on Linux nodes; see README 'Testing Linux STIGs in SCM'") $yellow
                         }
                         $ok++
                     }
                 } else {
+                    $guiSuffix = Test-Suffix $suffixBox.Text.Trim()
                     $benchmarks = Get-StigBenchmarks $f
-                    $where = Resolve-NcmWhere $benchmarks $f $whereBox.Text.Trim()
-                    $xmlWarning = Get-XmlConfigWarning $where
+                    $scope = Resolve-NcmScope $benchmarks $f $whereBox.Text.Trim() '' ''
+                    $xmlWarning = Get-XmlConfigWarning $scope.Where
                     if ($xmlWarning) { Add-Summary $xmlWarning $yellow; Show-Issue }
                     $reportEnabled = -not $importDisabledBox.Checked
-                    $reports = New-NcmReports $benchmarks (Get-ReportBaseName $f '') $where 'manual' 'DISA STIG' $reportEnabled
+                    $reports = New-NcmReports $benchmarks (Get-ReportBaseName $f '') $scope.Where 'manual' 'DISA STIG' $reportEnabled 'Any' $guiSuffix
                     if ($Offline) {
                         foreach ($r in $reports) {
                             $out = Write-ConsoleReportFile $r (Split-Path -Parent $f)
@@ -2932,6 +3513,8 @@ function Show-StigGui {
                         $ok++
                     } else {
                         [void](Invoke-NcmPreflight $conn $logBlock)
+                        [void](Invoke-ScopePreflight $conn $scope $emptyScopeBox.Checked $logBlock)
+                        Test-NcmCollision $conn $reports $guiSuffix $logBlock
                         $run = Import-NcmReports $conn $reports $logBlock $true
                         foreach ($i in $run.Imported) {
                             Add-Summary ("SUCCESS " + $prefix + '"' + $i.Report.Name + '" - ' + $i.Rules + ' rules') ([System.Drawing.Color]::Green)
@@ -2940,8 +3523,8 @@ function Show-StigGui {
                         $confirmed = Complete-NcmImport $conn @($run.Imported | ForEach-Object { $_.ReportId }) `
                             (-not $reportEnabled) $false $logBlock
                         if (-not $confirmed) {
-                            $state = 'cached (StartCaching)'; if (-not $reportEnabled) { $state = 'Disabled' }
-                            Add-Summary ($prefix + "the imported reports could not be confirmed as $state; see the detailed log") $yellow
+                            $wanted = 'cached (StartCaching)'; if (-not $reportEnabled) { $wanted = 'Disabled' }
+                            Add-Summary ($prefix + "the imported reports could not be confirmed as $wanted; see the detailed log") $yellow
                             Show-Issue
                         }
                         if ($null -ne $run.Failure) {

@@ -7,21 +7,27 @@ remediable item. Two target modules, detected automatically from the file:
 
 | You give it | It imports into |
 | --- | --- |
-| STIG zip / xccdf `.xml` / `.xsl` for a **network device** (Cisco, Juniper, Arista, Palo Alto, F5, Fortinet, …) | **NCM** compliance policy report (`Cirrus.PolicyReports`), node scope auto-set from the vendor |
-| STIG zip / xccdf `.xml` for a **server OS** (Windows, Linux, RHEL, Debian, Ubuntu, CentOS) | **Server Configuration Monitor** — converted to an SCM policy and imported via `Orion.PolicyEngine.Policy.ImportPolicy` |
+| STIG zip / xccdf `.xml` / `.xsl` for a **network device** (Cisco, Juniper, Arista, Palo Alto, F5, Fortinet, …) | **NCM** compliance policy report (`Cirrus.PolicyReports`), node scope set from the vendor and, for Cisco, the platform's `MachineType` ([node scope](#node-scope-vendor-and-cisco-platform)) |
+| STIG zip / xccdf `.xml` for a **server OS** (Windows, Linux, RHEL, Debian, Ubuntu, CentOS) | **Server Configuration Monitor** — converted to an SCM policy and imported via `Orion.PolicyEngine.Policy.ImportPolicy` (Linux: see [Testing Linux STIGs in SCM](#testing-linux-stigs-in-scm)) |
 | SCM compliance policy `.yaml` / `.scm-policy.yaml` (`!policy`, `pluginName: SCM`) | **Server Configuration Monitor**, imported verbatim |
 
 The **Compliance target** dropdown (or `--target`) controls the routing:
 **Auto Compliance Assignment** (default) decides from the file and benchmark
 names as above; **Network Compliance** forces NCM; **Server Compliance** forces
-SCM. Auto falls back to NCM, saying so, when nothing is recognized.
+SCM. Auto falls back to NCM when nothing is recognized, but since 2.0.0 (2026-10-09) such
+a STIG (the Router or NDM SRG, ESXi, an unlisted product) gets no node scope by default:
+it is refused, offline `convert` included, until `--vendor` or `--node-where` says which
+nodes it applies to. Earlier builds scoped it to every Cisco node.
 
 The tool ships in **two self-contained single-file editions**, both at version
 **2.0.0** (`TOOL_VERSION` in the Python file, `$script:ToolVersion` in the PowerShell
-file; every run log records it). The Python edition is the reference. For the same input both derive the same NCM `RuleId`s and `PolicyId`s, the
-same SCM policy and rule `uniqueId`s, and the same report and policy names, and the
-generated basic-rule payloads are byte-identical; `test_disa_stig_tool.py` compares the
-two editions on fixed inputs whenever PowerShell is available. Do not assume full
+file; every run log records it). The Python edition is the reference. For the same input
+and [version suffix](#version-suffix-and-the-upgrade-workflow) both derive the same NCM
+`RuleId`s and `PolicyId`s, the same SCM policy and rule `uniqueId`s, the same report and
+policy names, the same node scope and the same SCM probe, and the generated basic-rule
+payloads are byte-identical; `test_disa_stig_tool.py` compares the two editions on fixed
+inputs (suffixes, Cisco platforms, scope refusals, probe templates) whenever PowerShell
+is available. Do not assume full
 serialization parity for advanced rules: the
 [NCM portability audit](../../docs/modules/ncm-compliance-portability-audit.md)
 records differences and offline-reproduced limitations. The generated default rules are basic:
@@ -43,7 +49,9 @@ re-import of the same benchmark is not caught by the `UniqueId` collision check;
 NCM policies imported by those builds were submitted with a different `PolicyId`
 (**Unverified:** whether `AddPolicy` keeps a submitted `PolicyId` or assigns its own is
 not documented; compare `Cirrus.Policies.PolicyID` after an import to find out). Rule
-ids (`RuleId`, rule `uniqueId`) were already identical in both editions.
+ids (`RuleId`, rule `uniqueId`) were already identical in both editions. Since 2.0.0 every
+id also carries the version suffix, so no current build derives any pre-2.0.0 id; see
+[the upgrade workflow](#version-suffix-and-the-upgrade-workflow).
 
 Both GUIs open with a disclaimer — *"This is not built by SolarWinds Inc. or DISA.
 All Code is visible for Code Audit and documentation is available for SWIS calls."* —
@@ -60,9 +68,13 @@ One window: server IP/FQDN + SWIS port, username/password or a **Login with curr
 Windows user** checkbox with a **live connection status line** beneath it, a file list
 taking **up to 10 STIG files per batch** (zip, xccdf `.xml`, `.xsl`, SCM policy
 `.yaml`/`.scm-policy.yaml`, a legacy policy `.scm-profile`, or a URL), the
-**Compliance target** dropdown, and a
+**Compliance target** dropdown, the **NCM node scope** box (`auto`, or a WHERE clause like
+`--node-where`), a
 **Import the NCM report disabled (no caching) so it can be reviewed first** checkbox
-(the CLI's `--disabled` / PowerShell's `-ImportDisabled`). A batch
+(the CLI's `--disabled` / PowerShell's `-ImportDisabled`), a **Name suffix** box (`_v1`
+by default, the CLI's `--suffix`) and an **Import even when the NCM node scope matches no
+node** checkbox (`--allow-empty-scope`). The GUIs use the default SCM probe for the
+detected OS; a probe template is a CLI option. A batch
 imports into **one module only — NCM or SCM, never both**: the first file selected
 locks the module (a notice says so), and files of the other kind are skipped with a
 message rather than misprocessed.
@@ -151,12 +163,16 @@ python3 disa_stig_tool.py test U_Cisco_IOS_Router_Y26M07_STIG.zip \
 python3 disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
     --host orion.example.com --user admin
 
-# and, if it needs undoing: preview, then delete
-python3 disa_stig_tool.py remove --name "U_Cisco_IOS_Router_Y26M07_STIG - Cisco_IOS_Router_NDM_STIG" \
+# and, if it needs undoing: preview, then delete (the name ends in the version suffix)
+python3 disa_stig_tool.py remove --name "U_Cisco_IOS_Router_Y26M07_STIG - Cisco_IOS_Router_NDM_STIG_v1" \
     --host orion.example.com --user admin --dry-run
-python3 disa_stig_tool.py remove --name "U_Cisco_IOS_Router_Y26M07_STIG - Cisco_IOS_Router_NDM_STIG" \
+python3 disa_stig_tool.py remove --name "U_Cisco_IOS_Router_Y26M07_STIG - Cisco_IOS_Router_NDM_STIG_v1" \
     --host orion.example.com --user admin --yes
 ```
+
+`remove` takes the exact report name, suffix included. When no report has that name, the
+error lists the reports whose names start with it, so a name given without its `_v1` is
+answered with the names it probably meant.
 
 `remove` undoes an import completely without reaching anything another report uses. It
 reads the report's tree (`GetPolicyReport` with `exportFlag` true, plus the
@@ -186,7 +202,12 @@ them.
 | `--name` | `-Name` | Report name base (`<name> - <benchmark id>`) with convert, import and test; the exact report name with remove |
 | `--grouping` | `-Grouping` | Folder for reports, policies and rules |
 | `--target auto\|network\|server` | `-Target auto\|network\|server` | Module routing for XCCDF input |
-| `--node-where` | `-NodeWhere` | NCM node scope (`auto` derives it from the vendor) |
+| `--node-where` | `-NodeWhere` | NCM node scope (`auto` derives it from the vendor and Cisco platform) |
+| `--vendor NAME` | `-Vendor NAME` | The `Vendor` value the nodes report; overrides detection, required for an unrecognized network STIG |
+| `--machine-type PATTERN` | `-MachineType PATTERN` | `MachineType LIKE` pattern added to the scope; overrides the Tentative Cisco platform table |
+| `--allow-empty-scope` (import) | `-AllowEmptyScope` | Import even when the node scope matches no node |
+| `--suffix _vN` | `-Suffix _vN` | Version suffix on every name and id seed (`_v1` by default) |
+| `--scm-probe-template FILE` | `-ScmProbeTemplate FILE` | Replace the SCM attestation probe's source block ([Linux testing](#testing-linux-stigs-in-scm)) |
 | `--config-type` | `-ConfigType` | Config type the rules scan (`Any`, `Running`, `Startup`, ...) |
 | `--mode manual\|heuristic` | `-Mode manual\|heuristic` | Sentinel or drafted patterns |
 | `--disabled` | `-ImportDisabled` | `ReportStatus` `Disabled`, no caching; honored by convert too |
@@ -202,7 +223,9 @@ them.
 
 When no `--name` / `-Name` is given, a zip's reports are named `<zip file name> -
 <benchmark id>` and a bare `.xml` or a directory's reports take the benchmark title, in
-both editions. Names are cut to 250 characters.
+both editions. Every report, NCM policy and SCM policy name then ends in the version
+suffix (`<zip file name> - <benchmark id>_v1`), and the files written for them carry it
+too. Names are cut to 250 characters, suffix included; the suffix itself is never cut.
 
 `--disabled` imports the report with `ReportStatus` `Disabled` and skips caching, which
 is what you want for a 92-rule benchmark that still needs tuning: the report exists and
@@ -220,6 +243,95 @@ shape, so the tool prints it exactly as the server sent it rather than interpret
 Add `--pin-server-cert` to trust the server's own `SolarWinds-Orion` certificate for
 the session (its SHA-256 fingerprint is printed). `convert`/`build` is the offline
 mode described above.
+
+### Node scope (vendor and Cisco platform)
+
+Every generated NCM policy carries a node scope, the `SQL:Where (...)` part of its
+`NodeSelectionString`, which is what NCM filters nodes on. Since 2.0.0 (2026-10-09) it is
+decided like this, in both editions:
+
+1. `--node-where` / `-NodeWhere` is used exactly as written (combining it with `--vendor`
+   or `--machine-type` is refused).
+2. Otherwise the vendor is `--vendor`, else the one detected from the file and benchmark
+   names. With no vendor at all the STIG is refused, offline `convert` included: a Router
+   or NDM SRG, an ESXi STIG or any product the name table does not know no longer
+   defaults to `(Vendor = 'Cisco')`.
+3. Non-Cisco vendors keep a Vendor-only scope, `(Vendor = 'Juniper')`.
+4. For Cisco the platform is read from the package file name plus each benchmark's title
+   and source member name, with `-`, `_` and spaces treated alike, so "IOS-XE",
+   "IOS_XE", "IOS XE" and "IOSXE" all match. The specific platforms are tried before
+   classic IOS:
+
+   | Platform | Matched in the names | Scope added |
+   | --- | --- | --- |
+   | IOS-XE | `ios xe`, `ios-xe`, `ios_xe`, `iosxe` | `MachineType LIKE '%IOS-XE%'` |
+   | IOS-XR | `ios xr`, `ios-xr`, `iosxr` | `MachineType LIKE '%IOS-XR%'` |
+   | NX-OS | `nx os`, `nx-os`, `nxos` | `MachineType LIKE '%NX-OS%'` |
+   | ASA | `asa` as a word | `MachineType LIKE '%ASA%'` |
+   | IOS (classic, only when none of the above match) | `ios` as a word | `MachineType LIKE '%IOS%'` |
+
+   **Tentative: MachineType values to be verified against a live server.** Nothing in
+   this repository records what `Orion.Nodes.MachineType` holds for these platforms, and
+   `%IOS%` also matches any `MachineType` containing IOS-XE or IOS-XR. The import logs
+   the `MachineType` values the vendor's nodes report (up to 25, with counts), which is
+   the check. A Cisco STIG whose platform is not recognized (Cisco ISE, for example), or
+   a package whose benchmarks name different platforms, is refused rather than scoped to
+   every Cisco node; `--machine-type PATTERN` (or `'%'` for every Cisco node that reports
+   a `MachineType`) or `--node-where` decides it instead. `--machine-type` also adds the
+   condition for any other vendor.
+
+The resulting fragment uses bare column names, as console exports do:
+`(Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')`. A single quote in `--vendor` or
+`--machine-type` is doubled, and the values must be one line of at most 200 printable
+characters. **The console node picker stays Vendor-only**: the `WebCriteria:` XML holds
+one `Vendor =` criterion (its value XML-escaped) and the `MachineType` condition lives in
+the SQL part alone, so the console's picker view of an imported policy does not show the
+platform condition, while the filtering does use it. Reopening and saving the policy in
+the console may rebuild the SQL from the picker; **Unverified**, check on the target.
+
+Before an import writes anything, the scope is counted on the server, with the same
+condition as SWQL: `SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE Vendor = @vendor AND
+MachineType LIKE @machineType` for a generated scope (bound parameters, never spliced),
+or the `--node-where` text itself, `Nodes.` prefix dropped, for an explicit one. Both
+forms are logged. A scope that matches no node is refused, because a report scoped to
+nothing evaluates nothing and reads like compliance; `--allow-empty-scope` /
+`-AllowEmptyScope` imports it anyway. An explicit NCM WHERE clause is not always valid
+SWQL; when the count cannot be run, the run log says so and the import goes on.
+
+### Version suffix and the upgrade workflow
+
+Every report name, NCM policy name and SCM policy name ends in a version suffix,
+`--suffix` / `-Suffix`, `_v1` by default and always `_v` followed by digits. The same
+suffix is part of the uuid5 seed of every generated id: the NCM `PolicyId` and `RuleId`s
+(`stig2ncm-policy:<benchmark id><suffix>`, `stig2ncm:<rule id><suffix>`) and the SCM
+policy and rule `uniqueId`s. A different suffix therefore produces entirely fresh names
+and ids, which nothing on the server shares with the earlier import.
+
+Before anything is written, the import checks every name and id it would create: report
+names (`Cirrus.PolicyReports`), policy names and `PolicyId`s (`Cirrus.Policies`),
+`RuleId`s (`Cirrus.PolicyRules`), and for SCM the policy name and `uniqueId` and every rule
+`uniqueId` (`Orion.PolicyEngine.Policy`, `Orion.PolicyEngine.Rule`). Any hit refuses the
+whole run, names what collided, and suggests the next free suffix: one above the highest
+`_v<n>` that any existing name with the same base carries. The id lookups are `IN @ids`
+queries over GUIDs and are preceded by the same sanity probe as the rest of the tool.
+**Unverified:** whether SCM rejects a rule `uniqueId` that another policy uses is not
+documented; the tool checks it so that a new suffix really means fresh ids. The
+existing-id snapshot that keeps a rollback from deleting earlier objects stays in place
+behind this check, as defense in depth; normally it now finds nothing.
+
+To move to a new STIG release:
+
+1. Import the new release next to the old one with the next suffix:
+   `import U_Cisco_IOS-XE_Router_Y26M10_STIG.zip --suffix _v2 --disabled ...`
+   (`--disabled` keeps it from evaluating until it has been reviewed).
+2. Review the `_v2` report in the console, carry over any rule patterns tuned in `_v1`,
+   and enable it (`UpdateReportStatus('Enabled', [ids])` or the console).
+3. Remove the old import by its full name:
+   `remove --name "<zip name> - <benchmark id>_v1" --dry-run`, then `--yes`.
+   Because no id is shared, removing `_v1` cannot reach a `_v2` policy or rule.
+
+Imports made before 2.0.0 have no suffix. Their names and ids differ from every suffixed
+one, so a `_v1` import goes in beside them; remove them by their old names when ready.
 
 ## What is actually in a STIG zip
 
@@ -254,8 +366,8 @@ the check prose — importing both would just duplicate rules. Packages download
 | VulnDiscussion + check-content + IDs (SV, STIG ID, CCIs) | `Comments` |
 | fixtext (the Fix Text) | `RemediateScript`, type CLI, **never auto-executed** |
 | one XCCDF Group/Rule (each check) | one NCM rule |
-| one benchmark | one policy — the device scope (`--node-where`, default `(Nodes.Vendor = 'Cisco')`) |
-| one benchmark | one report **named `<zip name> - <benchmark>`** (the router zip yields an NDM report with 35 rules and an RTR report with 92), `Enabled`, in the `DISA STIG` folder — a converter packaging choice, not a one-policy limit in the console format |
+| one benchmark | one policy — the device scope ([node scope](#node-scope-vendor-and-cisco-platform): the vendor, plus the Cisco platform's `MachineType`, or `--node-where`) |
+| one benchmark | one report **named `<zip name> - <benchmark>_v1`** (the router zip yields an NDM report with 35 rules and an RTR report with 92), `Enabled`, in the `DISA STIG` folder — a converter packaging choice, not a one-policy limit in the console format |
 
 Manual STIGs describe their checks in prose, not machine-checkable patterns, so the
 tool is honest about that:
@@ -283,8 +395,9 @@ at all, which reads exactly like compliance, so the tool prints a warning whenev
 node scope selects those devices. Confirm the nodes have a text config of the selected
 type, or route the benchmark to SCM.
 
-`RuleId` GUIDs are derived deterministically from the DISA rule ID (uuid5), so
-re-importing the same STIG release submits the same rule identities. **Unverified:**
+`RuleId` GUIDs are derived deterministically from the DISA rule ID and the version suffix
+(uuid5), so re-importing the same STIG release with the same suffix submits the same rule
+identities, and the collision check refuses it. **Unverified:**
 whether `AddPolicyRule` keeps a submitted `RuleId` or assigns a fresh one is not
 documented; the tool always uses the id the verb returns. Check by importing one
 benchmark and comparing `SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE Name = @n`
@@ -321,6 +434,54 @@ verifies the setting and replaces or disables the rule. Nothing in a generated p
 changes server configuration. SCM policies carry no node scope in the file —
 assignment is per node after import — so the tool prints the `Orion.Nodes` query
 (by `MachineType` for the detected OS) that lists the nodes to assign.
+
+The probe comes from a per-OS table. Windows STIGs (Windows, SQL Server, IIS, Exchange)
+get the `!scm.powershell` attestation, the source type SolarWinds' own shipped STIG
+policies use. Linux STIGs (Linux, RHEL, Debian, Ubuntu, CentOS) stay routed to SCM and,
+for now, get the same probe, which is **Unverified** on Linux nodes (next section). A
+benchmark forced to SCM with no recognized OS gets the Windows probe, with a warning. The
+run log records the OS family detected and the probe used, and a Linux STIG adds a
+warning that points here. `--scm-probe-template FILE` / `-ScmProbeTemplate FILE` replaces
+the probe's source block for one run, so another source type can be tried without
+changing code.
+
+### Testing Linux STIGs in SCM
+
+**Unverified:** this repository documents no SCM policy source for Linux nodes, and
+SolarWinds' SCM documentation is understood to treat script data sources on Linux as
+unsupported, so a generated Linux policy may report its rules as an error or Unknown
+rather than failed. Before relying on one:
+
+1. Convert or import one Linux benchmark and assign the policy to **one** test node
+   (Settings → SCM Settings → Policies).
+2. Run `PollNowAndEvaluate(policyId, entityUri)` for that node, then read
+   `Orion.PolicyEngine.AssignedRule.Status` for its rules: `2` failed is the intended
+   manual-review state; `0` unknown, or rows in `Orion.PolicyEngine.AssignedRuleError`,
+   mean the source did not collect on Linux.
+3. Read `Orion.PolicyEngine.Rule.ConditionYAML` for one rule to confirm what was stored.
+4. If the default probe does not collect, write a source block for a type your SCM
+   supports on Linux and pass it with `--scm-probe-template`. The file is a YAML
+   fragment: the source tag on its first line, then that source's `key: value` lines,
+   nested by spaces:
+
+   ```yaml
+   !scm.powershell
+   description: "STIG {id} manual-review attestation"
+   script: "Write-Host '{id} reviewed: False'"
+   ```
+
+   `{id}` becomes the vulnerability id after the same validation the default probe uses
+   (`V-<digits>`, otherwise reduced to `[A-Za-z0-9._-]` with a warning), never raw STIG
+   text, and it is accepted only inside a quoted value (`"..."` or `'...'`), where those
+   characters cannot end the string or change the quoting of a script inside it. The
+   template is refused, before anything is written, when it does not start with an
+   `!scm.<type>` tag, uses `{id}` in a key or an unquoted value, puts a backslash right
+   before `{id}`, contains sequences, anchors, block scalars, flow collections or tabs,
+   is indented inconsistently, or is larger than 4 KB. The rule's condition stays
+   `!matches` with the expression `<id> reviewed: True`, so the collected value must
+   never contain that text for the rule to stay an open item.
+5. Repeat step 2 with the new policy (use the next `--suffix`, since the first policy's
+   names and ids already exist).
 
 ## SCM policies (Server Configuration Monitor)
 
@@ -373,7 +534,12 @@ directory. What a run records at `info`:
 - each benchmark found (id, title, version, release, edition, rule count) and every
   dedupe decision;
 - the routing decision and the keyword that drove it, and the node scope and where it
-  came from;
+  came from: the Cisco platform per benchmark (Tentative), the NCM SQL and SWQL forms of
+  the scope preflight, the node count, and the `MachineType` values the vendor's nodes
+  report;
+- the version suffix of each report, the collision check (what collided, the names that
+  share the base, the next free suffix), and for SCM the OS family, the probe or probe
+  template used, and a warning for Linux;
 - each report or SCM policy built, every file written, and SCM probe ids that had to be
   sanitized (as warnings);
 - every SWIS call: `entity.verb` or the query, a short argument summary, the duration,
@@ -434,7 +600,12 @@ line is written, so it is masked even in the logged command line.
   `'` (and the typographic single quotes PowerShell also honours) is doubled, so
   `$(...)`, `$var`, backticks and double quotes stay inert. The vuln id must match
   `V-<digits>` (rule ids `SV-<digits>r<digits>_rule`) after any SCAP `xccdf_` prefix is
-  stripped; anything else is reduced to `[A-Za-z0-9._-]` with a warning in the log.
+  stripped; anything else is reduced to `[A-Za-z0-9._-]` with a warning in the log. A
+  `--scm-probe-template` receives the same validated id, and only inside a quoted value.
+- **Scope values are quoted, and the scope is counted with bound parameters.** A single
+  quote in `--vendor` or `--machine-type` is doubled in the NCM WHERE fragment, the
+  picker's vendor value is XML-escaped, and the SWQL node count binds the values as
+  `@vendor` / `@machineType` rather than splicing them in.
 - **Generated file names are sanitized in one place.** Report, policy and download file
   names keep `[A-Za-z0-9._-]`, every other run of characters becomes `_`, leading dots
   are stripped, Windows device names (`CON`, `NUL`, ...) are prefixed, and the whole name
@@ -461,10 +632,16 @@ line is written, so it is masked even in the logged command line.
   for an operator to review and run per node from the console. The same caution applies
   in reverse to SCM YAML: its `!scm.powershell` scripts run on every assigned node, so
   read them before importing a file from outside the organisation.
-- The importer never updates or deletes an existing report: a name collision is an
-  error, not a merge. `remove --name … --yes` deletes one the tool imported together
-  with its policies and rules, except any policy or rule another report or policy still
-  uses ([details](#the-cli)).
+- The importer never updates or deletes an existing report: a collision on any name or
+  id the run would create is an error, not a merge, and it is caught before the first
+  write, with the next free suffix suggested
+  ([details](#version-suffix-and-the-upgrade-workflow)). `remove --name … --yes` deletes
+  one the tool imported together with its policies and rules, except any policy or rule
+  another report or policy still uses ([details](#the-cli)).
+- **A report scoped to no node is not imported** unless `--allow-empty-scope` says so,
+  and a network STIG whose vendor (or Cisco platform) cannot be told from its names is
+  not converted at all until `--vendor`, `--machine-type` or `--node-where` decides it
+  ([node scope](#node-scope-vendor-and-cisco-platform)).
 - **A failed import cleans up after itself, and only after itself.** The NCM tiers are
   created bottom-up, so a failure at the policy or report step would otherwise leave
   every rule already created sitting in the rules library with nothing pointing at it:
@@ -474,7 +651,9 @@ line is written, so it is masked even in the logged command line.
   about to submit already exist (`Cirrus.PolicyRules`, `Cirrus.Policies`), because the
   deterministic rule ids make an earlier import of the same STIG release share them, and
   a verb that returns no id falls back to the submitted one. The rollback skips those
-  and prints each one it skipped. `--no-rollback` keeps everything for diagnosis.
+  and prints each one it skipped. Since the 2.0.0 collision check refuses a run whose ids
+  already exist, this snapshot is now defense in depth and normally empty. `--no-rollback`
+  keeps everything for diagnosis.
 - **A multi-report run keeps what it finished.** A package with several benchmarks
   imports one report at a time. When a later report fails, the reports already imported
   and verified stay on the server, are reported as imported, and still get caching
@@ -537,11 +716,12 @@ My Dashboards → Home → Server Configuration shows per-node, per-rule pass/fa
 
 | Route | Calls, in order |
 | --- | --- |
-| NCM (network STIGs) | Permission preflight `GetPolicyReport(<nil GUID>, false)` → collision check query on `Cirrus.PolicyReports` → per report: `IN @ids` sanity probe on one existing rule and policy (`SELECT TOP 1 …`), existing-id snapshot on `Cirrus.PolicyRules` / `Cirrus.Policies`, wire-format probe with one `AddPolicyRule(rule)`, `AddPolicyRule` per check, `AddPolicy(policy, importFlag)` with the rule-ID list, `AddPolicyReport(report, importFlag)` with the policy-ID list, `GetPolicyReport(reportId, exportFlag)` read-back verification → after the last report, or at the first failure, one `StartCaching([ids])` for every report that was imported, or `UpdateReportStatus('Disabled', [ids])` plus a `ReportStatus` read-back with `--disabled`. A failure within one report triggers `DeletePolicyReports` / `DeletePolicies` / `DeletePolicyRules` for what that report's attempt created, skipping ids that existed beforehand |
+| NCM (network STIGs) | Permission preflight `GetPolicyReport(<nil GUID>, false)` → scope preflight: node count on `Orion.Nodes` and a `Vendor, MachineType` sample → collision check, for every report before any write: report name on `Cirrus.PolicyReports`, policy name on `Cirrus.Policies`, and the `IN @ids` probe plus `PolicyId`/`RuleId` lookups (on a hit, `Name LIKE` listings for the next free suffix) → per report: `IN @ids` sanity probe on one existing rule and policy (`SELECT TOP 1 …`), existing-id snapshot on `Cirrus.PolicyRules` / `Cirrus.Policies`, wire-format probe with one `AddPolicyRule(rule)`, `AddPolicyRule` per check, `AddPolicy(policy, importFlag)` with the rule-ID list, `AddPolicyReport(report, importFlag)` with the policy-ID list, `GetPolicyReport(reportId, exportFlag)` read-back verification → after the last report, or at the first failure, one `StartCaching([ids])` for every report that was imported, or `UpdateReportStatus('Disabled', [ids])` plus a `ReportStatus` read-back with `--disabled`. A failure within one report triggers `DeletePolicyReports` / `DeletePolicies` / `DeletePolicyRules` for what that report's attempt created, skipping ids that existed beforehand |
 | NCM rule dry run (`test`) | Wire-format probe against `TestRule` → `TestRule(rule, configText)` or `TestRuleOnBackedUpConfig(rule, configId)` per rule. Read-only; nothing is created |
 | NCM fallback | Only after documented 400 rejections: nested `AddPolicyReport(report, importFlag)` in console-export XML, verified with `GetPolicyReport`; a nested report that fails verification is removed the way `remove` does it (after the `IN @ids` probe), skipping ids that existed before. If every wire format is refused, console-importable `.ncm-report.xml` files are written for the reports not yet imported |
 | NCM undo (`remove`) | Name query on `Cirrus.PolicyReports` → permission preflight (not on `--dry-run`) → `IN @ids` sanity probe on the report → `GetPolicyReport(reportId, exportFlag)` per report → membership and sharing queries on `Cirrus.PolicyAssignment` and `Cirrus.PolicyRuleAssignment` → `DeletePolicyReports(ids, false)` → `DeletePolicies(unsharedIds, false)` → `DeletePolicyRules(unsharedIds)` → read-back of all three |
-| SCM (server STIGs / `.yaml` / `.scm-policy.yaml` / legacy policy `.scm-profile`) | Collision check query on `Orion.PolicyEngine.Policy` by `Name` **and** `UniqueId` → `ImportPolicy(yaml)` per policy → rule-count read-back on `Orion.PolicyEngine.Rule` |
+| SCM (server STIGs / `.yaml` / `.scm-policy.yaml` / legacy policy `.scm-profile`) | For converted STIGs, before any import: `Name`/`UniqueId` query per policy and, after the `IN @ids` probe, a rule `UniqueId` lookup on `Orion.PolicyEngine.Rule` → per policy: collision check query on `Orion.PolicyEngine.Policy` by `Name` **and** `UniqueId` → `ImportPolicy(yaml)` → rule-count read-back on `Orion.PolicyEngine.Rule` |
+| NCM undo by a name that does not exist | `Name LIKE` listing on `Cirrus.PolicyReports` to name the reports that start with it (usually the same name with its suffix) |
 | Test connection | `Orion.Engines` version query + `Metadata.Entity` counts for the `Cirrus.` and `Orion.PolicyEngine.` namespaces |
 
 Everything the tool needs from the platform, verified against the 2026.2 schema and
@@ -578,6 +758,10 @@ The `Cirrus.Policy*` SWQL entities are read-only; all writes are Invoke verbs on
 | Call | Signature (positional) | Used for |
 | --- | --- | --- |
 | Query | `SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n` | Collision check before import |
+| Query | `SELECT PolicyID, Name FROM Cirrus.Policies WHERE Name = @n` | Collision check on the policy name |
+| Query | `SELECT TOP 200 Name FROM Cirrus.PolicyReports WHERE Name LIKE @p` (and the same on `Cirrus.Policies`) | After a collision: the names sharing the base, for the next free suffix |
+| Query | `SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE Vendor = @vendor AND MachineType LIKE @machineType` | Scope preflight (without the `MachineType` condition for a Vendor-only scope) |
+| Query | `SELECT TOP 25 Vendor, MachineType, COUNT(NodeID) AS N FROM Orion.Nodes WHERE Vendor = @vendor GROUP BY Vendor, MachineType ORDER BY MachineType` | Logs the `MachineType` values the vendor's nodes report, to check the Tentative platform table |
 | `AddPolicyRule` | `(rule)` → new rule GUID (string) | One call per STIG check — the rules are created first |
 | `AddPolicy` | `(policy, importFlag)` → new policy GUID (string) | One per benchmark, with `importFlag=false` and `AssignedRulesList` carrying the rule GUIDs just created |
 | `AddPolicyReport` | `(report, importFlag)` → new report GUID (string) | Last, with `importFlag=false` and `AssignedPoliciesList` carrying the policy GUIDs |
@@ -622,15 +806,18 @@ names below, never the column names.
 **Policy** (`…Compliance.Policy`): `PolicyName` (the identity — policies carry no GUID
 in export files), `Comments`, `Grouping`, `ConfigTypes` (`Any`, `Running`,
 `Startup`, …), `AssignedPolicyRules` / `AssignedRulesList` (same nested-vs-ID-list pair
-as above), and `NodeSelectionString` — the literal prefix `Criteria:`, optionally the
-console node-picker's XML-escaped `<QUERY>` state, then the ` Where ( … )` clause that
-actually filters nodes, e.g. `Criteria: Where ( (Nodes.Vendor = 'Cisco') )`.
+as above), and `NodeSelectionString`. The tool writes it in the shape its code records
+from 2026.2.2 console exports: the literal prefix `WebCriteria:`, the console
+node-picker's `ArrayOfWebSelectionCriteria` XML (Vendor only, see
+[node scope](#node-scope-vendor-and-cisco-platform)), then `SQL:Where ( … )`, the clause
+that actually filters nodes, e.g.
+`SQL:Where (Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')`.
 
 **PolicyRule** (`…Compliance.PolicyRule`), all 21 members:
 
 | Field | Type | The tool sets |
 | --- | --- | --- |
-| `RuleId` | string GUID | uuid5 of the DISA rule id (stable across re-imports) |
+| `RuleId` | string GUID | uuid5 of the DISA rule id and the version suffix (stable across re-imports with the same suffix) |
 | `RuleName`, `Comments`, `Grouping`, `Owner` | string | Name ≤250 chars; comments carry discussion + check text + CCIs |
 | `SimplePatternText` | string | Sentinel or heuristic pattern |
 | `PatternType` | string | `Like`, or `Regex` when a heuristic pattern carries `*` or `?` (see above). Regular expressions are evaluated by the .NET engine, and NCM reports the first line of a multi-line match as the violation |
@@ -652,6 +839,8 @@ All verbs live on `Orion.PolicyEngine.Policy`; positional JSON bodies.
 | Call | Signature (positional) | Used for |
 | --- | --- | --- |
 | Query | `SELECT PolicyID, Name, UniqueId, BuiltIn FROM Orion.PolicyEngine.Policy WHERE Name = @n OR UniqueId = @u` | Collision check — `ImportPolicy` always creates, and SolarWinds rejects a match on **either** field |
+| Query | `SELECT UniqueId FROM Orion.PolicyEngine.Rule WHERE UniqueId IN @ids` (after `SELECT TOP 1 UniqueId FROM Orion.PolicyEngine.Rule` for the probe) | Converted STIGs: no rule `uniqueId` this run would create may exist already |
+| Query | `SELECT TOP 200 Name FROM Orion.PolicyEngine.Policy WHERE Name LIKE @p` | After a collision: the names sharing the base, for the next free suffix |
 | `ImportPolicy` | `(yaml)` → new `PolicyID` (number) | The import; the argument is the `!policy` YAML document text **verbatim** |
 | `ExportPolicy` | `(policyId)` → YAML string | Round-trip/export |
 | `AssignToEntity` | `(policyId, entityUri, data)` | Assignment; the URI must be a Node for SCM policies (`swis://…/Orion/Orion.Nodes/NodeID=42`) |

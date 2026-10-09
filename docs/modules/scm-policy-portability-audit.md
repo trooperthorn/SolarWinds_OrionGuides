@@ -243,6 +243,25 @@ The offline tests in `apps/disa-stig-conversion-tool/test_disa_stig_tool.py` cov
 CRLF case and the refusal of SCM collection profiles (`.scm-profile` JSON), which the
 tool previously routed to `ImportPolicy` by extension. The remaining rows stand.
 
+**Status on 2026-10-09 (DISA STIG tool 2.0.0).** Two more rows have changed in part:
+
+- *Source identity and revision model.* The generated policy and rule `uniqueId`s are
+  still uuid5 values of the benchmark id and the revision-bearing XCCDF Rule ID, now
+  followed by a version suffix (`--suffix`, `_v1` by default) that also ends the policy
+  name. Before importing converted STIGs, both editions refuse when a policy name, policy
+  `uniqueId` or any rule `uniqueId` already exists and suggest the next free suffix, so a
+  new release is imported next to the old one with fresh identities. Whether SCM itself
+  rejects a rule `uniqueId` used by another policy remains **Unverified**; the tool checks
+  it anyway. This does not provide the legacy-alias mapping the row asks for.
+- *Manual-review sentinels.* The probe now comes from a per-OS table. Windows STIGs keep
+  the `!scm.powershell` attestation; Linux STIGs stay routed to SCM with the same probe,
+  labeled **Unverified** because no SCM policy source for Linux nodes is documented here,
+  with a logged warning and a test procedure in the tool README. `--scm-probe-template`
+  replaces the source block per run; the template is validated as a small tagged-YAML
+  fragment, and its `{id}` placeholder receives only the validated vulnerability id,
+  inside a quoted value. Generated policies are still draft review tasks, not compiled
+  automated checks.
+
 ## Field mapping and import acceptance contract
 
 | Input / source field | Parser and target handling |

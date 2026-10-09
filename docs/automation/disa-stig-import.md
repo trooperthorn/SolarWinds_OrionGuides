@@ -107,14 +107,18 @@ documents in full. The mapping that works:
   Emit it as a `Regex` over the escaped literal instead.
 - **Check what the STIG's node scope implies.** A policy report cannot evaluate a
   config downloaded in XML format, which is how Palo Alto devices back up by default,
-  and the result is an empty report rather than an error.
+  and the result is an empty report rather than an error. A scope that matches no node
+  fails the same silent way, so count the nodes it selects in `Orion.Nodes` before
+  importing, and scope a platform-specific STIG (Cisco IOS XE versus IOS XR, NX-OS or
+  ASA) to that platform rather than to the whole vendor.
 
 The calls, in order (all on `Cirrus.PolicyReports`, positional JSON bodies). The tiers
 are created bottom-up and linked by ID lists — the one-call nested alternative,
 `AddPolicyReport(report, importFlag)` with `importFlag` true, is documented to persist the whole tree
 but has been observed in the field creating only the report row over JSON REST:
 
-1. `SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n` — collision check.
+1. `SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n` — collision check
+   (the tool also checks policy names and the ids it will submit; see below).
 2. `AddPolicyRule(rule)` once per check — each returns the new rule GUID.
 3. `AddPolicy(policy, importFlag)` once per benchmark, `importFlag` false with
    `AssignedRulesList` carrying the rule GUIDs — returns the policy GUID.
@@ -261,6 +265,38 @@ Tool 2.0.0 (2026-10-09) also changes how an import fails, in both editions:
   exist, and stops unless exactly one row comes back. **Unverified:** the documented
   array binding uses integers; whether every server binds GUID strings the same way is
   not documented.
+
+Tool 2.0.0 (2026-10-09) also changes naming, node scope and Linux handling, in both
+editions:
+
+- **Version suffix.** Every report, NCM policy and SCM policy name ends in `--suffix`
+  (`_v1` by default), and the suffix is part of the uuid5 seed of every generated id (NCM
+  `PolicyId` and `RuleId`s, SCM policy and rule `uniqueId`s). Before the first write, the
+  import refuses when any name or id it would create already exists and suggests the next
+  free suffix, found by listing names with the same base. A new STIG release therefore
+  imports next to the old one with `--suffix _v2`, shares no id with it, and the old one
+  is removed afterwards by its full `_v1` name. The existing-id snapshot described above
+  stays as defense in depth. Imports made before 2.0.0 carry no suffix and share no id
+  with suffixed ones.
+- **Node scope.** A network STIG's NCM scope is its vendor, and for Cisco also a
+  `MachineType LIKE` pattern per platform: `%IOS-XE%`, `%IOS-XR%`, `%NX-OS%`, `%ASA%`,
+  and `%IOS%` for classic IOS only when none of those match. **Tentative:** these
+  `MachineType` values are to be verified against a live server; nothing in this
+  repository records what `Orion.Nodes.MachineType` holds for them. `--machine-type`
+  overrides the pattern and `--vendor` the vendor. An unrecognized network STIG (a Router
+  or NDM SRG, ESXi) and a Cisco STIG without a recognized platform are refused, offline
+  conversion included, instead of being scoped to every Cisco node. The console node
+  picker part of `NodeSelectionString` stays Vendor-only; the `MachineType` condition is
+  in the SQL part. Before writing, the import counts the matching nodes with the same
+  condition as bound SWQL parameters on `Orion.Nodes`, logs both forms and a sample of the
+  `MachineType` values the vendor's nodes report, and refuses an empty scope unless
+  `--allow-empty-scope` is given.
+- **Linux STIGs** stay routed to SCM with the same `!scm.powershell` attestation probe as
+  Windows. **Unverified:** no SCM policy source for Linux nodes is documented in this
+  repository, so the tool logs a warning and the tool README's "Testing Linux STIGs in
+  SCM" section gives the test procedure. `--scm-probe-template` replaces the probe's
+  source block per run; it is validated as a small YAML fragment, and its `{id}`
+  placeholder receives only the validated vulnerability id, inside a quoted value.
 
 These are offline-tested behaviors against an in-memory stand-in and a local listener,
 not a live import test.

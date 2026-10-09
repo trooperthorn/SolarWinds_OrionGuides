@@ -63,6 +63,14 @@ sentinel with a real pattern for that rule in the NCM console. ``--mode heuristi
 instead seeds each rule with the first config-looking line found in the STIG's check
 content (marking the rest for review); treat those patterns as drafts, not audits.
 
+Every report, policy and SCM policy name ends in a version suffix (--suffix, _v1 by
+default) that also seeds every generated id, so a new STIG release imports alongside the
+old one with --suffix _v2; a name or id that already exists refuses the run before
+anything is written, naming the next free suffix. Network STIGs are scoped by Vendor,
+and Cisco ones also by a MachineType pattern per platform (IOS-XE, IOS-XR, NX-OS, ASA,
+IOS; Tentative: the MachineType values are still to be verified against a live server).
+An unrecognized network STIG is refused unless --vendor or --node-where is given.
+
 Endpoint facts (SWIS REST on port 17774, platform 2023.1+) and the compliance verb
 contract are documented in docs/modules/ncm-compliance-reports.md of this repository
 and verified against 2026.2.
@@ -139,6 +147,60 @@ REGEX_METACHARACTERS = "\\^$.|?*+()[]{}"
 def escape_regex(text):
     """Turn a literal config line into a regex that matches exactly itself."""
     return "".join(("\\" + ch) if ch in REGEX_METACHARACTERS else ch for ch in text)
+
+
+# ---------------------------------------------------------------------------
+# Version suffix: every name and every generated id carries it
+# ---------------------------------------------------------------------------
+#
+# Since 2.0.0 every NCM report name, NCM policy name and SCM policy name ends in a
+# version suffix (_v1 by default), and the same suffix is part of the uuid5 seed of
+# every generated id: the NCM PolicyId and RuleIds, and the SCM policy uniqueId and
+# rule uniqueIds. Importing a new STIG release next to the old one with --suffix _v2
+# therefore produces entirely fresh names and ids, so nothing is shared with the _v1
+# import and removing _v1 afterwards cannot touch the _v2 objects. The PowerShell
+# edition uses the same seeds and the same names (Get-SuffixedName).
+
+DEFAULT_SUFFIX = "_v1"
+SUFFIX_PATTERN = re.compile(r"^_v[0-9]+\Z")
+SUFFIX_TAIL = re.compile(r"_v([0-9]+)\Z")
+NAME_LIMIT = 250
+
+
+def validate_suffix(suffix):
+    """The suffix to use, or ValueError. None or empty means the default (_v1)."""
+    suffix = str(suffix) if suffix else DEFAULT_SUFFIX
+    if not SUFFIX_PATTERN.match(suffix):
+        raise ValueError(f"--suffix {suffix!r} is not valid: it must be _v followed by digits "
+                         "(_v1, _v2, ...)")
+    return suffix
+
+
+def with_suffix(name, suffix, limit=NAME_LIMIT):
+    """``name`` cut so that ``name + suffix`` fits ``limit`` characters, then the suffix.
+
+    The suffix is never the part that is cut, so every generated name ends in it and
+    the base can be recovered for the collision check (strip_suffix)."""
+    return (name or "")[:max(0, limit - len(suffix))] + suffix
+
+
+def strip_suffix(name):
+    """(base, n) for a name ending in _v<n>, else (name, None)."""
+    m = SUFFIX_TAIL.search(name or "")
+    if not m:
+        return name or "", None
+    return name[:m.start()], int(m.group(1))
+
+
+def next_free_suffix(existing_names, base, current_suffix):
+    """The suffix to suggest after a collision: one above the highest _v<n> that any
+    existing name ``base + _v<n>`` carries, and above the suffix that collided."""
+    highest = int(current_suffix[2:])
+    for name in existing_names:
+        stem, n = strip_suffix(str(name or ""))
+        if n is not None and stem == base:
+            highest = max(highest, n)
+    return f"_v{highest + 1}"
 
 
 # Config lines in IOS/NX-OS/JunOS check text tend to open with one of these tokens.
@@ -668,6 +730,151 @@ def scm_probe_id(vuln_id, rule_id=""):
     return safe
 
 
+# The SCM probe per OS family. Every family uses the same manual-review attestation
+# today: a !scm.powershell source whose script is a single-quoted Write-Host literal
+# (see scm_probe_id and ps_single_quote). Windows is the source type SolarWinds' own
+# shipped STIG policies use (docs/modules/scm-compliance-policies.md). Linux STIGs
+# also route to SCM and get the same probe, but that is Unverified: this repository
+# documents no SCM policy source for Linux nodes, and SolarWinds' SCM documentation
+# is understood to treat script data sources on Linux as unsupported, so the rule may
+# report an error or Unknown there instead of failed. --scm-probe-template replaces
+# the source block per run so another source type can be tried without code changes;
+# README "Testing Linux STIGs in SCM" says what to check.
+SCM_PROBES = {
+    "windows": {"tag": "!scm.powershell", "verified": True,
+                "label": "!scm.powershell Write-Host attestation (the source type "
+                         "SolarWinds' shipped Windows STIG policies use)"},
+    "linux": {"tag": "!scm.powershell", "verified": False,
+              "label": "!scm.powershell Write-Host attestation (Unverified on Linux nodes)"},
+}
+LINUX_PROBE_WARNING = (
+    "Linux STIG routed to SCM: the generated probe is !scm.powershell, which is Unverified on "
+    "Linux nodes (no SCM policy source for Linux is documented in this repository, and script "
+    "data sources on Linux are understood to be unsupported), so its rules may report an error "
+    "or Unknown rather than failed. Import one policy, assign it to one test node and check it "
+    "as README.md 'Testing Linux STIGs in SCM' describes; --scm-probe-template FILE tries "
+    "another source type.")
+PROBE_TEMPLATE_MAX = 4096
+_TEMPLATE_TAG = re.compile(r"^!scm\.[A-Za-z][A-Za-z0-9_.]*\Z")
+_TEMPLATE_LINE = re.compile(r"^( *)([A-Za-z_][A-Za-z0-9_-]*):(?: (.*))?\Z")
+_TEMPLATE_DQ = re.compile(r'^"(?:[^"\\\x00-\x1f]|\\[^\x00-\x1f])*"\Z')
+_TEMPLATE_SQ = re.compile(r"^'(?:[^'\x00-\x1f]|'')*'\Z")
+_TEMPLATE_PLAIN = re.compile(r"^[A-Za-z0-9_./\\$(][^#\x00-\x1f]*\Z")
+
+
+def os_family(os_info):
+    """'windows', 'linux' or 'unknown' for the os_info tuple detect_target returns."""
+    return os_info[2] if os_info and len(os_info) > 2 else "unknown"
+
+
+def parse_probe_template(text, source="template"):
+    """Validate an --scm-probe-template file and return its lines, ready to indent.
+
+    The file is a YAML fragment: the source tag on the first line (``!scm.<type>``),
+    then the source's mapping, one ``key: value`` per line, nested by spaces. It may
+    use ``{id}``, which becomes the validated probe id (scm_probe_id: V-<n>, or the id
+    reduced to [A-Za-z0-9._-]); never raw STIG text. ``{id}`` is accepted only inside
+    a quoted scalar ("..." or '...'), where those characters cannot end the string,
+    start a new key or change the PowerShell quoting inside it. Anything else
+    (sequences, anchors, block scalars, flow collections, tabs, a placeholder in a key
+    or a plain value) is refused with ValueError, before any file is written.
+    """
+    if len(text.encode("utf-8")) > PROBE_TEMPLATE_MAX:
+        raise ValueError(f"{source}: the probe template is larger than {PROBE_TEMPLATE_MAX} bytes")
+    lines = [line.rstrip() for line in text.lstrip("﻿").replace("\r\n", "\n")
+             .replace("\r", "\n").split("\n")]
+    lines = [line for line in lines if line.strip() and not line.lstrip().startswith("#")]
+    if not lines:
+        raise ValueError(f"{source}: the probe template is empty")
+    if "\t" in "".join(lines):
+        raise ValueError(f"{source}: tabs are not allowed in the probe template (YAML indents "
+                         "with spaces)")
+    if not _TEMPLATE_TAG.match(lines[0]):
+        raise ValueError(f"{source}: the probe template must start with an SCM source tag on its "
+                         f"own line, such as !scm.powershell (found {lines[0][:60]!r})")
+    if "{id}" in lines[0]:
+        raise ValueError(f"{source}: {{id}} is not allowed in the source tag")
+    levels = [0]
+    opened = False        # the previous key had no value, so a deeper level may follow
+    for number, line in enumerate(lines[1:], 2):
+        m = _TEMPLATE_LINE.match(line)
+        if not m:
+            raise ValueError(f"{source}: line {number} is not a 'key: value' mapping line "
+                             f"({line.strip()[:60]!r}); sequences, anchors and flow "
+                             "collections are not supported")
+        indent, key, value = len(m.group(1)), m.group(2), (m.group(3) or "").strip()
+        if opened and indent > levels[-1]:
+            levels.append(indent)
+        elif indent in levels:
+            del levels[levels.index(indent) + 1:]
+        else:
+            raise ValueError(f"{source}: line {number} is indented inconsistently")
+        if "{id}" in key:
+            raise ValueError(f"{source}: line {number}: {{id}} is not allowed in a key")
+        opened = not value
+        if not value:
+            continue
+        if _TEMPLATE_DQ.match(value) or _TEMPLATE_SQ.match(value):
+            if "\\{id}" in value:
+                raise ValueError(f"{source}: line {number}: a backslash directly before {{id}} "
+                                 "would turn the id into an escape sequence")
+            continue
+        if "{id}" in value:
+            raise ValueError(f"{source}: line {number}: {{id}} is only allowed inside a quoted "
+                             "string (\"...\" or '...')")
+        if not _TEMPLATE_PLAIN.match(value) or ": " in value or value.endswith(":"):
+            raise ValueError(f"{source}: line {number}: the value {value[:60]!r} is neither a "
+                             "quoted string nor a plain scalar this tool accepts")
+    if opened:
+        raise ValueError(f"{source}: the last key has no value")
+    return lines
+
+
+def load_probe_template(path):
+    """Read and validate --scm-probe-template; returns its lines (parse_probe_template)."""
+    with open(path, "rb") as fh:
+        raw = fh.read(PROBE_TEMPLATE_MAX + 1)
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{path}: the probe template is not UTF-8 ({exc})") from exc
+    lines = parse_probe_template(text, path)
+    uses_id = any("{id}" in line for line in lines)
+    log_event("scm", f"probe template {path}: source {lines[0]}, {len(lines) - 1} mapping "
+                     f"line(s), {{id}} {'used' if uses_id else 'not used'}")
+    if not uses_id:
+        log_event("scm", f"probe template {path} does not use {{id}}, so every rule collects the "
+                         "same value; the expression '<id> reviewed: True' still never matches",
+                  "warn")
+    return lines
+
+
+def scm_probe_lines(probe_id, stig_id, template=None):
+    """The ``source:`` block of one generated rule, indented for the rule's condition."""
+    if template:
+        out = [f"    source: {template[0]}"]
+        out += ["      " + line.replace("{id}", probe_id) for line in template[1:]]
+        return out
+    probe = "Write-Host " + ps_single_quote(f"{probe_id} reviewed: False")
+    return [
+        "    source: !scm.powershell",
+        f"      description: {_yq('STIG ' + stig_id + ' manual-review attestation')}",
+        f"      script: {_yq(probe)}",
+    ]
+
+
+def log_scm_probe_plan(family, template=None, template_path=None, log=None):
+    """One log line for the OS detected and the probe used; a WARN for Linux."""
+    probe = (f"template {template_path or '(given)'} ({template[0]})" if template
+             else SCM_PROBES.get(family, SCM_PROBES["windows"])["label"])
+    log_event("scm", f"SCM probe: OS family {family}; probe {probe}")
+    if family == "unknown" and not template:
+        log_event("scm", "the OS was not recognized from the file or benchmark names; the "
+                         "Windows probe is used", "warn")
+    if family == "linux":
+        _say(log, "scm", "warning: " + LINUX_PROBE_WARNING, "warn")
+
+
 # ---------------------------------------------------------------------------
 # SCM policy YAML (Server Configuration Monitor / PolicyEngine)
 # ---------------------------------------------------------------------------
@@ -803,6 +1010,9 @@ def import_scm_policy(swis, text, log=None):
                    f"(PolicyID {hit.get('PolicyID')}, UniqueId {hit.get('UniqueId')}); "
                    "refusing to duplicate. SolarWinds rejects an import that matches "
                    "either field.")
+            base, n = strip_suffix(info["name"])
+            if n is not None:
+                msg += " " + suffix_advice(swis, [("Orion.PolicyEngine.Policy", base)], f"_v{n}")
             log_event("scm", msg, "error")
             raise SwisError(msg)
     policy_id = swis.invoke("Orion.PolicyEngine.Policy", "ImportPolicy", text)
@@ -1110,7 +1320,18 @@ def heuristic_pattern(check_content):
     return None
 
 
-def rule_object(rule, grouping, mode):
+def ncm_rule_id(rule, suffix=DEFAULT_SUFFIX):
+    # "stig2ncm:" is the historic namespace string; the suffix (2.0.0) makes every
+    # suffix a fresh set of ids. The PowerShell edition derives the same value.
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm:" + rule["rule_id"] + suffix))
+
+
+def ncm_policy_id(benchmark, suffix=DEFAULT_SUFFIX):
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-policy:"
+                          + (benchmark["benchmark_id"] or benchmark["title"]) + suffix))
+
+
+def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
     """One XCCDF rule → one Cirrus.PolicyReports rule contract object.
 
     Field names follow the SolarWinds.NCM.Contracts.Compliance.PolicyRule contract
@@ -1155,7 +1376,7 @@ def rule_object(rule, grouping, mode):
 
     name = f"{rule['vuln_id']} [{rule['severity']}] {rule['title']}"
     return {
-        "RuleId": str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm:" + rule["rule_id"])),  # historic namespace string; changing it would change every derived RuleId
+        "RuleId": ncm_rule_id(rule, suffix),
         "RuleName": name[:250],
         "Comments": comments,
         "Grouping": grouping,
@@ -1204,6 +1425,26 @@ def xml_config_warning(node_where):
             "benchmark to SCM instead.")
 
 
+_PICKER_VENDOR = re.compile(r"\bVendor\s*(?:=|LIKE)\s*'((?:[^']|'')*)'", re.IGNORECASE)
+
+
+def picker_vendor(where):
+    """The Vendor value a WHERE fragment compares with ('' doubled quotes undone, one
+    leading and trailing % dropped), or None when there is none to show in the picker."""
+    m = _PICKER_VENDOR.search(where or "")
+    if not m:
+        return None
+    value = m.group(1).replace("''", "'")
+    value = value[1:] if value.startswith("%") else value
+    value = value[:-1] if value.endswith("%") else value
+    return value if value and "%" not in value else None
+
+
+def xml_text(value):
+    """Escape a value for XML element text (&, <, >), as XmlSerializer writes it."""
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def make_node_selection_string(node_where):
     """The NodeSelectionString in the format real console exports carry.
 
@@ -1216,10 +1457,11 @@ def make_node_selection_string(node_where):
     where = re.sub(r"\bNodes\.", "", node_where or "").strip()
     if not where.lower().startswith("("):
         where = f"({where})"
-    m = re.search(r"Vendor\s*(?:=|LIKE)\s*'%?([^%']+)%?'", where, re.IGNORECASE)
+    # The picker state is Vendor-only by design: a MachineType condition (the Cisco
+    # platform scope) lives in the SQL part alone, which is what NCM filters on.
+    vendor = picker_vendor(where)
     criteria = ""
-    if m:
-        vendor = m.group(1)
+    if vendor:
         criteria = (
             '<?xml version="1.0" encoding="utf-16"?>\n'
             '<ArrayOfWebSelectionCriteria xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
@@ -1229,15 +1471,19 @@ def make_node_selection_string(node_where):
             "    <LogicalCondition />\n"
             "    <SelectedColumn>Vendor</SelectedColumn>\n"
             "    <MatchType>=</MatchType>\n"
-            f"    <SelectedValue>{vendor}</SelectedValue>\n"
+            f"    <SelectedValue>{xml_text(vendor)}</SelectedValue>\n"
             "  </WebSelectionCriteria>\n"
             "</ArrayOfWebSelectionCriteria>")
     return f"WebCriteria:{criteria}SQL:Where {where} "
 
 
 def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vendor = 'Cisco')",
-                  config_type="Any", mode="manual", source_path=None, enabled=True):
+                  config_type="Any", mode="manual", source_path=None, enabled=True,
+                  suffix=DEFAULT_SUFFIX):
     """Assemble one PolicyReport contract object per benchmark.
+
+    ``suffix`` (validated, _v1 by default) ends every report and policy name and is
+    part of the PolicyId and RuleId seeds, so another suffix yields fresh ids.
 
     Matching how the console's own exports are structured (one policy per
     report): each benchmark in the package becomes its own report — the Cisco
@@ -1245,16 +1491,16 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
     (92 rules) — whose single policy carries the device scope and joins the
     report to its rules.
     """
+    suffix = validate_suffix(suffix)
     if name is None and source_path and source_path.lower().endswith(".zip"):
         name = os.path.splitext(os.path.basename(source_path))[0]
     reports = []
     for b in benchmarks:
         policy_group = f"{grouping}/{b['benchmark_id']}" if b["benchmark_id"] else grouping
-        rules = [rule_object(r, policy_group, mode) for r in b["rules"]]
+        rules = [rule_object(r, policy_group, mode, suffix) for r in b["rules"]]
         policy = {
-            "PolicyId": str(uuid.uuid5(uuid.NAMESPACE_URL,
-                                       "stig2ncm-policy:" + (b["benchmark_id"] or b["title"]))),
-            "PolicyName": f"{b['title']} V{b['version']} ({b['release']})"[:250],
+            "PolicyId": ncm_policy_id(b, suffix),
+            "PolicyName": with_suffix(f"{b['title']} V{b['version']} ({b['release']})", suffix),
             "Comments": f"Imported by the DISA STIG Conversion Tool from {b['source']} (benchmark {b['benchmark_id']}, "
                         f"status date {b['status_date']}).",
             "Grouping": grouping,
@@ -1267,7 +1513,7 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
         report_name = f"{base} - {b['benchmark_id']}" if name and b["benchmark_id"] else base
         reports.append({
             "ID": str(uuid.uuid4()),  # advisory only — the server assigns its own GUID
-            "Name": report_name[:250],
+            "Name": with_suffix(report_name, suffix),
             "Comments": f"DISA STIG imported by the DISA STIG Conversion Tool from "
                         f"{b['source']} ({b['release']}).",
             "Group": grouping,
@@ -1283,7 +1529,7 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
         log_event("build", f"report \"{reports[-1]['Name']}\": policy \"{policy['PolicyName']}\" "
                            f"(PolicyId {policy['PolicyId']}), {len(rules)} rule(s), mode {mode}, "
                            f"ReportStatus {reports[-1]['ReportStatus']}, ConfigTypes "
-                           f"{config_type}, grouping {policy_group}")
+                           f"{config_type}, grouping {policy_group}, suffix {suffix}")
     return reports
 
 
@@ -2231,6 +2477,149 @@ def ncm_preflight(swis, log=print):
 
 
 # ---------------------------------------------------------------------------
+# Collision check: refuse before anything is written, and suggest the next suffix
+# ---------------------------------------------------------------------------
+#
+# Every name and id the tool generates ends in (or is seeded with) the version
+# suffix, so a collision means this STIG was already imported with that suffix. The
+# run is refused before the first write, naming what collided, with the next free
+# suffix found by listing the names that share the base (the base is the name with
+# its _v<n> removed). The existing-id snapshot inside import_ncm_report stays as
+# defense in depth: with this check in front of it, it normally finds nothing.
+
+NAME_LIKE_QUERIES = {
+    "Cirrus.PolicyReports": "SELECT TOP 200 Name FROM Cirrus.PolicyReports WHERE Name LIKE @p",
+    "Cirrus.Policies": "SELECT TOP 200 Name FROM Cirrus.Policies WHERE Name LIKE @p",
+    "Orion.PolicyEngine.Policy": "SELECT TOP 200 Name FROM Orion.PolicyEngine.Policy WHERE Name LIKE @p",
+}
+
+
+def like_prefix(text):
+    """A LIKE pattern matching every name that starts with ``text``. It is cut at the
+    first '[' (a character class in SQL Server LIKE; Unverified whether SWIS passes
+    LIKE through unchanged), and _ and % stay wildcards: the pattern may match more
+    than the prefix, never less, and callers filter the rows exactly."""
+    return text.split("[", 1)[0] + "%"
+
+
+def suffix_advice(swis, bases, current_suffix):
+    """'re-run with --suffix _vN' text, N one above every _v<n> already used by a name
+    with the same base. ``bases`` is [(entity in NAME_LIKE_QUERIES, base name)]."""
+    names = []
+    for entity, base in bases:
+        try:
+            rows = swis.query(NAME_LIKE_QUERIES[entity], {"p": like_prefix(base)}) or []
+        except (SwisError, ValueError, TypeError) as exc:
+            log_event("import", f"could not list {entity} names starting with \"{base}\": {exc}",
+                      "warn")
+            continue
+        names += [(base, str(_row_value(r, "Name") or "")) for r in rows]
+    highest = int(current_suffix[2:]) + 1
+    for base in {b for _entity, b in bases}:
+        candidate = next_free_suffix([n for b, n in names if b == base], base, current_suffix)
+        highest = max(highest, int(candidate[2:]))
+    suggestion = f"_v{highest}"
+    used = sorted({n for _b, n in names})
+    log_event("import", f"names already using these bases: {', '.join(used) or 'none listed'}; "
+                        f"next free suffix {suggestion}")
+    return (f"The next free suffix is {suggestion}: re-run with --suffix {suggestion} "
+            f"(PowerShell: -Suffix {suggestion}) to import alongside, or remove the existing "
+            "import first.")
+
+
+class CollisionError(SwisError):
+    """A name or generated id this run would create already exists; nothing was written."""
+
+
+def ncm_collision_check(swis, reports, suffix=DEFAULT_SUFFIX, log=print):
+    """Refuse before writing when any report name, policy name, PolicyId or RuleId the
+    reports would create already exists (CollisionError, with the next free suffix)."""
+    suffix = validate_suffix(suffix)
+    hits = []
+    for report in reports:
+        found = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
+                           {"n": report["Name"]})
+        if found:
+            hits.append(f"report \"{report['Name']}\" ({_row_value(found[0], 'PolicyReportID')})")
+        for policy in report["AssignedPolicies"]:
+            found = swis.query("SELECT PolicyID, Name FROM Cirrus.Policies WHERE Name = @n",
+                               {"n": policy["PolicyName"]})
+            if found:
+                hits.append(f"policy \"{policy['PolicyName']}\" ({_row_value(found[0], 'PolicyID')})")
+        existing = existing_ncm_ids(swis, report)
+        if existing["policies"]:
+            hits.append(f"{len(existing['policies'])} PolicyId(s) of \"{report['Name']}\" "
+                        f"({', '.join(sorted(existing['policies'])[:3])})")
+        if existing["rules"]:
+            hits.append(f"{len(existing['rules'])} RuleId(s) of \"{report['Name']}\" "
+                        f"({', '.join(sorted(existing['rules'])[:3])}"
+                        + (", ..." if len(existing["rules"]) > 3 else "") + ")")
+    if not hits:
+        log_event("import", f"collision check: none of the {len(reports)} report(s), their "
+                            f"policies or ids exist yet (suffix {suffix})")
+        return
+    bases = []
+    for report in reports:
+        bases.append(("Cirrus.PolicyReports", strip_suffix(report["Name"])[0]))
+        bases += [("Cirrus.Policies", strip_suffix(p["PolicyName"])[0])
+                  for p in report["AssignedPolicies"]]
+    msg = ("already on the server with suffix " + suffix + ": " + "; ".join(hits)
+           + ". Nothing was imported; this tool never overwrites. "
+           + suffix_advice(swis, bases, suffix))
+    log_event("import", "collision: " + msg, "error")
+    raise CollisionError(msg)
+
+
+IN_IDS_PROBES["scmrule"] = ("SELECT UniqueId FROM Orion.PolicyEngine.Rule WHERE UniqueId IN @ids",
+                            "UniqueId")
+
+
+def scm_collision_check(swis, benchmarks, suffix=DEFAULT_SUFFIX, log=print):
+    """Refuse before importing any of these converted policies when a policy name, a
+    policy uniqueId or any rule uniqueId already exists (CollisionError).
+
+    SolarWinds documents rejecting a policy whose name or uniqueId exists; whether a
+    rule uniqueId used by another policy is rejected is Unverified, and it is checked
+    anyway so that a new suffix really means entirely fresh ids. The rule lookup is an
+    IN @ids query over GUIDs, so it is preceded by the same sanity probe the NCM path
+    uses (on one rule SELECT TOP 1 returns)."""
+    suffix = validate_suffix(suffix)
+    hits = []
+    for b in benchmarks:
+        name, uid = scm_policy_name(b, suffix), scm_policy_uid(b, suffix)
+        found = swis.query("SELECT PolicyID, Name, UniqueId, BuiltIn FROM Orion.PolicyEngine.Policy "
+                           "WHERE Name = @n OR UniqueId = @u", {"n": name, "u": uid})
+        for row in found or []:
+            hits.append(f"policy \"{_row_value(row, 'Name')}\" (PolicyID "
+                        f"{_row_value(row, 'PolicyID')}, UniqueId {_row_value(row, 'UniqueId')})")
+    rule_ids = [scm_rule_uid(r, suffix) for b in benchmarks for r in b["rules"]]
+    if rule_ids:
+        sample = swis.query("SELECT TOP 1 UniqueId FROM Orion.PolicyEngine.Rule")
+        known = _row_value(sample[0], "UniqueId") if isinstance(sample, list) and sample else None
+        if known:
+            confirm_in_ids(swis, "scmrule", str(known), "the SCM rule uniqueId check", "scm")
+            rows = _query_ids(swis, IN_IDS_PROBES["scmrule"][0], rule_ids)
+            if rows:
+                ids = sorted({_norm_id(_row_value(r, "UniqueId")) for r in rows})
+                hits.append(f"{len(ids)} rule uniqueId(s) ({', '.join(ids[:3])}"
+                            + (", ..." if len(ids) > 3 else "") + ")")
+        else:
+            log_event("scm", "the server returned no SCM rule rows, so none of the "
+                             f"{len(rule_ids)} rule uniqueId(s) can already exist")
+    if not hits:
+        log_event("scm", f"collision check: none of the {len(benchmarks)} SCM policy name(s), "
+                         f"uniqueId(s) or rule uniqueId(s) exist yet (suffix {suffix})")
+        return
+    bases = [("Orion.PolicyEngine.Policy", strip_suffix(scm_policy_name(b, suffix))[0])
+             for b in benchmarks]
+    msg = ("already on the server with suffix " + suffix + ": " + "; ".join(hits)
+           + ". Nothing was imported; this tool never overwrites. "
+           + suffix_advice(swis, bases, suffix))
+    log_event("scm", "collision: " + msg, "error")
+    raise CollisionError(msg)
+
+
+# ---------------------------------------------------------------------------
 # Removing an imported report: report, then unshared policies, then unshared rules
 # ---------------------------------------------------------------------------
 #
@@ -2395,23 +2784,25 @@ NETWORK_VENDORS = {
     "network device": None,
 }
 
-# keyword -> (display OS name, SWQL filter against Orion.Nodes for assignment)
+# keyword -> (display OS name, SWQL filter against Orion.Nodes for assignment, OS family
+# for the SCM probe table SCM_PROBES)
 SERVER_OSES = {
-    "red hat": ("Red Hat Enterprise Linux", "MachineType LIKE '%Red Hat%'"),
-    "rhel": ("Red Hat Enterprise Linux", "MachineType LIKE '%Red Hat%'"),
-    "ubuntu": ("Ubuntu", "MachineType LIKE '%Ubuntu%'"),
-    "debian": ("Debian", "MachineType LIKE '%Debian%'"),
-    "centos": ("CentOS", "MachineType LIKE '%CentOS%'"),
-    "linux": ("Linux", "MachineType LIKE '%Linux%'"),
-    "windows": ("Windows", "MachineType LIKE '%Windows%'"),
-    "sql server": ("Windows", "MachineType LIKE '%Windows%'"),
-    "iis": ("Windows", "MachineType LIKE '%Windows%'"),
-    "exchange": ("Windows", "MachineType LIKE '%Windows%'"),
+    "red hat": ("Red Hat Enterprise Linux", "MachineType LIKE '%Red Hat%'", "linux"),
+    "rhel": ("Red Hat Enterprise Linux", "MachineType LIKE '%Red Hat%'", "linux"),
+    "ubuntu": ("Ubuntu", "MachineType LIKE '%Ubuntu%'", "linux"),
+    "debian": ("Debian", "MachineType LIKE '%Debian%'", "linux"),
+    "centos": ("CentOS", "MachineType LIKE '%CentOS%'", "linux"),
+    "linux": ("Linux", "MachineType LIKE '%Linux%'", "linux"),
+    "windows": ("Windows", "MachineType LIKE '%Windows%'", "windows"),
+    "sql server": ("Windows", "MachineType LIKE '%Windows%'", "windows"),
+    "iis": ("Windows", "MachineType LIKE '%Windows%'", "windows"),
+    "exchange": ("Windows", "MachineType LIKE '%Windows%'", "windows"),
 }
+UNKNOWN_SERVER_OS = ("(OS not recognized)", "MachineType LIKE '%'", "unknown")
 
 
 def detect_target(benchmarks, source_name):
-    """Return ('network', vendor_or_None) or ('server', (os, swql)) or (None, None).
+    """Return ('network', vendor_or_None) or ('server', (os, swql, family)) or (None, None).
 
     Vendor keywords win over OS keywords only when they appear and no OS does;
     a Windows/Linux match routes to SCM even if generic words like 'router'
@@ -2422,7 +2813,7 @@ def detect_target(benchmarks, source_name):
     for kw, os_info in SERVER_OSES.items():
         if kw in text:
             log_event("route", f"server keyword '{kw}' matched in the file/benchmark names "
-                               f"-> server ({os_info[0]})")
+                               f"-> server ({os_info[0]}, OS family {os_info[2]})")
             return "server", os_info
     vendor = None
     matched = []
@@ -2440,13 +2831,220 @@ def detect_target(benchmarks, source_name):
     return None, None
 
 
-def node_where_for(vendor):
-    # Bare column names: the SQL fragment in real console exports says Vendor,
-    # not Nodes.Vendor, and exact vendor equality is what the node picker writes.
-    if not vendor:
-        log_event("scope", "no vendor identified; the node scope defaults to "
-                           "(Vendor = 'Cisco')", "warn")
-    return f"(Vendor = '{vendor}')" if vendor else "(Vendor = 'Cisco')"
+# ---------------------------------------------------------------------------
+# NCM node scope: Vendor, and for Cisco the platform by MachineType
+# ---------------------------------------------------------------------------
+#
+# Tentative: MachineType values to be verified against a live server. The patterns
+# below are what Cisco nodes are expected to report in Orion.Nodes.MachineType; no
+# export or schema in this repository records the actual strings. The platform is
+# read from the package file name plus each benchmark's title and source member
+# name, with -, _ and white space treated alike ("IOS-XE", "IOS_XE", "IOS XE" and
+# "IOSXE" all match), and the specific platforms are tried before classic IOS. Note
+# that '%IOS%' also matches a MachineType containing IOS-XE or IOS-XR; that overlap is
+# part of what the live check has to settle. An import logs the MachineType values
+# the vendor's nodes report, which is the check.
+CISCO_PLATFORMS = (
+    ("IOS-XE", re.compile(r"\bios ?xe\b"), "%IOS-XE%"),
+    ("IOS-XR", re.compile(r"\bios ?xr\b"), "%IOS-XR%"),
+    ("NX-OS", re.compile(r"\bnx ?os\b"), "%NX-OS%"),
+    ("ASA", re.compile(r"\basa\b"), "%ASA%"),
+    ("IOS", re.compile(r"\bios\b"), "%IOS%"),
+)
+TENTATIVE_NOTE = "Tentative: MachineType values to be verified against a live server"
+SCOPE_VALUE_MAX = 200
+
+
+class ScopeError(ValueError):
+    """The NCM node scope cannot be decided (or selects no node); nothing is
+    converted or imported."""
+
+
+def sql_literal(value):
+    """A single-quoted SQL/SWQL string literal (a ' inside is doubled)."""
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def check_scope_value(value, option):
+    """--vendor / --machine-type: one line of printable text, at most 200 characters."""
+    value = str(value).strip()
+    if not value or len(value) > SCOPE_VALUE_MAX or re.search(r"[\x00-\x1f\x7f]", value):
+        raise ScopeError(f"{option} must be 1 to {SCOPE_VALUE_MAX} printable characters "
+                         f"(got {value[:40]!r})")
+    return value
+
+
+def platform_text(text):
+    """Lower case, with every run of '-', '_' and white space made one space."""
+    return re.sub(r"[\s_\-]+", " ", (text or "").lower())
+
+
+def detect_cisco_platform(text):
+    """(platform, MachineType pattern) for the first CISCO_PLATFORMS entry that
+    matches, or (None, None)."""
+    norm = platform_text(text)
+    for platform_name, pattern, machine_type in CISCO_PLATFORMS:
+        if pattern.search(norm):
+            return platform_name, machine_type
+    return None, None
+
+
+def benchmark_platforms(benchmarks, source_name):
+    """The Cisco platform each benchmark names, read from the package name plus its own
+    title and source member, as [(benchmark id or title, platform, pattern)]."""
+    out = []
+    for b in benchmarks:
+        platform_name, machine_type = detect_cisco_platform(
+            " ".join((source_name or "", b["title"], b["source"])))
+        out.append((b["benchmark_id"] or b["title"], platform_name, machine_type))
+    return out
+
+
+def node_where_for(vendor, machine_type=None):
+    """The NCM SQL fragment (bare column names, as real console exports carry it)."""
+    if machine_type:
+        return f"(Vendor = {sql_literal(vendor)} AND MachineType LIKE {sql_literal(machine_type)})"
+    return f"(Vendor = {sql_literal(vendor)})"
+
+
+def scope_swql(scope):
+    """(SWQL, parameters) counting the Orion.Nodes rows the scope selects.
+
+    A generated scope is sent with bound parameters, never by splicing the values in.
+    An explicit --node-where is the operator's own NCM SQL; it is used as written
+    (with any Nodes. prefix dropped, as make_node_selection_string does) in a read-only
+    query, and since NCM SQL is not always valid SWQL that count can fail."""
+    if scope.get("vendor") and not scope.get("explicit"):
+        if scope.get("machine_type"):
+            return ("SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE Vendor = @vendor AND MachineType LIKE @machineType",
+                    {"vendor": scope["vendor"], "machineType": scope["machine_type"]})
+        return ("SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE Vendor = @vendor",
+                {"vendor": scope["vendor"]})
+    where = re.sub(r"\bNodes\.", "", scope["where"]).strip()
+    return "SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE " + where, {}
+
+
+def resolve_ncm_scope(benchmarks, source_name, node_where=None, vendor=None, machine_type=None,
+                      detected_vendor=None):
+    """Decide the NCM node scope, or raise ScopeError.
+
+    An explicit --node-where is used as written. Otherwise the vendor is --vendor,
+    else the detected one; with no vendor at all the STIG is refused (a Router or NDM
+    SRG, ESXi or any unrecognized network STIG no longer defaults to Cisco). For Cisco
+    the platform's MachineType pattern is added; --machine-type overrides it (and
+    applies to any vendor when given). A Cisco STIG whose platform is not recognized,
+    or a package whose benchmarks name different platforms, is refused.
+    Returns {where, vendor, machine_type, platform, explicit, how}.
+    """
+    vendor, machine_type = vendor or None, machine_type or None
+    explicit =bool(node_where) and not node_where.lower().startswith("auto") \
+        and not node_where.startswith("(auto")
+    if explicit:
+        if vendor or machine_type:
+            raise ScopeError("give either --node-where or --vendor/--machine-type, not both")
+        log_event("scope", f"NCM node scope {node_where} (explicit --node-where)")
+        return {"where": node_where, "vendor": picker_vendor(node_where), "machine_type": None,
+                "platform": None, "explicit": True, "how": "explicit --node-where"}
+    how = []
+    if vendor:
+        vendor = check_scope_value(vendor, "--vendor")
+        how.append("--vendor")
+    elif detected_vendor:
+        vendor = detected_vendor
+        how.append("vendor detected from the names")
+    else:
+        msg = (f"{source_name}: no network vendor was recognized in the file or benchmark names "
+               "(an SRG such as the Router or NDM SRG, ESXi, or an unlisted product), so there is "
+               "no safe node scope; the tool no longer assumes Cisco. Pass --vendor NAME (the "
+               "Vendor value your nodes report, with --machine-type PATTERN for Cisco) or "
+               "--node-where \"(...)\" (PowerShell: -Vendor, -MachineType, -NodeWhere).")
+        log_event("scope", msg, "error")
+        raise ScopeError(msg)
+    platform_name = None
+    if machine_type:
+        machine_type = check_scope_value(machine_type, "--machine-type")
+        how.append("--machine-type")
+    elif vendor.lower() == "cisco":
+        found = benchmark_platforms(benchmarks, source_name)
+        for bid, name, pattern in found:
+            log_event("scope", f"Cisco platform for {bid}: "
+                               + (f"{name} -> MachineType LIKE '{pattern}' ({TENTATIVE_NOTE})"
+                                  if name else "not recognized"))
+        names = sorted({name or "not recognized" for _bid, name, _p in found})
+        if len(names) > 1:
+            listed = ", ".join(f"{bid}: {name or 'not recognized'}" for bid, name, _p in found)
+            msg = (f"{source_name}: the benchmarks name different Cisco platforms ({listed}); one "
+                   "run uses one node scope, so convert or import them separately, or pass "
+                   "--machine-type PATTERN or --node-where \"(...)\".")
+            log_event("scope", msg, "error")
+            raise ScopeError(msg)
+        platform_name = found[0][1] if found else None
+        machine_type = found[0][2] if found else None
+        if not platform_name:
+            msg = (f"{source_name}: a Cisco STIG, but no platform (IOS-XE, IOS-XR, NX-OS, ASA, "
+                   "IOS) was recognized in the file or benchmark names, so the node scope would be "
+                   "every Cisco node. Pass --machine-type PATTERN (for example '%IOS-XE%', or '%' "
+                   "for every Cisco node that reports a MachineType) or --node-where \"(...)\".")
+            log_event("scope", msg, "error")
+            raise ScopeError(msg)
+        how.append(f"platform {platform_name} detected ({TENTATIVE_NOTE})")
+    where = node_where_for(vendor, machine_type)
+    log_event("scope", f"NCM node scope {where} ({', '.join(how)}); the console node picker "
+                       "shows Vendor only, the MachineType condition is in the SQL part")
+    return {"where": where, "vendor": vendor, "machine_type": machine_type,
+            "platform": platform_name, "explicit": False, "how": ", ".join(how)}
+
+
+SCOPE_SAMPLE_SWQL = ("SELECT TOP 25 Vendor, MachineType, COUNT(NodeID) AS N FROM Orion.Nodes "
+                     "WHERE Vendor = @vendor GROUP BY Vendor, MachineType ORDER BY MachineType")
+
+
+def scope_preflight(swis, scope, allow_empty=False, log=print):
+    """Count the nodes the scope selects, before anything is written.
+
+    Logs the NCM SQL and the SWQL form of the same condition, the count, and (when a
+    vendor is known) up to 25 MachineType values that vendor's nodes report, which is
+    how the Tentative platform table gets checked. Zero matching nodes refuses the
+    import (ScopeError) unless ``allow_empty``. A count that cannot be run (an NCM SQL
+    fragment that is not valid SWQL, a permission error) is logged as inconclusive
+    and the import goes on. Returns the count, or None when it could not be taken.
+    """
+    swql, params = scope_swql(scope)
+    log_event("scope", f"scope preflight: NCM SQL Where {scope['where']}; SWQL {swql}"
+                       + (" params {" + ", ".join(f"{k}={v!r}" for k, v in params.items()) + "}"
+                          if params else ""))
+    try:
+        rows = swis.query(swql, params or None)
+        count = int(_row_value(rows[0], "N") or 0) if isinstance(rows, list) and rows else 0
+    except (SwisError, ValueError, TypeError) as exc:
+        _say(log, "scope", f"warning: the node scope could not be counted ({exc}); the import goes "
+                           "on without the empty-scope check, so check the scope in the console",
+             "warn")
+        return None
+    if scope.get("vendor"):
+        try:
+            sample = swis.query(SCOPE_SAMPLE_SWQL, {"vendor": scope["vendor"]}) or []
+            seen = "; ".join(f"{_row_value(r, 'MachineType')} ({_row_value(r, 'N')})"
+                             for r in sample if isinstance(r, dict))
+            log_event("scope", f"MachineType values reported by Vendor '{scope['vendor']}' nodes "
+                               f"(up to 25): {seen or 'none'}"
+                               + (f" - {TENTATIVE_NOTE}" if scope.get("platform") else ""))
+        except (SwisError, ValueError, TypeError) as exc:
+            log_event("scope", f"could not sample MachineType values: {exc}", "warn")
+    if count:
+        _say(log, "scope", f"node scope selects {count} node(s): {scope['where']}")
+        return count
+    msg = (f"the node scope {scope['where']} matches no node on this server"
+           + (f" ({TENTATIVE_NOTE}; the MachineType values Vendor '{scope['vendor']}' nodes "
+              "report are in the run log)" if scope.get("platform") else "")
+           + ". A report scoped to no node evaluates nothing, which reads like compliance.")
+    if allow_empty:
+        _say(log, "scope", f"warning: {msg} Importing anyway (--allow-empty-scope).", "warn")
+        return 0
+    log_event("scope", msg + " Refused; nothing was created.", "error")
+    raise ScopeError(msg + " Nothing was created. Correct --machine-type, --vendor or "
+                           "--node-where, or pass --allow-empty-scope (PowerShell: "
+                           "-AllowEmptyScope) to import it anyway.")
 
 
 # ---------------------------------------------------------------------------
@@ -2466,11 +3064,30 @@ def _yq(value):
     return json.dumps(value or "", ensure_ascii=False)
 
 
-def xccdf_to_scm_yaml(benchmark):
-    """Convert one XCCDF benchmark into an importable SCM compliance policy."""
-    name = f"{benchmark['title']} V{benchmark['version']} ({benchmark['release']})"[:250]
-    policy_uid = uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-scm:" + (benchmark["benchmark_id"]
-                                                                   or benchmark["title"]))
+def scm_policy_name(benchmark, suffix=DEFAULT_SUFFIX):
+    return with_suffix(f"{benchmark['title']} V{benchmark['version']} ({benchmark['release']})",
+                       suffix)
+
+
+def scm_policy_uid(benchmark, suffix=DEFAULT_SUFFIX):
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-scm:" + (benchmark["benchmark_id"]
+                                                                 or benchmark["title"]) + suffix))
+
+
+def scm_rule_uid(rule, suffix=DEFAULT_SUFFIX):
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-scm-rule:" + rule["rule_id"] + suffix))
+
+
+def xccdf_to_scm_yaml(benchmark, suffix=DEFAULT_SUFFIX, os_family="windows", probe_template=None):
+    """Convert one XCCDF benchmark into an importable SCM compliance policy.
+
+    ``suffix`` ends the policy name and is part of every uniqueId seed; ``os_family``
+    picks the probe from SCM_PROBES (every family uses the same attestation today);
+    ``probe_template`` (load_probe_template) replaces the probe's source block.
+    """
+    suffix = validate_suffix(suffix)
+    name = scm_policy_name(benchmark, suffix)
+    policy_uid = scm_policy_uid(benchmark, suffix)
     lines = [
         "!policy",
         f"name: {_yq(name)}",
@@ -2482,19 +3099,18 @@ def xccdf_to_scm_yaml(benchmark):
         "rules:",
     ]
     for r in benchmark["rules"]:
-        rule_uid = uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-scm-rule:" + r["rule_id"])
         check = r["check_content"] or (
             f"Machine check (SCAP edition): OVAL definition {r['oval_ref']}. "
             "The manual STIG for this product carries the prose check text."
             if r.get("oval_ref") else "")
         # The probe runs as PowerShell on every assigned node: the id is validated
         # and the whole text is a single-quoted literal, so no STIG content can
-        # expand ($(...), $var) or escape (` or ") inside the script source.
+        # expand ($(...), $var) or escape (` or ") inside the script source. A probe
+        # template receives the same validated id, inside a quoted scalar only.
         probe_id = scm_probe_id(r["vuln_id"], r["rule_id"])
-        probe = "Write-Host " + ps_single_quote(f"{probe_id} reviewed: False")
         lines += [
             f"- displayId: {_yq(r['vuln_id'])}",
-            f"  uniqueId: {rule_uid}",
+            f"  uniqueId: {scm_rule_uid(r, suffix)}",
             f"  name: {_yq(r['title'][:250])}",
             f"  severity: {r['severity'].capitalize()}",
             f"  description: {_yq(r['discussion'])}",
@@ -2502,12 +3118,10 @@ def xccdf_to_scm_yaml(benchmark):
             f"  checkText: {_yq(check)}",
             "  condition: !matches",
             f"    expression: {_yq(probe_id + ' reviewed: True')}",
-            "    source: !scm.powershell",
-            f"      description: {_yq('STIG ' + r['stig_id'] + ' manual-review attestation')}",
-            f"      script: {_yq(probe)}",
-        ]
+        ] + scm_probe_lines(probe_id, r["stig_id"], probe_template)
     log_event("build", f"SCM policy \"{name}\" uniqueId {policy_uid}: "
-                       f"{len(benchmark['rules'])} manual-review rule(s)")
+                       f"{len(benchmark['rules'])} manual-review rule(s), OS family {os_family}, "
+                       f"probe {'template ' + probe_template[0] if probe_template else 'default'}")
     return "\n".join(lines) + "\n"
 
 
@@ -2552,13 +3166,14 @@ def is_scm_path(path):
     return os.path.isfile(path) and path.lower().endswith(SCM_INPUT_SUFFIXES)
 
 
-def scm_policy_filename(benchmark, stem=None):
-    """File name for a converted SCM policy (see SCM_POLICY_SUFFIX)."""
+def scm_policy_filename(benchmark, stem=None, suffix=DEFAULT_SUFFIX):
+    """File name for a converted SCM policy (see SCM_POLICY_SUFFIX); the version
+    suffix is part of it, so a _v2 conversion does not overwrite the _v1 file."""
     base = benchmark["benchmark_id"] or benchmark["title"]
     if stem:
-        return safe_file_name(f"{stem}.{benchmark['benchmark_id'] or 'benchmark'}",
+        return safe_file_name(f"{stem}.{benchmark['benchmark_id'] or 'benchmark'}{suffix}",
                               SCM_POLICY_SUFFIX)
-    return safe_file_name(base, SCM_POLICY_SUFFIX)
+    return safe_file_name(base + suffix, SCM_POLICY_SUFFIX)
 
 
 def cmd_parse(args):
@@ -2572,7 +3187,7 @@ def cmd_parse(args):
                 print(f"    {r}")
         return
     benchmarks = load_benchmarks(args.path)
-    print(resolve_route("auto", benchmarks, os.path.basename(args.path))[2])
+    print(resolve_route("auto", benchmarks, os.path.basename(args.path), strict=False)[2])
     for b in benchmarks:
         counts = {}
         for r in b["rules"]:
@@ -2588,53 +3203,71 @@ def cmd_parse(args):
         print()
 
 
-def resolve_route(target, benchmarks, source_name, node_where=None):
+def resolve_route(target, benchmarks, source_name, node_where=None, vendor=None,
+                  machine_type=None, strict=True):
     """Decide the destination module for parsed XCCDF benchmarks.
 
     target: 'auto' | 'network' | 'server' (the dropdown / --target choice).
-    Returns ('network', where_clause, note) or ('server', (os_name, swql), note).
+    Returns ('network', scope, note) with the resolve_ncm_scope dict, or
+    ('server', (os_name, swql, family), note). An NCM route whose node scope cannot
+    be decided raises ScopeError; with ``strict`` False (parse only) it returns
+    ('network', None, note) with the reason in the note instead.
     """
     detected, info = detect_target(benchmarks, source_name)
-    explicit_where = node_where and not node_where.lower().startswith("auto") \
-        and not node_where.startswith("(auto")
     if target == "server" or (target == "auto" and detected == "server"):
-        os_info = info if detected == "server" else ("(OS not recognized)",
-                                                     "MachineType LIKE '%'")
+        os_info = info if detected == "server" else UNKNOWN_SERVER_OS
         why = "detected from the file/benchmark name" if detected == "server" \
             else "forced by the Server Compliance selection"
         note = f"target: Server Configuration Monitor — {os_info[0]} ({why})"
         log_event("route", f"decision: SCM for {source_name} (--target {target}, detected "
-                           f"{detected or 'nothing'}); {note}")
+                           f"{detected or 'nothing'}); {note}; OS family {os_info[2]}")
         log_event("scope", f"SCM node filter suggested for assignment: {os_info[1]}")
         return "server", os_info, note
-    vendor = info if detected == "network" else None
-    where = node_where if explicit_where else node_where_for(vendor)
-    log_event("scope", f"NCM node scope {where} ("
-                       + ("explicit --node-where" if explicit_where else
-                          f"derived from vendor {vendor}" if vendor else "default") + ")")
+    detected_vendor = info if detected == "network" else None
+    log_event("route", f"decision: NCM for {source_name} (--target {target}, detected "
+                       f"{detected or 'nothing'})",
+              "warn" if detected is None and target == "auto" else "info")
+    try:
+        scope = resolve_ncm_scope(benchmarks, source_name, node_where, vendor, machine_type,
+                                  detected_vendor)
+    except ScopeError as exc:
+        if strict:
+            raise
+        return "network", None, f"target: NCM — node scope not decided: {exc}"
+    where = scope["where"]
     if target == "network" and detected == "server":
         note = ("target: NCM (forced by the Network Compliance selection — the file "
-                "looks like a server STIG)")
-    elif vendor:
-        note = f"target: NCM — vendor {vendor} detected, node scope {where}"
-    elif detected == "network":
-        note = f"target: NCM — network device detected, node scope {where}"
+                f"looks like a server STIG); node scope {where}")
+    elif scope["explicit"]:
+        note = f"target: NCM — node scope {where} (--node-where)"
+    elif scope["platform"]:
+        note = (f"target: NCM — vendor {scope['vendor']}, platform {scope['platform']} "
+                f"detected, node scope {where} ({TENTATIVE_NOTE})")
     else:
-        note = (f"target: NCM by default — nothing recognized in the name; "
-                f"node scope {where} (override with the Server Compliance option "
-                "or --target server if this is a server STIG)")
-    log_event("route", f"decision: NCM for {source_name} (--target {target}, detected "
-                       f"{detected or 'nothing'}); {note}",
-              "warn" if detected is None and target == "auto" else "info")
-    return "network", where, note
+        note = f"target: NCM — vendor {scope['vendor']}, node scope {where} ({scope['how']})"
+    log_event("route", note)
+    return "network", scope, note
 
 
-def make_reports_from_args(args, benchmarks, node_where):
+def make_reports_from_args(args, benchmarks, scope):
+    where = scope["where"] if isinstance(scope, dict) else scope
     return build_reports(
         benchmarks, name=args.name, grouping=args.grouping,
-        node_where=node_where, config_type=args.config_type, mode=args.mode,
+        node_where=where, config_type=args.config_type, mode=args.mode,
         source_path=args.path, enabled=not getattr(args, "disabled", False),
+        suffix=getattr(args, "suffix", None),
     )
+
+
+def route_from_args(args, benchmarks, strict=True):
+    return resolve_route(args.target, benchmarks, os.path.basename(args.path),
+                         args.node_where, getattr(args, "vendor", None),
+                         getattr(args, "machine_type", None), strict=strict)
+
+
+def probe_template_from_args(args):
+    path = getattr(args, "scm_probe_template", None)
+    return (load_probe_template(path), path) if path else (None, None)
 
 
 def cmd_build(args):
@@ -2645,20 +3278,26 @@ def cmd_build(args):
               "Import it with:  disa_stig_tool.py import <file> …  "
               "(or POST [yamlText] to Invoke/Orion.PolicyEngine.Policy/ImportPolicy)")
         return
+    suffix = validate_suffix(getattr(args, "suffix", None))
+    template, template_path = probe_template_from_args(args)
     benchmarks = load_benchmarks(args.path)
-    kind, info, note = resolve_route(args.target, benchmarks,
-                                     os.path.basename(args.path), args.node_where)
+    # Offline conversion refuses an undecidable NCM scope the same way an import does:
+    # the console file carries the scope, and a guessed one would scope the wrong nodes.
+    kind, info, note = route_from_args(args, benchmarks)
     print(note)
     stem = os.path.splitext(os.path.basename(args.path))[0]
     if kind == "server":
+        family = os_family(info)
+        log_scm_probe_plan(family, template, template_path, log=print)
         for b in benchmarks:
             out = args.output if args.output and len(benchmarks) == 1 else \
-                scm_policy_filename(b, stem)
-            write_text_file(out, xccdf_to_scm_yaml(b), newline=None)
-            print(f"wrote {out}: SCM policy \"{b['title']}\" — {len(b['rules'])} rules")
+                scm_policy_filename(b, stem, suffix)
+            write_text_file(out, xccdf_to_scm_yaml(b, suffix, family, template), newline=None)
+            print(f"wrote {out}: SCM policy \"{scm_policy_name(b, suffix)}\" — "
+                  f"{len(b['rules'])} rules")
         print("import with:  disa_stig_tool.py import <same source> --target server …")
         return
-    warning = xml_config_warning(info)
+    warning = xml_config_warning(info["where"])
     if warning:
         print(warning)
     reports = make_reports_from_args(args, benchmarks, info)
@@ -2671,11 +3310,19 @@ def cmd_build(args):
           "or through the web console: Compliance → Manage Policy Reports → Import")
 
 
-def import_scm_benchmarks(swis, benchmarks, os_info, log=print):
-    """Convert each benchmark to an SCM policy and import it via ImportPolicy."""
-    os_name, swql = os_info
+def import_scm_benchmarks(swis, benchmarks, os_info, log=print, suffix=DEFAULT_SUFFIX,
+                          probe_template=None, template_path=None):
+    """Convert each benchmark to an SCM policy and import it via ImportPolicy.
+
+    Every policy's name, uniqueId and rule uniqueIds are checked first
+    (scm_collision_check), so a collision refuses the run before anything is created.
+    """
+    os_name, swql, family = os_info[0], os_info[1], os_family(os_info)
+    suffix = validate_suffix(suffix)
+    log_scm_probe_plan(family, probe_template, template_path, log=log)
+    scm_collision_check(swis, benchmarks, suffix, log=log)
     for b in benchmarks:
-        yaml_text = xccdf_to_scm_yaml(b)
+        yaml_text = xccdf_to_scm_yaml(b, suffix, family, probe_template)
         policy_id, name = import_scm_policy(swis, yaml_text, log=log)
         _say(log, "scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id}) — "
                          f"{len(b['rules'])} manual-review rules")
@@ -2724,10 +3371,10 @@ def cmd_test(args):
         sys.exit("error: give --config-file <path> or --config-id <NCM config GUID>. "
                  "Find one with: SELECT ConfigID, NodeID, ConfigType, DownloadTime "
                  "FROM NCM.ConfigArchive ORDER BY DownloadTime DESC")
+    validate_suffix(getattr(args, "suffix", None))
     swis = logged(connect(args))
     benchmarks = load_benchmarks(args.path)
-    kind, info, note = resolve_route(args.target, benchmarks,
-                                     os.path.basename(args.path), args.node_where)
+    kind, info, note = route_from_args(args, benchmarks)
     print(note)
     if kind == "server":
         sys.exit("error: this benchmark routes to SCM, which has no TestRule verb. "
@@ -2735,6 +3382,24 @@ def cmd_test(args):
     reports = make_reports_from_args(args, benchmarks, info)
     test_reports(swis, reports, config_text=config_text, config_id=args.config_id,
                  limit=args.limit)
+
+
+def similar_report_names(swis, name):
+    """For a remove --name that matched nothing: the report names that start with it
+    (typically the same name with its version suffix), as text to append."""
+    try:
+        rows = swis.query("SELECT TOP 50 PolicyReportID, Name FROM Cirrus.PolicyReports WHERE Name LIKE @p",
+                          {"p": like_prefix(name)}) or []
+    except (SwisError, ValueError, TypeError):
+        return ""
+    names = sorted({str(_row_value(r, "Name")) for r in rows
+                    if str(_row_value(r, "Name") or "").startswith(name)})
+    log_event("remove", f"no report named \"{name}\"; names starting with it: "
+                        f"{', '.join(names) or 'none'}")
+    if not names:
+        return ""
+    return ("; reports whose names start with it (since 2.0.0 every name ends in a version "
+            "suffix such as _v1): " + ", ".join(f"\"{n}\"" for n in names[:10]))
 
 
 def cmd_remove(args):
@@ -2751,7 +3416,8 @@ def cmd_remove(args):
     found = swis.query("SELECT PolicyReportID, Name, Grouping FROM Cirrus.PolicyReports WHERE Name = @n",
                        {"n": args.name})
     if not found:
-        sys.exit(f"error: no policy report named \"{args.name}\" on this server")
+        sys.exit(f"error: no policy report named \"{args.name}\" on this server"
+                 + similar_report_names(swis, args.name))
     log_event("remove", f"{len(found)} report(s) named \"{args.name}\": "
                         + ", ".join(str(r.get("PolicyReportID")) for r in found))
     if getattr(args, "delete_children", False):
@@ -2795,30 +3461,25 @@ def cmd_import(args):
               "Orion.PolicyEngine.Policy.AssignToEntity.")
         return
 
+    suffix = validate_suffix(getattr(args, "suffix", None))
+    template, template_path = probe_template_from_args(args)
     benchmarks = load_benchmarks(args.path)
-    kind, info, note = resolve_route(args.target, benchmarks,
-                                     os.path.basename(args.path), args.node_where)
+    kind, info, note = route_from_args(args, benchmarks)
     print(note)
     if kind == "server":
-        import_scm_benchmarks(swis, benchmarks, info)
+        import_scm_benchmarks(swis, benchmarks, info, suffix=suffix, probe_template=template,
+                              template_path=template_path)
         return
 
-    warning = xml_config_warning(info)
+    warning = xml_config_warning(info["where"])
     if warning:
         print(warning)
     reports = make_reports_from_args(args, benchmarks, info)
     ncm_preflight(swis)
-    for report in reports:
-        existing = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
-                              {"n": report["Name"]})
-        if existing:
-            log_event("import", f"name collision: report \"{report['Name']}\" already exists "
-                                f"({existing[0]['PolicyReportID']}); nothing was imported",
-                      "error")
-            sys.exit(f"error: a report named \"{report['Name']}\" already exists "
-                     f"({existing[0]['PolicyReportID']}). Rename with --name, delete it "
-                     f"with \"remove --name\", or remove it in the console — this tool "
-                     "never overwrites.")
+    # Before the first write: the scope must select nodes, and nothing this run would
+    # create (names, PolicyIds, RuleIds) may exist already.
+    scope_preflight(swis, info, allow_empty=getattr(args, "allow_empty_scope", False))
+    ncm_collision_check(swis, reports, suffix)
 
     imported, failure, remaining = import_ncm_reports(
         swis, reports, log=print, rollback=not args.no_rollback)
@@ -2864,7 +3525,25 @@ def add_source_args(p):
                         "network: NCM compliance only. server: SCM compliance only.")
     p.add_argument("--node-where", default="auto",
                    help="NCM node-selection Where clause, e.g. \"(Vendor = 'Cisco')\". "
-                        "Default auto: derived from the detected vendor.")
+                        "Default auto: derived from the detected vendor (and, for Cisco, the "
+                        "platform's MachineType); an unrecognized network STIG is refused "
+                        "unless --vendor or --node-where is given.")
+    p.add_argument("--vendor", metavar="NAME",
+                   help="the Vendor value the target nodes report (overrides detection; "
+                        "needed for an SRG or any unrecognized network STIG)")
+    p.add_argument("--machine-type", metavar="PATTERN",
+                   help="MachineType LIKE pattern added to the scope, e.g. '%%IOS-XE%%' "
+                        "(overrides the Cisco platform table, which is Tentative: its "
+                        "MachineType values are still to be verified against a live server)")
+    p.add_argument("--suffix", default=DEFAULT_SUFFIX,
+                   help="version suffix (_v1 by default, _v<digits>) ending every report, "
+                        "policy and SCM policy name and seeding every generated id, so a "
+                        "new release can be imported alongside with --suffix _v2")
+    p.add_argument("--scm-probe-template", metavar="FILE",
+                   help="SCM only: a YAML fragment (an !scm.<type> source tag, then its "
+                        "key: value lines) replacing the attestation probe's source; {id} "
+                        "inside a quoted value becomes the validated vuln id. See README "
+                        "'Testing Linux STIGs in SCM'.")
     p.add_argument("--config-type", default="Any",
                    help="config type the rules scan: Any, Running, Startup, ...")
     p.add_argument("--mode", choices=("manual", "heuristic"), default="manual",
@@ -3120,6 +3799,14 @@ class App:
             opts, variable=self.import_disabled,
             text="Import the NCM report disabled (no caching) so it can be reviewed first"
         ).grid(row=3, column=1, sticky="w", **pad)
+        ttk.Label(opts, text="Name suffix").grid(row=4, column=0, sticky="w", **pad)
+        self.suffix = tk.StringVar(value=DEFAULT_SUFFIX)
+        ttk.Entry(opts, textvariable=self.suffix, width=10).grid(row=4, column=1, sticky="w", **pad)
+        self.allow_empty_scope = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            opts, variable=self.allow_empty_scope,
+            text="Import even when the NCM node scope matches no node"
+        ).grid(row=5, column=1, sticky="w", **pad)
 
         # --- actions (tk.Buttons so completion colors show) -------------------
         btns = ttk.Frame(frame)
@@ -3388,9 +4075,12 @@ class App:
                                    "SCM policy engine present", "success")
         self._run_bg(work)
 
-    def _resolve_ncm_where(self, benchmarks, source_name):
-        _kind, info, note = resolve_route(self._target_choice(), benchmarks,
-                                          source_name, self.node_where.get().strip())
+    def _resolve_ncm_scope(self, benchmarks, source_name):
+        """The NCM scope for the GUI: the node-scope box is --node-where ('auto' derives
+        it); an undecidable scope raises ScopeError, which fails that file."""
+        target = self._target_choice()
+        kind, info, note = resolve_route("network" if target == "server" else target,
+                                         benchmarks, source_name, self.node_where.get().strip())
         self._log(note)
         return info
 
@@ -3443,33 +4133,43 @@ class App:
             return True
         folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
                                                     os.W_OK) else tempfile.gettempdir()
-        for b in load_benchmarks(path):
+        suffix = validate_suffix(self.suffix.get().strip())
+        benchmarks = load_benchmarks(path)
+        kind, os_info = detect_target(benchmarks, os.path.basename(path))
+        family = os_family(os_info if kind == "server" else UNKNOWN_SERVER_OS)
+        log_scm_probe_plan(family, log=self._log)
+        if not offline:
+            scm_collision_check(swis, benchmarks, suffix, log=self._log)
+        for b in benchmarks:
             if offline:
-                out = os.path.join(folder, scm_policy_filename(b))
-                write_text_file(out, xccdf_to_scm_yaml(b), newline=None)
+                out = os.path.join(folder, scm_policy_filename(b, suffix=suffix))
+                write_text_file(out, xccdf_to_scm_yaml(b, suffix, family), newline=None)
                 self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
                                    f"{len(b['rules'])} rules", "success")
             else:
-                policy_id, name = import_scm_policy(swis, xccdf_to_scm_yaml(b),
+                policy_id, name = import_scm_policy(swis, xccdf_to_scm_yaml(b, suffix, family),
                                                     log=self._log)
                 self._summary_line(f"SUCCESS {prefix} \"{name}\" "
                                    f"(PolicyID {policy_id}) — {len(b['rules'])} "
                                    "manual-review rules", "success")
+        if family == "linux":
+            self._summary_line(f"{prefix} Linux: the SCM probe is Unverified on Linux nodes; "
+                               "see README 'Testing Linux STIGs in SCM'", "warn")
         return True
 
     def _do_ncm(self, swis, path, offline, prefix):
+        suffix = validate_suffix(self.suffix.get().strip())
         benchmarks = load_benchmarks(path)
-        info = self._resolve_ncm_where(benchmarks, os.path.basename(path))
-        if not isinstance(info, str):   # forced-server info tuple can't reach here
-            info = node_where_for(None)
-        warning = xml_config_warning(info)
+        scope = self._resolve_ncm_scope(benchmarks, os.path.basename(path))
+        warning = xml_config_warning(scope["where"])
         if warning:
             self._summary_line(f"{prefix} {warning}", "warn")
             self._show_issue()
         mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
         enabled = not self.import_disabled.get()
-        reports = build_reports(benchmarks, node_where=info, mode=mode,
-                                source_path=os.path.basename(path), enabled=enabled)
+        reports = build_reports(benchmarks, node_where=scope["where"], mode=mode,
+                                source_path=os.path.basename(path), enabled=enabled,
+                                suffix=suffix)
         folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
                                                     os.W_OK) else tempfile.gettempdir()
         if offline:
@@ -3481,13 +4181,8 @@ class App:
                                    f"{n_rules} rules", "success")
             return True
         ncm_preflight(swis, log=self._log)
-        for report in reports:
-            existing = swis.query(
-                "SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
-                {"n": report["Name"]})
-            if existing:
-                raise SwisError(f"a report named \"{report['Name']}\" already exists — "
-                                "delete or rename it first; this tool never overwrites")
+        scope_preflight(swis, scope, allow_empty=self.allow_empty_scope.get(), log=self._log)
+        ncm_collision_check(swis, reports, suffix, log=self._log)
         imported, failure, remaining = import_ncm_reports(swis, reports, log=self._log)
         for report, _new_id, n_rul in imported:
             self._summary_line(f"SUCCESS {prefix} \"{report['Name']}\" — {n_rul} rules",
@@ -3595,6 +4290,9 @@ def build_parser():
     imp.add_argument("--no-rollback", action="store_true",
                      help="on a failed import, leave the rules and policies it "
                           "already created on the server instead of deleting them")
+    imp.add_argument("--allow-empty-scope", action="store_true",
+                     help="import even when the NCM node scope matches no node "
+                          "(refused by default, since such a report evaluates nothing)")
     add_log_args(imp)
 
     tst = sub.add_parser("test", help="evaluate the generated rules against a real "
@@ -3614,7 +4312,9 @@ def build_parser():
                                        "its policies and rules unless another report "
                                        "or policy still uses them")
     add_connection_args(rm)
-    rm.add_argument("--name", required=True, help="exact report name")
+    rm.add_argument("--name", required=True,
+                    help="exact report name, version suffix included (e.g. "
+                         "'<zip name> - <benchmark id>_v1')")
     rm.add_argument("--dry-run", action="store_true",
                     help="print what would be deleted and kept, delete nothing")
     rm.add_argument("--delete-children", action="store_true",

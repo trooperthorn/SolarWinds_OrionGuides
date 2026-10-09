@@ -8,7 +8,7 @@ This index extracts explicit uncertainty markers from authored pages under docs/
 
 The extractor recognizes selected phrases and explicit labels such as **Unverified:**, **Unknown:**, **Unconfirmed:**, **Not tested:**, and **Runtime validation required:**. It skips generated pages, headings, and fenced code. Absence from this index does not mean a claim is verified; app and script READMEs are outside its collection scope. See [the documentation audit](documentation-audit-2026-09-18.md) for coverage and evidence rules.
 
-**312 statements across 76 pages.**
+**315 statements across 76 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -105,6 +105,7 @@ Read this before relying on this repository for something load-bearing. If you h
 **[The tool that does all of this](../automation/disa-stig-import.md#the-tool-that-does-all-of-this)**
 
 - **Unverified:** the documented array binding uses integers; whether every server binds GUID strings the same way is not documented.
+- **Unverified:** no SCM policy source for Linux nodes is documented in this repository, so the tool logs a warning and the tool README's "Testing Linux STIGs in SCM" section gives the test procedure.
 
 ## [discovery.md](../automation/discovery.md)
 
@@ -615,6 +616,11 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Historical-source limitation](../modules/scm-policy-portability-audit.md#historical-source-limitation)**
 
 - The archive itself was unavailable, so its precise contained release was not verified.
+
+**[Verified gaps in the current conversion tool](../modules/scm-policy-portability-audit.md#verified-gaps-in-the-current-conversion-tool)**
+
+- Whether SCM itself rejects a rule `uniqueId` used by another policy remains **Unverified**; the tool checks it anyway.
+- Windows STIGs keep the `!scm.powershell` attestation; Linux STIGs stay routed to SCM with the same probe, labeled **Unverified** because no SCM policy source for Linux nodes is documented here, with a logged warning and a test procedure in the tool README.
 
 ## [scm-profile-portability-audit.md](../modules/scm-profile-portability-audit.md)
 

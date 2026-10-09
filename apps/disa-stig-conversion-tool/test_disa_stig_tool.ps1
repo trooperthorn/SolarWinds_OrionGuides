@@ -38,27 +38,63 @@ if ($parseErrors.Count -gt 0) {
 if ($ParityJson) {
     $spec = ConvertFrom-Json ([System.IO.File]::ReadAllText($ParityJson))
     $out = [ordered]@{ files = @(); memory = @() }
+    # Per case: suffix (default _v1), OS family (default windows) and an optional
+    # probe template text, so ids, names and SCM YAML are compared with all three.
+    $caseArgs = {
+        param($c)
+        $sfx = '_v1'; if ($c.PSObject.Properties['suffix'] -and $c.suffix) { $sfx = [string]$c.suffix }
+        $fam = 'windows'; if ($c.PSObject.Properties['family'] -and $c.family) { $fam = [string]$c.family }
+        $tmpl = $null
+        if ($c.PSObject.Properties['template'] -and $c.template) { $tmpl = ConvertFrom-ProbeTemplate ([string]$c.template) 'parity' }
+        return @{ Suffix = $sfx; Family = $fam; Template = $tmpl }
+    }
     $fileResults = New-Object System.Collections.ArrayList
     foreach ($c in @($spec.files)) {
+        $a = & $caseArgs $c
         $benches = Get-StigBenchmarks $c.path
         $reports = New-NcmReports $benches (Get-ReportBaseName $c.path $c.name) $c.where $c.mode `
-            $c.folder ([bool]$c.enabled) $c.configType
+            $c.folder ([bool]$c.enabled) $c.configType $a.Suffix
         [void]$fileResults.Add([ordered]@{
             reports = @($reports)
-            scm     = @($benches | ForEach-Object { ConvertTo-ScmPolicyYaml $_ })
-            scmIds  = @($benches | ForEach-Object { Get-ScmPolicyUniqueId $_ })
+            scm     = @($benches | ForEach-Object { ConvertTo-ScmPolicyYaml $_ $a.Suffix $a.Family $a.Template })
+            scmIds  = @($benches | ForEach-Object { Get-ScmPolicyUniqueId $_ $a.Suffix })
         })
     }
     $memResults = New-Object System.Collections.ArrayList
     foreach ($c in @($spec.memory)) {
+        $a = & $caseArgs $c
         $benches = @($c.benchmarks)
-        $reports = New-NcmReports $benches $c.baseName $c.where $c.mode $c.folder ([bool]$c.enabled) $c.configType
+        $reports = New-NcmReports $benches $c.baseName $c.where $c.mode $c.folder ([bool]$c.enabled) $c.configType $a.Suffix
         [void]$memResults.Add([ordered]@{
             reports = @($reports)
-            scm     = @($benches | ForEach-Object { ConvertTo-ScmPolicyYaml $_ })
-            scmIds  = @($benches | ForEach-Object { Get-ScmPolicyUniqueId $_ })
+            scm     = @($benches | ForEach-Object { ConvertTo-ScmPolicyYaml $_ $a.Suffix $a.Family $a.Template })
+            scmIds  = @($benches | ForEach-Object { Get-ScmPolicyUniqueId $_ $a.Suffix })
         })
     }
+    # Node scope decisions (Cisco platform table, vendor refusals, overrides), the
+    # picker string, platform detection, probe templates and suffix helpers.
+    $scopeResults = New-Object System.Collections.ArrayList
+    foreach ($c in @($spec.scopes)) {
+        try {
+            $sc = Resolve-NcmScope @($c.benchmarks) ([string]$c.source) ([string]$c.where) ([string]$c.vendor) ([string]$c.machineType)
+            $q = Get-ScopeSwql $sc
+            $params = $null
+            if ($q.Params) { $params = [ordered]@{}; foreach ($k in $q.Params.Keys) { $params[$k] = $q.Params[$k] } }
+            [void]$scopeResults.Add([ordered]@{ where = $sc.Where; vendor = $sc.Vendor; machineType = $sc.MachineType
+                platform = $sc.Platform; explicit = [bool]$sc.Explicit; swql = $q.Swql; params = $params
+                selection = (New-NodeSelectionString $sc.Where) })
+        } catch {
+            [void]$scopeResults.Add([ordered]@{ error = [bool]$_.Exception.Data['ScopeError'] })
+        }
+    }
+    $out['scopes'] = @($scopeResults)
+    $out['platforms'] = @(@($spec.platforms) | ForEach-Object { , @(Get-CiscoPlatform $_) })
+    $out['selections'] = @(@($spec.selections) | ForEach-Object { New-NodeSelectionString $_ })
+    $out['templates'] = @(@($spec.templates) | ForEach-Object {
+        try { $tl = ConvertFrom-ProbeTemplate ([string]$_) 'parity'; , [string[]]$tl } catch { , @() } })
+    $out['suffixes'] = @(@($spec.suffixes) | ForEach-Object { try { [void](Test-Suffix ([string]$_)); $true } catch { $false } })
+    $out['suffixed'] = @(@($spec.suffixed) | ForEach-Object { Get-SuffixedName ([string]$_.name) ([string]$_.suffix) })
+    $out['nextFree'] = @(@($spec.nextFree) | ForEach-Object { Get-NextFreeSuffix @($_.names) ([string]$_.base) ([string]$_.current) })
     $out.files = @($fileResults)
     $out.memory = @($memResults)
     # Helpers that must give the same answer as their Python counterparts.
@@ -217,14 +253,73 @@ try {
     }
     $script:LogState.Path = $null   # later sections do not need the log
 
-    # --- 3. seeds match the Python scheme (benchmark id, else title) --------
+    # --- 3. seeds match the Python scheme (benchmark id, else title, then suffix)
     $withId = @{ BenchmarkId = 'Cisco_IOS_Router_NDM_STIG'; Title = 'Cisco IOS Router NDM' }
     $noId = @{ BenchmarkId = ''; Title = 'Untitled Benchmark' }
-    Assert-Equal (Get-DeterministicGuid 'stig2ncm-policy:Cisco_IOS_Router_NDM_STIG') (Get-NcmPolicyId $withId) 'NCM PolicyId seeds on the benchmark id'
-    Assert-Equal (Get-DeterministicGuid 'stig2ncm-policy:Untitled Benchmark') (Get-NcmPolicyId $noId) 'NCM PolicyId falls back to the title'
-    Assert-Equal (Get-DeterministicGuid 'stig2ncm-scm:Cisco_IOS_Router_NDM_STIG') (Get-ScmPolicyUniqueId $withId) 'SCM uniqueId seeds on the benchmark id'
-    Assert-Equal (Get-DeterministicGuid 'stig2ncm-scm:Untitled Benchmark') (Get-ScmPolicyUniqueId $noId) 'SCM uniqueId falls back to the title'
+    Assert-Equal (Get-DeterministicGuid 'stig2ncm-policy:Cisco_IOS_Router_NDM_STIG_v1') (Get-NcmPolicyId $withId) 'NCM PolicyId seeds on the benchmark id and _v1'
+    Assert-Equal (Get-DeterministicGuid 'stig2ncm-policy:Untitled Benchmark_v1') (Get-NcmPolicyId $noId) 'NCM PolicyId falls back to the title'
+    Assert-Equal (Get-DeterministicGuid 'stig2ncm-scm:Cisco_IOS_Router_NDM_STIG_v1') (Get-ScmPolicyUniqueId $withId) 'SCM uniqueId seeds on the benchmark id and _v1'
+    Assert-Equal (Get-DeterministicGuid 'stig2ncm-scm:Untitled Benchmark_v2') (Get-ScmPolicyUniqueId $noId '_v2') 'SCM uniqueId falls back to the title, with the suffix'
     Assert-True ((Get-NcmPolicyId $withId) -ne (Get-DeterministicGuid 'stig2ncm-policy:Cisco_IOS_Router_NDM_STIGCisco IOS Router NDM')) 'old id+title seed is no longer used'
+    Assert-True ((Get-NcmPolicyId $withId) -ne (Get-DeterministicGuid 'stig2ncm-policy:Cisco_IOS_Router_NDM_STIG')) 'the pre-2.0.0 unsuffixed seed is no longer used'
+
+    # --- 3a. version suffix: validation, names, fresh ids per suffix ----------
+    foreach ($good in @('_v1', '_v2', '_v10', '')) { Assert-True ($null -ne (Test-Suffix $good)) "suffix '$good' is accepted" }
+    foreach ($bad in @('v1', '_V1', '_v', '_v1a', '_v-1', "_v1`n", '_v1 ')) { Assert-Throws { Test-Suffix $bad } 'not valid' "suffix '$($bad.Trim())...' is refused" }
+    Assert-Equal ('N' * 247 + '_v1') (Get-SuffixedName ('N' * 300) '_v1') 'a long name keeps its suffix within 250 characters'
+    Assert-Equal '_v3' (Get-NextFreeSuffix @('Base_v1', 'Base_v2', 'Other_v9', 'Base') 'Base' '_v1') 'next free suffix is one above the highest for the same base'
+    Assert-Equal '_v5' (Get-NextFreeSuffix @('Base_v1') 'Base' '_v4') 'next free suffix is above the one that collided'
+    $sfxRule = @{ VulnId = 'V-1'; RuleId = 'SV-1r1_rule'; StigId = 'X-1'; Severity = 'high'; Title = 'r'; Discussion = ''; CheckContent = ''; OvalRef = ''; FixText = ''; Ccis = @() }
+    $sfxBench = @{ BenchmarkId = 'Sfx_STIG'; Title = 'Sfx'; Version = '1'; Release = 'R1'; StatusDate = ''; Source = 's.xml'; Edition = 'manual'; Rules = @($sfxRule) }
+    $v1 = (New-NcmReports @($sfxBench) 'Pkg' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $true 'Any')[0]
+    $v2 = (New-NcmReports @($sfxBench) 'Pkg' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $true 'Any' '_v2')[0]
+    Assert-Equal 'Pkg - Sfx_STIG_v1' $v1.Name 'report name ends in _v1 by default'
+    Assert-Equal 'Sfx V1 (R1)_v2' $v2.AssignedPolicies[0].PolicyName 'policy name ends in the suffix'
+    Assert-Equal (Get-DeterministicGuid 'stig2ncm:SV-1r1_rule_v1') $v1.AssignedPolicies[0].AssignedPolicyRules[0].RuleId 'RuleId seed carries the suffix'
+    Assert-True ($v1.AssignedPolicies[0].PolicyId -ne $v2.AssignedPolicies[0].PolicyId -and
+        $v1.AssignedPolicies[0].AssignedPolicyRules[0].RuleId -ne $v2.AssignedPolicies[0].AssignedPolicyRules[0].RuleId) '_v2 gives entirely fresh ids'
+    $sfxYaml = ConvertTo-ScmPolicyYaml $sfxBench '_v2'
+    Assert-True ($sfxYaml.Contains('name: "Sfx V1 (R1)_v2"') -and $sfxYaml.Contains('  uniqueId: ' + (Get-DeterministicGuid 'stig2ncm-scm-rule:SV-1r1_rule_v2'))) 'SCM name and rule uniqueId carry the suffix'
+
+    # --- 3b. NCM scope: Cisco platform table (Tentative), refusals, escaping --
+    $platformCases = [ordered]@{
+        'U_Cisco_IOS-XE_Router_NDM_STIG' = 'IOS-XE'; 'Cisco IOS XE Switch L2S' = 'IOS-XE'; 'Cisco_IOS_XE_Switch_RTR_STIG' = 'IOS-XE'
+        'Cisco IOS XR Router' = 'IOS-XR'; 'Cisco_IOS-XR_Router_RTR_STIG' = 'IOS-XR'; 'Cisco NX OS Switch' = 'NX-OS'
+        'U_Cisco_NX-OS_Switch_Y26M07_STIG' = 'NX-OS'; 'Cisco ASA Firewall' = 'ASA'; 'Cisco IOS Router NDM' = 'IOS'; 'Cisco ISE NAC' = ''
+    }
+    foreach ($k in $platformCases.Keys) { $pc = @(Get-CiscoPlatform $k); Assert-Equal $platformCases[$k] ([string]$pc[0]) "platform of '$k'" }
+    $mkBench = { param($id, $title) @{ BenchmarkId = $id; Title = $title; Source = "$id-xccdf.xml"; Version = '1'; Release = 'R'; StatusDate = ''; Edition = 'manual'; Rules = @() } }
+    $xe = Resolve-NcmScope @(& $mkBench 'Cisco_IOS_XE_Router_NDM_STIG' 'Cisco IOS XE Router NDM') 'U_Cisco_IOS-XE_Router_Y26M07_STIG.zip' 'auto' '' ''
+    Assert-Equal "(Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')" $xe.Where 'Cisco IOS XE scope adds the MachineType pattern'
+    $sel = New-NodeSelectionString $xe.Where
+    Assert-True ($sel.Contains('<SelectedValue>Cisco</SelectedValue>') -and -not $sel.Substring(0, $sel.IndexOf('SQL:')).Contains('MachineType')) 'the picker stays Vendor-only'
+    $jun = Resolve-NcmScope @(& $mkBench 'Juniper_SRX_STIG' 'Juniper SRX SG NDM') 'U_Juniper_SRX.zip' 'auto' '' ''
+    Assert-Equal "(Vendor = 'Juniper')" $jun.Where 'other vendors keep a Vendor-only scope'
+    Assert-Throws { Resolve-NcmScope @(& $mkBench 'Router_SRG' 'Router Security Requirements Guide') 'U_Router_V5R2_SRG.zip' 'auto' '' '' } 'no longer assumes Cisco' 'an unrecognized network STIG is refused'
+    Assert-Throws { Resolve-NcmScope @(& $mkBench 'Cisco_ISE_STIG' 'Cisco ISE NAC') 'U_Cisco_ISE.zip' 'auto' '' '' } 'MachineType PATTERN' 'a Cisco STIG without a platform is refused'
+    Assert-Throws { Resolve-NcmScope @((& $mkBench 'A' 'Cisco IOS XE Router'), (& $mkBench 'B' 'Cisco ASA Firewall')) 'U_Cisco_Mixed.zip' 'auto' '' '' } 'different Cisco platforms' 'mixed platforms are refused'
+    $over = Resolve-NcmScope @(& $mkBench 'Router_SRG' 'Router SRG') 'U_Router_SRG.zip' 'auto' "O'Brien" "%x'y%"
+    Assert-Equal "(Vendor = 'O''Brien' AND MachineType LIKE '%x''y%')" $over.Where 'single quotes are doubled in the WHERE fragment'
+    Assert-True ((New-NodeSelectionString "(Vendor = 'A&B <x>')").Contains('<SelectedValue>A&amp;B &lt;x&gt;</SelectedValue>')) 'the picker vendor is XML-escaped'
+    Assert-Throws { Resolve-NcmScope @(& $mkBench 'X' 'Cisco IOS Router') 'x.zip' "(Vendor = 'Cisco')" 'Cisco' '' } 'not both' '-NodeWhere with -Vendor is refused'
+
+    # --- 3c. SCM probe template validation and substitution ------------------
+    $goodTemplate = "!scm.powershell`ndescription: `"probe {id}`"`nscript: 'Write-Host ''{id} reviewed: False'''`n"
+    $lines = ConvertFrom-ProbeTemplate $goodTemplate 't'
+    Assert-Equal 3 $lines.Count 'a valid template parses'
+    $probed = Get-ScmProbeLines 'V-9' 'X-9' $lines
+    Assert-Equal "      script: 'Write-Host ''V-9 reviewed: False'''" $probed[2] '{id} becomes the validated id'
+    foreach ($badTemplate in @("description: x`n", "!scm.powershell`nscript: Write-Host {id}`n", "!scm.powershell`n{id}: x`n",
+                               "!scm.powershell`n- item`n", "!scm.powershell`nscript: |`n  x`n", "!scm.powershell`nscript: &a x`n",
+                               "!scm.powershell`n`tscript: x`n", "!scm.powershell`nscript: `"\{id}`"`n", "!scm.powershell`n  script: x`n",
+                               ("!scm.powershell`nscript: `"" + ('x' * 5000) + "`"`n"))) {
+        Assert-Throws { ConvertFrom-ProbeTemplate $badTemplate 't' } '.' ('a bad template is refused: ' + ($badTemplate -replace "`n", ' | ').Substring(0, [Math]::Min(40, $badTemplate.Length)))
+    }
+    $linuxLog = Join-Path $scratch 'linux.log'
+    [void](Initialize-ToolLog $linuxLog 'info')
+    Write-ScmProbePlan 'linux' $null '' $null
+    Assert-True ([System.IO.File]::ReadAllText($linuxLog) -match "WARN  scm    \[SCM\] warning: Linux STIG routed to SCM.*Testing Linux STIGs in SCM") 'Linux logs a WARN pointing to the README'
+    $script:LogState.Path = $null
 
     # --- 4. uniqueId / name preflight survives CRLF -------------------------
     $lf = "!policy`nname: 'IIS Test Policy'`nuniqueId: 81d7a7f2-d976-486d-a6b9-39f2298c2348`npluginName: SCM`nrules:`n- displayId: V-1`n"
@@ -283,11 +378,11 @@ try {
     Assert-Equal 250 $r.AssignedPolicies[0].PolicyName.Length 'policy name is cut to 250'
     Assert-Equal 'Running' $r.AssignedPolicies[0].ConfigTypes '-ConfigType reaches the policy'
     $built = New-NcmReports @($bench) 'Base' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $false; $r = $built[0]
-    Assert-Equal 'Base - B1' $r.Name 'base name plus benchmark id'
+    Assert-Equal 'Base - B1_v1' $r.Name 'base name plus benchmark id plus the suffix'
     Assert-Equal 'Disabled' $r.ReportStatus 'Enabled=$false gives ReportStatus Disabled'
     $bench.BenchmarkId = ''
     $built = New-NcmReports @($bench) 'Base' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $true; $r = $built[0]
-    Assert-Equal 'Base' $r.Name 'base name alone when the benchmark has no id'
+    Assert-Equal 'Base_v1' $r.Name 'base name alone (plus the suffix) when the benchmark has no id'
 
     # --- 8. YAML scalar quoting matches json.dumps for \b and \f -----------
     Assert-Equal '"a\bb\fc\u0001"' (Y ("a" + [char]8 + "b" + [char]12 + "c" + [char]1)) 'Y escapes like json.dumps'
@@ -427,6 +522,7 @@ try {
         $script:F = @{
             Reports = [ordered]@{}; Policies = [ordered]@{}; Rules = [ordered]@{}
             Fail = @{}; Results = @{}; RejectItems = $false; Nested = $null; InIdsBroken = $false; DropRule = $false
+            Nodes = @(@('Cisco', 'Cisco IOS Software C2960'), @('Cisco', 'Cisco IOS-XE C9300'))
             Calls = New-Object System.Collections.ArrayList
         }
     }
@@ -467,6 +563,23 @@ try {
             foreach ($k in @($script:F.Policies.Keys)) { if ($ids -contains (Get-NormId $k)) { foreach ($x in $script:F.Policies[$k].Rules) { [void]$rows.Add([pscustomobject]@{ PolicyRuleID = $x }) } } }
         } elseif ($Swql -match 'FROM Cirrus\.PolicyRuleAssignment WHERE PolicyRuleID IN') {
             foreach ($k in @($script:F.Policies.Keys)) { foreach ($x in $script:F.Policies[$k].Rules) { if ($ids -contains (Get-NormId $x)) { [void]$rows.Add([pscustomobject]@{ PolicyID = $k; PolicyRuleID = $x }) } } }
+        } elseif ($Swql -eq 'SELECT PolicyID, Name FROM Cirrus.Policies WHERE Name = @n') {
+            foreach ($k in @($script:F.Policies.Keys)) { if ($script:F.Policies[$k].Name -ceq $Parameters.n) { [void]$rows.Add([pscustomobject]@{ PolicyID = $k; Name = $script:F.Policies[$k].Name }) } }
+        } elseif ($Swql -match 'WHERE Name LIKE @p') {
+            $prefix = ($Parameters.p -replace '%$', '')
+            $names = @($script:F.Reports.Values | ForEach-Object { $_.Name })
+            if ($Swql -match 'Cirrus\.Policies') { $names = @($script:F.Policies.Values | ForEach-Object { $_.Name }) }
+            foreach ($n in $names) { if ($n.StartsWith($prefix)) { [void]$rows.Add([pscustomobject]@{ Name = $n }) } }
+        } elseif ($Swql -like 'SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE Vendor = @vendor*') {
+            $n = 0
+            foreach ($node in $script:F.Nodes) {
+                if ($node[0] -ceq $Parameters.vendor -and (-not $Parameters.ContainsKey('machineType') -or $node[1] -like ($Parameters.machineType -replace '%', '*'))) { $n++ }
+            }
+            [void]$rows.Add([pscustomobject]@{ N = $n })
+        } elseif ($Swql -eq $script:ScopeSampleSwql) {
+            foreach ($node in $script:F.Nodes) { if ($node[0] -ceq $Parameters.vendor) { [void]$rows.Add([pscustomobject]@{ Vendor = $node[0]; MachineType = $node[1]; N = 1 }) } }
+        } elseif ($Swql -like 'SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE *') {
+            throw "SWIS HTTP 400 from Query`nmismatched input"
         } else { throw "fake has no answer for: $Swql" }
         return @($rows)
     }
@@ -606,6 +719,31 @@ try {
     $script:F.Reports['rA'] = @{ Name = 'Report A'; Policies = @(); Enabled = $true }
     $script:F.InIdsBroken = $true
     Assert-Throws { Get-NcmRemovalPlan @{} @('rA') $captureLog } 'IN @ids sanity probe failed' 'removal planning stops when IN @ids misses the report'
+
+    # Collision check: a second import with the same suffix is refused before any
+    # write, naming the next free suffix; the next suffix goes through.
+    Reset-Fake
+    [void](Import-NcmReports @{} @($relReport) $captureLog $true)
+    $before = $script:F.Calls.Count
+    Assert-Throws { Test-NcmCollision @{} @($relReport) '_v1' $captureLog } 'next free suffix is _v2' 'a repeated suffix is refused with the next free suffix'
+    Assert-Equal 0 @($script:F.Calls | Select-Object -Skip $before | Where-Object { $_ -like 'verb: Add*' -or $_ -like 'verb: Delete*' }).Count 'the collision check writes nothing'
+    $relV2 = (New-NcmReports @($relBench) 'Rel' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $true 'Any' '_v2')[0]
+    try { Test-NcmCollision @{} @($relV2) '_v2' $captureLog; $script:Passes++ } catch { [void]$script:Failures.Add('a fresh suffix passes the collision check'); Write-Output "FAIL: $($_.Exception.Message)" }
+    $renamed = $script:F.Reports[@($script:F.Reports.Keys)[0]]; $renamed.Name = 'Renamed in the console'
+    foreach ($pk in @($script:F.Policies.Keys)) { $script:F.Policies[$pk].Name = 'renamed' }
+    Assert-Throws { Test-NcmCollision @{} @($relReport) '_v1' $captureLog } 'RuleId\(s\)' 'an id collision without a name collision is refused too'
+
+    # Scope preflight: zero nodes refuses unless -AllowEmptyScope; NCM SQL that is
+    # not valid SWQL is inconclusive and goes on.
+    Reset-Fake
+    $xeScope = @{ Where = "(Vendor = 'Cisco' AND MachineType LIKE '%IOS-XE%')"; Vendor = 'Cisco'; MachineType = '%IOS-XE%'; Platform = 'IOS-XE'; Explicit = $false }
+    Assert-Equal 1 (Invoke-ScopePreflight @{} $xeScope $false $captureLog) 'the scope preflight counts matching nodes'
+    $nxScope = @{ Where = "(Vendor = 'Cisco' AND MachineType LIKE '%NX-OS%')"; Vendor = 'Cisco'; MachineType = '%NX-OS%'; Platform = 'NX-OS'; Explicit = $false }
+    Assert-Throws { Invoke-ScopePreflight @{} $nxScope $false $captureLog } 'matches no node' 'an empty scope is refused'
+    Assert-Equal 0 (Invoke-ScopePreflight @{} $nxScope $true $captureLog) '-AllowEmptyScope imports an empty scope anyway'
+    $sqlScope = @{ Where = "(Nodes.SysName LIKE 'core%')"; Vendor = $null; MachineType = $null; Platform = $null; Explicit = $true }
+    Assert-True ($null -eq (Invoke-ScopePreflight @{} $sqlScope $false $captureLog)) 'a scope SWQL cannot count is inconclusive'
+    Assert-True (@($script:F.Calls | Where-Object { $_ -like "query: SELECT COUNT(NodeID) AS N FROM Orion.Nodes WHERE (SysName LIKE 'core%')" }).Count -eq 1) 'an explicit scope is counted with the Nodes. prefix dropped'
 
     # Permission preflight.
     Reset-Fake
