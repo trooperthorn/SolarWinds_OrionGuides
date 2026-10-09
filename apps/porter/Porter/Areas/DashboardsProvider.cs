@@ -11,7 +11,12 @@ namespace Porter.Areas;
 /// Export:  Orion.Dashboards.Instances.Export(dashboardId) → the JSON definition.
 /// Import:  Orion.Dashboards.Instances.Import(definition) → void, so verification
 ///          re-queries the file's dashboard unique_keys and reports the new ids.
-/// Copy:    client-side structural rewrite (DashboardsArea.AsCopy).
+/// Copy:    client-side structural rewrite (DashboardsArea.AsCopy) that avoids every key
+///          already on the target.
+/// Collisions: a dashboard key on the target, or any of the file's widget keys on the
+///          target. SolarWinds documents that an import with an existing key overwrites
+///          the original, so a widget key shared with another dashboard would silently
+///          change that dashboard: the file is skipped unless imported as a copy.
 /// </summary>
 public sealed class DashboardsProvider : AreaProvider
 {
@@ -58,15 +63,62 @@ public sealed class DashboardsProvider : AreaProvider
     }
 
     /// <summary>
+    /// Dashboard-key collisions plus widget-key collisions. A same-key import is an update
+    /// that overwrites the existing object (docs/webui/modern-dashboard-authoring.md,
+    /// "Duplicating a dashboard onto the same server"; identity audit, "Import behavior"),
+    /// so a widget key already on the target — normally placed by a different dashboard —
+    /// is a collision, not a dry-run footnote. A target that cannot be checked fails the
+    /// file rather than importing it unchecked.
+    /// </summary>
+    public override async Task<Dictionary<string, string>> FindCollisionsAsync(string text,
+        IReadOnlyCollection<string> keys, CancellationToken ct)
+    {
+        var map = await FindCollisionsAsync(keys, ct);
+        var fileWidgetKeys = WidgetKeys(text);
+        if (fileWidgetKeys.Count == 0) return map;
+
+        List<string> targetKeys;
+        try { targetKeys = await _area.TargetWidgetKeysAsync(ct); }
+        catch (SwisException ex)
+        {
+            throw new InvalidOperationException(
+                $"widget keys could not be checked against the target, so the file was not imported: {ex.Message}");
+        }
+        var matches = DashboardsArea.MatchKeys(fileWidgetKeys, targetKeys);
+        if (matches.Count == 0) return map;
+
+        Dictionary<string, List<string>> consumers;
+        try { consumers = await _area.WidgetConsumersAsync(matches.Select(m => m.TargetKey).ToList(), ct); }
+        catch (SwisException) { consumers = new(DashboardKeyComparer.Instance); }
+        foreach (var (fileKey, targetKey) in matches)
+        {
+            var where = consumers.TryGetValue(targetKey, out var names) && names.Count > 0
+                ? $"placed on {string.Join(", ", names.Take(3).Select(n => $"\"{n}\""))}" +
+                  (names.Count > 3 ? $" and {names.Count - 3} more" : "")
+                : "on no dashboard this account can see";
+            map[fileKey] = $"widget unique_key already on the target ({where}) — importing would " +
+                "overwrite that widget; import as a copy for an independent one";
+        }
+        return map;
+    }
+
+    /// <summary>The copy transform, avoiding every dashboard and widget key on the target.</summary>
+    public override async Task<CopyRewrite> AsCopyAsync(string text, CancellationToken ct)
+    {
+        var avoid = await _area.TargetKeysAsync(ct);
+        var (copyText, newNames, newKeys, notes) = DashboardsArea.AsCopy(text, avoid);
+        return new CopyRewrite(copyText, newNames, newKeys, notes);
+    }
+
+    /// <summary>
     /// Dry-run plan: which dashboards the file would create, and any widget unique_keys
-    /// that already exist on the target. Widget keys are reported here rather than treated
-    /// as collisions: the dashboard key is the identity Porter matches on, and how the
-    /// server treats a repeated widget key on Import is not documented, so it is surfaced
-    /// as a warning for the operator instead of silently skipping or importing. The widget
-    /// query targets Orion.Dashboards.Widgets.UniqueKey (inherited from
-    /// Orion.Dashboards.Entity in the 2026.2 schema, checked with tools/schema_query.py);
-    /// it is still wrapped in a SwisException catch so a schema difference on another
-    /// build degrades to "not checked" rather than a failed simulation.
+    /// that already exist on the target. Those widget keys are collisions too (see
+    /// <see cref="FindCollisionsAsync(string, IReadOnlyCollection{string}, CancellationToken)"/>),
+    /// so the simulation has already marked the file NO-GO unless it imports as a copy;
+    /// this list names them. The widget query targets Orion.Dashboards.Widgets.UniqueKey
+    /// (inherited from Orion.Dashboards.Entity in the 2026.2 schema, checked with
+    /// tools/schema_query.py); here it is wrapped in a SwisException catch so a schema
+    /// difference degrades the narration to "not checked".
     /// </summary>
     public override async Task<List<string>> PlanAsync(string text, CancellationToken ct)
     {
@@ -79,12 +131,8 @@ public sealed class DashboardsProvider : AreaProvider
         if (widgetKeys.Count == 0) return lines;
         try
         {
-            var rows = await Swis.QueryAsync(
-                "SELECT UniqueKey FROM Orion.Dashboards.Widgets", null, ct);
-            var onTarget = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var row in rows.EnumerateArray())
-                if (row.TryGetProperty("UniqueKey", out var k) && k.GetString() is string s) onTarget.Add(s);
-            var hits = widgetKeys.Where(onTarget.Contains).ToList();
+            var hits = DashboardsArea.MatchKeys(widgetKeys, await _area.TargetWidgetKeysAsync(ct))
+                .Select(m => m.FileKey).ToList();
             foreach (var key in hits.Take(20))
                 lines.Add($"WARNING: widget {key} (already on target)");
             if (hits.Count > 20)
@@ -111,7 +159,7 @@ public sealed class DashboardsProvider : AreaProvider
                         keys.Add(k);
         }
         catch (JsonException) { /* Validate already reported the file as unreadable */ }
-        return keys.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return keys.Distinct(DashboardKeyComparer.Instance).ToList();
     }
 
     public override CopyRewrite AsCopy(string text)

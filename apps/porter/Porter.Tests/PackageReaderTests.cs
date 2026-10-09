@@ -193,4 +193,60 @@ public sealed class PackageReaderTests : IDisposable
         Assert.Throws<InvalidDataException>(() => PackageReader.Read(path, Reports(), _ => "nope"));
         Assert.Throws<OperationCanceledException>(() => PackageReader.Read(path, Reports(), _ => null));
     }
+
+    private const string NcmXml = "<?xml version=\"1.0\" encoding=\"utf-16\"?>\n<PolicyReport><Name>Baseline \u00e4</Name></PolicyReport>";
+
+    [Fact]
+    public void BomlessUtf16LittleEndian_IsReadAsUtf16_AndSaysSo()
+    {
+        var text = PackageReader.ReadTextSniffed(Encoding.Unicode.GetBytes(NcmXml), out var note);
+        Assert.Equal(NcmXml, text);
+        Assert.Contains("UTF-16 little-endian", note);
+    }
+
+    [Fact]
+    public void BomlessUtf16BigEndian_IsReadAsUtf16_AndSaysSo()
+    {
+        var text = PackageReader.ReadTextSniffed(Encoding.BigEndianUnicode.GetBytes(NcmXml), out var note);
+        Assert.Equal(NcmXml, text);
+        Assert.Contains("UTF-16 big-endian", note);
+    }
+
+    [Fact]
+    public void BomlessUtf16WithoutDeclaration_IsDetectedFromNulBytes()
+    {
+        const string json = "{ \"version\": 1, \"dashboards\": [] }";
+        var text = PackageReader.ReadTextSniffed(Encoding.Unicode.GetBytes(json), out var note);
+        Assert.Equal(json, text);
+        Assert.NotNull(note);
+    }
+
+    [Fact]
+    public void Utf16DeclarationOverUtf8Bytes_FallsBackToUtf8_AndReportsIt()
+    {
+        var text = PackageReader.ReadTextSniffed(new UTF8Encoding(false).GetBytes(NcmXml), out var note);
+        Assert.Equal(NcmXml, text);
+        Assert.Contains("utf-16", note);
+        Assert.Contains("read as UTF-8 (fallback)", note);
+    }
+
+    [Fact]
+    public void PlainUtf8AndBomFiles_CarryNoDiagnostic()
+    {
+        PackageReader.ReadTextSniffed(Encoding.UTF8.GetBytes(AlertXml), out var plain);
+        Assert.Null(plain);
+        var withBom = Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(NcmXml)).ToArray();
+        Assert.Equal(NcmXml, PackageReader.ReadTextSniffed(withBom, out var bom));
+        Assert.Null(bom);
+    }
+
+    [Fact]
+    public void RawFile_CarriesTheEncodingNoteOnItsEntry()
+    {
+        var path = Path.Combine(_dir, "baseline.xml");
+        File.WriteAllBytes(path, new UTF8Encoding(false).GetBytes(NcmXml));
+        var entry = Assert.Single(PackageReader.Read(path, new NcmComplianceProvider(TestData.Session()), _ => null).Entries);
+        Assert.Contains(entry.Notes, n => n.Contains("fallback"));
+        Assert.Contains(PackageReader.UnverifiedWarning, entry.Warnings);
+    }
 }

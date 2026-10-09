@@ -46,4 +46,32 @@ public class NodesCpTests
         Assert.Equal("''=x", NodesCpProvider.CsvCell("'=x"));    // a literal "'=x" is guarded too, so it round-trips
         Assert.Equal("plain", NodesCpProvider.CsvCell("plain"));
     }
+
+    private static System.Text.Json.JsonElement Json(string json)
+        => System.Text.Json.JsonDocument.Parse(json).RootElement.Clone();
+
+    [Theory]
+    [InlineData("{\"Status\":\"Valid\",\"ErrorMessage\":null}", "Valid")]
+    [InlineData("{\"Status\":0}", "Valid")]
+    [InlineData("{\"Status\":\"isreserved\"}", "IsReserved")]
+    [InlineData("{\"Status\":3}", "Exists")]
+    [InlineData("{\"status\":\"4\"}", "Error")]
+    [InlineData("{\"Status\":1}", "IsSystem")]
+    [InlineData("{\"Status\":9}", "Unknown")]
+    [InlineData("{\"Status\":\"Maybe\"}", "Unknown")]
+    [InlineData("{\"ErrorMessage\":\"x\"}", "Unknown")]
+    [InlineData("true", "Unknown")]
+    public void ValidationResult_StatusAsStringOrNumber(string json, string expected)
+        => Assert.Equal(expected, NodesCpProvider.ParseValidation(Json(json)).Status.ToString());
+
+    [Fact]
+    public void ValidationResult_KeepsErrorMessage_AndNullIsNeverValid()
+    {
+        var r = NodesCpProvider.ParseValidation(Json("{\"Status\":\"Error\",\"ErrorMessage\":\"name too long\"}"));
+        Assert.Equal(NodesCpProvider.CpValidationStatus.Error, r.Status);
+        Assert.Equal("Error", r.StatusText);
+        Assert.Equal("name too long", r.ErrorMessage);
+
+        Assert.Equal(NodesCpProvider.CpValidationStatus.Unknown, NodesCpProvider.ParseValidation(null).Status);
+    }
 }

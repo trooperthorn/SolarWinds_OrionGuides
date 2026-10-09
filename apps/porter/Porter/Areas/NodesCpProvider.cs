@@ -11,9 +11,11 @@ namespace Porter.Areas;
 ///          annotation rows (#datatype, #allowedvalues, #mandatory, #default) so
 ///          definitions can be recreated faithfully. Node identity columns only —
 ///          SNMP community strings and other node secrets are deliberately NOT exported.
-/// Import:  pre-flights each missing definition with ValidateCustomProperty, creates it
-///          (CreateCustomPropertyWithValues when an allowed-value list travelled — needs
-///          admin), then writes values per node matched by IPAddress with Caption
+/// Import:  pre-flights each missing definition with ValidateCustomProperty and creates it
+///          only when the returned Status is Valid (Exists reuses the definition; any other
+///          status stops that definition and is reported with its ErrorMessage), via
+///          CreateCustomPropertyWithValues when an allowed-value list travelled — needs
+///          admin — then writes values per node matched by IPAddress with Caption
 ///          fallback. Every row and every definition fails individually: one bad value
 ///          never aborts the rest, and the outcome accounts for all of it.
 /// </summary>
@@ -445,6 +447,53 @@ public sealed class NodesCpProvider : AreaProvider
         }
     }
 
+    /// <summary>CustomPropertyValidationStatus in the order the 2026.2 contract lists its
+    /// members, plus Unknown for a result Porter could not read.</summary>
+    internal enum CpValidationStatus { Valid, IsSystem, IsReserved, Exists, Error, Unknown }
+
+    internal sealed record CpValidation(CpValidationStatus Status, string StatusText, string ErrorMessage);
+
+    private static readonly string[] StatusNames = { "Valid", "IsSystem", "IsReserved", "Exists", "Error" };
+
+    /// <summary>
+    /// Reads ValidateCustomProperty's CustomPropertyValidationResult. Status is accepted as
+    /// the enum member name (any case) or as its number, mapped by the member order the
+    /// contract lists (Valid = 0 … Error = 4); which form the REST endpoint sends is not
+    /// recorded, so both are taken. A missing or unreadable result is Unknown, never Valid.
+    /// </summary>
+    internal static CpValidation ParseValidation(JsonElement? result)
+    {
+        if (result is not { ValueKind: JsonValueKind.Object } obj)
+            return new CpValidation(CpValidationStatus.Unknown,
+                result is null ? "(no result)" : $"(unreadable {result.Value.ValueKind} result)", "");
+        JsonElement? Member(string name)
+        {
+            foreach (var p in obj.EnumerateObject())
+                if (p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) return p.Value;
+            return null;
+        }
+        var message = Member("ErrorMessage") is { ValueKind: JsonValueKind.String } m ? m.GetString() ?? "" : "";
+        var status = Member("Status");
+        if (status is { ValueKind: JsonValueKind.String } s)
+        {
+            var text = s.GetString()?.Trim() ?? "";
+            var idx = Array.FindIndex(StatusNames, n => n.Equals(text, StringComparison.OrdinalIgnoreCase));
+            if (idx < 0 && int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n))
+                idx = n >= 0 && n < StatusNames.Length ? n : -1;
+            return idx >= 0
+                ? new CpValidation((CpValidationStatus)idx, StatusNames[idx], message)
+                : new CpValidation(CpValidationStatus.Unknown, text.Length > 0 ? text : "(empty)", message);
+        }
+        if (status is { ValueKind: JsonValueKind.Number } num && num.TryGetInt32(out var ord))
+            return ord >= 0 && ord < StatusNames.Length
+                ? new CpValidation((CpValidationStatus)ord, StatusNames[ord], message)
+                : new CpValidation(CpValidationStatus.Unknown, ord.ToString(CultureInfo.InvariantCulture), message);
+        return new CpValidation(CpValidationStatus.Unknown, "(missing)", message);
+    }
+
+    private static string Message(string errorMessage)
+        => string.IsNullOrWhiteSpace(errorMessage) ? "" : $" ({errorMessage.Trim()})";
+
     public override async Task<ImportOutcome> ImportAsync(string text, IReadOnlyList<string> verifyKeys,
         ImportOptions opt, CancellationToken ct)
     {
@@ -456,6 +505,7 @@ public sealed class NodesCpProvider : AreaProvider
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var created = 0;
         var problems = new List<string>();
+        var notes = new List<string>();
         foreach (var field in table.Fields.Where(f => !existing.Contains(f)))
         {
             var (valueType, size) = DefinitionSpec(table, field);
@@ -464,10 +514,31 @@ public sealed class NodesCpProvider : AreaProvider
             var deflt = table.Defaults.TryGetValue(field, out var df) ? df : null;
             try
             {
-                // Server-side pre-flight; its result shape is undocumented, so a thrown
-                // fault is the signal Porter acts on.
-                await Swis.InvokeAsync("Orion.NodesCustomProperties", "ValidateCustomProperty",
-                    new object?[] { field, "", valueType, size, values.ToArray(), null, null }, ct);
+                // Server-side pre-flight. The 2026.2 contract records the return as
+                // CustomPropertyValidationResult { Status, ErrorMessage }, Status one of
+                // Valid, IsSystem, IsReserved, Exists, Error. Only Valid proceeds to Create;
+                // a thrown fault still stops this definition the same way.
+                var check = ParseValidation(await Swis.InvokeAsync("Orion.NodesCustomProperties",
+                    "ValidateCustomProperty",
+                    new object?[] { field, "", valueType, size, values.ToArray(), null, null }, ct));
+                if (check.Status == CpValidationStatus.Exists)
+                {
+                    // Porter never recreates a definition that is already there: an existing
+                    // one is reused and only values are written, the same as when the
+                    // definitions query had found it. The query missed it (another table,
+                    // or account visibility), so say so instead of passing silently.
+                    notes.Add($"definition \"{field}\" not created: ValidateCustomProperty returned " +
+                        $"Status={check.StatusText}{Message(check.ErrorMessage)} — treated as existing; " +
+                        "values are still written and any per-node failure is reported");
+                    existing.Add(field);
+                    continue;
+                }
+                if (check.Status != CpValidationStatus.Valid)
+                {
+                    problems.Add($"definition \"{field}\" not created: ValidateCustomProperty returned " +
+                        $"Status={check.StatusText}{Message(check.ErrorMessage)}");
+                    continue;
+                }
                 if (values.Count > 0)
                     // WithValues: the required Value array sits after the six unused
                     // ValidRange..Units slots, then Usages, Mandatory, Default.
@@ -526,6 +597,7 @@ public sealed class NodesCpProvider : AreaProvider
         }
 
         var detail = $"{created} definition(s) created · values written on {updated} node(s)";
+        if (notes.Count > 0) detail += " · " + string.Join(", ", notes);
         if (problems.Count > 0)
         {
             var shown = string.Join(", ", problems.Take(10));

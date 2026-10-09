@@ -52,11 +52,16 @@ public sealed class ExportOptions
 public sealed class ImportOptions
 {
     public string? CipherPassword;
+    /// <summary>Keep each item's exported enabled/active status instead of the area's safe
+    /// default. Shown only when the provider sets <see cref="AreaProvider.KeepEnabledOptionLabel"/>.</summary>
+    public bool KeepEnabled;
 }
 
 /// <summary>What one file's import produced. Verified means the provider confirmed the
-/// object(s) exist on the target — by re-query or by the verb's own return value.</summary>
-public sealed record ImportOutcome(bool Verified, string Detail);
+/// object(s) exist on the target — by re-query or by the verb's own return value. Partial
+/// means something was written but read-back proved it incomplete: reported as a failure,
+/// never as a warning.</summary>
+public sealed record ImportOutcome(bool Verified, string Detail, bool Partial = false);
 
 /// <summary>
 /// The contract every configuration area implements, so ExportView and ImportView stay
@@ -86,6 +91,9 @@ public abstract class AreaProvider
     public virtual bool RequiresCipherPassword => false;
     /// <summary>Shown above the export options when set (alerts sensitive-data notice).</summary>
     public virtual string? SecurityNotice => null;
+    /// <summary>When set, the import panel offers a checkbox with this label that sets
+    /// <see cref="ImportOptions.KeepEnabled"/>; off by default.</summary>
+    public virtual string? KeepEnabledOptionLabel => null;
 
     public abstract Task<List<AreaItem>> ListAsync(CancellationToken ct);
 
@@ -103,8 +111,21 @@ public abstract class AreaProvider
         IReadOnlyCollection<string> keys, CancellationToken ct)
         => Task.FromResult(new Dictionary<string, string>());
 
+    /// <summary>File-aware collision check: key → what already exists on the target. The
+    /// default checks the file's item keys only; an area whose files carry nested
+    /// identities (dashboard widget keys) overrides it and may return keys that are not
+    /// item keys, each with a description of what it collides with.</summary>
+    public virtual Task<Dictionary<string, string>> FindCollisionsAsync(string text,
+        IReadOnlyCollection<string> keys, CancellationToken ct)
+        => FindCollisionsAsync(keys, ct);
+
     public virtual CopyRewrite AsCopy(string text)
         => throw new NotSupportedException($"{DisplayName} does not support import-as-copy");
+
+    /// <summary>The copy transform with read-only access to the target, so an area can
+    /// avoid identities that already exist there. The default is <see cref="AsCopy"/>.</summary>
+    public virtual Task<CopyRewrite> AsCopyAsync(string text, CancellationToken ct)
+        => Task.FromResult(AsCopy(text));
 
     /// <summary>
     /// Dry-run narration: human-readable lines describing what importing this file would

@@ -3,6 +3,29 @@ using System.Text.Json.Nodes;
 
 namespace Porter.Areas;
 
+/// <summary>
+/// Dashboard and widget unique_key identity for comparisons: a UUID-shaped key is compared
+/// in its canonical form (braces, hyphens and letter case do not matter), and a named key
+/// such as "CLM-Aws-Monthly-Costs" case-insensitively. How a target collates named keys is
+/// unverified (docs/webui/modern-dashboard-widget-identity-audit.md), so Porter errs
+/// toward calling two keys the same.
+/// </summary>
+public sealed class DashboardKeyComparer : IEqualityComparer<string>
+{
+    public static readonly DashboardKeyComparer Instance = new();
+
+    public static string Normalize(string key)
+    {
+        var trimmed = key.Trim();
+        return Guid.TryParse(trimmed, out var g) ? g.ToString("D") : trimmed.ToUpperInvariant();
+    }
+
+    public bool Equals(string? x, string? y)
+        => x is null || y is null ? x is null && y is null : Normalize(x) == Normalize(y);
+
+    public int GetHashCode(string obj) => StringComparer.Ordinal.GetHashCode(Normalize(obj));
+}
+
 public sealed class DashboardValidation
 {
     public List<string> Errors { get; } = new();
@@ -22,7 +45,9 @@ public sealed class DashboardValidation
 /// The Modern Dashboard file invariants, ported from the SolarWinds_OrionGuides
 /// documentation repository (docs/webui/modern-dashboards.md): the envelope, placements
 /// resolving to definitions, duplicate widget unique_keys, and the SWQL that is stored
-/// twice and must agree. Validation is local and free — no API call, nothing written.
+/// twice (a disagreement is a warning: newly authored widgets should match, but vendor
+/// exports do differ and which copy wins is not established — see the 2026.4 export
+/// audit, section 10). Validation is local and free — no API call, nothing written.
 /// </summary>
 public static class DashboardValidator
 {
@@ -76,19 +101,24 @@ public static class DashboardValidator
         var dashboards = obj["dashboards"] as JsonArray ?? new JsonArray();
         v.WidgetCount = widgets.Count;
 
-        // Widget definitions: collect keys, find duplicates.
-        var keyCounts = new Dictionary<string, int>();
+        // Widget definitions: collect keys, find duplicates. Duplicates are found with UUID
+        // spellings normalized and named keys compared case-insensitively — how a target
+        // collates named keys is unverified, so a near-duplicate is reported, not trusted.
+        var keyCounts = new Dictionary<string, int>(DashboardKeyComparer.Instance);
+        var exactKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var w in widgets.OfType<JsonObject>())
         {
             var key = (w["unique_key"] as JsonValue)?.TryGetValue<string>(out var wk) == true ? wk : null;
             if (key is null) { v.Errors.Add("a widget definition has no unique_key"); continue; }
             keyCounts[key] = keyCounts.GetValueOrDefault(key) + 1;
+            exactKeys.Add(key);
         }
         var dupes = keyCounts.Where(kv => kv.Value > 1).ToList();
         if (dupes.Count > 0)
             v.Warnings.Add(
-                $"unique_key reused ×{dupes.Max(kv => kv.Value)} across {dupes.Sum(kv => kv.Value)} widget definitions — " +
-                "placements cannot say which duplicate they mean, so Porter will not guess; the server's pick is undefined");
+                $"unique_key reused ×{dupes.Max(kv => kv.Value)} across {dupes.Sum(kv => kv.Value)} widget definitions " +
+                "(UUID spelling and letter case ignored) — placements cannot say which duplicate they mean, " +
+                "so Porter will not guess; which definition the server keeps is not documented");
 
         // Placements must resolve to definitions.
         foreach (var d in dashboards.OfType<JsonObject>())
@@ -99,7 +129,7 @@ public static class DashboardValidator
             foreach (var p in (d["widgets"] as JsonArray ?? new JsonArray()).OfType<JsonObject>())
             {
                 var pKey = (p["unique_key"] as JsonValue)?.TryGetValue<string>(out var pk) == true ? pk : null;
-                if (pKey is not null && !keyCounts.ContainsKey(pKey))
+                if (pKey is not null && !exactKeys.Contains(pKey))
                     v.Errors.Add($"dashboard \"{dName}\" places widget {pKey}, which no definition provides");
             }
         }
@@ -110,7 +140,8 @@ public static class DashboardValidator
         var mismatches = 0;
         v.QueryCount = CountQueriesAndCheckPairs(root, ref mismatches);
         if (mismatches > 0)
-            v.Warnings.Add($"{mismatches} widget(s) where the dataSource and adapter copies of the SWQL differ — both are real, the stale one still runs");
+            v.Warnings.Add($"{mismatches} widget(s) where the dataSource and adapter copies of the SWQL differ — " +
+                "which copy runs is not established; check the widget in the console before importing");
     }
 
     private static int CountQueriesAndCheckPairs(JsonNode? node, ref int mismatches)

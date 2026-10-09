@@ -198,11 +198,13 @@ for complete definition comparison; a configuration column alone omits other wid
 
 ## Gaps in the repository import applications
 
-At baseline commit `614cbb7`, Dashboard Porter's
-[`FindCollisionsAsync`](../../apps/dashboard-porter/DashboardPorter/Core/DashboardsCore.cs)
-checks dashboard keys only. Its `VerifyAsync` confirms dashboard presence, not widget
-isolation. Its `AsCopy` remaps widget and dashboard keys within one definition string, but
-one old widget key receives only one new key. That does not resolve ambiguous conflicting
+At baseline commit `614cbb7`, Porter's dashboard import
+([`DashboardsProvider.cs`](../../apps/porter/Porter/Areas/DashboardsProvider.cs) and
+[`DashboardsArea.cs`](../../apps/porter/Porter/Areas/DashboardsArea.cs)) had these gaps.
+Its `FindCollisionsAsync` checked dashboard keys only; widget keys already on the target
+appeared only as dry-run warnings. Its `VerifyAsync` confirms dashboard presence, not widget
+isolation. Its `AsCopy` remapped widget and dashboard keys within one definition string, but
+one old widget key received only one new key. That does not resolve ambiguous conflicting
 definitions already consolidated into one payload. Batch behavior must also declare whether
 identical widgets remain shared across files.
 
@@ -211,3 +213,19 @@ versus update mode, and post-import definition comparison. This audit adds offli
 and documentation; it does not claim those application changes or live acceptance tests are
 implemented. Test a corrected copy in a non-production target by exporting the original
 dashboards before and after import and confirming their widget definitions remain unchanged.
+
+**Update, 2026-10-08 (Porter 0.3.0).** Porter now treats any of a file's widget keys that
+already exist on the target as a collision. In skip mode the file is skipped and the run
+report names each widget key and the target dashboards that place it. Keys are compared
+with UUID spelling normalized and named keys case-insensitively. In copy mode the new keys
+avoid every dashboard and widget key on the target, and dashboard and widget keys are mapped
+separately. A widget key carrying different definitions inside one file is refused rather
+than remapped by guessing; identical duplicates keep one new key, and the run notes say so.
+Each file's copy has its own key map, so files that shared a widget get independent copies.
+Copies also move to a new `groupId` and clear `routeId` and `dashboardRoutes`, with a
+warning. Still open: collision checks run per file against the live target rather than
+across all files of one batch before any import, a widget shared by several dashboards
+inside one file stays shared within the copy, there is no update mode, and verification
+still confirms dashboard rows rather than comparing re-exported definitions. These changes
+are covered by offline unit tests, not by a live import. The separate Dashboard Porter
+application under `apps/dashboard-porter` was not changed.

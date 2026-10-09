@@ -254,9 +254,14 @@ before relying on it:
 python3 tools/schema_query.py verbs --grep ValidateCustomProperty
 ```
 
-The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it
-is unverified here. Inspect
-what your server returns rather than assuming field names.
+The 2026.2 contract records the shape of `CustomPropertyValidationResult`: two members,
+`Status` (the `CustomPropertyValidationStatus` enum, one of `Valid`, `IsSystem`,
+`IsReserved`, `Exists` or `Error`) and `ErrorMessage` (a string).
+`python3 tools/schema_query.py verb Orion.NodesCustomProperties ValidateCustomProperty`
+prints it. Two things the contract does not settle are unverified here: whether the JSON
+REST endpoint serializes `Status` as the member name or as its number, and what each
+status covers beyond its name. Accept both forms, and treat anything other than `Valid`
+as a reason not to call `CreateCustomProperty`.
 
 ### ModifyCustomProperty
 

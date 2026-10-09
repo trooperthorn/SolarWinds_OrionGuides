@@ -597,7 +597,7 @@ A policy report checks device configurations against rules and reports the viola
 - [The three-tier structure](modules/ncm-compliance-reports.md#the-three-tier-structure): The same rule can appear in several policies and the same policy in several reports — the file denormalizes that: each export carries complete copies of everything it uses.
 - [The file](modules/ncm-compliance-reports.md#the-file): The original three samples, and all 24 files in the later audit, declare encoding="utf-16" over UTF-8 bytes.
 - [The SWIS round trip (2026.2, verified)](modules/ncm-compliance-reports.md#the-swis-round-trip-20262-verified): All writes are Invoke verbs on Cirrus.PolicyReports — the Cirrus.Policy* SWQL entities are read-only.
-- [Porter](modules/ncm-compliance-reports.md#porter): The Porter utility in this repository (apps/porter) writes UTF-16 XML with a matching declaration and uses nested AddPolicyReport import, name-collision skip, and StartCaching.
+- [Porter](modules/ncm-compliance-reports.md#porter): The Porter utility in this repository (apps/porter) writes UTF-16 XML with a matching declaration and imports through nested AddPolicyReport with a name-collision skip.
 - [From a DISA STIG package](modules/ncm-compliance-reports.md#from-a-disa-stig-package): Reports in this format can also be generated from DISA's own XCCDF STIG downloads rather than a console export.
 
 ### [NCM device templates: the .ConfigMgmtCommands format](modules/ncm-device-templates.md)
@@ -1361,7 +1361,7 @@ The import identity to check is widgets[].unique_key, together with the matching
 - [Rules for AI authors and import preflight](webui/modern-dashboard-widget-identity-audit.md#rules-for-ai-authors-and-import-preflight): ZIPs in the import batch, and exported target definitions.
 - [Reproduce the package check](webui/modern-dashboard-widget-identity-audit.md#reproduce-the-package-check): Run the read-only identity auditor against both archives together.
 - [Read-only target checks](webui/modern-dashboard-widget-identity-audit.md#read-only-target-checks): The 2026.2 schema exposes widget UniqueKey through Orion.Dashboards.Entity and links through Orion.Dashboards.Links.
-- [Gaps in the repository import applications](webui/modern-dashboard-widget-identity-audit.md#gaps-in-the-repository-import-applications): At baseline commit 614cbb7, Dashboard Porter's FindCollisionsAsync checks dashboard keys only.
+- [Gaps in the repository import applications](webui/modern-dashboard-widget-identity-audit.md#gaps-in-the-repository-import-applications): At baseline commit 614cbb7, Porter's dashboard import (DashboardsProvider.cs and DashboardsArea.cs) had these gaps.
 
 ### [Modern Dashboard files](webui/modern-dashboards.md)
 

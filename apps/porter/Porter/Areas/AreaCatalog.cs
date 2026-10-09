@@ -13,10 +13,10 @@ public static class AreaCatalog
     public static readonly IReadOnlyList<AreaInfo> All = new[]
     {
         new AreaInfo("dashboards", "Modern Dashboards", "verb pair",
-            "Export(dashboardId) → JSON · Import(definition) · verified after import by unique_key",
+            "Export(dashboardId) → JSON · Import(definition) · dashboard or widget key on the target skips · verified after import by unique_key",
             true, "Flight-ready"),
         new AreaInfo("alerts", "Alerts", "verb pair",
-            "Export strips sensitive data by default · import always creates (collisions skip by name) · needs manageAlerts",
+            "Export strips sensitive data by default · import always creates (collisions skip by name) · schema declares admin and manageAlerts",
             true, "Flight-ready"),
         new AreaInfo("reports", "Reports", "query + verb",
             "SELECT Definition → CreateReport (create-only; collisions skip by name) · schedules have no route",
@@ -34,7 +34,7 @@ public static class AreaCatalog
             "One CSV out · creates missing definitions (needs admin) · values matched by IP with Caption fallback",
             true, "Flight-ready"),
         new AreaInfo("ncmcompliance", "NCM Compliance Reports", "deep verb pair",
-            "Console-compatible XML round trip · auto-executing remediation rules blocked until acknowledged",
+            "Console-compatible XML round trip · imports Disabled, tree read back · auto-executing remediation rules blocked until acknowledged",
             true, "Flight-ready"),
         new AreaInfo("discovery", "Discovery + Credentials", "partial by design",
             "Secrets never leave a server (write-only) · v2 ships a guided replay with re-entry",

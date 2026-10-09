@@ -22628,7 +22628,7 @@ The relevant sources are the [Python tool](../../apps/disa-stig-conversion-tool/
 | P0 | Python `dc_rule_xml`; PowerShell `ConvertTo-DcXml` | These writers emit an empty multiline container. An offline Python probe supplied two real advanced conditions and serialized zero in both XML namespace modes. | Preserve every ordered condition in all supported serializers; refuse unsupported structures rather than drop them. |
 | P0 | PowerShell `ConvertTo-ConsoleReportXml` | Code inspection shows an empty multiline container even if the supplied object has conditions. Python's console writer does iterate them. | Test Python/PowerShell console and API output equivalence for advanced rules. |
 | P0 | Python `_verify_report`; PowerShell `Test-NcmImport` | Verification rejects an empty tree but does not compare expected counts. The Python probe expected two policies/ten rules; one policy/one rule was accepted. | Verify exact relationships and canonical content, not merely nonzero counts; report partial imports explicitly. |
-| P0 | Porter `ImportAsync` | Read-back checks the report row's name and then starts caching; it does not read the nested tree. | Verify the complete imported definition before evaluation. A report row alone is insufficient. |
+| P0 | Porter `ImportAsync` | At baseline, read-back checked the report row's name and then started caching; it did not read the nested tree. **Addressed in code in Porter 0.3.0 (2026-10-08):** the report is created `Disabled`, `GetPolicyReport(reportId, exportFlag)` with `exportFlag` true is read back, and policy and rule counts and names are compared with the file. A mismatch is reported as a partial import with both counts, and caching starts only for a verified report the operator chose to keep `Enabled`. Covered by offline unit tests; no live import was run. | Verify the complete imported definition before evaluation. A report row alone is insufficient. Still open: canonical comparison of rule content beyond names and counts, and a live acceptance test. |
 | P1 | Python `_parse_one_benchmark`; PowerShell `Read-OneBenchmark` | Only the first direct Rule per Group is selected. A synthetic two-rule Group produced one rule. Profile metadata is not retained. | Preserve all rules and group ancestry; represent profile selection explicitly. |
 | P1 | XCCDF parsers and deduplication | Only one check/reference and one fix text are selected; check-reference href/system and tailoring are not modeled. Namespace 1.2 is treated as SCAP edition, and deduplication prefers manual by benchmark ID without release comparison. | Keep source structure and versions before deciding how much can be converted; namespace alone is not an edition test. |
 | P1 | `make_node_selection_string` / `New-NodeSelectionString` | The picker is synthesized from Vendor alone with equality, while the SQL suffix can retain LIKE and additional properties. An offline probe reproduced that disagreement. | Generate both representations from the same scope model; test save/reopen behavior on the target. |
@@ -23039,10 +23039,17 @@ Round-trip gotchas:
 ## Porter
 
 The Porter utility in this repository (`apps/porter`) writes UTF-16 XML with a matching
-declaration and uses nested `AddPolicyReport` import, name-collision skip, and `StartCaching`.
-Its current read-back checks the report row, not the nested policy/rule tree. The
+declaration and imports through nested `AddPolicyReport` with a name-collision skip.
+Since Porter 0.3.0 it creates each report with `ReportStatus` `Disabled`, sets that again
+with `UpdateReportStatus`, and reads the stored tree back with `GetPolicyReport(reportId,
+exportFlag)` (`exportFlag` true), comparing policy and rule counts and names with the file.
+A mismatch is reported as a partial import, and that report stays disabled and uncached.
+Only when the operator opts in to keeping the exported status does Porter enable an
+`Enabled` report and call `StartCaching` for that one report. Its reader detects BOM-less
+UTF-16 and reports a UTF-8 fallback when the bytes contradict the declaration. This is
+code behavior covered by offline unit tests, not a live import test; the
 [portability audit](ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter)
-records the missing verification before this should be treated as a complete round trip.
+records the original gap.
 Its import validation raises a **blocking security flag** for every
 auto-executing remediation rule; the file cannot be imported until the operator
 explicitly acknowledges the flags.
@@ -39896,9 +39903,14 @@ before relying on it:
 python3 tools/schema_query.py verbs --grep ValidateCustomProperty
 ```
 
-The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it
-is unverified here. Inspect
-what your server returns rather than assuming field names.
+The 2026.2 contract records the shape of `CustomPropertyValidationResult`: two members,
+`Status` (the `CustomPropertyValidationStatus` enum, one of `Valid`, `IsSystem`,
+`IsReserved`, `Exists` or `Error`) and `ErrorMessage` (a string).
+`python3 tools/schema_query.py verb Orion.NodesCustomProperties ValidateCustomProperty`
+prints it. Two things the contract does not settle are unverified here: whether the JSON
+REST endpoint serializes `Status` as the member name or as its number, and what each
+status covers beyond its name. Accept both forms, and treat anything other than `Valid`
+as a reason not to call `CreateCustomProperty`.
 
 ### ModifyCustomProperty
 
@@ -53033,11 +53045,13 @@ for complete definition comparison; a configuration column alone omits other wid
 
 ## Gaps in the repository import applications
 
-At baseline commit `614cbb7`, Dashboard Porter's
-[`FindCollisionsAsync`](../../apps/dashboard-porter/DashboardPorter/Core/DashboardsCore.cs)
-checks dashboard keys only. Its `VerifyAsync` confirms dashboard presence, not widget
-isolation. Its `AsCopy` remaps widget and dashboard keys within one definition string, but
-one old widget key receives only one new key. That does not resolve ambiguous conflicting
+At baseline commit `614cbb7`, Porter's dashboard import
+([`DashboardsProvider.cs`](../../apps/porter/Porter/Areas/DashboardsProvider.cs) and
+[`DashboardsArea.cs`](../../apps/porter/Porter/Areas/DashboardsArea.cs)) had these gaps.
+Its `FindCollisionsAsync` checked dashboard keys only; widget keys already on the target
+appeared only as dry-run warnings. Its `VerifyAsync` confirms dashboard presence, not widget
+isolation. Its `AsCopy` remapped widget and dashboard keys within one definition string, but
+one old widget key received only one new key. That does not resolve ambiguous conflicting
 definitions already consolidated into one payload. Batch behavior must also declare whether
 identical widgets remain shared across files.
 
@@ -53046,6 +53060,22 @@ versus update mode, and post-import definition comparison. This audit adds offli
 and documentation; it does not claim those application changes or live acceptance tests are
 implemented. Test a corrected copy in a non-production target by exporting the original
 dashboards before and after import and confirming their widget definitions remain unchanged.
+
+**Update, 2026-10-08 (Porter 0.3.0).** Porter now treats any of a file's widget keys that
+already exist on the target as a collision. In skip mode the file is skipped and the run
+report names each widget key and the target dashboards that place it. Keys are compared
+with UUID spelling normalized and named keys case-insensitively. In copy mode the new keys
+avoid every dashboard and widget key on the target, and dashboard and widget keys are mapped
+separately. A widget key carrying different definitions inside one file is refused rather
+than remapped by guessing; identical duplicates keep one new key, and the run notes say so.
+Each file's copy has its own key map, so files that shared a widget get independent copies.
+Copies also move to a new `groupId` and clear `routeId` and `dashboardRoutes`, with a
+warning. Still open: collision checks run per file against the live target rather than
+across all files of one batch before any import, a widget shared by several dashboards
+inside one file stays shared within the copy, there is no update mode, and verification
+still confirms dashboard rows rather than comparing re-exported definitions. These changes
+are covered by offline unit tests, not by a live import. The separate Dashboard Porter
+application under `apps/dashboard-porter` was not changed.
 
 
 ==============================================================================
@@ -66033,7 +66063,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[ValidateCustomProperty](../automation/custom-properties.md#validatecustomproperty)**
 
-- The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it is unverified here.
+- Two things the contract does not settle are unverified here: whether the JSON REST endpoint serializes `Status` as the member name or as its number, and what each status covers beyond its name.
 
 **[`DataType` is not `ValueType`](../automation/custom-properties.md#datatype-is-not-valuetype)**
 

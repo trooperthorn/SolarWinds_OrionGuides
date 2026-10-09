@@ -100,6 +100,42 @@ public sealed class ReportsProvider : AreaProvider
         return map;
     }
 
+    /// <summary>
+    /// The definition's LimitationCategory names a folder that has to exist on the target
+    /// (docs/automation/report-definitions.md, "What breaks on the way across"). The 2026.2
+    /// schema has no entity listing those folders, so the only read-only evidence is a
+    /// report on the target already using the name: found means the folder exists; not
+    /// found does NOT prove it is missing (an empty folder, or account limitations hide
+    /// rows), so it is a warning to confirm, never a silent pass. Null when there is nothing
+    /// to warn about.
+    /// </summary>
+    private async Task<string?> LimitationCategoryWarningAsync(string limitationCategory, CancellationToken ct)
+    {
+        if (limitationCategory.Length == 0) return null;
+        var rows = await Swis.QueryAsync(
+            "SELECT TOP 1 ReportID FROM Orion.Report WHERE LimitationCategory = @c",
+            new Dictionary<string, object?> { ["c"] = limitationCategory }, ct);
+        return rows.GetArrayLength() > 0 ? null
+            : $"LimitationCategory \"{limitationCategory}\" is not used by any report this account " +
+              "can see on the target — the folder has to exist there; confirm it in the console";
+    }
+
+    /// <summary>Dry-run plan: the report that would be created and the folder check. Read-only.</summary>
+    public override async Task<List<string>> PlanAsync(string text, CancellationToken ct)
+    {
+        var lines = new List<string>();
+        XDocument doc;
+        try { doc = XDocument.Parse(text); }
+        catch (System.Xml.XmlException) { return lines; }
+        var name = Element(doc, "Name") ?? "(unnamed)";
+        var limitationCategory = Element(doc, "LimitationCategory") ?? "";
+        lines.Add($"would create report \"{name}\"" +
+            (limitationCategory.Length > 0 ? $" in limitation category \"{limitationCategory}\"" : ""));
+        if (await LimitationCategoryWarningAsync(limitationCategory, ct) is string warning)
+            lines.Add("WARNING: " + warning);
+        return lines;
+    }
+
     public override async Task<ImportOutcome> ImportAsync(string text, IReadOnlyList<string> verifyKeys,
         ImportOptions opt, CancellationToken ct)
     {
@@ -107,6 +143,9 @@ public sealed class ReportsProvider : AreaProvider
         var name = Element(doc, "Name") ?? (verifyKeys.Count > 0 ? verifyKeys[0] : "Imported report");
         var description = Element(doc, "Description") ?? "";
         var limitationCategory = Element(doc, "LimitationCategory") ?? "";
+        // Checked before the write, reported after it: the import still runs (absence cannot
+        // be proven), but the item lands as a warning until the folder is confirmed.
+        var folderWarning = await LimitationCategoryWarningAsync(limitationCategory, ct);
         var category = Element(doc, "Category") ?? "";
         // Title and SubTitle are not top-level: the definition keeps them inside <Header>
         // (DataContract output, foreign namespace prefixes — match by local name).
@@ -116,7 +155,9 @@ public sealed class ReportsProvider : AreaProvider
         var subtitle = header?.Descendants().FirstOrDefault(e => e.Name.LocalName == "SubTitle")?.Value ?? "";
 
         // Exact CreateReport order from the 2026.2 contract: limitationCategory is THIRD,
-        // before category, and isFavorite travels as the string "false".
+        // before category, and isFavorite travels as the string "false". userName is empty
+        // for a Windows-session connection: SwisSession sends the process's default
+        // credentials and never learns the account name, so there is nothing to pass.
         var result = await Swis.InvokeAsync("Orion.Report", "CreateReport",
             new object?[] { name, description, limitationCategory, category, title, subtitle,
                 text, "false", Swis.Username ?? "" }, ct);
@@ -128,8 +169,10 @@ public sealed class ReportsProvider : AreaProvider
             "SELECT ReportID, Name, Title FROM Orion.Report WHERE ReportID = @id",
             new Dictionary<string, object?> { ["id"] = newId }, ct);
         foreach (var row in rows.EnumerateArray())
-            return new ImportOutcome(true,
-                $"\"{row.GetProperty("Name").GetString()}\" (id {newId})");
+            return folderWarning is null
+                ? new ImportOutcome(true, $"\"{row.GetProperty("Name").GetString()}\" (id {newId})")
+                : new ImportOutcome(false,
+                    $"\"{row.GetProperty("Name").GetString()}\" (id {newId}) created, but {folderWarning}");
         return new ImportOutcome(false,
             $"CreateReport returned id {newId} but no data returned when reading it back (No Data Returned)");
     }

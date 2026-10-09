@@ -54,4 +54,31 @@ public class DashboardValidatorTests
         Assert.False(DashboardValidator.Validate("{ not json").Ok);
         Assert.False(DashboardValidator.Validate("[]").Ok);
     }
+
+    [Theory]
+    [InlineData("6AE07BDB-AABF-4B31-A26A-F74AC1172C6E", "{6ae07bdb-aabf-4b31-a26a-f74ac1172c6e}")]
+    [InlineData("W-1", "w-1")]
+    public void DuplicateWidgetKeys_AreFoundAcrossSpellings(string first, string second)
+    {
+        var node = JsonNode.Parse(TestData.Dashboard)!.AsObject();
+        node["widgets"]![0]!["unique_key"] = first;
+        node["widgets"]![1]!["unique_key"] = second;
+        node["dashboards"]![0]!["widgets"]![0]!["unique_key"] = first;
+        node["dashboards"]![0]!["widgets"]![1]!["unique_key"] = second;
+        var v = DashboardValidator.Validate(node.ToJsonString());
+        Assert.True(v.Ok, string.Join("; ", v.Errors));
+        Assert.Contains(v.Warnings, w => w.Contains("unique_key reused"));
+    }
+
+    [Fact]
+    public void QueryCopyMismatch_DoesNotClaimWhichCopyRuns()
+    {
+        var node = JsonNode.Parse(TestData.Dashboard)!.AsObject();
+        node["widgets"]![0]!["adapter"] = JsonNode.Parse(
+            "{ \"properties\": { \"dataSource\": { \"properties\": { \"swql\": \"SELECT 1 FROM Orion.Nodes\" } } } }");
+        var v = DashboardValidator.Validate(node.ToJsonString());
+        var warning = Assert.Single(v.Warnings, w => w.Contains("dataSource and adapter copies"));
+        Assert.Contains("not established", warning);
+        Assert.DoesNotContain("still runs", warning);
+    }
 }

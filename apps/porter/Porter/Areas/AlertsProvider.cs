@@ -12,7 +12,8 @@ namespace Porter.Areas;
 ///          → AlertImportResult { AlertId, Name, MigrationMessage,
 ///            IncorrectPasswordForDecryptSensitiveData, AlertDefinitionIsNotSupported }.
 /// Import always CREATES (fresh AlertID, no overwrite), so the only collision policy is
-/// skip-by-name. Both verbs require the manageAlerts right.
+/// skip-by-name. The 2026.2 schema declares two rights on both verbs, admin and
+/// manageAlerts; plan for an account that holds both.
 /// </summary>
 public sealed class AlertsProvider : AreaProvider
 {

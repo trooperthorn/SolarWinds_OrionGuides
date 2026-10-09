@@ -224,10 +224,17 @@ Round-trip gotchas:
 ## Porter
 
 The Porter utility in this repository (`apps/porter`) writes UTF-16 XML with a matching
-declaration and uses nested `AddPolicyReport` import, name-collision skip, and `StartCaching`.
-Its current read-back checks the report row, not the nested policy/rule tree. The
+declaration and imports through nested `AddPolicyReport` with a name-collision skip.
+Since Porter 0.3.0 it creates each report with `ReportStatus` `Disabled`, sets that again
+with `UpdateReportStatus`, and reads the stored tree back with `GetPolicyReport(reportId,
+exportFlag)` (`exportFlag` true), comparing policy and rule counts and names with the file.
+A mismatch is reported as a partial import, and that report stays disabled and uncached.
+Only when the operator opts in to keeping the exported status does Porter enable an
+`Enabled` report and call `StartCaching` for that one report. Its reader detects BOM-less
+UTF-16 and reports a UTF-8 fallback when the bytes contradict the declaration. This is
+code behavior covered by offline unit tests, not a live import test; the
 [portability audit](ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter)
-records the missing verification before this should be treated as a complete round trip.
+records the original gap.
 Its import validation raises a **blocking security flag** for every
 auto-executing remediation rule; the file cannot be imported until the operator
 explicitly acknowledges the flags.
