@@ -33,7 +33,9 @@ func ExpandMacros(swql string) (string, map[string]bool, error) {
 	out := timeFilterRE.ReplaceAllStringFunc(swql, func(m string) string {
 		col := timeFilterRE.FindStringSubmatch(m)[1]
 		used[paramTimeFrom], used[paramTimeTo] = true, true
-		return fmt.Sprintf("%s >= @%s AND %s <= @%s", col, paramTimeFrom, col, paramTimeTo)
+		// Half open, >= and <, so consecutive windows neither double count nor drop a row
+		// that sits exactly on the boundary (docs/swql/date-and-time.md, the checklist).
+		return fmt.Sprintf("%s >= @%s AND %s < @%s", col, paramTimeFrom, col, paramTimeTo)
 	})
 	if timeFromRE.MatchString(out) {
 		used[paramTimeFrom] = true
@@ -44,16 +46,26 @@ func ExpandMacros(swql string) (string, map[string]bool, error) {
 		out = timeToRE.ReplaceAllString(out, "@"+paramTimeTo)
 	}
 	if m := badMacroRE.FindString(out); m != "" {
-		return "", nil, fmt.Errorf("unknown or malformed macro %q; the supported macros are $__timeFilter(column), $__timeFrom() and $__timeTo()", m)
+		return "", nil, fmt.Errorf("unknown or malformed macro %q; this data source supports only its time macros $__timeFilter(column), $__timeFrom() and $__timeTo(), and Grafana's numeric built-ins $__interval_ms, $__range_s and $__range_ms", m)
 	}
 	return out, used, nil
 }
 
-// swisTime formats a time the way SWIS binds a DateTime parameter: ISO 8601 in UTC. The
-// history and statistics columns hold UTC (docs/swql/date-and-time.md), so comparing a
-// UTC bound against them is the comparison that means what it says.
-func swisTime(t time.Time) string {
-	return t.UTC().Format("2006-01-02T15:04:05Z")
+// swisTime formats a bound time-range value. With the UTC basis (loc nil, the default) it
+// is ISO 8601 in UTC with a Z designator, which is what this plugin has always sent. With
+// the server-local basis it is the same instant as wall-clock time in the server's zone,
+// with no designator, for columns measured to be on the server's clock.
+//
+// Unverified: how SWIS parses either string when it binds it against a System.DateTime
+// column. docs/swql/date-and-time.md records ISO 8601 acceptance as unverified, documents
+// that a zoneless DateTime literal is read on the SQL Server's clock, and does not
+// establish the time basis of most DateTime columns (System.DateTime alone does not declare
+// UTC). The UTC default is a working hypothesis; measure a column before trusting a window.
+func swisTime(t time.Time, loc *time.Location) string {
+	if loc == nil {
+		return t.UTC().Format("2006-01-02T15:04:05Z")
+	}
+	return t.In(loc).Format("2006-01-02T15:04:05")
 }
 
 // stripComments removes SQL line comments so a commented-out macro is not expanded and a

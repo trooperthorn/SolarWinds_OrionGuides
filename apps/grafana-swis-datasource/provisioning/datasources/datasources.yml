@@ -15,7 +15,9 @@ datasources:
       port: 17774
       username: ${SWIS_USER}
       tlsSkipVerify: false
-      # The stock SWIS certificate has no subject alternative names; pin it and skip the name.
+      # Pin the certificate and skip the name check, for a self-signed certificate whose names
+      # do not cover SWIS_HOST. Unverified: which names the stock SWIS certificate carries;
+      # check with openssl x509 -noout -subject -ext subjectAltName and set false if it matches.
       tlsIgnoreHostname: true
       maxRows: 10000
       timeoutSeconds: 60

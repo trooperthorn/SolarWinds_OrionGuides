@@ -88,15 +88,22 @@ func (d *Datasource) query(ctx context.Context, q backend.DataQuery) backend.Dat
 	if err != nil {
 		return backend.ErrDataResponse(backend.StatusBadRequest, err.Error())
 	}
+	// Query parameters come from the panel: the frontend binds each dashboard variable
+	// the statement references as a parameter of the same name. Names starting with a
+	// double underscore are reserved for the time macros and refused, so a panel
+	// parameter can never replace or shadow the bound time range.
 	params := map[string]any{}
 	for k, v := range model.Parameters {
+		if strings.HasPrefix(k, "__") {
+			return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("parameter name %q is reserved: names starting with __ belong to the time macros", k))
+		}
 		params[k] = v
 	}
 	if used[paramTimeFrom] {
-		params[paramTimeFrom] = swisTime(q.TimeRange.From)
+		params[paramTimeFrom] = swisTime(q.TimeRange.From, d.settings.Location)
 	}
 	if used[paramTimeTo] {
-		params[paramTimeTo] = swisTime(q.TimeRange.To)
+		params[paramTimeTo] = swisTime(q.TimeRange.To, d.settings.Location)
 	}
 
 	started := time.Now()
@@ -109,7 +116,7 @@ func (d *Datasource) query(ctx context.Context, q backend.DataQuery) backend.Dat
 		return backend.ErrDataResponse(status, err.Error())
 	}
 
-	frame, truncated, err := ToFrame(q.RefID, raw, d.settings.MaxRows)
+	frame, truncated, err := ToFrame(q.RefID, raw, d.settings.MaxRows, d.settings.Location)
 	if err != nil {
 		return backend.ErrDataResponse(backend.StatusInternal, err.Error())
 	}
@@ -199,7 +206,9 @@ func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequ
 	var server, version string
 	_ = json.Unmarshal(rows[0].values["ServerName"], &server)
 	_ = json.Unmarshal(rows[0].values["EngineVersion"], &version)
-	msg := fmt.Sprintf("Connected to SWIS on %s (engine %s, platform %s).", d.settings.Host, server, version)
+	// EngineVersion is the polling engine's version, not the platform release; the two are
+	// numbered separately (docs/platform/versions-and-naming.md).
+	msg := fmt.Sprintf("Connected to SWIS on %s (polling engine %s, engine version %s).", d.settings.Host, server, version)
 	if len(d.settings.InvokeAllow) > 0 {
 		msg += fmt.Sprintf(" Invoke is enabled for %d verb(s).", len(d.settings.InvokeAllow))
 	}

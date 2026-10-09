@@ -14,8 +14,9 @@ published alongside the 2026.2 schema.
 https://<orion-server>:17774/SolarWinds/InformationService/v3/Json
 ```
 
-- Port **17774** from platform release 2023.1 onward. Port 17778 was the REST port through
-  2022.4.1 and is deprecated. See [connecting.md](connecting.md#endpoints-and-ports).
+- Port **17774** from platform release 2023.1 onward. Port 17778 is the legacy REST
+  endpoint: deprecated in 2023.1; stops listening by default in 2024.2. See
+  [connecting.md](connecting.md#endpoints-and-ports).
 - HTTPS only. The Swagger contract declares `"schemes": ["https"]`.
 - Authentication is HTTP basic. The Swagger contract declares exactly one security
   definition, `basicAuth`, and every official example carries an

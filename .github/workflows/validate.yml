@@ -159,9 +159,10 @@ jobs:
           cache: npm
           cache-dependency-path: apps/grafana-swis-datasource/package-lock.json
 
-      - name: Frontend typecheck, lint and build
+      - name: Frontend typecheck, lint, tests and build
         run: |
           npm ci --no-audit --no-fund
           npm run typecheck
           npm run lint
+          npm run test:ci
           npm run build

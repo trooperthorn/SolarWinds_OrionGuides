@@ -42,8 +42,7 @@ func newStub(t *testing.T) *stubSWIS {
 
 // newStubWithCert starts the stub over TLS. With a nil certificate it uses httptest's,
 // which carries subject alternative names for localhost; a certificate passed in is used
-// as-is, which is how the stock SWIS certificate shape (a fixed common name, no SANs) is
-// reproduced.
+// as-is, which is how a self-signed certificate whose name cannot match is reproduced.
 func newStubWithCert(t *testing.T, cert *tls.Certificate) *stubSWIS {
 	t.Helper()
 	s := &stubSWIS{results: "[]", status: http.StatusOK}
@@ -90,8 +89,9 @@ func newStubWithCert(t *testing.T, cert *tls.Certificate) *stubSWIS {
 	return s
 }
 
-// selfSignedNoSAN makes a certificate the way SWIS ships one: self-signed, a fixed
-// common name, and no subject alternative names at all.
+// selfSignedNoSAN makes a self-signed certificate with a fixed common name and no subject
+// alternative names, the worst case for a name check. Unverified: whether the certificate
+// SWIS generates has this shape; OrionGuides documents only that it is self-signed.
 func selfSignedNoSAN(t *testing.T, cn string) (*tls.Certificate, []byte) {
 	t.Helper()
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -182,7 +182,7 @@ func TestExpandMacros(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "c.DateTime >= @__timeFrom AND c.DateTime <= @__timeTo") || !used[paramTimeFrom] || !used[paramTimeTo] {
+	if !strings.Contains(out, "c.DateTime >= @__timeFrom AND c.DateTime < @__timeTo") || !used[paramTimeFrom] || !used[paramTimeTo] {
 		t.Fatalf("timeFilter not expanded: %s %v", out, used)
 	}
 	out, used, err = ExpandMacros("SELECT x FROM y WHERE a > $__timeFrom()")
@@ -192,8 +192,14 @@ func TestExpandMacros(t *testing.T) {
 	if _, _, err := ExpandMacros("SELECT x FROM y WHERE $__timeFilter(c.DateTime; DROP)"); err == nil {
 		t.Fatal("a malformed macro argument must be refused, not pasted into the statement")
 	}
-	if _, _, err := ExpandMacros("SELECT x FROM y WHERE $__interval > 1"); err == nil {
+	_, _, err = ExpandMacros("SELECT x FROM y WHERE $__interval > 1")
+	if err == nil {
 		t.Fatal("an unknown macro must be an error")
+	}
+	for _, want := range []string{`"$__interval"`, "$__timeFilter(column)", "$__timeFrom()", "$__timeTo()", "$__interval_ms", "$__range_s", "$__range_ms"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("the unknown-macro error should name %s: %v", want, err)
+		}
 	}
 }
 
@@ -210,6 +216,9 @@ func TestQueryBindsTimeRangeAndTypesColumns(t *testing.T) {
 	}
 	if stub.lastParams["__timeFrom"] != "2026-09-15T08:00:00Z" || stub.lastParams["__timeTo"] != "2026-09-16T10:00:00Z" {
 		t.Fatalf("time range not bound as UTC ISO: %v", stub.lastParams)
+	}
+	if !strings.Contains(stub.lastQuery, "n.LastSync >= @__timeFrom AND n.LastSync < @__timeTo") {
+		t.Fatalf("the window should be half open: %s", stub.lastQuery)
 	}
 	if strings.Contains(stub.lastQuery, "$__") || strings.Contains(stub.lastQuery, "--") {
 		t.Fatalf("macros or comments reached SWIS: %s", stub.lastQuery)
@@ -304,7 +313,7 @@ func TestHealthCheck(t *testing.T) {
 	stub.results = `[{"EngineID":1,"ServerName":"ORION-MAIN","EngineVersion":"2026.2.0"}]`
 	ds := newDS(t, stub, nil)
 	res, _ := ds.CheckHealth(context.Background(), &backend.CheckHealthRequest{})
-	if res.Status != backend.HealthStatusOk || !strings.Contains(res.Message, "ORION-MAIN") || !strings.Contains(res.Message, "2026.2.0") {
+	if res.Status != backend.HealthStatusOk || !strings.Contains(res.Message, "ORION-MAIN") || !strings.Contains(res.Message, "engine version 2026.2.0") || strings.Contains(res.Message, "platform") {
 		t.Fatalf("unexpected health result: %+v", res)
 	}
 	if !strings.Contains(stub.lastQuery, "FROM Orion.Engines") {
@@ -449,5 +458,109 @@ func TestPinnedStockStyleCertificate(t *testing.T) {
 	inst, _ = NewDatasource(context.Background(), settings)
 	if res, _ := inst.(*Datasource).CheckHealth(context.Background(), &backend.CheckHealthRequest{}); res.Status != backend.HealthStatusError {
 		t.Fatalf("with no pinned certificate the name switch alone must not connect: %+v", res)
+	}
+}
+
+func TestTimeBasisSettings(t *testing.T) {
+	load := func(extra string) (*Settings, error) {
+		return LoadSettings(backend.DataSourceInstanceSettings{
+			JSONData:                []byte(`{"host":"orion","username":"svc"` + extra + `}`),
+			DecryptedSecureJSONData: map[string]string{"password": "x"},
+		})
+	}
+	s, err := load(``)
+	if err != nil || s.TimeBasis != "utc" || s.Location != nil {
+		t.Fatalf("the default basis should be UTC with no location: %+v %v", s, err)
+	}
+	s, err = load(`,"timeBasis":"serverLocal","serverUtcOffsetMinutes":-330`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name, off := time.Date(2026, 1, 1, 0, 0, 0, 0, s.Location).Zone(); off != -330*60 || name != "UTC-05:30" {
+		t.Fatalf("fixed offset not applied: %s %d", name, off)
+	}
+	s, err = load(`,"timeBasis":"serverLocal","serverTimeZone":" America/Chicago ","serverUtcOffsetMinutes":60`)
+	if err != nil || s.Location.String() != "America/Chicago" {
+		t.Fatalf("an IANA zone should take precedence over the offset: %+v %v", s, err)
+	}
+	for _, bad := range []string{
+		`,"timeBasis":"local"`,
+		`,"timeBasis":"serverLocal","serverTimeZone":"Mars/Olympus_Mons"`,
+		`,"timeBasis":"serverLocal","serverUtcOffsetMinutes":900`,
+	} {
+		if _, err := load(bad); err == nil {
+			t.Fatalf("expected a settings error for %s", bad)
+		}
+	}
+}
+
+// The server-local basis applies one zone to both directions: the bound range is sent as
+// wall-clock time in that zone, and zoneless result timestamps are read in it.
+func TestServerLocalTimeBasis(t *testing.T) {
+	results := `[{"DateTime":"2026-09-16T09:58:12","Stamped":"2026-09-16T09:58:12Z"}]`
+	swql := "SELECT c.DateTime FROM Orion.CPULoad c WHERE $__timeFilter(c.DateTime)"
+
+	stub := newStub(t)
+	stub.results = results
+	ds := newDS(t, stub, map[string]any{"timeBasis": "serverLocal", "serverUtcOffsetMinutes": -300})
+	resp := runQuery(t, ds, QueryModel{SWQL: swql})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	// From is 10:00 at +02:00 (08:00Z), To is 10:00Z; at -05:00 those are 03:00 and 05:00.
+	if stub.lastParams["__timeFrom"] != "2026-09-15T03:00:00" || stub.lastParams["__timeTo"] != "2026-09-16T05:00:00" {
+		t.Fatalf("range not bound as zoneless server-local time: %v", stub.lastParams)
+	}
+	local := resp.Frames[0].Fields[0].At(0).(*time.Time)
+	if !local.Equal(time.Date(2026, 9, 16, 14, 58, 12, 0, time.UTC)) {
+		t.Fatalf("a zoneless value should be read at -05:00: %v", local)
+	}
+	if stamped := resp.Frames[0].Fields[1].At(0).(*time.Time); !stamped.Equal(time.Date(2026, 9, 16, 9, 58, 12, 0, time.UTC)) {
+		t.Fatalf("a value with a designator keeps its own offset: %v", stamped)
+	}
+
+	// The IANA zone follows daylight saving: Chicago is UTC-05:00 in September.
+	ds = newDS(t, stub, map[string]any{"timeBasis": "serverLocal", "serverTimeZone": "America/Chicago"})
+	if resp = runQuery(t, ds, QueryModel{SWQL: swql}); resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if stub.lastParams["__timeFrom"] != "2026-09-15T03:00:00" {
+		t.Fatalf("zone not applied to the bound range: %v", stub.lastParams)
+	}
+
+	// The default stays UTC in both directions.
+	ds = newDS(t, stub, nil)
+	if resp = runQuery(t, ds, QueryModel{SWQL: swql}); resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if stub.lastParams["__timeFrom"] != "2026-09-15T08:00:00Z" {
+		t.Fatalf("default basis should bind UTC with Z: %v", stub.lastParams)
+	}
+	if utc := resp.Frames[0].Fields[0].At(0).(*time.Time); !utc.Equal(time.Date(2026, 9, 16, 9, 58, 12, 0, time.UTC)) {
+		t.Fatalf("default basis should read a zoneless value as UTC: %v", utc)
+	}
+}
+
+// Panel parameters (the frontend binds dashboard variables this way) reach SWIS next to
+// the time macros, and cannot use the macros' reserved names.
+func TestPanelParametersAreBoundAndCannotShadowMacros(t *testing.T) {
+	stub := newStub(t)
+	ds := newDS(t, stub, nil)
+	resp := runQuery(t, ds, QueryModel{
+		SWQL:       "SELECT c.DateTime FROM Orion.CPULoad c WHERE c.NodeID IN @node AND $__timeFilter(c.DateTime)",
+		Parameters: map[string]any{"node": []any{1, 2}},
+	})
+	if resp.Error != nil {
+		t.Fatal(resp.Error)
+	}
+	if ids, ok := stub.lastParams["node"].([]any); !ok || len(ids) != 2 || stub.lastParams["__timeFrom"] == nil {
+		t.Fatalf("panel and macro parameters should both be bound: %v", stub.lastParams)
+	}
+	resp = runQuery(t, ds, QueryModel{
+		SWQL:       "SELECT c.DateTime FROM Orion.CPULoad c WHERE $__timeFilter(c.DateTime)",
+		Parameters: map[string]any{"__timeFrom": "2000-01-01T00:00:00Z"},
+	})
+	if resp.Error == nil || resp.Status != backend.StatusBadRequest || !strings.Contains(resp.Error.Error(), "reserved") {
+		t.Fatalf("a __ parameter name must be refused: %v", resp.Error)
 	}
 }

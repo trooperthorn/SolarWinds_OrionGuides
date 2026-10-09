@@ -186,7 +186,7 @@ SWIS describes itself.
 
 This is the HTTP contract for the SolarWinds Information Service.
 
-- [Base URL and transport](swis/rest-api.md#base-url-and-transport): 2022.4.1 and is deprecated.
+- [Base URL and transport](swis/rest-api.md#base-url-and-transport): endpoint: deprecated in 2023.1; stops listening by default in 2024.2.
 - [The path surface](swis/rest-api.md#the-path-surface): The Swagger contract for 2026.2 publishes 1319 paths.
 - [Query](swis/rest-api.md#query): The simplest form.
 - [Parameter binding](swis/rest-api.md#parameter-binding): A SWQL parameter is written @name in the query text and supplied as a member called name in the parameters object.

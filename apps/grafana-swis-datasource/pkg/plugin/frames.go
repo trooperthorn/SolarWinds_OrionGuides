@@ -80,13 +80,22 @@ var timeLayouts = []string{
 	"2006-01-02T15:04:05",
 }
 
-func parseSwisTime(s string) (time.Time, bool) {
+// parseSwisTime reads a SWIS DateTime string. A value with a zone designator keeps its
+// own offset. A zoneless value is read in loc: UTC when loc is nil (the default time
+// basis), or the server's zone when the data source is set to the server-local basis.
+// Unverified: which clock a zoneless value is on. The schema does not declare it for
+// System.DateTime, and docs/swql/date-and-time.md leaves it to measurement per column.
+// The result is always normalised to UTC; the instant is what a Grafana frame carries.
+func parseSwisTime(s string, loc *time.Location) (time.Time, bool) {
 	if len(s) < 19 || s[4] != '-' || s[10] != 'T' {
 		return time.Time{}, false
 	}
+	if loc == nil {
+		loc = time.UTC
+	}
 	for _, layout := range timeLayouts {
-		if t, err := time.ParseInLocation(layout, s, time.UTC); err == nil {
-			return t, true
+		if t, err := time.ParseInLocation(layout, s, loc); err == nil {
+			return t.UTC(), true
 		}
 	}
 	return time.Time{}, false
@@ -102,7 +111,7 @@ func classify(val json.RawMessage) kind {
 	case s[0] == '"':
 		var str string
 		if json.Unmarshal(val, &str) == nil {
-			if _, ok := parseSwisTime(str); ok {
+			if _, ok := parseSwisTime(str, nil); ok {
 				return kindTime
 			}
 		}
@@ -131,8 +140,9 @@ func merge(a, b kind) kind {
 	}
 }
 
-// ToFrame turns SWIS rows into one Grafana data frame with typed, nullable fields.
-func ToFrame(name string, raw json.RawMessage, maxRows int) (*data.Frame, bool, error) {
+// ToFrame turns SWIS rows into one Grafana data frame with typed, nullable fields. loc is
+// the zone for zoneless timestamps; nil means UTC.
+func ToFrame(name string, raw json.RawMessage, maxRows int, loc *time.Location) (*data.Frame, bool, error) {
 	rows, err := decodeRows(raw)
 	if err != nil {
 		return nil, false, err
@@ -183,7 +193,7 @@ func ToFrame(name string, raw json.RawMessage, maxRows int) (*data.Frame, bool, 
 				if v, ok := r.values[col]; ok && classify(v) == kindTime {
 					var s string
 					_ = json.Unmarshal(v, &s)
-					t, _ := parseSwisTime(s)
+					t, _ := parseSwisTime(s, loc)
 					vals[i] = &t
 				}
 			}

@@ -352,12 +352,12 @@ class TestGrafanaExtraction(unittest.TestCase):
     def test_macros_become_bound_parameters(self):
         out = validate_swql.rewrite_grafana_macros(
             "SELECT c.DateTime FROM Orion.CPULoad c WHERE c.NodeID = ${node} AND $__timeFilter(c.DateTime) "
-            "AND c.DateTime > $__timeFrom() AND i IN (${ifaces:csv}) AND x = $plain"
+            "AND c.DateTime > $__timeFrom() AND i IN (${ifaces:csv}) AND x = $plain AND y = [[old]]"
         )
         self.assertEqual(
             out,
             "SELECT c.DateTime FROM Orion.CPULoad c WHERE c.NodeID = @node AND c.DateTime >= @__timeFrom "
-            "AND c.DateTime <= @__timeTo AND c.DateTime > @__timeFrom AND i IN (@ifaces) AND x = @plain",
+            "AND c.DateTime < @__timeTo AND c.DateTime > @__timeFrom AND i IN @ifaces AND x = @plain AND y = @old",
         )
 
     def test_rewritten_query_validates_cleanly(self):

@@ -5495,8 +5495,9 @@ published alongside the 2026.2 schema.
 https://<orion-server>:17774/SolarWinds/InformationService/v3/Json
 ```
 
-- Port **17774** from platform release 2023.1 onward. Port 17778 was the REST port through
-  2022.4.1 and is deprecated. See [connecting.md](connecting.md#endpoints-and-ports).
+- Port **17774** from platform release 2023.1 onward. Port 17778 is the legacy REST
+  endpoint: deprecated in 2023.1; stops listening by default in 2024.2. See
+  [connecting.md](connecting.md#endpoints-and-ports).
 - HTTPS only. The Swagger contract declares `"schemes": ["https"]`.
 - Authentication is HTTP basic. The Swagger contract declares exactly one security
   definition, `basicAuth`, and every official example carries an
@@ -56943,8 +56944,9 @@ the same routes in prose.
 - [../reference/glossary.md](../reference/glossary.md) for any term on this page you would
   rather look up than infer
 - [../../apps/grafana-swis-datasource/README.md](../../apps/grafana-swis-datasource/README.md)
-  for a worked, tested integration: a Grafana data source plugin that applies sections 1,
-  5 and 8 of this page to dashboards, with verbs behind an allowlist
+  for a worked integration: a Grafana data source plugin that applies sections 1, 5 and 8
+  of this page to dashboards, with verbs behind an allowlist. It is unit-tested against a
+  stub SWIS, not yet tested in a live Grafana; its README says what was and was not verified
 
 Official upstream sources:
 

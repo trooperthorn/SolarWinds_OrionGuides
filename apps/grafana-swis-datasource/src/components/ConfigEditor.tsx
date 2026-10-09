@@ -1,12 +1,30 @@
 import React, { ChangeEvent } from 'react';
-import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
-import { FieldSet, InlineField, InlineSwitch, Input, SecretInput, SecretTextArea, TextArea } from '@grafana/ui';
+import { DataSourcePluginOptionsEditorProps, SelectableValue } from '@grafana/data';
+import {
+  FieldSet,
+  InlineField,
+  InlineSwitch,
+  Input,
+  RadioButtonGroup,
+  SecretInput,
+  SecretTextArea,
+  TextArea,
+} from '@grafana/ui';
 
-import { SwisDataSourceOptions, SwisSecureJsonData } from '../types';
+import { SwisDataSourceOptions, SwisSecureJsonData, SwisTimeBasis } from '../types';
 
 interface Props extends DataSourcePluginOptionsEditorProps<SwisDataSourceOptions, SwisSecureJsonData> {}
 
 const LABEL_WIDTH = 22;
+
+const TIME_BASES: Array<SelectableValue<SwisTimeBasis>> = [
+  { label: 'UTC', value: 'utc', description: 'Default. Zoneless timestamps are read, and the range is bound, as UTC.' },
+  {
+    label: 'Server local',
+    value: 'serverLocal',
+    description: 'Zoneless timestamps are read, and the range is bound, as wall-clock time in the zone below.',
+  },
+];
 
 export function ConfigEditor({ onOptionsChange, options }: Props) {
   const { jsonData, secureJsonFields, secureJsonData } = options;
@@ -43,7 +61,7 @@ export function ConfigEditor({ onOptionsChange, options }: Props) {
         <InlineField
           label="REST port"
           labelWidth={LABEL_WIDTH}
-          tooltip="17774 from platform release 2023.1 onward. 17778 is the deprecated pre-2023 port. 17777 is SOAP and will not work here."
+          tooltip="17774 from platform release 2023.1 onward. 17778 is the legacy REST port: deprecated in 2023.1, it stops listening by default in 2024.2. 17777 is SOAP and will not work here."
         >
           <Input
             id="swis-port"
@@ -88,7 +106,7 @@ export function ConfigEditor({ onOptionsChange, options }: Props) {
         <InlineField
           label="CA certificate (PEM)"
           labelWidth={LABEL_WIDTH}
-          tooltip="SWIS ships with a self-signed certificate. Paste it (or the CA that issued it) here so verification stays on. openssl s_client -connect orion:17774 -showcerts prints it. With the stock certificate, also turn on Ignore certificate name."
+          tooltip="SWIS ships with a self-signed certificate. Paste it (or the CA that issued it) here so verification stays on. openssl s_client -connect orion:17774 -showcerts prints it. If its names do not match the host you entered, also turn on Ignore certificate name."
         >
           <SecretTextArea
             id="swis-cacert"
@@ -104,7 +122,7 @@ export function ConfigEditor({ onOptionsChange, options }: Props) {
         <InlineField
           label="Ignore certificate name"
           labelWidth={LABEL_WIDTH}
-          tooltip="Keep verifying that the server presents the pasted certificate, but do not require its name to match the host. The certificate SWIS ships with is issued to a fixed name with no subject alternative names, so this is what pinning it needs. Any other certificate is still refused."
+          tooltip="Keep verifying that the server presents the pasted certificate, but do not require its name to match the host. Use it when the pinned certificate's names do not cover the host you entered; Save & test says when that is the failure. Any other certificate is still refused."
         >
           <InlineSwitch
             id="swis-ignorehostname"
@@ -150,6 +168,52 @@ export function ConfigEditor({ onOptionsChange, options }: Props) {
             }
           />
         </InlineField>
+      </FieldSet>
+
+      <FieldSet label="Time basis">
+        <InlineField
+          label="Server time basis"
+          labelWidth={LABEL_WIDTH}
+          tooltip="Which clock SWIS timestamps without a zone are on. The schema does not declare it, and UTC is a working hypothesis rather than a documented property; measure a column on your server before changing this. It applies to every query on this data source."
+        >
+          <RadioButtonGroup
+            options={TIME_BASES}
+            value={jsonData.timeBasis ?? 'utc'}
+            onChange={(v: SwisTimeBasis) => setJson({ timeBasis: v })}
+          />
+        </InlineField>
+        {jsonData.timeBasis === 'serverLocal' && (
+          <>
+            <InlineField
+              label="Server time zone"
+              labelWidth={LABEL_WIDTH}
+              tooltip="IANA zone name of the SolarWinds database server, for example America/Chicago. Follows daylight saving. Leave empty to use the fixed offset below."
+            >
+              <Input
+                id="swis-server-timezone"
+                width={30}
+                value={jsonData.serverTimeZone ?? ''}
+                placeholder="America/Chicago"
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setJson({ serverTimeZone: e.target.value })}
+              />
+            </InlineField>
+            <InlineField
+              label="UTC offset (minutes)"
+              labelWidth={LABEL_WIDTH}
+              tooltip="Used only when the time zone is empty. Minutes east of UTC: -300 is UTC-05:00. A fixed offset does not follow daylight saving."
+            >
+              <Input
+                id="swis-server-offset"
+                width={12}
+                type="number"
+                value={jsonData.serverUtcOffsetMinutes ?? 0}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setJson({ serverUtcOffsetMinutes: parseInt(e.target.value, 10) || 0 })
+                }
+              />
+            </InlineField>
+          </>
+        )}
       </FieldSet>
 
       <FieldSet label="Invoke (verbs)">
