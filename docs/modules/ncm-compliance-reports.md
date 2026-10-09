@@ -243,9 +243,11 @@ explicitly acknowledges the flags.
 
 Reports in this format can also be generated from DISA's own XCCDF STIG downloads
 rather than a console export. The current converter creates one report and policy per
-benchmark and basic manual-review or heuristic rules. It stores fix text in a nonautomatic
-CLI remediation field. The audit recommends retaining guidance separately from executable
-commands in future generated content; advanced rules need additional serialization support.
+benchmark and basic manual-review or heuristic rules. Since tool 2.0.0 it keeps the fix
+text in the rule comments under `Fix:` and sends `RemediateScript` empty (type `CLI`,
+never automatic), as the audit recommends: guidance stays apart from executable commands
+until an engineer writes reviewed ones. Advanced rules need additional serialization
+support.
 That flow, and the DISA STIG Conversion Tool (`apps/disa-stig-conversion-tool`)
 that implements it (plus the SCM path for server STIG YAML), is documented in
 [../automation/disa-stig-import.md](../automation/disa-stig-import.md).

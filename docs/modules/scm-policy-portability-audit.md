@@ -239,9 +239,45 @@ since changed:
   unless a policy with that id exists. This is not the full verification the row asks
   for: the count is not compared with the file and no exported content is read back.
 
+**Status on 2026-10-09 (DISA STIG tool 2.0.0).** For generated XCCDF policies:
+
+- The "Generated XCCDF policies are manual-review sentinels" row stands. The tool still
+  does not emit `!translate`: this audit describes the node's structure in prose (above)
+  but records no exact serialized example, so a generated Failed-to-Unknown wrapper would
+  be untested guesswork, and an un-reviewed generated rule keeps reporting Failed.
+- The "Source identity and revision model" row is partly addressed: each generated rule
+  now keeps its legacy V- and SV- identifiers, its Group's SRG id and every description
+  pseudo-section in the rule description, and every Rule of a multi-rule Group is
+  converted. Generated uniqueIds still derive from the revision-bearing rule id plus the
+  version suffix; reviewed old-to-new mappings remain open.
+- The "SCAP parsing is lossy" row is unchanged, apart from deduplication: one benchmark
+  keeps its highest release, and a benchmark present only in its SCAP edition is a
+  logged warning.
+- Generated YAML now escapes DEL, the C1 controls, U+2028, U+2029, U+FEFF, U+FFFE and
+  U+FFFF inside quoted scalars, and both editions write it with LF line endings.
+
 The offline tests in `apps/disa-stig-conversion-tool/test_disa_stig_tool.py` cover the
 CRLF case and the refusal of SCM collection profiles (`.scm-profile` JSON), which the
 tool previously routed to `ImportPolicy` by extension. The remaining rows stand.
+
+**Status on 2026-10-09 (DISA STIG tool 2.0.0).** Two more rows have changed in part:
+
+- *Source identity and revision model.* The generated policy and rule `uniqueId`s are
+  still uuid5 values of the benchmark id and the revision-bearing XCCDF Rule ID, now
+  followed by a version suffix (`--suffix`, `_v1` by default) that also ends the policy
+  name. Before importing converted STIGs, both editions refuse when a policy name, policy
+  `uniqueId` or any rule `uniqueId` already exists and suggest the next free suffix, so a
+  new release is imported next to the old one with fresh identities. Whether SCM itself
+  rejects a rule `uniqueId` used by another policy remains **Unverified**; the tool checks
+  it anyway. This does not provide the legacy-alias mapping the row asks for.
+- *Manual-review sentinels.* The probe now comes from a per-OS table. Windows STIGs keep
+  the `!scm.powershell` attestation; Linux STIGs stay routed to SCM with the same probe,
+  labeled **Unverified** because no SCM policy source for Linux nodes is documented here,
+  with a logged warning and a test procedure in the tool README. `--scm-probe-template`
+  replaces the source block per run; the template is validated as a small tagged-YAML
+  fragment, and its `{id}` placeholder receives only the validated vulnerability id,
+  inside a quoted value. Generated policies are still draft review tasks, not compiled
+  automated checks.
 
 ## Field mapping and import acceptance contract
 
