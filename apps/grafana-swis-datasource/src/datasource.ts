@@ -1,6 +1,7 @@
 import { CoreApp, DataSourceInstanceSettings, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 
+import { bindVariables, templateResolver } from './bindVariables';
 import { DEFAULT_QUERY, SwisDataSourceOptions, SwisQuery } from './types';
 import { SwisVariableSupport } from './variables';
 
@@ -15,14 +16,22 @@ export class DataSource extends DataSourceWithBackend<SwisQuery, SwisDataSourceO
   }
 
   /**
-   * Dashboard variables are expanded here, in the browser, before the statement goes to
-   * the backend. The Grafana time macros are left alone: the backend turns them into
-   * bound parameters so the range never becomes literal text in the statement.
+   * Dashboard variables become bound parameters here, in the browser: each reference is
+   * rewritten to `@name` and its current value travels in `parameters`, so a value is never
+   * pasted into the statement as text (see bindVariables.ts). `${var:raw}` is the explicit
+   * exception. The Grafana time macros are left alone: the backend turns them into bound
+   * parameters too.
    */
   applyTemplateVariables(query: SwisQuery, scopedVars: ScopedVars): SwisQuery {
+    const bound = bindVariables(
+      query.swql ?? '',
+      templateResolver(getTemplateSrv(), scopedVars),
+      query.parameters ?? {}
+    );
     return {
       ...query,
-      swql: getTemplateSrv().replace(query.swql ?? '', scopedVars),
+      swql: bound.swql,
+      parameters: Object.keys(bound.parameters).length > 0 ? bound.parameters : undefined,
     };
   }
 

@@ -114,7 +114,7 @@ check: test validate
 # without either toolchain; this target is the full build the plugin's own README describes.
 grafana-plugin:
 	@cd apps/grafana-swis-datasource && go vet ./pkg/... && go test ./pkg/...
-	@cd apps/grafana-swis-datasource && npm ci --no-audit --no-fund && npm run typecheck && npm run lint && npm run build
+	@cd apps/grafana-swis-datasource && npm ci --no-audit --no-fund && npm run typecheck && npm run lint && npm run test:ci && npm run build
 	@cd apps/grafana-swis-datasource && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/gpx_swis_linux_amd64 ./pkg
 	@echo "plugin built into apps/grafana-swis-datasource/dist/"
 

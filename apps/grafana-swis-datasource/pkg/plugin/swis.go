@@ -85,7 +85,7 @@ func NewSwisClient(s *Settings) (*SwisClient, error) {
 				if ignoreName {
 					return fmt.Errorf("the SWIS certificate is not the pinned one: %w", err)
 				}
-				return fmt.Errorf("%w (if the chain is right and only the name differs, which is the case with the stock SWIS certificate, turn on 'Ignore certificate name')", err)
+				return fmt.Errorf("%w (if the chain is right and only the name differs, as it can with a self-signed SWIS certificate, turn on 'Ignore certificate name')", err)
 			}
 			return nil
 		}
@@ -134,7 +134,7 @@ func (c *SwisClient) do(ctx context.Context, method, path string, body any) ([]b
 		if ok := asURLError(err, &uerr); ok && uerr.Timeout() {
 			return nil, &SwisError{Message: "the request to SWIS timed out; raise the timeout or narrow the query"}
 		}
-		return nil, &SwisError{Message: fmt.Sprintf("could not reach SWIS at %s: %v (check the host, that port is open, and that it is 17774 rather than the deprecated 17778)", c.base, err)}
+		return nil, &SwisError{Message: fmt.Sprintf("could not reach SWIS at %s: %v (check the host, that the port is open, and that it is 17774 rather than 17778, which was deprecated in 2023.1 and stops listening by default in 2024.2)", c.base, err)}
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 256<<20))

@@ -8,7 +8,7 @@ This index extracts explicit uncertainty markers from authored pages under docs/
 
 The extractor recognizes selected phrases and explicit labels such as **Unverified:**, **Unknown:**, **Unconfirmed:**, **Not tested:**, and **Runtime validation required:**. It skips generated pages, headings, and fenced code. Absence from this index does not mean a claim is verified; app and script READMEs are outside its collection scope. See [the documentation audit](documentation-audit-2026-09-18.md) for coverage and evidence rules.
 
-**310 statements across 75 pages.**
+**311 statements across 75 pages.**
 
 Read this before relying on this repository for something load-bearing. If you have a live server, this is also the working list: most entries name the `Metadata.*` query or the experiment that would close the gap. See [../swis/metadata-introspection.md](../swis/metadata-introspection.md).
 
@@ -274,6 +274,10 @@ Read this before relying on this repository for something load-bearing. If you h
 **[Ask the schema the question you actually have](../guides/building-integrations.md#ask-the-schema-the-question-you-actually-have)**
 
 - The row values themselves are installation data: which row corresponds to the platform core, and how its `Version` string relates to the release number, are not recorded in the published schema and are unverified here.
+
+**[Where to go next](../guides/building-integrations.md#where-to-go-next)**
+
+- It is unit-tested against a stub SWIS, not yet tested in a live Grafana; its README says what was and was not verified
 
 ## [cookbook.md](../guides/cookbook.md)
 

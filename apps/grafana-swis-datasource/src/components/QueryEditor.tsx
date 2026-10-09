@@ -72,13 +72,18 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
         </InlineField>
       </InlineFieldRow>
       <div className="grafana-info-box" style={{ fontSize: '12px', opacity: 0.85 }}>
-        Macros: <code>$__timeFilter(alias.Column)</code>, <code>$__timeFrom()</code>, <code>$__timeTo()</code> bind the
-        dashboard range as UTC parameters. Dashboard variables (<code>$node</code>,{' '}
+        Macros: <code>$__timeFilter(alias.Column)</code> (a half-open window), <code>$__timeFrom()</code>,{' '}
+        <code>$__timeTo()</code> bind the dashboard range as parameters on the data source&apos;s time basis (UTC by
+        default). Dashboard variables (<code>$node</code>,{' '}
         <code>
-          ${'{'}node:csv{'}'}
+          ${'{'}node{'}'}
         </code>
-        ) are expanded before the statement is sent. Statistics and history entities are the largest tables on the
-        server, so keep <code>TOP n</code> and a time bound on them. Ctrl+S or leaving the editor runs the query.
+        ) are bound as parameters too; write a multi-value one as <code>IN $nodes</code> or{' '}
+        <code>
+          IN (${'{'}nodes{'}'})
+        </code>
+        . Statistics and history entities are the largest tables on the server, so keep <code>TOP n</code> and a time
+        bound on them. Ctrl+S or leaving the editor runs the query.
       </div>
     </Stack>
   );

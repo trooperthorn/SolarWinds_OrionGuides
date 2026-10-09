@@ -419,22 +419,29 @@ def queries_from_dashboard(path: str) -> list[tuple[str, str]]:
 # --------------------------------------------------------------------------------------
 
 # The plugin's backend expands these into bound-parameter references before the statement
-# reaches SWIS, and Grafana expands dashboard variables in the browser. Rewriting them the
-# same way here means the validator checks the statement SWIS will actually see, rather
-# than refusing everything that carries a macro.
+# reaches SWIS, and the plugin's frontend binds dashboard variables as parameters in the
+# browser (src/bindVariables.ts). Rewriting them the same way here means the validator
+# checks the statement SWIS will actually see, rather than refusing everything that carries
+# a macro.
 GRAFANA_TIME_FILTER_RE = re.compile(r"\$__timeFilter\(\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\)")
 GRAFANA_TIME_FROM_RE = re.compile(r"\$__timeFrom\(\s*\)")
 GRAFANA_TIME_TO_RE = re.compile(r"\$__timeTo\(\s*\)")
-# ${node}, ${node:csv}, $node. Each becomes a bound parameter of the same name, which is
-# what the value is at runtime: a literal substituted into the statement.
-GRAFANA_VARIABLE_RE = re.compile(r"\$\{(\w+)(?::\w+)?\}|\$(\w+)\b")
+# ${node}, ${node:csv}, [[node]], $node. Each becomes a bound parameter of the same name,
+# and a reference that is the whole of an IN list, IN (${nodes:csv}), becomes IN @nodes,
+# which is what the frontend sends. ${x:raw} is text substitution at runtime; it is
+# rewritten to a parameter here too, so a raw entity or column name is not checked.
+GRAFANA_VARIABLE_RE = re.compile(r"\$\{(\w+)(?::\w+)?\}|\[\[(\w+)(?::\w+)?\]\]|\$(\w+)\b")
+GRAFANA_IN_LIST_RE = re.compile(
+    r"\bIN\s*\(\s*(?:\$\{(\w+)(?::\w+)?\}|\[\[(\w+)(?::\w+)?\]\]|\$(\w+)\b)\s*\)", re.I
+)
 
 
 def rewrite_grafana_macros(swql: str) -> str:
-    out = GRAFANA_TIME_FILTER_RE.sub(lambda m: f"{m.group(1)} >= @__timeFrom AND {m.group(1)} <= @__timeTo", swql)
+    out = GRAFANA_TIME_FILTER_RE.sub(lambda m: f"{m.group(1)} >= @__timeFrom AND {m.group(1)} < @__timeTo", swql)
     out = GRAFANA_TIME_FROM_RE.sub("@__timeFrom", out)
     out = GRAFANA_TIME_TO_RE.sub("@__timeTo", out)
-    return GRAFANA_VARIABLE_RE.sub(lambda m: "@" + (m.group(1) or m.group(2)), out)
+    out = GRAFANA_IN_LIST_RE.sub(lambda m: "IN @" + (m.group(1) or m.group(2) or m.group(3)), out)
+    return GRAFANA_VARIABLE_RE.sub(lambda m: "@" + (m.group(1) or m.group(2) or m.group(3)), out)
 
 
 def queries_from_grafana_dashboard(path: str) -> list[tuple[str, str]]:
