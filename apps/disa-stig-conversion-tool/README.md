@@ -9,24 +9,40 @@ remediable item. Two target modules, detected automatically from the file:
 | --- | --- |
 | STIG zip / xccdf `.xml` / `.xsl` for a **network device** (Cisco, Juniper, Arista, Palo Alto, F5, Fortinet, …) | **NCM** compliance policy report (`Cirrus.PolicyReports`), node scope auto-set from the vendor |
 | STIG zip / xccdf `.xml` for a **server OS** (Windows, Linux, RHEL, Debian, Ubuntu, CentOS) | **Server Configuration Monitor** — converted to an SCM policy and imported via `Orion.PolicyEngine.Policy.ImportPolicy` |
-| SCM compliance policy `.yaml` (`!policy`, `pluginName: SCM`) | **Server Configuration Monitor**, imported verbatim |
+| SCM compliance policy `.yaml` / `.scm-policy.yaml` (`!policy`, `pluginName: SCM`) | **Server Configuration Monitor**, imported verbatim |
 
 The **Compliance target** dropdown (or `--target`) controls the routing:
 **Auto Compliance Assignment** (default) decides from the file and benchmark
 names as above; **Network Compliance** forces NCM; **Server Compliance** forces
 SCM. Auto falls back to NCM, saying so, when nothing is recognized.
 
-The tool ships in **two self-contained single-file editions**. Both derive the same
-rule GUIDs for the same source Rule ID. Do not assume full serialization parity for
-advanced rules: the [NCM portability audit](../../docs/modules/ncm-compliance-portability-audit.md)
+The tool ships in **two self-contained single-file editions**. The Python edition is the
+reference. For the same input both derive the same NCM `RuleId`s and `PolicyId`s, the
+same SCM policy and rule `uniqueId`s, and the same report and policy names, and the
+generated basic-rule payloads are byte-identical; `test_disa_stig_tool.py` compares the
+two editions on fixed inputs whenever PowerShell is available. Do not assume full
+serialization parity for advanced rules: the
+[NCM portability audit](../../docs/modules/ncm-compliance-portability-audit.md)
 records differences and offline-reproduced limitations. The generated default rules are basic:
 
 - **`disa_stig_tool.py`** — Python 3, standard library only (no `orionsdk`).
 - **`disa_stig_tool.ps1`** — Windows PowerShell 5.1+ / PowerShell 7+, built-in .NET
   classes only (no `SwisPowerShell`, no gallery modules). Run it plain for the
-  WinForms GUI, or `-Convert -Path <files>` / `-Server … -Path <files>` from the
-  command line. `-ImportDisabled` and `-NoRollback` mirror the Python edition's
-  `--disabled` and `--no-rollback`.
+  WinForms GUI, or with the parameters in [the table below](#cli-parameters-in-both-editions).
+  The file is pure ASCII on purpose: Windows PowerShell 5.1 reads a script without a
+  byte-order mark in the ANSI code page.
+
+**Policies imported by older PowerShell builds carry different ids.** Before this
+change the PowerShell edition seeded the NCM `PolicyId` and the SCM policy `uniqueId`
+from the benchmark id and title concatenated, where the Python edition uses the
+benchmark id alone (the title only when there is no id). An SCM policy imported by an
+older PowerShell build therefore has a `uniqueId` no current build derives, so a
+re-import of the same benchmark is not caught by the `UniqueId` collision check; the
+`Name` check still catches it unless the name changed. Look those policies up by name.
+NCM policies imported by those builds were submitted with a different `PolicyId`
+(**Unverified:** whether `AddPolicy` keeps a submitted `PolicyId` or assigns its own is
+not documented; compare `Cirrus.Policies.PolicyID` after an import to find out). Rule
+ids (`RuleId`, rule `uniqueId`) were already identical in both editions.
 
 Both GUIs open with a disclaimer — *"This is not built by SolarWinds Inc. or DISA.
 All Code is visible for Code Audit and documentation is available for SWIS calls."* —
@@ -41,8 +57,9 @@ python disa_stig_tool.py          ← no arguments (or a double-click on Windows
 
 One window: server IP/FQDN + SWIS port, username/password or a **Login with current
 Windows user** checkbox with a **live connection status line** beneath it, a file list
-taking **up to 10 STIG files per batch** (zip, xccdf `.xml`, `.xsl`, SCM
-`.yaml`/`.scm-profile`, or a URL), the **Compliance target** dropdown, and a
+taking **up to 10 STIG files per batch** (zip, xccdf `.xml`, `.xsl`, SCM policy
+`.yaml`/`.scm-policy.yaml`, a legacy policy `.scm-profile`, or a URL), the
+**Compliance target** dropdown, and a
 **Import the NCM report disabled (no caching) so it can be reviewed first** checkbox
 (the CLI's `--disabled` / PowerShell's `-ImportDisabled`). A batch
 imports into **one module only — NCM or SCM, never both**: the first file selected
@@ -78,10 +95,19 @@ The outputs are the exact payloads the API import would have sent:
 - **NCM** → one `.ncm-report.xml` per benchmark, byte-matched to a real console
   export — import with Compliance → Manage Policy Reports → **Import** in the web
   console.
-- **SCM** → one `.scm-profile` per benchmark (the `!policy` YAML document) — import
+- **SCM** → one `.scm-policy.yaml` per benchmark (the `!policy` YAML document) — import
   through the console, or later with this tool's `import` against the file.
 
-A `.scm-profile` file is also accepted back as an import source.
+The repository's SCM documentation names no file extension for compliance policies,
+and the policies SolarWinds publishes are plain `.yaml`, so the tool writes
+`.scm-policy.yaml`. Earlier builds wrote the same YAML as `.scm-profile`, but that
+extension belongs to SCM **collection profiles**: UTF-16 JSON documents that define what
+SCM collects and carry no compliance rules
+([SCM profile audit](../../docs/modules/scm-profile-portability-audit.md)). On input the
+tool classifies a `.scm-profile` by its content. Policy YAML from an older build is still
+imported, with a note asking for the file to be renamed; a JSON collection profile is
+refused with a pointer to SCM's profile import (`Orion.SCM.Profiles.ImportProfile`), since
+it is not a compliance policy. A policy `.yaml` exported as UTF-16 is decoded either way.
 
 Build the Windows executable on a Windows machine:
 
@@ -120,10 +146,56 @@ python3 disa_stig_tool.py test U_Cisco_IOS_Router_Y26M07_STIG.zip \
 python3 disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
     --host orion.example.com --user admin
 
-# and, if it needs undoing
+# and, if it needs undoing: preview, then delete
+python3 disa_stig_tool.py remove --name "U_Cisco_IOS_Router_Y26M07_STIG - Cisco_IOS_Router_NDM_STIG" \
+    --host orion.example.com --user admin --dry-run
 python3 disa_stig_tool.py remove --name "U_Cisco_IOS_Router_Y26M07_STIG - Cisco_IOS_Router_NDM_STIG" \
     --host orion.example.com --user admin --yes
 ```
+
+`remove` undoes an import completely without reaching anything another report uses. It
+reads the report's tree (`GetPolicyReport` with `exportFlag` true, plus the
+`Cirrus.PolicyAssignment` and `Cirrus.PolicyRuleAssignment` link tables), deletes the
+report row with `DeletePolicyReports(ids, false)`, then the report's policies with
+`DeletePolicies(ids, false)`, then their rules with `DeletePolicyRules(ids)`. A policy
+that another report is still assigned to is kept, and so is a rule that a policy not
+being deleted still uses; each kept object is printed with the report or policy that
+still references it. `deleteChildren` is never sent as true, because that flag reaches
+children other reports share. `--dry-run` prints the same plan and deletes nothing, and
+the deletion needs `--yes`. Afterwards the tool reads the ids back and reports anything
+still present. `--delete-children` is accepted for compatibility and ignored. Earlier
+builds of `remove` deleted only the report row and left its policies and rules orphaned;
+those orphans have no report left to find them by, and this tool does not search for
+them.
+
+### CLI parameters in both editions
+
+| Python (`disa_stig_tool.py <command>`) | PowerShell (`disa_stig_tool.ps1`) | Meaning |
+| --- | --- | --- |
+| `convert` / `build <path>` | `-Convert -Path <paths>` | Offline conversion to console-importable files |
+| `import <path>` | `-Server <host> -Path <paths>` | Import over SWIS |
+| `test <path>` | `-Test -Server <host> -Path <paths>` | `TestRule` dry run; creates nothing |
+| `remove --name <n>` | `-Remove -Name <n> -Server <host>` | Undo an import (see above) |
+| `parse <path>` | none | Summarize a package |
+| `download <package>` | none | Fetch a package from DISA's mirror |
+| `--name` | `-Name` | Report name base (`<name> - <benchmark id>`) with convert, import and test; the exact report name with remove |
+| `--grouping` | `-Grouping` | Folder for reports, policies and rules |
+| `--target auto\|network\|server` | `-Target auto\|network\|server` | Module routing for XCCDF input |
+| `--node-where` | `-NodeWhere` | NCM node scope (`auto` derives it from the vendor) |
+| `--config-type` | `-ConfigType` | Config type the rules scan (`Any`, `Running`, `Startup`, ...) |
+| `--mode manual\|heuristic` | `-Mode manual\|heuristic` | Sentinel or drafted patterns |
+| `--disabled` | `-ImportDisabled` | `ReportStatus` `Disabled`, no caching; honored by convert too |
+| `--no-cache` | `-NoCache` | Import without `StartCaching` |
+| `--no-rollback` | `-NoRollback` | Keep what a failed import created |
+| `--config-file` / `--config-id` / `--limit` | `-ConfigFile` / `-ConfigId` / `-Limit` | Inputs for `test` |
+| `--dry-run` / `--yes` | `-DryRun` / `-Yes` | Preview or confirm `remove` |
+| `--host` / `--port` / `--user` | `-Server` / `-Port` / `-Username` (or `-WindowsAuth`) | Connection; the password comes from `SWIS_PASSWORD` or a prompt in both |
+| `--pin-server-cert` / `--insecure` / `--ca-file` | `-PinServerCert` / `-Insecure` / none | TLS trust |
+| `-o` / `--output` | none | Output file for a single-benchmark convert |
+
+When no `--name` / `-Name` is given, a zip's reports are named `<zip file name> -
+<benchmark id>` and a bare `.xml` or a directory's reports take the benchmark title, in
+both editions. Names are cut to 250 characters.
 
 `--disabled` imports the report with `ReportStatus` `Disabled` and skips caching, which
 is what you want for a 92-rule benchmark that still needs tuning: the report exists and
@@ -171,7 +243,7 @@ the check prose — importing both would just duplicate rules. Packages download
 | XCCDF | NCM rule (verb contract field) |
 | --- | --- |
 | Group id + severity + Rule title | `RuleName` — `V-215662 [medium] The Cisco router must…` |
-| severity high / medium / low | `ErrorLevel` 2 critical / 1 warning / 0 info |
+| severity high / medium / low | `ErrorLevel` 2 / 1 / 0 (console names critical / warning / info by default; the names are editable per server) |
 | VulnDiscussion + check-content + IDs (SV, STIG ID, CCIs) | `Comments` |
 | fixtext (the Fix Text) | `RemediateScript`, type CLI, **never auto-executed** |
 | one XCCDF Group/Rule (each check) | one NCM rule |
@@ -205,7 +277,11 @@ node scope selects those devices. Confirm the nodes have a text config of the se
 type, or route the benchmark to SCM.
 
 `RuleId` GUIDs are derived deterministically from the DISA rule ID (uuid5), so
-re-importing the same STIG release produces the same rule identities.
+re-importing the same STIG release submits the same rule identities. **Unverified:**
+whether `AddPolicyRule` keeps a submitted `RuleId` or assigns a fresh one is not
+documented; the tool always uses the id the verb returns. Check by importing one
+benchmark and comparing `SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE Name = @n`
+with the generated id.
 
 ## Current NCM coverage and import limits
 
@@ -239,15 +315,18 @@ SCM compliance policies are YAML documents tagged `!policy` with `pluginName: SC
 whose rules carry the actual machine checks (`!scm.registry`, `!scm.powershell` sources
 with `!equals`/`!matches` conditions). The import needs no translation at all: the SWIS
 verb `Orion.PolicyEngine.Policy.ImportPolicy(yaml)` takes the file text verbatim and
-returns the new PolicyID. The tool refuses to import when a same-name policy already
-exists, then leaves assignment to you: Settings → SCM Settings → Policies (or the
-`AssignToEntity` verb). Preview parses nothing server-side — it just scans the YAML for
-the policy name, rule ids and severities. The
+returns the new PolicyID. The tool refuses to import when a policy with the same name
+**or** the same `uniqueId` already exists, then leaves assignment to you: Settings → SCM
+Settings → Policies (or the `AssignToEntity` verb). Preview parses nothing server-side —
+it just scans the YAML for the policy name, rule ids and severities. The
 [SCM export audit](../../docs/modules/scm-policy-portability-audit.md) documents
 additional database sources, numeric comparisons, status translations, dependencies,
-and optional fields. Current preview is regex-based, collision checking covers Name
-only, and import has no full read-back verification. A ZIP containing policy YAML
-is not accepted by the XCCDF package reader.
+and optional fields. Current preview is regex-based. Both editions check `Name` and
+`UniqueId` before importing (the PowerShell edition normalizes CRLF line endings first,
+so a Windows-edited file is checked too) and read the rule count back afterwards; that
+read-back rejects a policy holding no rules, which also catches a returned id of 0, but
+it does not compare the count or the content with the file. A ZIP containing policy
+YAML is not accepted by the XCCDF package reader.
 
 ## Security rules
 
@@ -281,15 +360,26 @@ is not accepted by the XCCDF package reader.
   in reverse to SCM YAML: its `!scm.powershell` scripts run on every assigned node, so
   read them before importing a file from outside the organisation.
 - The importer never updates or deletes an existing report: a name collision is an
-  error, not a merge. `remove --name … --yes` deletes one the tool imported, and leaves
-  its policies and rules alone unless `--delete-children` is given, because that flag
-  also reaches children other reports share.
-- **A failed import cleans up after itself.** The NCM tiers are created bottom-up, so a
-  failure at the policy or report step would otherwise leave every rule already created
-  sitting in the rules library with nothing pointing at it: invisible in the Compliance
-  view, deleted by nothing, and duplicated by the next attempt. The ids are tracked as
-  they come back and deleted in reverse on failure. `--no-rollback` keeps them for
-  diagnosis.
+  error, not a merge. `remove --name … --yes` deletes one the tool imported together
+  with its policies and rules, except any policy or rule another report or policy still
+  uses ([details](#the-cli)).
+- **A failed import cleans up after itself, and only after itself.** The NCM tiers are
+  created bottom-up, so a failure at the policy or report step would otherwise leave
+  every rule already created sitting in the rules library with nothing pointing at it:
+  invisible in the Compliance view, deleted by nothing, and duplicated by the next
+  attempt. The ids are tracked as they come back and deleted in reverse on failure.
+  Before creating anything, the tool records which of the `RuleId`s and `PolicyId`s it is
+  about to submit already exist (`Cirrus.PolicyRules`, `Cirrus.Policies`), because the
+  deterministic rule ids make an earlier import of the same STIG release share them, and
+  a verb that returns no id falls back to the submitted one. The rollback skips those
+  and prints each one it skipped. `--no-rollback` keeps everything for diagnosis.
+- **A multi-report run keeps what it finished.** A package with several benchmarks
+  imports one report at a time. When a later report fails, the reports already imported
+  and verified stay on the server, are reported as imported, and still get caching
+  started (or `UpdateReportStatus('Disabled')` and its read-back with `--disabled`,
+  nothing with `--no-cache`). Only the failed report is rolled back. When no wire format
+  is accepted, console-importable files are written for the reports that were not
+  imported, not for the ones that were.
 - **The SCM collision check covers the uniqueId too**, not just the name. SolarWinds
   rejects an import matching either, and the tool derives the uniqueId deterministically
   from the benchmark, so a re-import under a new `--name` still collides. Checking
@@ -315,10 +405,11 @@ My Dashboards → Home → Server Configuration shows per-node, per-rule pass/fa
 
 | Route | Calls, in order |
 | --- | --- |
-| NCM (network STIGs) | Collision check query on `Cirrus.PolicyReports` → wire-format probe with one `AddPolicyRule(rule)` → per report: `AddPolicyRule` per check, `AddPolicy(policy, importFlag)` with the rule-ID list, `AddPolicyReport(report, importFlag)` with the policy-ID list → `GetPolicyReport(reportId, exportFlag)` read-back verification → one `StartCaching([ids])`, or `UpdateReportStatus('Disabled', [ids])` with `--disabled`. Any failure in that sequence triggers `DeletePolicyRules` / `DeletePolicies` / `DeletePolicyReports` for what it created |
+| NCM (network STIGs) | Collision check query on `Cirrus.PolicyReports` → per report: existing-id snapshot on `Cirrus.PolicyRules` / `Cirrus.Policies`, wire-format probe with one `AddPolicyRule(rule)`, `AddPolicyRule` per check, `AddPolicy(policy, importFlag)` with the rule-ID list, `AddPolicyReport(report, importFlag)` with the policy-ID list, `GetPolicyReport(reportId, exportFlag)` read-back verification → after the last report, or at the first failure, one `StartCaching([ids])` for every report that was imported, or `UpdateReportStatus('Disabled', [ids])` plus a `ReportStatus` read-back with `--disabled`. A failure within one report triggers `DeletePolicyReports` / `DeletePolicies` / `DeletePolicyRules` for what that report's attempt created, skipping ids that existed beforehand |
 | NCM rule dry run (`test`) | Wire-format probe against `TestRule` → `TestRule(rule, configText)` or `TestRuleOnBackedUpConfig(rule, configId)` per rule. Read-only; nothing is created |
-| NCM fallback | Nested `AddPolicyReport(report, importFlag)` in console-export XML; if every wire format is refused, console-importable `.ncm-report.xml` files are written instead |
-| SCM (server STIGs / `.yaml` / `.scm-profile`) | Collision check query on `Orion.PolicyEngine.Policy` by `Name` **and** `UniqueId` → `ImportPolicy(yaml)` per policy → rule-count read-back on `Orion.PolicyEngine.Rule` |
+| NCM fallback | Nested `AddPolicyReport(report, importFlag)` in console-export XML; if every wire format is refused, console-importable `.ncm-report.xml` files are written for the reports not yet imported |
+| NCM undo (`remove`) | Name query on `Cirrus.PolicyReports` → `GetPolicyReport(reportId, exportFlag)` per report → membership and sharing queries on `Cirrus.PolicyAssignment` and `Cirrus.PolicyRuleAssignment` → `DeletePolicyReports(ids, false)` → `DeletePolicies(unsharedIds, false)` → `DeletePolicyRules(unsharedIds)` → read-back of all three |
+| SCM (server STIGs / `.yaml` / `.scm-policy.yaml` / legacy policy `.scm-profile`) | Collision check query on `Orion.PolicyEngine.Policy` by `Name` **and** `UniqueId` → `ImportPolicy(yaml)` per policy → rule-count read-back on `Orion.PolicyEngine.Rule` |
 | Test connection | `Orion.Engines` version query + `Metadata.Entity` counts for the `Cirrus.` and `Orion.PolicyEngine.` namespaces |
 
 Everything the tool needs from the platform, verified against the 2026.2 schema and
@@ -358,7 +449,10 @@ The `Cirrus.Policy*` SWQL entities are read-only; all writes are Invoke verbs on
 | `StartCaching` | `(selectedReportsIds)` — array of GUID strings | Activation; **always pass the specific GUID** — an empty array re-caches every report on the server |
 | `UpdateReportStatus` | `(status, selectedReportsIds)` — `Enabled`/`Disabled` | `--disabled`: the verb that owns the field, said explicitly rather than trusting the payload to have carried it |
 | `TestRule` / `TestRuleOnBackedUpConfig` | `(policyRule, config)` / `(policyRule, configId)` → string | The `test` command. Creates nothing, needs only WebDownloader, and takes the same contract type `AddPolicyRule` does, so the same wire-format probe applies |
-| `DeletePolicyRules` / `DeletePolicies` / `DeletePolicyReports` | `(ruleIds)` / `(policyIds, deleteChildren)` / `(policyReportIds, deleteChildren)` | Rollback of a failed import, and the `remove` command |
+| `DeletePolicyRules` / `DeletePolicies` / `DeletePolicyReports` | `(ruleIds)` / `(policyIds, deleteChildren)` / `(policyReportIds, deleteChildren)` | Rollback of a failed import, and the `remove` command; `deleteChildren` is always false |
+| Query | `SELECT PolicyReportID, PolicyID FROM Cirrus.PolicyAssignment WHERE PolicyID IN @ids` | `remove`: a policy another report is assigned to is kept |
+| Query | `SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids` | `remove`: a rule a surviving policy uses is kept |
+| Query | `SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids` | Pre-import snapshot so a rollback skips rules that already existed |
 | `GetPolicy` / `GetPolicyRule` | `(policyId, exportFlag)` / `(ruleId)` | Per-item export |
 
 The tool builds bottom-up (rules → policies → report, linked by ID lists) rather than

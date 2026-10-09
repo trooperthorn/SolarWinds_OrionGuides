@@ -214,8 +214,8 @@ The following observations do not imply that every current import loses logic.
 |---|---|
 | A ZIP of SCM YAML is treated as an XCCDF package | Offline `load_benchmarks` on this archive raises `no XCCDF benchmark found inside`. Detect member formats and plan individual SCM policy imports; reject or explicitly separate mixed module bundles. |
 | Preview uses regular expressions rather than a YAML tree | A valid indented rule sequence reports zero rules; an escaped quoted policy name is not decoded correctly. Use an inert tagged-node parser for names, identities, counts and validation. |
-| Collision preflight checks only Name | `import_scm_policy` queries Name, not UniqueId; the PowerShell YAML path does the same. SolarWinds documents rejection when either matches. Check both and report conflicts without automatically deleting existing policies. |
-| Import return value is not sufficient verification | A mocked numeric zero is accepted because Python checks only `None`; no exported content is read back. Require a valid returned identity and verify the resulting policy/rule graph with server data before reporting complete import. |
+| Collision preflight checks only Name (addressed, see the 2026-10-08 status below) | `import_scm_policy` queries Name, not UniqueId; the PowerShell YAML path does the same. SolarWinds documents rejection when either matches. Check both and report conflicts without automatically deleting existing policies. |
+| Import return value is not sufficient verification (partly addressed, see below) | A mocked numeric zero is accepted because Python checks only `None`; no exported content is read back. Require a valid returned identity and verify the resulting policy/rule graph with server data before reporting complete import. |
 | Generated XCCDF policies are manual-review sentinels | `xccdf_to_scm_yaml` creates a PowerShell probe printing False and a condition expecting True. It does not compile the authored registry/database/translation/dependency graphs in these policies or execute OVAL. Preserve the distinction between a draft review task and an automated check. |
 | Source identity and revision model is incomplete | Generated rule GUIDs derive from revision-bearing XCCDF Rule IDs; a source revision can produce new IDs. Preserve legacy aliases and reviewed old-to-new mappings instead of relying on GUID regeneration. |
 | SCAP parsing is lossy | The IIS SCAP rule counts load, but existing XCCDF parsing retains only a limited check/reference representation. Preserve check systems, references, profiles, data-stream components and supplemental author/version before deciding what is supported. |
@@ -226,6 +226,22 @@ the server itself returns zero or that the current supplied YAML triggers the pr
 formatting bug. Source: `apps/disa-stig-conversion-tool/disa_stig_tool.py` functions
 `scan_scm_policy`, `load_scm_policy`, `import_scm_policy`, `load_benchmarks`, and
 `xccdf_to_scm_yaml`; PowerShell's existing-YAML import branch.
+
+**Status on 2026-10-08.** The table above records the tool as audited. Two rows have
+since changed:
+
+- Both editions now query `Name` **and** `UniqueId` before `ImportPolicy` and refuse
+  either match without touching the existing policy. The PowerShell `uniqueId` match
+  missed files with CRLF line endings until 2026-10-08, when it began normalizing line
+  endings first; it also now refuses text that is not a `!policy` document.
+- Both editions read the rule count back from `Orion.PolicyEngine.Rule` after
+  `ImportPolicy` and fail when it is zero, so a returned id of 0 fails the same way
+  unless a policy with that id exists. This is not the full verification the row asks
+  for: the count is not compared with the file and no exported content is read back.
+
+The offline tests in `apps/disa-stig-conversion-tool/test_disa_stig_tool.py` cover the
+CRLF case and the refusal of SCM collection profiles (`.scm-profile` JSON), which the
+tool previously routed to `ImportPolicy` by extension. The remaining rows stand.
 
 ## Field mapping and import acceptance contract
 

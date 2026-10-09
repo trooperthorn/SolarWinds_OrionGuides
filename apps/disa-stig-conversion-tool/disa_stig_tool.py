@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DISA STIG Conversion Tool — DISA STIG to SolarWinds compliance importer.
+"""DISA STIG Conversion Tool - DISA STIG to SolarWinds compliance importer.
 
 One self-contained file: GUI and CLI together, standard library only.
 
@@ -23,12 +23,17 @@ verbatim through ``Orion.PolicyEngine.Policy.ImportPolicy``.
     See what a package contains before touching a server:
         python disa_stig_tool.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip
 
-    Write the report payload to disk for inspection (JSON, exact import shape):
-        python disa_stig_tool.py build U_Cisco_IOS_Router_Y26M07_STIG.zip -o report.json
+    Write console-importable files without a server (NCM .ncm-report.xml,
+    SCM .scm-policy.yaml):
+        python disa_stig_tool.py convert U_Cisco_IOS_Router_Y26M07_STIG.zip
 
     Import into NCM and start compliance caching for the new report:
         python disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \\
             --host orion.example.com --user admin
+
+    Undo an import (preview first with --dry-run):
+        python disa_stig_tool.py remove --name "<report name>" \\
+            --host orion.example.com --user admin --yes
 
 The password is read from the SWIS_PASSWORD environment variable, or prompted for.
 Never hard-code it and never pass it on the command line.
@@ -36,17 +41,18 @@ Never hard-code it and never pass it on the command line.
 What the import produces
 ------------------------
 
-One policy report named after the package, one policy per XCCDF benchmark in the zip
-(the Cisco IOS Router package, for example, carries two: NDM and RTR), one NCM rule
-per XCCDF rule. Severity maps ``high``→critical, ``medium``→warning, ``low``→info.
-The STIG's Fix Text is stored as the rule's remediation script for an operator to
-review and run; ``ExecuteScriptAutomatically`` is always false — this tool never
-creates a rule that pushes configuration on its own.
+One policy report per XCCDF benchmark in the package (the Cisco IOS Router package,
+for example, carries two: NDM and RTR), each holding one policy, and one NCM rule per
+XCCDF rule. Severity maps high to ErrorLevel 2, medium to 1 and low to 0; the console
+names those levels critical, warning and info by default, but the names are editable
+per server. The STIG's Fix Text is stored as the rule's remediation script for an
+operator to review and run; ``ExecuteScriptAutomatically`` is always false, so this
+tool never creates a rule that pushes configuration on its own.
 
 Manual STIGs describe checks in prose, not machine patterns, so by default every
 imported rule uses a sentinel pattern that cannot occur in a device configuration
 with "pattern must exist" set. The result: every rule reports a violation on every
-node in scope, which is the honest state — each finding is an open action item
+node in scope, which is the honest state: each finding is an open action item
 carrying the full check text and the fix script, until an engineer replaces the
 sentinel with a real pattern for that rule in the NCM console. ``--mode heuristic``
 instead seeds each rule with the first config-looking line found in the STIG's check
@@ -89,8 +95,19 @@ DISA_ZIP_BASE = "https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/"
 
 XCCDF_NS = "{http://checklists.nist.gov/xccdf/1.1}"
 
+# XCCDF severity -> NCM ErrorLevel. The console's default names for 2/1/0 are
+# critical/warning/info, but an administrator can rename the levels per server
+# (Manage Violation Levels), so only the numbers are portable.
 SEVERITY_TO_ERRORLEVEL = {"high": 2, "medium": 1, "low": 0}
-ERRORLEVEL_NAMES = {2: "critical", 1: "warning", 0: "info"}
+
+# SCM compliance policy output. SolarWinds' own published policy files are plain
+# .yaml; the docs name no dedicated extension, so this tool writes .scm-policy.yaml.
+# .scm-profile is the extension of SCM *collection profile* exports (UTF-16 JSON,
+# docs/modules/scm-profile-portability-audit.md), which older builds of this tool
+# also used for policy YAML. That legacy output is still accepted on input.
+SCM_POLICY_SUFFIX = ".scm-policy.yaml"
+LEGACY_SCM_POLICY_SUFFIX = ".scm-profile"
+SCM_INPUT_SUFFIXES = (".yaml", ".yml", LEGACY_SCM_POLICY_SUFFIX)
 # NCM reads a `Like` pattern literally unless the advanced setting
 # ComplianceRulesWildcardsEnabled is turned on, which it is not by default
 # (NCM 2023.1.1 and later). A pattern carrying * or ? therefore means one thing
@@ -248,17 +265,65 @@ def scan_scm_policy(text):
             "severity_counts": counts}
 
 
-def load_scm_policy(path):
-    """Read an SCM policy YAML file, tolerating a UTF-8/UTF-16 BOM."""
+def decode_text_bytes(raw):
+    """Decode a policy or profile file by its bytes: UTF-16 (BOM or NUL-interleaved
+    ASCII, as SCM exports are UTF-16LE) or UTF-8 with an optional BOM."""
+    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+        return raw.decode("utf-16")
+    head = raw[:64]
+    if len(head) >= 4 and head[1:2] == b"\x00" and head[3:4] == b"\x00":
+        return raw.decode("utf-16-le")
+    if len(head) >= 4 and head[0:1] == b"\x00" and head[2:3] == b"\x00":
+        return raw.decode("utf-16-be")
+    return raw.decode("utf-8-sig")
+
+
+def classify_scm_text(text):
+    """'policy' (tagged-YAML compliance policy), 'profile' (JSON, the SCM
+    collection-profile export format) or 'unknown'."""
+    if is_scm_policy_text(text):
+        return "policy"
+    stripped = text.lstrip("﻿ \t\r\n")
+    if stripped.startswith("{"):
+        try:
+            json.loads(stripped)
+            return "profile"
+        except ValueError:
+            pass
+    return "unknown"
+
+
+SCM_PROFILE_REFUSAL = (
+    "{path}: this is an SCM collection profile (JSON, the format SCM profile exports "
+    "use), not a tagged-YAML compliance policy. Collection profiles define what SCM "
+    "collects; they carry no compliance rules, and this tool does not import them. "
+    "Import a profile through SCM's own profile import workflow or "
+    "Orion.SCM.Profiles.ImportProfile(profileJson), after the review described in "
+    "docs/modules/scm-profile-portability-audit.md.")
+
+
+def load_scm_policy(path, log=None):
+    """Read an SCM policy YAML file, tolerating a UTF-8/UTF-16 BOM.
+
+    ``.scm-profile`` input is classified by content: policy YAML that an older
+    build of this tool wrote under that extension is accepted with a note (sent
+    to ``log``); a JSON collection profile is refused, because that extension
+    belongs to SCM collection profiles and they are not compliance policies.
+    """
     with open(path, "rb") as fh:
         raw = fh.read()
-    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
-        text = raw.decode("utf-16")
-    else:
-        text = raw.decode("utf-8-sig")
-    if not is_scm_policy_text(text):
+    text = decode_text_bytes(raw)
+    kind = classify_scm_text(text)
+    if kind == "profile":
+        raise ValueError(SCM_PROFILE_REFUSAL.format(path=path))
+    if kind != "policy":
         raise ValueError(f"{path}: not an SCM compliance policy "
                          "(expected a YAML document tagged !policy with pluginName: SCM)")
+    if path.lower().endswith(LEGACY_SCM_POLICY_SUFFIX) and log:
+        log(f"note: {os.path.basename(path)} is SCM policy YAML written by an older build "
+            f"of this tool under the {LEGACY_SCM_POLICY_SUFFIX} extension, which belongs "
+            "to SCM collection profiles (JSON). It is read as a compliance policy; new "
+            f"conversions write {SCM_POLICY_SUFFIX}, so rename the file to avoid confusion.")
     return text
 
 
@@ -899,6 +964,42 @@ def _clean_id(value, fallback):
     return fallback
 
 
+def _norm_id(value):
+    """Compare GUIDs from verb results and SWQL rows on equal terms."""
+    return str(value or "").strip().strip('"').strip("{}").strip().lower()
+
+
+def _query_ids(swis, swql, ids, chunk=100):
+    """Run an `IN @ids` query over a list of ids in bounded chunks."""
+    ids = [i for i in ids if i]
+    rows = []
+    for start in range(0, len(ids), chunk):
+        rows.extend(swis.query(swql, {"ids": ids[start:start + chunk]}) or [])
+    return rows
+
+
+def existing_ncm_ids(swis, report):
+    """Which of the RuleIds/PolicyIds this report would submit already exist.
+
+    RuleIds are uuid5-derived from the DISA rule id, so a second import of the
+    same STIG release submits the same ids an earlier import did. A rollback must
+    not delete those earlier objects, so they are recorded before anything is
+    created. Unverified: whether AddPolicyRule/AddPolicy honour a submitted id or
+    always assign a fresh one is not documented; the returned id is used either
+    way, and this snapshot only matters when it equals an existing one.
+    """
+    rule_ids = [r["RuleId"] for p in report["AssignedPolicies"]
+                for r in p["AssignedPolicyRules"]]
+    policy_ids = [p["PolicyId"] for p in report["AssignedPolicies"] if p.get("PolicyId")]
+    rules = {_norm_id(row.get("PolicyRuleID")) for row in _query_ids(
+        swis, "SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids",
+        rule_ids)}
+    policies = {_norm_id(row.get("PolicyID")) for row in _query_ids(
+        swis, "SELECT PolicyID FROM Cirrus.Policies WHERE PolicyID IN @ids",
+        policy_ids)}
+    return {"rules": rules, "policies": policies}
+
+
 def _verify_report(swis, report_id, expected_policies, expected_rules, log):
     """Read the report back — the import is only done if the tree actually exists."""
     stored = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True)
@@ -985,7 +1086,7 @@ def test_reports(swis, reports, config_text=None, config_id=None, limit=10, log=
     return len(rules), with_output
 
 
-def rollback_ncm(swis, rule_ids, policy_ids, report_id, log):
+def rollback_ncm(swis, rule_ids, policy_ids, report_id, log, preexisting=None):
     """Undo a partial bottom-up import.
 
     A STIG report is built from the bottom up, so a failure at the policy or
@@ -998,7 +1099,25 @@ def rollback_ncm(swis, rule_ids, policy_ids, report_id, log):
     Children are removed by their own verbs rather than with
     ``DeletePolicyReports(ids, deleteChildren=true)``, because that flag also
     reaches policies and rules that other reports share.
+
+    ``preexisting`` is the snapshot from ``existing_ncm_ids``: any id that was
+    already on the server before this run (the deterministic RuleIds make an
+    earlier import of the same STIG release the usual case, and ``_clean_id``
+    falls back to the submitted id when a verb returns nothing) is skipped, so a
+    rollback deletes only what this run created.
     """
+    preexisting = preexisting or {"rules": set(), "policies": set()}
+
+    def split(ids, known):
+        ours, kept, seen = [], [], set()
+        for i in ids:
+            key = _norm_id(i)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            (kept if key in known else ours).append(i)
+        return ours, kept
+
     def drop(verb, *args):
         try:
             swis.invoke("Cirrus.PolicyReports", verb, *args)
@@ -1007,6 +1126,8 @@ def rollback_ncm(swis, rule_ids, policy_ids, report_id, log):
             log(f"rollback: {verb} failed, clean up by hand - {exc}")
             return False
 
+    policy_ids, kept_policies = split(policy_ids or [], preexisting["policies"])
+    rule_ids, kept_rules = split(rule_ids or [], preexisting["rules"])
     if report_id:
         log(f"rollback: deleting report {report_id}")
         drop("DeletePolicyReports", [report_id], False)
@@ -1016,6 +1137,11 @@ def rollback_ncm(swis, rule_ids, policy_ids, report_id, log):
     if rule_ids:
         log(f"rollback: deleting {len(rule_ids)} rule(s)")
         drop("DeletePolicyRules", rule_ids)
+    for label, kept in (("policy", kept_policies), ("rule", kept_rules)):
+        for i in kept:
+            log(f"rollback: skipped {label} {i} - it existed on the server before this "
+                "import (an earlier import of the same STIG release?), so this run did "
+                "not create it")
 
 
 class NcmWireError(SwisError):
@@ -1046,8 +1172,14 @@ def import_ncm_report(swis, report, log=print, rollback=True):
 
     ``rollback`` deletes whatever the failed attempt managed to create, so a
     half-built import does not leave orphaned rules behind. Pass False to keep
-    them for diagnosis.
+    them for diagnosis. Rules and policies whose ids already existed before the
+    run are never deleted by the rollback (see ``existing_ncm_ids``).
     """
+    preexisting = existing_ncm_ids(swis, report)
+    if preexisting["rules"] or preexisting["policies"]:
+        log(f"note: {len(preexisting['rules'])} rule id(s) and "
+            f"{len(preexisting['policies'])} policy id(s) this report submits already "
+            "exist on the server; a rollback will leave those alone")
     probe_rule = report["AssignedPolicies"][0]["AssignedPolicyRules"][0]
     fmt = None
     first_rule_id = None
@@ -1067,7 +1199,7 @@ def import_ncm_report(swis, report, log=print, rollback=True):
             log(f"server rejected {spec['label']}; trying the next wire format …")
     if fmt:
         return _import_ncm_bottom_up(swis, report, log, WIRE_FORMATS[fmt],
-                                     first_rule_id, rollback)
+                                     first_rule_id, rollback, preexisting)
 
     log("no per-item wire format accepted; trying one nested AddPolicyReport "
         "in the console-export format …")
@@ -1092,7 +1224,8 @@ def import_ncm_report(swis, report, log=print, rollback=True):
         '<?xml version="1.0" encoding="utf-16"?>' + report_contract_xml(report))
 
 
-def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True):
+def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True,
+                          preexisting=None):
     policy_ids = []
     all_rule_ids = [first_rule_id]
     report_id = ""
@@ -1131,12 +1264,194 @@ def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True)
     except SwisError:
         if rollback:
             log("import failed part way through; removing what it created …")
-            rollback_ncm(swis, all_rule_ids, policy_ids, report_id, log)
+            rollback_ncm(swis, all_rule_ids, policy_ids, report_id, log, preexisting)
         else:
             log(f"import failed part way through; {len(all_rule_ids)} rule(s) and "
                 f"{len(policy_ids)} policy/policies were left on the server "
                 "(--no-rollback)")
         raise
+
+
+def import_ncm_reports(swis, reports, log=print, rollback=True):
+    """Import several reports in turn, stopping at the first failure.
+
+    Returns (imported, failure, remaining): ``imported`` lists
+    (report, report_id, rule_count) for every report that completed and was
+    verified, ``failure`` is the exception that stopped the run (None when all
+    succeeded), and ``remaining`` lists the reports that were not imported,
+    the failed one first. Reports imported before a failure stay on the server
+    and are still the caller's to cache or disable.
+    """
+    imported = []
+    for index, report in enumerate(reports):
+        n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
+        log(f"importing \"{report['Name']}\" - {n_rules} rules ...")
+        try:
+            new_id, _n_pol, n_stored = import_ncm_report(swis, report, log=log,
+                                                         rollback=rollback)
+        except SwisError as exc:
+            return imported, exc, list(reports[index:])
+        imported.append((report, new_id, n_stored))
+        log(f"imported: \"{report['Name']}\" ({new_id}) - {n_stored} rules")
+    return imported, None, []
+
+
+def finish_ncm_imports(swis, new_ids, disabled=False, no_cache=False, log=print):
+    """Disable or start caching the reports a run imported. Returns True when the
+    requested end state was confirmed (or nothing was asked of the server)."""
+    if not new_ids:
+        return True
+    if disabled:
+        # ReportStatus travels in the payload, but UpdateReportStatus is the verb
+        # that owns the field, so say it explicitly rather than trusting the
+        # import to have carried it, and read it back.
+        swis.invoke("Cirrus.PolicyReports", "UpdateReportStatus", "Disabled", list(new_ids))
+        stored = swis.query("SELECT Name, ReportStatus FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids",
+                            {"ids": list(new_ids)})
+        if not stored:
+            log("warning: No data returned reading ReportStatus back after "
+                "UpdateReportStatus; confirm the reports are disabled in the console")
+            return False
+        still_on = [r.get("Name") for r in stored if r.get("ReportStatus")]
+        if still_on:
+            log("warning: still enabled after UpdateReportStatus: " + ", ".join(still_on))
+            return False
+        log(f"{len(new_ids)} report(s) imported Disabled and not cached. Enable them in "
+            "the console, or with UpdateReportStatus('Enabled', [ids]), once the rules "
+            "have been reviewed.")
+        return True
+    if no_cache:
+        log("compliance caching not started (--no-cache); the reports show no data until "
+            "you run Update Violations in the console or invoke StartCaching.")
+        return True
+    # Always pass the specific GUIDs: an empty array would re-cache every report.
+    swis.invoke("Cirrus.PolicyReports", "StartCaching", list(new_ids))
+    log(f"compliance caching started for {len(new_ids)} report(s). Watch them under "
+        "My Dashboards > Network Configuration > Compliance. The policy cache also "
+        "refreshes on its own at 11:55 PM daily when that job is enabled.")
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Removing an imported report: report, then unshared policies, then unshared rules
+# ---------------------------------------------------------------------------
+#
+# DeletePolicyReports(ids, deleteChildren=false) on its own leaves the report's
+# policies and rules behind with nothing pointing at them, the orphan state
+# docs/modules/ncm-compliance-reports.md warns about; deleteChildren=true also
+# reaches children other reports share. The clean path reads the tree, deletes
+# the report row, then the policies with DeletePolicies(ids, false), then the
+# rules with DeletePolicyRules, skipping anything another report or policy still
+# references (Cirrus.PolicyAssignment / Cirrus.PolicyRuleAssignment).
+
+def plan_ncm_removal(swis, report_ids, log=print):
+    """Work out what removing these reports deletes and what it must keep."""
+    report_keys = {_norm_id(r) for r in report_ids}
+    policies, rules, names = {}, {}, {}
+
+    def add(store, value, name=None):
+        key = _norm_id(value)
+        if key:
+            store.setdefault(key, str(value).strip().strip("{}"))
+            if name and key not in names:
+                names[key] = name
+
+    for report_id in report_ids:
+        tree = swis.invoke("Cirrus.PolicyReports", "GetPolicyReport", report_id, True)
+        if not tree:
+            log(f"note: No data returned from GetPolicyReport for {report_id}; its "
+                "policies and rules are taken from Cirrus.PolicyAssignment alone")
+            continue
+        for pid in tree.get("AssignedPoliciesList") or []:
+            add(policies, pid)
+        for pol in tree.get("AssignedPolicies") or []:
+            add(policies, pol.get("PolicyId"), pol.get("PolicyName"))
+            for rid in pol.get("AssignedRulesList") or []:
+                add(rules, rid)
+            for rule in pol.get("AssignedPolicyRules") or []:
+                add(rules, rule.get("RuleId"), rule.get("RuleName"))
+    # The export tree is not documented to carry PolicyId, so the SWQL link
+    # tables are read as well; together they give the report's full membership.
+    for row in _query_ids(swis, "SELECT PolicyID FROM Cirrus.PolicyAssignment WHERE PolicyReportID IN @ids",
+                          list(report_ids)):
+        add(policies, row.get("PolicyID"))
+    for row in _query_ids(swis, "SELECT PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyID IN @ids",
+                          list(policies.values())):
+        add(rules, row.get("PolicyRuleID"))
+
+    kept_policies = {}
+    for row in _query_ids(swis, "SELECT PolicyReportID, PolicyID FROM Cirrus.PolicyAssignment WHERE PolicyID IN @ids",
+                          list(policies.values())):
+        other = _norm_id(row.get("PolicyReportID"))
+        key = _norm_id(row.get("PolicyID"))
+        if key in policies and other and other not in report_keys:
+            kept_policies.setdefault(key, []).append(str(row.get("PolicyReportID")))
+    delete_policy_keys = set(policies) - set(kept_policies)
+
+    kept_rules = {}
+    for row in _query_ids(swis, "SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids",
+                          list(rules.values())):
+        other = _norm_id(row.get("PolicyID"))
+        key = _norm_id(row.get("PolicyRuleID"))
+        if key in rules and other and other not in delete_policy_keys:
+            kept_rules.setdefault(key, []).append(str(row.get("PolicyID")))
+
+    return {
+        "reports": list(report_ids),
+        "delete_policies": [policies[k] for k in policies if k in delete_policy_keys],
+        "keep_policies": {policies[k]: v for k, v in kept_policies.items()},
+        "delete_rules": [rules[k] for k in rules if k not in kept_rules],
+        "keep_rules": {rules[k]: v for k, v in kept_rules.items()},
+        "names": {v: names[k] for store in (policies, rules) for k, v in store.items()
+                  if k in names},
+    }
+
+
+def describe_removal_plan(plan, log=print, prefix=""):
+    names = plan["names"]
+
+    def label(i):
+        return f"{i} \"{names[i]}\"" if i in names else i
+
+    log(f"{prefix}report(s): {len(plan['reports'])}  " + ", ".join(plan["reports"]))
+    log(f"{prefix}policies to delete: {len(plan['delete_policies'])}")
+    for i in plan["delete_policies"]:
+        log(f"{prefix}  - {label(i)}")
+    log(f"{prefix}rules to delete: {len(plan['delete_rules'])}")
+    for pid, others in plan["keep_policies"].items():
+        log(f"{prefix}kept policy {label(pid)}: still assigned to another report "
+            f"({', '.join(others)})")
+    for rid, others in plan["keep_rules"].items():
+        log(f"{prefix}kept rule {label(rid)}: still assigned to a policy that is not "
+            f"being deleted ({', '.join(others)})")
+
+
+def remove_ncm_reports(swis, plan, log=print):
+    """Delete the report rows, then the unshared policies, then the unshared rules.
+
+    deleteChildren is false on both delete verbs that take it: the children this
+    run may delete are named explicitly instead. Returns a summary dict.
+    """
+    swis.invoke("Cirrus.PolicyReports", "DeletePolicyReports", list(plan["reports"]), False)
+    log(f"deleted {len(plan['reports'])} report(s)")
+    if plan["delete_policies"]:
+        swis.invoke("Cirrus.PolicyReports", "DeletePolicies", list(plan["delete_policies"]), False)
+        log(f"deleted {len(plan['delete_policies'])} policy/policies")
+    if plan["delete_rules"]:
+        swis.invoke("Cirrus.PolicyReports", "DeletePolicyRules", list(plan["delete_rules"]))
+        log(f"deleted {len(plan['delete_rules'])} rule(s)")
+    left = {
+        "reports": _query_ids(swis, "SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids",
+                              plan["reports"]),
+        "policies": _query_ids(swis, "SELECT PolicyID FROM Cirrus.Policies WHERE PolicyID IN @ids",
+                               plan["delete_policies"]),
+        "rules": _query_ids(swis, "SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids",
+                            plan["delete_rules"]),
+    }
+    for kind, rows in left.items():
+        if rows:
+            log(f"warning: {len(rows)} {kind} still present after the delete call")
+    return left
 
 
 # ---------------------------------------------------------------------------
@@ -1293,12 +1608,23 @@ def cmd_download(args):
 
 
 def is_scm_path(path):
-    return os.path.isfile(path) and path.lower().endswith((".yaml", ".yml", ".scm-profile"))
+    """A file routed to the SCM policy reader (.yaml/.yml, which covers the
+    .scm-policy.yaml this tool writes, or a legacy .scm-profile, whose content
+    load_scm_policy then classifies)."""
+    return os.path.isfile(path) and path.lower().endswith(SCM_INPUT_SUFFIXES)
+
+
+def scm_policy_filename(benchmark, stem=None):
+    """File name for a converted SCM policy (see SCM_POLICY_SUFFIX)."""
+    base = benchmark["benchmark_id"] or benchmark["title"]
+    if stem:
+        return f"{stem}.{benchmark['benchmark_id'] or 'benchmark'}{SCM_POLICY_SUFFIX}"
+    return re.sub(r"[^\w.-]+", "_", base) + SCM_POLICY_SUFFIX
 
 
 def cmd_parse(args):
     if is_scm_path(args.path):
-        info = scan_scm_policy(load_scm_policy(args.path))
+        info = scan_scm_policy(load_scm_policy(args.path, log=print))
         sev = ", ".join(f"{v} {k}" for k, v in sorted(info["severity_counts"].items()))
         print(f"{info['name']}  (SCM compliance policy)")
         print(f"  {len(info['rules'])} rules: {sev}")
@@ -1365,7 +1691,7 @@ def make_reports_from_args(args, benchmarks, node_where):
 
 def cmd_build(args):
     if is_scm_path(args.path):
-        info = scan_scm_policy(load_scm_policy(args.path))
+        info = scan_scm_policy(load_scm_policy(args.path, log=print))
         print(f"\"{info['name']}\" is an SCM compliance policy: the YAML file itself is "
               "the import payload — nothing to build.\n"
               "Import it with:  disa_stig_tool.py import <file> …  "
@@ -1379,7 +1705,7 @@ def cmd_build(args):
     if kind == "server":
         for b in benchmarks:
             out = args.output if args.output and len(benchmarks) == 1 else \
-                f"{stem}.{b['benchmark_id'] or 'benchmark'}.scm-profile"
+                scm_policy_filename(b, stem)
             with open(out, "w", encoding="utf-8") as fh:
                 fh.write(xccdf_to_scm_yaml(b))
             print(f"wrote {out}: SCM policy \"{b['title']}\" — {len(b['rules'])} rules")
@@ -1458,35 +1784,47 @@ def cmd_test(args):
 
 
 def cmd_remove(args):
-    """Delete an imported policy report, the supported way to undo an import."""
+    """Delete an imported policy report, the supported way to undo an import.
+
+    Reads the report's tree, then deletes the report row, its policies
+    (DeletePolicies with deleteChildren false) and its rules (DeletePolicyRules),
+    keeping any policy another report still uses and any rule another policy
+    still uses. Prints exactly what was deleted and what was kept.
+    """
     swis = connect(args)
-    found = swis.query("SELECT PolicyReportID, Name, Grouping FROM Cirrus.PolicyReports "
-                       "WHERE Name = @n", {"n": args.name})
+    found = swis.query("SELECT PolicyReportID, Name, Grouping FROM Cirrus.PolicyReports WHERE Name = @n",
+                       {"n": args.name})
     if not found:
         sys.exit(f"error: no policy report named \"{args.name}\" on this server")
+    if getattr(args, "delete_children", False):
+        print("note: --delete-children is deprecated and ignored. remove now deletes the "
+              "report's policies and rules itself, skipping any another report or policy "
+              "still uses, and never passes deleteChildren=true.")
     ids = [r["PolicyReportID"] for r in found]
-    print(f"about to delete {len(ids)} report(s) named \"{args.name}\""
-          + (" together with their policies and rules" if args.delete_children
-             else " (policies and rules are left in place)"))
-    if args.delete_children:
-        print("note: --delete-children also removes policies and rules that other "
-              "reports may share.")
+    plan = plan_ncm_removal(swis, ids)
+    print(f"{'would delete' if args.dry_run else 'about to delete'} {len(ids)} report(s) "
+          f"named \"{args.name}\":")
+    describe_removal_plan(plan, print, prefix="  ")
+    if args.dry_run:
+        print("dry run: nothing was deleted.")
+        return
     if not args.yes:
-        sys.exit("refusing to delete without --yes")
-    swis.invoke("Cirrus.PolicyReports", "DeletePolicyReports", ids, args.delete_children)
-    left = swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n",
-                      {"n": args.name})
-    if left:
-        sys.exit(f"error: {len(left)} report(s) named \"{args.name}\" still exist "
-                 "after DeletePolicyReports")
-    print(f"deleted {len(ids)} report(s).")
+        sys.exit("refusing to delete without --yes (preview with --dry-run)")
+    left = remove_ncm_reports(swis, plan)
+    print(f"done: deleted {len(ids)} report(s), {len(plan['delete_policies'])} "
+          f"policy/policies and {len(plan['delete_rules'])} rule(s); kept "
+          f"{len(plan['keep_policies'])} shared policy/policies and "
+          f"{len(plan['keep_rules'])} shared rule(s).")
+    if any(left.values()):
+        sys.exit("error: some objects were still present after deletion; see the "
+                 "warnings above")
 
 
 def cmd_import(args):
     swis = connect(args)
 
     if is_scm_path(args.path):
-        text = load_scm_policy(args.path)
+        text = load_scm_policy(args.path, log=print)
         policy_id, name = import_scm_policy(swis, text, log=print)
         print(f"imported SCM policy \"{name}\" (PolicyID {policy_id}).")
         print("Assign it to nodes under Settings → SCM Settings → Policies, or via "
@@ -1514,62 +1852,45 @@ def cmd_import(args):
                      f"with \"remove --name\", or remove it in the console — this tool "
                      "never overwrites.")
 
-    new_ids = []
-    for report in reports:
-        n_rules = sum(len(p["AssignedPolicyRules"]) for p in report["AssignedPolicies"])
-        print(f"importing \"{report['Name']}\" — {n_rules} rules …")
-        try:
-            new_id, _n_pol, n_rul = import_ncm_report(
-                swis, report, rollback=not args.no_rollback)
-        except NcmWireError as exc:
-            print(f"error: {exc}")
-            for rep in reports:
-                print(f"wrote {write_console_file(rep)}")
-            sys.exit("import the files through the web console: "
-                     "Compliance → Manage Policy Reports → Import")
-        new_ids.append(new_id)
-        print(f"imported: \"{report['Name']}\" ({new_id}) — {n_rul} rules")
-
-    if args.disabled:
-        # ReportStatus travels in the payload, but UpdateReportStatus is the verb
-        # that owns the field, so say it explicitly rather than trusting the
-        # import to have carried it.
-        swis.invoke("Cirrus.PolicyReports", "UpdateReportStatus", "Disabled", new_ids)
-        stored = swis.query("SELECT Name, ReportStatus FROM Cirrus.PolicyReports "
-                            "WHERE PolicyReportID IN @ids", {"ids": new_ids})
-        still_on = [r["Name"] for r in stored if r.get("ReportStatus")]
-        if still_on:
-            print("warning: still enabled after UpdateReportStatus: "
-                  + ", ".join(still_on))
-        else:
-            print(f"{len(new_ids)} report(s) imported Disabled and not cached. Enable "
-                  "them in the console, or with UpdateReportStatus('Enabled', [ids]), "
-                  "once the rules have been reviewed.")
+    imported, failure, remaining = import_ncm_reports(
+        swis, reports, log=print, rollback=not args.no_rollback)
+    new_ids = [new_id for _rep, new_id, _n in imported]
+    # Reports that completed before a failure are real, verified imports: they
+    # get the same caching / disabling as a fully successful run.
+    finish_ncm_imports(swis, new_ids, disabled=args.disabled, no_cache=args.no_cache,
+                       log=print)
+    if failure is None:
         return
-    if args.no_cache:
-        print("compliance caching not started (--no-cache); the reports show no data until "
-              "you run Update Violations in the console or invoke StartCaching.")
-        return
-    # Always pass the specific GUIDs: an empty array would re-cache every report.
-    swis.invoke("Cirrus.PolicyReports", "StartCaching", new_ids)
-    print(f"compliance caching started for {len(new_ids)} report(s). Watch them under "
-          "My Dashboards → Network Configuration → Compliance. The policy cache also "
-          "refreshes on its own at 11:55 PM daily when that job is enabled.")
+    if imported:
+        print(f"{len(imported)} of {len(reports)} report(s) were imported before the "
+              "failure and remain on the server: "
+              + ", ".join(f"\"{rep['Name']}\"" for rep, _i, _n in imported))
+    if isinstance(failure, NcmWireError):
+        print(f"error: {failure}")
+        for rep in remaining:
+            print(f"wrote {write_console_file(rep)}")
+        sys.exit("import the files written above through the web console: "
+                 "Compliance > Manage Policy Reports > Import")
+    print("not imported: " + ", ".join(f"\"{rep['Name']}\"" for rep in remaining))
+    raise failure
 
 
 def add_source_args(p):
-    p.add_argument("path", help="STIG zip, extracted directory, or a single *-xccdf.xml file")
-    p.add_argument("--name", help="report name (default: derived from the benchmark title)")
+    p.add_argument("path", help="STIG zip, extracted directory, a single *-xccdf.xml file, "
+                                "or an SCM policy .yaml / .scm-policy.yaml")
+    p.add_argument("--name", help="report name base: each report is named '<name> - "
+                                  "<benchmark id>' (default: the zip file name for a zip, "
+                                  "otherwise the benchmark title)")
     p.add_argument("--grouping", default="DISA STIG", help="folder for report/policies/rules")
     p.add_argument("--target", choices=("auto", "network", "server"), default="auto",
-                   help="auto: route by the file/benchmark name (network vendors → NCM, "
-                        "Windows/Linux/RHEL/Debian/Ubuntu/CentOS → SCM). "
+                   help="auto: route by the file/benchmark name (network vendors to NCM, "
+                        "Windows/Linux/RHEL/Debian/Ubuntu/CentOS to SCM). "
                         "network: NCM compliance only. server: SCM compliance only.")
     p.add_argument("--node-where", default="auto",
                    help="NCM node-selection Where clause, e.g. \"(Vendor = 'Cisco')\". "
                         "Default auto: derived from the detected vendor.")
     p.add_argument("--config-type", default="Any",
-                   help="config type the rules scan: Any, Running, Startup, …")
+                   help="config type the rules scan: Any, Running, Startup, ...")
     p.add_argument("--mode", choices=("manual", "heuristic"), default="manual",
                    help="manual: sentinel patterns, every rule flags for review (default). "
                         "heuristic: seed draft patterns from the STIG check text.")
@@ -1672,6 +1993,7 @@ BTN_GREEN, BTN_YELLOW, BTN_RED = "#c6efce", "#ffeb9c", "#ffc7ce"
 def file_module(path):
     """NCM or SCM for one file — the module a batch locks to."""
     if is_scm_path(path):
+        load_scm_policy(path)   # refuses a JSON collection profile up front
         return "SCM"
     benchmarks = load_benchmarks(path)
     kind, _info = detect_target(benchmarks, os.path.basename(path))
@@ -1904,6 +2226,8 @@ class App:
         paths = filedialog.askopenfilenames(
             title="Select STIG files",
             filetypes=[("STIG content", "*.zip *.xml *.xsl *.yaml *.yml *.scm-profile"),
+                       # .scm-profile only for policy YAML from older builds; a JSON
+                       # collection profile is refused when it is added.
                        ("All files", "*.*")])
         if paths:
             self._add_files(paths)
@@ -2089,7 +2413,7 @@ class App:
                 self._summary_line(f"{prefix} {os.path.basename(path)} is already an "
                                    "importable SCM policy — nothing to convert")
                 return True
-            policy_id, name = import_scm_policy(swis, load_scm_policy(path),
+            policy_id, name = import_scm_policy(swis, load_scm_policy(path, log=self._log),
                                                 log=self._log)
             self._summary_line(f"SUCCESS {prefix} \"{name}\" (PolicyID {policy_id})",
                                "success")
@@ -2098,9 +2422,7 @@ class App:
                                                     os.W_OK) else tempfile.gettempdir()
         for b in load_benchmarks(path):
             if offline:
-                out = os.path.join(folder, re.sub(r"[^\w.-]+", "_",
-                                                  b["benchmark_id"] or b["title"])
-                                   + ".scm-profile")
+                out = os.path.join(folder, scm_policy_filename(b))
                 with open(out, "w", encoding="utf-8") as fh:
                     fh.write(xccdf_to_scm_yaml(b))
                 self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
@@ -2143,32 +2465,33 @@ class App:
             if existing:
                 raise SwisError(f"a report named \"{report['Name']}\" already exists — "
                                 "delete or rename it first; this tool never overwrites")
-        new_ids = []
-        partial = False
-        for report in reports:
-            try:
-                new_id, _n_pol, n_rul = import_ncm_report(swis, report, log=self._log)
-            except NcmWireError as exc:
-                self._summary_line(f"{prefix} {exc}", "warn")
-                for rep in reports:
-                    self._summary_line(
-                        f"{prefix} wrote {os.path.basename(write_console_file(rep, folder))} "
-                        "— import it via Compliance → Manage Policy Reports → Import",
-                        "warn")
-                self._show_issue()
-                partial = True
-                break
-            new_ids.append(new_id)
+        imported, failure, remaining = import_ncm_reports(swis, reports, log=self._log)
+        for report, _new_id, n_rul in imported:
             self._summary_line(f"SUCCESS {prefix} \"{report['Name']}\" — {n_rul} rules",
                                "success")
-        if new_ids and not enabled:
-            swis.invoke("Cirrus.PolicyReports", "UpdateReportStatus", "Disabled", new_ids)
-            self._log(f"{prefix} {len(new_ids)} report(s) imported disabled; enable them "
-                      "in the console once the rules have been reviewed")
-        elif new_ids:
-            swis.invoke("Cirrus.PolicyReports", "StartCaching", new_ids)
-            self._log(f"{prefix} compliance caching started for {len(new_ids)} report(s)")
-        return not partial
+        # Reports verified before a failure are still cached or disabled.
+        confirmed = finish_ncm_imports(swis, [i for _r, i, _n in imported],
+                                       disabled=not enabled,
+                                       log=lambda m: self._log(f"{prefix} {m}"))
+        if not confirmed:
+            self._summary_line(f"{prefix} ReportStatus could not be confirmed as "
+                               "Disabled; see the detailed log", "warn")
+            self._show_issue()
+        if failure is None:
+            return confirmed
+        if isinstance(failure, NcmWireError):
+            self._summary_line(f"{prefix} {failure}", "warn")
+            for rep in remaining:
+                self._summary_line(
+                    f"{prefix} wrote {os.path.basename(write_console_file(rep, folder))} "
+                    "— import it via Compliance → Manage Policy Reports → Import",
+                    "warn")
+            self._show_issue()
+            return False
+        if imported:
+            self._summary_line(f"{prefix} {len(imported)} report(s) were imported before "
+                               "the failure and remain on the server", "warn")
+        raise failure
 
 
 def run_gui():
@@ -2191,11 +2514,30 @@ def run_gui():
     root.mainloop()
 
 
-def main():
-    # No arguments (a double-click on Windows) or an explicit "gui" opens the GUI.
-    if len(sys.argv) == 1 or sys.argv[1:] == ["gui"]:
-        run_gui()
-        return
+def configure_console_streams(streams=None):
+    """Make printing robust on a Windows console or a redirected stream.
+
+    A redirected stdout on Windows defaults to the ANSI code page (cp1252), which
+    cannot encode the arrows, dashes and bullets that STIG titles and this tool's
+    messages carry, and an unencodable character raises UnicodeEncodeError and
+    kills the command. Re-encode as UTF-8 and replace anything that still cannot
+    be written, where the stream supports reconfigure() (Python 3.7+).
+    """
+    for stream in streams if streams is not None else (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError, io.UnsupportedOperation):
+            try:
+                reconfigure(errors="replace")
+            except (ValueError, OSError, io.UnsupportedOperation):
+                pass
+
+
+def build_parser():
+    """The CLI. Help text is kept ASCII so it prints on any console code page."""
     top = argparse.ArgumentParser(description=__doc__,
                                   formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = top.add_subparsers(dest="cmd", required=True)
@@ -2205,12 +2547,13 @@ def main():
     d.add_argument("--dir", default=".", help="directory to save into")
 
     pp = sub.add_parser("parse", help="show what a STIG package contains")
-    pp.add_argument("path", help="STIG zip, directory, or *-xccdf.xml file")
+    pp.add_argument("path", help="STIG zip, directory, *-xccdf.xml file, or SCM policy .yaml")
     pp.add_argument("--rules", action="store_true", help="list every rule")
 
     for alias in ("build", "convert"):
         b = sub.add_parser(alias, help="offline conversion, no server needed: write "
-                           "console-importable files (NCM .ncm-report.xml / SCM .scm-profile)")
+                           "console-importable files (NCM .ncm-report.xml / SCM "
+                           ".scm-policy.yaml)")
         add_source_args(b)
         b.add_argument("-o", "--output", help="output file (single-benchmark sources only)")
 
@@ -2235,15 +2578,27 @@ def main():
     tst.add_argument("--limit", type=int, default=10,
                      help="how many rules to test (default 10, 0 for all)")
 
-    rm = sub.add_parser("remove", help="delete an imported policy report by name")
+    rm = sub.add_parser("remove", help="delete an imported policy report by name, with "
+                                       "its policies and rules unless another report "
+                                       "or policy still uses them")
     add_connection_args(rm)
     rm.add_argument("--name", required=True, help="exact report name")
+    rm.add_argument("--dry-run", action="store_true",
+                    help="print what would be deleted and kept, delete nothing")
     rm.add_argument("--delete-children", action="store_true",
-                    help="also delete the report's policies and rules, including any "
-                         "shared with other reports")
+                    help="deprecated and ignored: remove always deletes the report's "
+                         "unshared policies and rules, and never shared ones")
     rm.add_argument("--yes", action="store_true", help="confirm the deletion")
+    return top
 
-    args = top.parse_args()
+
+def main():
+    # No arguments (a double-click on Windows) or an explicit "gui" opens the GUI.
+    if len(sys.argv) == 1 or sys.argv[1:] == ["gui"]:
+        run_gui()
+        return
+    configure_console_streams()
+    args = build_parser().parse_args()
     try:
         {"download": cmd_download, "parse": cmd_parse, "build": cmd_build,
          "convert": cmd_build, "import": cmd_import, "test": cmd_test,

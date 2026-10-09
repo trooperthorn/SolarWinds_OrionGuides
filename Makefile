@@ -96,6 +96,7 @@ validate:
 
 test:
 	@$(PYTHON) tools/test_tools.py
+	@$(PYTHON) -m unittest discover -s apps/disa-stig-conversion-tool -p "test_*.py"
 
 check: test validate
 	@$(PYTHON) tools/check_data.py --version $(VERSION)
