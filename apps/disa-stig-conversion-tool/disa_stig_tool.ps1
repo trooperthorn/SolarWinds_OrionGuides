@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-DISA STIG Conversion Tool — PowerShell edition.
+DISA STIG Conversion Tool - PowerShell edition.
 
 .DESCRIPTION
 Converts and imports DISA STIG content into SolarWinds NCM compliance policy
@@ -10,7 +10,13 @@ or converts to console-importable files with no server connection at all.
 Built-in only: Windows PowerShell 5.1+ / PowerShell 7+, .NET framework classes,
 no modules (SwisPowerShell and orionsdk are NOT required), no gallery installs.
 All code is visible in this one file for audit; the SWIS calls executed are
-documented in README.md next to it.
+documented in README.md next to it. The Python edition (disa_stig_tool.py) is
+the reference: both editions derive the same RuleIds, PolicyIds, SCM uniqueIds
+and report names for the same input.
+
+This file is deliberately pure ASCII. Windows PowerShell 5.1 reads a script
+without a byte-order mark in the ANSI code page, and a UTF-8 dash or quote
+inside a string would be decoded into characters the parser treats as quotes.
 
 Security rules: TLS verification on by default (the stock self-signed
 'SolarWinds-Orion' certificate is trusted by explicit fetch-and-pin);
@@ -24,16 +30,26 @@ Opens the GUI (Windows).
 
 .EXAMPLE
 .\disa_stig_tool.ps1 -Convert -Path .\U_Cisco_IOS_Router_Y26M07_STIG.zip
-Local file conversion only — writes .ncm-report.xml / .scm-profile files.
+Local file conversion only - writes .ncm-report.xml / .scm-policy.yaml files.
 
 .EXAMPLE
 .\disa_stig_tool.ps1 -Path .\stig.zip -Server orion.example.com -Username admin
 Imports over SWIS (password prompted, or set $env:SWIS_PASSWORD).
+
+.EXAMPLE
+.\disa_stig_tool.ps1 -Test -Path .\stig.zip -Server orion.example.com -Username admin -ConfigId <ConfigID>
+Dry-runs the generated rules with TestRuleOnBackedUpConfig; creates nothing.
+
+.EXAMPLE
+.\disa_stig_tool.ps1 -Remove -Name "<report name>" -Server orion.example.com -Username admin -DryRun
+Shows what removing that report would delete and keep; add -Yes instead of -DryRun to delete.
 #>
 [CmdletBinding()]
 param(
     [string[]]$Path,
     [switch]$Convert,
+    [switch]$Test,
+    [switch]$Remove,
     [string]$Server,
     [int]$Port = 17774,
     [string]$Username,
@@ -43,9 +59,17 @@ param(
     [ValidateSet('auto', 'network', 'server')][string]$Target = 'auto',
     [string]$NodeWhere = 'auto',
     [ValidateSet('manual', 'heuristic')][string]$Mode = 'manual',
+    [string]$Name,
     [string]$Grouping = 'DISA STIG',
+    [string]$ConfigType = 'Any',
     [switch]$ImportDisabled,
+    [switch]$NoCache,
     [switch]$NoRollback,
+    [string]$ConfigFile,
+    [string]$ConfigId,
+    [int]$Limit = 10,
+    [switch]$Yes,
+    [switch]$DryRun,
     [switch]$NoGui
 )
 
@@ -122,6 +146,12 @@ function Read-OneBenchmark($Root, [string]$Ns, [string]$SourceName) {
             $release = ('' + $pt.InnerText).Trim()
         }
     }
+    $statusDate = ''
+    foreach ($st in $Root.ChildNodes) {
+        if ($st.LocalName -eq 'status' -and $st.NamespaceURI -eq $Ns) {
+            $statusDate = '' + $st.GetAttribute('date'); break
+        }
+    }
     $edition = 'manual'
     if ($Ns -eq $script:XccdfNamespaces[1]) { $edition = 'scap' }
     $rules = New-Object System.Collections.ArrayList
@@ -169,6 +199,7 @@ function Read-OneBenchmark($Root, [string]$Ns, [string]$SourceName) {
         Title       = Get-XmlText $Root 'title' $Ns
         Version     = Get-XmlText $Root 'version' $Ns
         Release     = $release
+        StatusDate  = $statusDate
         Edition     = $edition
         Rules       = @($rules)
     }
@@ -303,32 +334,70 @@ function Get-DeterministicGuid([string]$Seed) {
 
 function New-NodeSelectionString([string]$Where) {
     # The format real 2026.2.2 console exports carry: WebCriteria:<picker
-    # XML>SQL:Where (…) — bare column names (Vendor, not Nodes.Vendor).
+    # XML>SQL:Where (...) - bare column names (Vendor, not Nodes.Vendor).
+    # Joined with explicit LF so the bytes match the Python edition whatever
+    # line endings this file is checked out with.
     $w = ($Where -replace '\bNodes\.', '').Trim()
-    if (-not $w.StartsWith('(')) { $w = "($w)" }
+    if (-not $w.ToLower().StartsWith('(')) { $w = "($w)" }
     $criteria = ''
-    $m = [regex]::Match($w, "Vendor\s*(=|LIKE)\s*'%?([^%']+)%?'",
+    $m = [regex]::Match($w, "Vendor\s*(?:=|LIKE)\s*'%?([^%']+)%?'",
         [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
     if ($m.Success) {
-        $vendor = $m.Groups[2].Value
+        $vendor = $m.Groups[1].Value
         $id = Get-DeterministicGuid ("stig2ncm-criteria:" + $vendor)
-        $criteria = @"
-<?xml version="1.0" encoding="utf-16"?>
-<ArrayOfWebSelectionCriteria xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <WebSelectionCriteria>
-    <Id>$id</Id>
-    <LogicalCondition />
-    <SelectedColumn>Vendor</SelectedColumn>
-    <MatchType>=</MatchType>
-    <SelectedValue>$vendor</SelectedValue>
-  </WebSelectionCriteria>
-</ArrayOfWebSelectionCriteria>
-"@.Trim()
+        $criteria = (@(
+            '<?xml version="1.0" encoding="utf-16"?>',
+            '<ArrayOfWebSelectionCriteria xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
+            '  <WebSelectionCriteria>',
+            "    <Id>$id</Id>",
+            '    <LogicalCondition />',
+            '    <SelectedColumn>Vendor</SelectedColumn>',
+            '    <MatchType>=</MatchType>',
+            "    <SelectedValue>$vendor</SelectedValue>",
+            '  </WebSelectionCriteria>',
+            '</ArrayOfWebSelectionCriteria>') -join "`n")
     }
     return "WebCriteria:${criteria}SQL:Where $w "
 }
 
+# XCCDF severity -> NCM ErrorLevel. The console's default names for 2/1/0 are
+# critical/warning/info, but the names are editable per server.
 $script:SeverityToErrorLevel = @{ high = 2; medium = 1; low = 0 }
+# Generated text that must match the Python edition byte for byte but cannot be
+# written literally in this ASCII-only file.
+$script:EmDash = [string][char]0x2014
+
+function Limit-Text([string]$Text, [int]$Max = 250) {
+    # Python's text[:250]: names are capped at 250 characters in both editions.
+    if ($null -eq $Text) { return '' }
+    if ($Text.Length -gt $Max) { return $Text.Substring(0, $Max) }
+    return $Text
+}
+
+function Get-NcmPolicyId($Benchmark) {
+    # Same seed as the Python edition: the benchmark id, or the title when the
+    # benchmark has no id. Builds before this one concatenated id + title.
+    $key = $Benchmark.BenchmarkId; if (-not $key) { $key = $Benchmark.Title }
+    return Get-DeterministicGuid ('stig2ncm-policy:' + $key)
+}
+
+function Get-ScmPolicyUniqueId($Benchmark) {
+    $key = $Benchmark.BenchmarkId; if (-not $key) { $key = $Benchmark.Title }
+    return Get-DeterministicGuid ('stig2ncm-scm:' + $key)
+}
+
+function Get-ReportBaseName([string]$SourcePath, [string]$ReportName) {
+    # Python build_reports: an explicit name wins; otherwise a zip's file name;
+    # otherwise nothing, so each report is named after its benchmark title.
+    if ($ReportName) { return $ReportName }
+    if ($SourcePath -and $SourcePath.ToLower().EndsWith('.zip')) {
+        # Split on both separators: .NET on Linux/macOS treats a backslash as an
+        # ordinary character, and a Windows-style path can still reach PowerShell 7 there.
+        $leaf = ($SourcePath -split '[\\/]')[-1]
+        return $leaf.Substring(0, $leaf.Length - 4)
+    }
+    return ''
+}
 $script:ConfigTokens = @('aaa ', 'ip ', 'ipv6 ', 'line ', 'snmp-server ', 'ntp ', 'logging ',
     'login ', 'banner ', 'crypto ', 'interface ', 'router ', 'access-list ', 'username ',
     'service ', 'no ', 'hostname ', 'enable ', 'archive', 'clock ', 'boot ')
@@ -384,7 +453,7 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode) {
                 if ($lower.StartsWith($tok)) {
                     $pattern = $t
                     $note = 'DRAFT PATTERN extracted automatically from the STIG check ' +
-                            'text - verify it before trusting this rule''s results.'
+                            'text ' + $script:EmDash + ' verify it before trusting this rule''s results.'
                     break
                 }
             }
@@ -408,7 +477,8 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode) {
     if ($Rule.CheckContent) { [void]$parts.Add("Check:`n" + $Rule.CheckContent) }
     elseif ($Rule.OvalRef) {
         [void]$parts.Add('Machine check (SCAP edition): OVAL definition ' + $Rule.OvalRef +
-            ' - no manual check text in this edition.')
+            ' ' + $script:EmDash + ' no manual check text in this edition; the manual ' +
+            'STIG for this product carries the prose.')
     }
     $name = "$($Rule.VulnId) [$($Rule.Severity)] $($Rule.Title)"
     if ($name.Length -gt 250) { $name = $name.Substring(0, 250) }
@@ -442,29 +512,36 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode) {
 }
 
 function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
-                        [string]$PatternMode, [string]$Folder, [bool]$Enabled = $true) {
+                        [string]$PatternMode, [string]$Folder, [bool]$Enabled = $true,
+                        [string]$ConfigTypes = 'Any') {
     # One report per benchmark (matching the console's own one-policy-per-report
     # exports): the router zip yields NDM (35 rules) and RTR (92 rules) reports.
+    # $BaseName comes from Get-ReportBaseName, mirroring Python's `name`.
+    if (-not $ConfigTypes) { $ConfigTypes = 'Any' }
     $reports = New-Object System.Collections.ArrayList
     foreach ($b in $Benchmarks) {
         $ruleGroup = $Folder
         if ($b.BenchmarkId) { $ruleGroup = "$Folder/$($b.BenchmarkId)" }
         $rules = @($b.Rules | ForEach-Object { New-NcmRule $_ $ruleGroup $PatternMode })
         $policy = [ordered]@{
-            PolicyId = Get-DeterministicGuid ('stig2ncm-policy:' + $b.BenchmarkId + $b.Title)
-            PolicyName = "$($b.Title) V$($b.Version) ($($b.Release))"
-            Comments = "Imported by the DISA STIG Conversion Tool from $($b.Source)."
+            PolicyId = Get-NcmPolicyId $b
+            PolicyName = Limit-Text "$($b.Title) V$($b.Version) ($($b.Release))"
+            Comments = ("Imported by the DISA STIG Conversion Tool from $($b.Source) " +
+                        "(benchmark $($b.BenchmarkId), status date $($b.StatusDate)).")
             Grouping = $Folder
             NodeSelectionString = New-NodeSelectionString $Where
-            ConfigTypes = 'Any'
+            ConfigTypes = $ConfigTypes
             AssignedPolicyRules = $rules
             AssignedRulesList = @($rules | ForEach-Object { $_.RuleId })
         }
         $name = $b.Title
-        if ($BaseName) { $name = "$BaseName - $($b.BenchmarkId)" }
+        if ($BaseName) {
+            $name = $BaseName
+            if ($b.BenchmarkId) { $name = "$BaseName - $($b.BenchmarkId)" }
+        }
         [void]$reports.Add([ordered]@{
             ID = [guid]::NewGuid().ToString()
-            Name = $name
+            Name = Limit-Text $name
             Comments = "DISA STIG imported by the DISA STIG Conversion Tool from $($b.Source) ($($b.Release))."
             Group = $Folder
             ShowSummaryFlag = $true
@@ -561,12 +638,17 @@ function Y([string]$Value) {
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.Append('"')
     foreach ($ch in $Value.ToCharArray()) {
-        switch ($ch) {
-            '"'  { [void]$sb.Append('\"') }
-            '\'  { [void]$sb.Append('\\') }
-            "`n" { [void]$sb.Append('\n') }
-            "`r" { [void]$sb.Append('\r') }
-            "`t" { [void]$sb.Append('\t') }
+        # Switch on the code point, not the character: PowerShell compares strings with
+        # culture rules, and under ICU (PowerShell 7 on Linux) control characters are
+        # ignorable, so "`b" would also match U+0001 and every other control character.
+        switch ([int]$ch) {
+            34 { [void]$sb.Append('\"') }
+            92 { [void]$sb.Append('\\') }
+            10 { [void]$sb.Append('\n') }
+            13 { [void]$sb.Append('\r') }
+            9  { [void]$sb.Append('\t') }
+            8  { [void]$sb.Append('\b') }   # json.dumps spells these two out
+            12 { [void]$sb.Append('\f') }
             default {
                 if ([int]$ch -lt 32) { [void]$sb.AppendFormat('\u{0:x4}', [int]$ch) }
                 else { [void]$sb.Append($ch) }
@@ -578,8 +660,8 @@ function Y([string]$Value) {
 }
 
 function ConvertTo-ScmPolicyYaml($Benchmark) {
-    $name = "$($Benchmark.Title) V$($Benchmark.Version) ($($Benchmark.Release))"
-    $uid = Get-DeterministicGuid ('stig2ncm-scm:' + $Benchmark.BenchmarkId + $Benchmark.Title)
+    $name = Limit-Text "$($Benchmark.Title) V$($Benchmark.Version) ($($Benchmark.Release))"
+    $uid = Get-ScmPolicyUniqueId $Benchmark
     $desc = 'DISA STIG imported by the DISA STIG Conversion Tool from ' + $Benchmark.Source +
         '. Every rule is a manual-review attestation: it reports failed, with the STIG ' +
         'check and fix text attached, until an engineer verifies the setting and replaces ' +
@@ -596,7 +678,8 @@ function ConvertTo-ScmPolicyYaml($Benchmark) {
     foreach ($r in $Benchmark.Rules) {
         $check = $r.CheckContent
         if (-not $check -and $r.OvalRef) {
-            $check = "Machine check (SCAP edition): OVAL definition $($r.OvalRef)."
+            $check = "Machine check (SCAP edition): OVAL definition $($r.OvalRef). " +
+                     'The manual STIG for this product carries the prose check text.'
         }
         $sev = $r.Severity.Substring(0, 1).ToUpper() + $r.Severity.Substring(1)
         [void]$lines.Add('- displayId: ' + (Y $r.VulnId))
@@ -616,12 +699,100 @@ function ConvertTo-ScmPolicyYaml($Benchmark) {
     return ($lines -join "`n") + "`n"
 }
 
-function Write-ScmProfileFile($Benchmark, [string]$Folder) {
+# SCM policy output extension. SolarWinds' published policy files are plain
+# .yaml and the docs name no dedicated extension, so .scm-policy.yaml is used.
+# .scm-profile belongs to SCM collection-profile exports (UTF-16 JSON); older
+# builds of this tool wrote policy YAML under it, which is still accepted.
+$script:ScmPolicySuffix = '.scm-policy.yaml'
+$script:LegacyScmPolicySuffix = '.scm-profile'
+$script:ScmInputPattern = '\.(yaml|yml|scm-profile)$'
+
+function Write-ScmPolicyFile($Benchmark, [string]$Folder) {
     $base = $Benchmark.BenchmarkId; if (-not $base) { $base = $Benchmark.Title }
-    $out = Join-Path $Folder (($base -replace '[^\w.-]+', '_') + '.scm-profile')
+    $out = Join-Path $Folder (($base -replace '[^\w.-]+', '_') + $script:ScmPolicySuffix)
     [System.IO.File]::WriteAllText($out, (ConvertTo-ScmPolicyYaml $Benchmark),
         (New-Object System.Text.UTF8Encoding($false)))
     return $out
+}
+
+function Test-ScmPolicyText([string]$Text) {
+    # Same test as Python is_scm_policy_text: a document tagged !policy, or one
+    # carrying pluginName: SCM near the top and a rules list.
+    if ($null -eq $Text) { return $false }
+    $t = $Text.TrimStart([char]0xFEFF).TrimStart()
+    $head = $t; if ($head.Length -gt 2000) { $head = $head.Substring(0, 2000) }
+    return ($head.StartsWith('!policy') -or ($head.Contains('pluginName: SCM') -and $Text.Contains('rules:')))
+}
+
+function Get-ScmPolicyInfo([string]$Yaml) {
+    # Name and uniqueId for the collision check. Line endings are normalized
+    # first: in .NET a multiline `$` matches only before `n, so `\S+$` fails on
+    # every CRLF line. The text sent to ImportPolicy is never altered.
+    $norm = ([string]$Yaml) -replace "`r`n", "`n" -replace "`r", "`n"
+    $info = @{ Name = ''; UniqueId = ''; IsPolicy = (Test-ScmPolicyText $Yaml) }
+    $m = [regex]::Match($norm, '(?m)^name:[ \t]*(.+)$')
+    if ($m.Success) { $info.Name = $m.Groups[1].Value.Trim().Trim("'", '"') }
+    $m = [regex]::Match($norm, '(?m)^uniqueId:[ \t]*(\S+)')
+    if ($m.Success) { $info.UniqueId = $m.Groups[1].Value.Trim().Trim("'", '"') }
+    return $info
+}
+
+function ConvertFrom-TextBytes([byte[]]$Bytes) {
+    # Decode by the bytes: UTF-16 by BOM or NUL-interleaved ASCII (SCM exports
+    # are UTF-16LE), else UTF-8 with or without a BOM.
+    if ($Bytes.Length -ge 2 -and $Bytes[0] -eq 0xFF -and $Bytes[1] -eq 0xFE) {
+        return [System.Text.Encoding]::Unicode.GetString($Bytes, 2, $Bytes.Length - 2)
+    }
+    if ($Bytes.Length -ge 2 -and $Bytes[0] -eq 0xFE -and $Bytes[1] -eq 0xFF) {
+        return [System.Text.Encoding]::BigEndianUnicode.GetString($Bytes, 2, $Bytes.Length - 2)
+    }
+    if ($Bytes.Length -ge 4 -and $Bytes[1] -eq 0 -and $Bytes[3] -eq 0) {
+        return [System.Text.Encoding]::Unicode.GetString($Bytes)
+    }
+    if ($Bytes.Length -ge 4 -and $Bytes[0] -eq 0 -and $Bytes[2] -eq 0) {
+        return [System.Text.Encoding]::BigEndianUnicode.GetString($Bytes)
+    }
+    if ($Bytes.Length -ge 3 -and $Bytes[0] -eq 0xEF -and $Bytes[1] -eq 0xBB -and $Bytes[2] -eq 0xBF) {
+        return [System.Text.Encoding]::UTF8.GetString($Bytes, 3, $Bytes.Length - 3)
+    }
+    return [System.Text.Encoding]::UTF8.GetString($Bytes)
+}
+
+function Get-ScmTextKind([string]$Text) {
+    # 'policy' (tagged-YAML compliance policy), 'profile' (JSON, the SCM
+    # collection-profile export format) or 'unknown'.
+    if (Test-ScmPolicyText $Text) { return 'policy' }
+    $t = ([string]$Text).TrimStart([char]0xFEFF).Trim()
+    if ($t.StartsWith('{')) {
+        try { [void](ConvertFrom-Json $t); return 'profile' } catch { }
+    }
+    return 'unknown'
+}
+
+function Read-ScmPolicyFile([string]$FilePath, [scriptblock]$Log) {
+    # Returns the policy text. A .scm-profile holding policy YAML (written by an
+    # older build of this tool) is accepted with a note; a JSON collection
+    # profile is refused, since that extension belongs to SCM profiles.
+    $text = ConvertFrom-TextBytes ([System.IO.File]::ReadAllBytes($FilePath))
+    $kind = Get-ScmTextKind $text
+    if ($kind -eq 'profile') {
+        throw ("[SCM] ${FilePath}: this is an SCM collection profile (JSON, the format SCM " +
+            'profile exports use), not a tagged-YAML compliance policy. Collection profiles ' +
+            'define what SCM collects; they carry no compliance rules, and this tool does ' +
+            'not import them. Import a profile through SCM''s own profile import workflow ' +
+            'or Orion.SCM.Profiles.ImportProfile(profileJson), after the review described ' +
+            'in docs/modules/scm-profile-portability-audit.md.')
+    }
+    if ($kind -ne 'policy') {
+        throw "[SCM] ${FilePath}: not an SCM compliance policy (expected a YAML document tagged !policy with pluginName: SCM)"
+    }
+    if ($FilePath.ToLower().EndsWith($script:LegacyScmPolicySuffix) -and $Log) {
+        & $Log ("[SCM] note: $(Split-Path -Leaf $FilePath) is SCM policy YAML written by an " +
+            "older build of this tool under the $($script:LegacyScmPolicySuffix) extension, " +
+            'which belongs to SCM collection profiles (JSON). It is read as a compliance policy; ' +
+            "new conversions write $($script:ScmPolicySuffix), so rename the file to avoid confusion.")
+    }
+    return $text
 }
 
 # =========================================================================
@@ -808,29 +979,96 @@ function Get-CleanId($Value, [string]$Fallback) {
     return $Fallback
 }
 
-function Undo-NcmImport($Conn, $RuleIds, $PolicyIds, [string]$ReportId, [scriptblock]$Log) {
+function Get-NormId($Value) {
+    # Compare GUIDs from verb results and SWQL rows on equal terms.
+    if ($null -eq $Value) { return '' }
+    return ([string]$Value).Trim().Trim('"').Trim('{', '}').Trim().ToLower()
+}
+
+function Invoke-SwisQueryIds($Conn, [string]$Swql, $Ids) {
+    # Run an `IN @ids` query over a list of ids in bounded chunks.
+    $list = @(@($Ids) | Where-Object { $_ })
+    $rows = New-Object System.Collections.ArrayList
+    for ($i = 0; $i -lt $list.Count; $i += 100) {
+        $chunk = @($list[$i..([Math]::Min($i + 99, $list.Count - 1))])
+        foreach ($row in @(Invoke-SwisQuery $Conn $Swql @{ ids = $chunk })) { [void]$rows.Add($row) }
+    }
+    return @($rows)   # callers wrap the call in @() to keep an array
+}
+
+function Get-RowValue($Row, [string]$Column) {
+    if ($null -eq $Row) { return $null }
+    if ($Row -is [System.Collections.IDictionary]) { return $Row[$Column] }
+    if ($Row.PSObject.Properties[$Column]) { return $Row.$Column }
+    return $null
+}
+
+function Get-ExistingNcmIds($Conn, $Report) {
+    # RuleIds are uuid5-derived from the DISA rule id, so a second import of the
+    # same STIG release submits ids an earlier import already created. Those
+    # must survive a rollback, so they are recorded before anything is created.
+    # Unverified: whether AddPolicyRule/AddPolicy honour a submitted id is not
+    # documented; the returned id is used either way.
+    $ruleIds = @($Report.AssignedPolicies | ForEach-Object { $_.AssignedPolicyRules } | ForEach-Object { $_.RuleId })
+    $policyIds = @($Report.AssignedPolicies | ForEach-Object { $_.PolicyId } | Where-Object { $_ })
+    $rules = @{}; $policies = @{}
+    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids' $ruleIds)) {
+        $rules[(Get-NormId (Get-RowValue $row 'PolicyRuleID'))] = $true
+    }
+    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID FROM Cirrus.Policies WHERE PolicyID IN @ids' $policyIds)) {
+        $policies[(Get-NormId (Get-RowValue $row 'PolicyID'))] = $true
+    }
+    return @{ Rules = $rules; Policies = $policies }
+}
+
+function Undo-NcmImport($Conn, $RuleIds, $PolicyIds, [string]$ReportId, [scriptblock]$Log,
+                        $Preexisting = $null) {
     # A STIG report is built from the bottom up, so a failure at the policy or
     # report step leaves every rule already created sitting in the NCM rules
     # library with nothing pointing at it: invisible in the Compliance view,
     # deleted by nothing, and duplicated by the next attempt. Children are
     # removed by their own verbs rather than with DeletePolicyReports
     # -deleteChildren, which would also reach rules other reports share.
+    # Ids that existed before this run ($Preexisting, from Get-ExistingNcmIds)
+    # are skipped, so a rollback deletes only what this run created.
+    if ($null -eq $Preexisting) { $Preexisting = @{ Rules = @{}; Policies = @{} } }
+    $split = {
+        param($Ids, $Known)
+        $ours = New-Object System.Collections.ArrayList
+        $kept = New-Object System.Collections.ArrayList
+        $seen = @{}
+        foreach ($id in @($Ids)) {
+            $key = Get-NormId $id
+            if (-not $key -or $seen.ContainsKey($key)) { continue }
+            $seen[$key] = $true
+            if ($Known.ContainsKey($key)) { [void]$kept.Add($id) } else { [void]$ours.Add($id) }
+        }
+        return @{ Ours = @($ours); Kept = @($kept) }
+    }
     $drop = {
         param($SwisVerb, $Arguments)
         try { [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' $SwisVerb $Arguments) }
         catch { & $Log "[NCM] rollback: $SwisVerb failed, clean up by hand - $($_.Exception.Message)" }
     }
+    $pol = & $split $PolicyIds $Preexisting.Policies
+    $rul = & $split $RuleIds $Preexisting.Rules
     if ($ReportId) {
         & $Log "[NCM] rollback: deleting report $ReportId"
         & $drop 'DeletePolicyReports' @(@($ReportId), $false)
     }
-    if ($PolicyIds -and @($PolicyIds).Count -gt 0) {
-        & $Log "[NCM] rollback: deleting $(@($PolicyIds).Count) policy/policies"
-        & $drop 'DeletePolicies' @(@($PolicyIds), $false)
+    if ($pol.Ours.Count -gt 0) {
+        & $Log "[NCM] rollback: deleting $($pol.Ours.Count) policy/policies"
+        & $drop 'DeletePolicies' @(@($pol.Ours), $false)
     }
-    if ($RuleIds -and @($RuleIds).Count -gt 0) {
-        & $Log "[NCM] rollback: deleting $(@($RuleIds).Count) rule(s)"
-        & $drop 'DeletePolicyRules' @(, @($RuleIds))
+    if ($rul.Ours.Count -gt 0) {
+        & $Log "[NCM] rollback: deleting $($rul.Ours.Count) rule(s)"
+        & $drop 'DeletePolicyRules' @(, @($rul.Ours))
+    }
+    foreach ($id in $pol.Kept) {
+        & $Log "[NCM] rollback: skipped policy $id - it existed on the server before this import, so this run did not create it"
+    }
+    foreach ($id in $rul.Kept) {
+        & $Log "[NCM] rollback: skipped rule $id - it existed on the server before this import (an earlier import of the same STIG release?), so this run did not create it"
     }
 }
 
@@ -870,6 +1108,11 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
     # refused, throws with WireFailure=$true so the caller writes console files.
     $labels = @{ 'json' = 'JSON contract objects'; 'xml-dc' = 'DataContract XML strings'
                  'xml-plain' = 'plain XML strings (no namespace)' }
+    $preexisting = Get-ExistingNcmIds $Conn $Report
+    if ($preexisting.Rules.Count -gt 0 -or $preexisting.Policies.Count -gt 0) {
+        & $Log ("[NCM] note: $($preexisting.Rules.Count) rule id(s) and $($preexisting.Policies.Count) " +
+            'policy id(s) this report submits already exist on the server; a rollback will leave those alone')
+    }
     $probeRule = $Report.AssignedPolicies[0].AssignedPolicyRules[0]
     $format = $null; $firstId = $null
     $rejections = New-Object System.Collections.ArrayList
@@ -919,7 +1162,7 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
         } catch {
             if ($Rollback) {
                 & $Log '[NCM] import failed part way through; removing what it created'
-                Undo-NcmImport $Conn @($allRuleIds) @($policyIds) $reportId $Log
+                Undo-NcmImport $Conn @($allRuleIds) @($policyIds) $reportId $Log $preexisting
             } else {
                 & $Log ("[NCM] import failed part way through; $($allRuleIds.Count) rule(s) and " +
                     "$($policyIds.Count) policy/policies were left on the server (-NoRollback)")
@@ -969,17 +1212,190 @@ function Test-NcmImport($Conn, [string]$ReportId, [int]$ExpectedPolicies,
     return @{ ReportId = $ReportId; Policies = $pols.Count; Rules = $ruleCount }
 }
 
+function Import-NcmReports($Conn, $Reports, [scriptblock]$Log, [bool]$Rollback = $true) {
+    # Import several reports in turn, stopping at the first failure. Returns
+    # Imported (Report/ReportId/Rules per verified import), Failure (the
+    # exception that stopped the run, or $null) and Remaining (reports not
+    # imported, the failed one first). Reports imported before a failure stay
+    # on the server and are still the caller's to cache or disable.
+    $imported = New-Object System.Collections.ArrayList
+    $all = @($Reports)
+    for ($i = 0; $i -lt $all.Count; $i++) {
+        $r = $all[$i]
+        $n = 0; foreach ($p in $r.AssignedPolicies) { $n += @($p.AssignedPolicyRules).Count }
+        & $Log "[NCM] importing `"$($r.Name)`" - $n rules"
+        try {
+            $res = Import-NcmReport $Conn $r $Log $Rollback
+        } catch {
+            return @{ Imported = @($imported); Failure = $_.Exception; Remaining = @($all[$i..($all.Count - 1)]) }
+        }
+        [void]$imported.Add(@{ Report = $r; ReportId = $res.ReportId; Rules = $res.Rules })
+        & $Log "[NCM] imported: `"$($r.Name)`" ($($res.ReportId)) - $($res.Rules) rules"
+    }
+    return @{ Imported = @($imported); Failure = $null; Remaining = @() }
+}
+
+function Complete-NcmImport($Conn, $ReportIds, [bool]$Disabled, [bool]$SkipCache, [scriptblock]$Log) {
+    # Disable or start caching the reports a run imported. Returns $true when
+    # the requested end state was confirmed (or nothing was asked of the server).
+    $ids = @(@($ReportIds) | Where-Object { $_ })
+    if ($ids.Count -eq 0) { return $true }
+    if ($Disabled) {
+        # ReportStatus travels in the payload, but UpdateReportStatus is the verb
+        # that owns the field, so say it explicitly and read it back.
+        [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'UpdateReportStatus' @('Disabled', $ids))
+        $stored = @(Invoke-SwisQuery $Conn 'SELECT Name, ReportStatus FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids' @{ ids = $ids })
+        if ($stored.Count -eq 0) {
+            & $Log '[NCM] warning: No Data Returned reading ReportStatus back after UpdateReportStatus; confirm the reports are disabled in the console'
+            return $false
+        }
+        $stillOn = @($stored | Where-Object { Get-RowValue $_ 'ReportStatus' } | ForEach-Object { Get-RowValue $_ 'Name' })
+        if ($stillOn.Count -gt 0) {
+            & $Log ('[NCM] warning: still enabled after UpdateReportStatus: ' + ($stillOn -join ', '))
+            return $false
+        }
+        & $Log ("[NCM] $($ids.Count) report(s) imported Disabled and not cached. Enable them in the " +
+            "console, or with UpdateReportStatus('Enabled', [ids]), once the rules have been reviewed.")
+        return $true
+    }
+    if ($SkipCache) {
+        & $Log ('[NCM] compliance caching not started (-NoCache); the reports show no data until ' +
+            'you run Update Violations in the console or invoke StartCaching.')
+        return $true
+    }
+    # Always pass the specific GUIDs: an empty array would re-cache every report.
+    [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'StartCaching' @(, $ids))
+    & $Log "[NCM] compliance caching started for $($ids.Count) report(s)"
+    return $true
+}
+
+# =========================================================================
+# Removing an imported report: report, then unshared policies, then rules
+# =========================================================================
+# DeletePolicyReports(ids, deleteChildren=false) on its own leaves the report's
+# policies and rules behind with nothing pointing at them; deleteChildren=true
+# also reaches children other reports share. The clean path reads the tree,
+# deletes the report row, then DeletePolicies(ids, false), then
+# DeletePolicyRules, skipping anything another report or policy still uses
+# (Cirrus.PolicyAssignment / Cirrus.PolicyRuleAssignment). Same as Python.
+function Get-NcmRemovalPlan($Conn, $ReportIds, [scriptblock]$Log) {
+    $reportKeys = @{}
+    foreach ($r in @($ReportIds)) { $reportKeys[(Get-NormId $r)] = $true }
+    $policies = [ordered]@{}; $rules = [ordered]@{}; $names = @{}
+    $add = {
+        param($Store, $Value, $Label)
+        $key = Get-NormId $Value
+        if (-not $key) { return }
+        if (-not $Store.Contains($key)) { $Store[$key] = ([string]$Value).Trim().Trim('{', '}') }
+        if ($Label -and -not $names.ContainsKey($Store[$key])) { $names[$Store[$key]] = $Label }
+    }
+    foreach ($rid in @($ReportIds)) {
+        $tree = Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'GetPolicyReport' @($rid, $true)
+        if ($null -eq $tree) {
+            & $Log "[NCM] note: No Data Returned from GetPolicyReport for $rid; its policies and rules are taken from Cirrus.PolicyAssignment alone"
+            continue
+        }
+        foreach ($polId in @(Get-RowValue $tree 'AssignedPoliciesList')) { & $add $policies $polId $null }
+        foreach ($pol in @(Get-RowValue $tree 'AssignedPolicies')) {
+            if ($null -eq $pol) { continue }
+            & $add $policies (Get-RowValue $pol 'PolicyId') (Get-RowValue $pol 'PolicyName')
+            foreach ($x in @(Get-RowValue $pol 'AssignedRulesList')) { & $add $rules $x $null }
+            foreach ($rule in @(Get-RowValue $pol 'AssignedPolicyRules')) {
+                if ($null -eq $rule) { continue }
+                & $add $rules (Get-RowValue $rule 'RuleId') (Get-RowValue $rule 'RuleName')
+            }
+        }
+    }
+    # The export tree is not documented to carry PolicyId, so the SWQL link
+    # tables are read as well.
+    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID FROM Cirrus.PolicyAssignment WHERE PolicyReportID IN @ids' @($ReportIds))) {
+        & $add $policies (Get-RowValue $row 'PolicyID') $null
+    }
+    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyID IN @ids' @($policies.Values))) {
+        & $add $rules (Get-RowValue $row 'PolicyRuleID') $null
+    }
+    $keepPolicies = [ordered]@{}
+    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyReportID, PolicyID FROM Cirrus.PolicyAssignment WHERE PolicyID IN @ids' @($policies.Values))) {
+        $other = Get-NormId (Get-RowValue $row 'PolicyReportID')
+        $key = Get-NormId (Get-RowValue $row 'PolicyID')
+        if ($policies.Contains($key) -and $other -and -not $reportKeys.ContainsKey($other)) {
+            if (-not $keepPolicies.Contains($key)) { $keepPolicies[$key] = New-Object System.Collections.ArrayList }
+            [void]$keepPolicies[$key].Add([string](Get-RowValue $row 'PolicyReportID'))
+        }
+    }
+    $deletePolicyKeys = @{}
+    foreach ($k in $policies.Keys) { if (-not $keepPolicies.Contains($k)) { $deletePolicyKeys[$k] = $true } }
+    $keepRules = [ordered]@{}
+    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids' @($rules.Values))) {
+        $other = Get-NormId (Get-RowValue $row 'PolicyID')
+        $key = Get-NormId (Get-RowValue $row 'PolicyRuleID')
+        if ($rules.Contains($key) -and $other -and -not $deletePolicyKeys.ContainsKey($other)) {
+            if (-not $keepRules.Contains($key)) { $keepRules[$key] = New-Object System.Collections.ArrayList }
+            [void]$keepRules[$key].Add([string](Get-RowValue $row 'PolicyID'))
+        }
+    }
+    $keepP = [ordered]@{}; foreach ($k in $keepPolicies.Keys) { $keepP[$policies[$k]] = @($keepPolicies[$k]) }
+    $keepR = [ordered]@{}; foreach ($k in $keepRules.Keys) { $keepR[$rules[$k]] = @($keepRules[$k]) }
+    return @{
+        Reports        = @($ReportIds)
+        DeletePolicies = @($policies.Keys | Where-Object { $deletePolicyKeys.ContainsKey($_) } | ForEach-Object { $policies[$_] })
+        KeepPolicies   = $keepP
+        DeleteRules    = @($rules.Keys | Where-Object { -not $keepRules.Contains($_) } | ForEach-Object { $rules[$_] })
+        KeepRules      = $keepR
+        Names          = $names
+    }
+}
+
+function Write-NcmRemovalPlan($Plan, [scriptblock]$Log) {
+    $label = { param($i) if ($Plan.Names.ContainsKey($i)) { "$i `"$($Plan.Names[$i])`"" } else { $i } }
+    & $Log ("  report(s): $($Plan.Reports.Count)  " + ($Plan.Reports -join ', '))
+    & $Log "  policies to delete: $($Plan.DeletePolicies.Count)"
+    foreach ($i in $Plan.DeletePolicies) { & $Log ('    - ' + (& $label $i)) }
+    & $Log "  rules to delete: $($Plan.DeleteRules.Count)"
+    foreach ($k in $Plan.KeepPolicies.Keys) {
+        & $Log ("  kept policy $(& $label $k): still assigned to another report (" + ($Plan.KeepPolicies[$k] -join ', ') + ')')
+    }
+    foreach ($k in $Plan.KeepRules.Keys) {
+        & $Log ("  kept rule $(& $label $k): still assigned to a policy that is not being deleted (" + ($Plan.KeepRules[$k] -join ', ') + ')')
+    }
+}
+
+function Remove-NcmReports($Conn, $Plan, [scriptblock]$Log) {
+    # deleteChildren is false on both delete verbs that take it: the children
+    # that may go are named explicitly instead. Returns what is still present.
+    [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'DeletePolicyReports' @(@($Plan.Reports), $false))
+    & $Log "[NCM] deleted $($Plan.Reports.Count) report(s)"
+    if ($Plan.DeletePolicies.Count -gt 0) {
+        [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'DeletePolicies' @(@($Plan.DeletePolicies), $false))
+        & $Log "[NCM] deleted $($Plan.DeletePolicies.Count) policy/policies"
+    }
+    if ($Plan.DeleteRules.Count -gt 0) {
+        [void](Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' 'DeletePolicyRules' @(, @($Plan.DeleteRules)))
+        & $Log "[NCM] deleted $($Plan.DeleteRules.Count) rule(s)"
+    }
+    $left = @{
+        reports  = @(Invoke-SwisQueryIds $Conn 'SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE PolicyReportID IN @ids' $Plan.Reports)
+        policies = @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID FROM Cirrus.Policies WHERE PolicyID IN @ids' $Plan.DeletePolicies)
+        rules    = @(Invoke-SwisQueryIds $Conn 'SELECT PolicyRuleID FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids' $Plan.DeleteRules)
+    }
+    foreach ($k in @('reports', 'policies', 'rules')) {
+        if ($left[$k].Count -gt 0) { & $Log "[NCM] warning: $($left[$k].Count) $k still present after the delete call" }
+    }
+    return $left
+}
+
 function Import-ScmPolicyYaml($Conn, [string]$Yaml, [scriptblock]$Log) {
     # SolarWinds rejects an import whose name OR uniqueId matches an existing
     # policy. Both are checked here because this tool derives the uniqueId
     # deterministically from the benchmark, so re-importing a STIG under a new
     # name still collides, and the server-side rejection is far less legible.
-    $name = ''
-    $m = [regex]::Match($Yaml, '(?m)^name:\s*(.+)$')
-    if ($m.Success) { $name = $m.Groups[1].Value.Trim().Trim("'", '"') }
-    $uniqueId = ''
-    $m = [regex]::Match($Yaml, '(?m)^uniqueId:\s*(\S+)$')
-    if ($m.Success) { $uniqueId = $m.Groups[1].Value.Trim().Trim("'", '"') }
+    $info = Get-ScmPolicyInfo $Yaml
+    if (-not $info.IsPolicy) {
+        throw ('[SCM] not an SCM compliance policy (expected a YAML document tagged !policy ' +
+            'with pluginName: SCM); nothing was sent to ImportPolicy')
+    }
+    $name = $info.Name
+    $uniqueId = $info.UniqueId
 
     $clauses = New-Object System.Collections.ArrayList
     $swqlParams = @{}
@@ -1054,70 +1470,40 @@ function Test-SwisConnection($Conn) {
 # =========================================================================
 # Module lock: a batch is NCM or SCM, never both
 # =========================================================================
-function Get-FileModule([string]$FilePath) {
-    if ($FilePath -match '\.(yaml|yml|scm-profile)$') { return 'SCM' }
+function Get-FileModule([string]$FilePath, [string]$TargetChoice = 'auto') {
+    # SCM policy files are always SCM (and a JSON collection profile is refused
+    # here, before anything runs). XCCDF sources follow -Target like Python's
+    # --target: network forces NCM, server forces SCM, auto detects.
+    if ($FilePath -match $script:ScmInputPattern) {
+        [void](Read-ScmPolicyFile $FilePath $null)
+        return 'SCM'
+    }
     $benchmarks = Get-StigBenchmarks $FilePath
+    if ($TargetChoice -eq 'network') { return 'NCM' }
+    if ($TargetChoice -eq 'server') { return 'SCM' }
     $t = Resolve-StigTarget $benchmarks (Split-Path -Leaf $FilePath)
     if ($t[0] -eq 'server') { return 'SCM' }
     return 'NCM'
 }
 
+function Resolve-NcmWhere($Benchmarks, [string]$SourcePath, [string]$Where) {
+    # 'auto' (or empty) derives the scope from the detected vendor, as Python's
+    # node_where_for does; anything else is used as given.
+    if ($Where -and -not $Where.ToLower().StartsWith('auto') -and -not $Where.StartsWith('(auto')) {
+        return $Where
+    }
+    $t = Resolve-StigTarget $Benchmarks (Split-Path -Leaf $SourcePath)
+    if ($t[0] -eq 'network' -and $t[1]) { return "(Vendor = '$($t[1])')" }
+    return "(Vendor = 'Cisco')"
+}
+
 # =========================================================================
 # CLI driver
 # =========================================================================
-function Invoke-CliRun {
-    if ($Path.Count -gt $script:MaxZipFiles) {
-        throw "up to $($script:MaxZipFiles) files per run"
-    }
-    foreach ($p in $Path) {
-        if (-not (Test-Path -LiteralPath $p)) {
-            throw ("file not found: $p`n" +
-                   "Run with no arguments to open the GUI, or:`n" +
-                   "  -Convert -Path <files>                Local File Conversion Only`n" +
-                   "  -Server <host> -Username <u> -Path <files>   import over SWIS")
-        }
-    }
-    # module lock across the batch
-    $modules = @($Path | ForEach-Object { Get-FileModule $_ } | Sort-Object -Unique)
-    if ($modules.Count -gt 1) {
-        throw "a run imports into one module only - this selection mixes NCM and SCM files; split it into two runs"
-    }
-    $module = $modules[0]
-    Write-Host "module for this run: $module"
-
-    if ($Convert) {
-        foreach ($p in $Path) {
-            $folder = Split-Path -Parent (Resolve-Path $p)
-            if ($p -match '\.(yaml|yml|scm-profile)$') {
-                Write-Host "[SCM] $p is already an importable SCM policy - nothing to convert"
-                continue
-            }
-            $benchmarks = Get-StigBenchmarks $p
-            if ($module -eq 'SCM') {
-                foreach ($b in $benchmarks) {
-                    $out = Write-ScmProfileFile $b $folder
-                    Write-Host "[SCM] wrote $out - $($b.Rules.Count) rules"
-                }
-            } else {
-                $t = Resolve-StigTarget $benchmarks (Split-Path -Leaf $p)
-                $where = $NodeWhere
-                if ($where -eq 'auto') {
-                    $where = "(Vendor = 'Cisco')"
-                    if ($t[1]) { $where = "(Vendor = '$($t[1])')" }
-                }
-                $base = [System.IO.Path]::GetFileNameWithoutExtension($p)
-                $xmlWarning = Get-XmlConfigWarning $where
-                if ($xmlWarning) { Write-Host $xmlWarning -ForegroundColor Yellow }
-                foreach ($r in (New-NcmReports $benchmarks $base $where $Mode $Grouping)) {
-                    $out = Write-ConsoleReportFile $r $folder
-                    Write-Host "[NCM] wrote $out"
-                }
-            }
-        }
-        return
-    }
-
-    if (-not $Server) { throw 'pass -Server (and -Username, or -WindowsAuth) to import, or -Convert for local file conversion only' }
+function New-CliConnection {
+    # Shared by import, -Test and -Remove: password from $env:SWIS_PASSWORD or a
+    # prompt (never a parameter), optional certificate pin, connection check.
+    if (-not $Server) { throw 'pass -Server (and -Username, or -WindowsAuth)' }
     $pw = ''
     if (-not $WindowsAuth) {
         $pw = $env:SWIS_PASSWORD
@@ -1137,16 +1523,138 @@ function Invoke-CliRun {
         Write-Host "pinned the server certificate - SHA-256 $($info.Thumbprint)$stockNote"
     }
     $conn = New-SwisConnection $Server $Port $Username $pw $WindowsAuth.IsPresent $Insecure.IsPresent $pin
-    $log = { param($m) Write-Host (Hide-Secrets $m) }
-
     $status = Test-SwisConnection $conn
     Write-Host (Hide-Secrets $status.Detail)
     if ($status.Status -eq 'red') { throw $status.Detail }
+    return $conn
+}
 
+function Invoke-CliRemove {
+    # Same semantics as Python `remove`: read the tree, delete the report row,
+    # then its unshared policies (DeletePolicies, deleteChildren false), then its
+    # unshared rules (DeletePolicyRules). -DryRun prints the plan only.
+    if (-not $Name) { throw '-Remove needs -Name <exact report name>' }
+    $conn = New-CliConnection
+    $log = { param($m) Write-Host (Hide-Secrets $m) }
+    $found = @(Invoke-SwisQuery $conn 'SELECT PolicyReportID, Name, Grouping FROM Cirrus.PolicyReports WHERE Name = @n' @{ n = $Name })
+    if ($found.Count -eq 0) { throw "no policy report named `"$Name`" on this server" }
+    $ids = @($found | ForEach-Object { Get-RowValue $_ 'PolicyReportID' })
+    $plan = Get-NcmRemovalPlan $conn $ids $log
+    $verb = 'about to delete'; if ($DryRun) { $verb = 'would delete' }
+    Write-Host "$verb $($ids.Count) report(s) named `"$Name`":"
+    Write-NcmRemovalPlan $plan $log
+    if ($DryRun) { Write-Host 'dry run: nothing was deleted.'; return }
+    if (-not $Yes) { throw 'refusing to delete without -Yes (preview with -DryRun)' }
+    $left = Remove-NcmReports $conn $plan $log
+    Write-Host ("done: deleted $($ids.Count) report(s), $($plan.DeletePolicies.Count) policy/policies " +
+        "and $($plan.DeleteRules.Count) rule(s); kept $($plan.KeepPolicies.Count) shared " +
+        "policy/policies and $($plan.KeepRules.Count) shared rule(s).")
+    if ($left.reports.Count + $left.policies.Count + $left.rules.Count -gt 0) {
+        throw 'some objects were still present after deletion; see the warnings above'
+    }
+}
+
+function Invoke-CliTest($Conn, [string]$SourcePath) {
+    # Python `test`: TestRule / TestRuleOnBackedUpConfig per generated rule.
+    # Creates nothing; SolarWinds documents the result as a string without a
+    # documented shape, so it is echoed verbatim.
+    $configText = ''
+    if ($ConfigFile) { $configText = [System.IO.File]::ReadAllText($ConfigFile) }
+    if (-not $configText -and -not $ConfigId) {
+        throw ('give -ConfigFile <path> or -ConfigId <NCM config GUID>. Find one with: ' +
+            'SELECT ConfigID, NodeID, ConfigType, DownloadTime FROM NCM.ConfigArchive ORDER BY DownloadTime DESC')
+    }
+    $benchmarks = Get-StigBenchmarks $SourcePath
+    $where = Resolve-NcmWhere $benchmarks $SourcePath $NodeWhere
+    $reports = New-NcmReports $benchmarks (Get-ReportBaseName $SourcePath $Name) $where $Mode $Grouping `
+        (-not $ImportDisabled) $ConfigType
+    $rules = @($reports | ForEach-Object { $_.AssignedPolicies } | ForEach-Object { $_.AssignedPolicyRules })
+    $total = $rules.Count
+    if ($Limit -gt 0 -and $rules.Count -gt $Limit) { $rules = @($rules[0..($Limit - 1)]) }
+    $source = 'the supplied config text'; if ($ConfigId) { $source = "backed-up config $ConfigId" }
+    Write-Host "[NCM] testing $($rules.Count) of $total rule(s) against $source (nothing is created on the server)"
+    $format = $null; $withOutput = 0
+    foreach ($rule in $rules) {
+        $res = Test-NcmRule $Conn $rule $configText $ConfigId $format
+        $format = $res.Format
+        $text = ''; if ($null -ne $res.Result) { $text = ([string]$res.Result).Trim() }
+        if ($text) { $withOutput++ }
+        $first = '(no output)'
+        if ($text) { $first = Limit-Text (($text -split "`n")[0]) 160 }
+        Write-Host ('  ' + (Limit-Text $rule.RuleName 70) + " -> $first")
+    }
+    Write-Host ("$($rules.Count) rule(s) tested, $withOutput returned output. SolarWinds does not " +
+        'document the shape of the TestRule result, so it is echoed above exactly as the server ' +
+        'sent it and not interpreted here.')
+}
+
+function Invoke-CliRun {
+    if ($Path.Count -gt $script:MaxZipFiles) {
+        throw "up to $($script:MaxZipFiles) files per run"
+    }
+    foreach ($p in $Path) {
+        if (-not (Test-Path -LiteralPath $p)) {
+            throw ("file not found: $p`n" +
+                   "Run with no arguments to open the GUI, or:`n" +
+                   "  -Convert -Path <files>                       Local File Conversion Only`n" +
+                   "  -Server <host> -Username <u> -Path <files>   import over SWIS`n" +
+                   "  -Test -Server <host> ... -Path <file> -ConfigId <id>   dry-run rules`n" +
+                   "  -Remove -Name <report> -Server <host> ...    undo an import")
+        }
+    }
+    # module lock across the batch
+    $modules = @($Path | ForEach-Object { Get-FileModule $_ $Target } | Sort-Object -Unique)
+    if ($modules.Count -gt 1) {
+        throw "a run imports into one module only - this selection mixes NCM and SCM files; split it into two runs"
+    }
+    $module = $modules[0]
+    Write-Host "module for this run: $module"
+    $log = { param($m) Write-Host (Hide-Secrets $m) }
+
+    if ($Convert) {
+        foreach ($p in $Path) {
+            $folder = Split-Path -Parent (Resolve-Path $p)
+            if ($p -match $script:ScmInputPattern) {
+                Write-Host "[SCM] $p is already an importable SCM policy - nothing to convert"
+                continue
+            }
+            $benchmarks = Get-StigBenchmarks $p
+            if ($module -eq 'SCM') {
+                foreach ($b in $benchmarks) {
+                    $out = Write-ScmPolicyFile $b $folder
+                    Write-Host "[SCM] wrote $out - $($b.Rules.Count) rules"
+                }
+            } else {
+                $where = Resolve-NcmWhere $benchmarks $p $NodeWhere
+                $xmlWarning = Get-XmlConfigWarning $where
+                if ($xmlWarning) { Write-Host $xmlWarning -ForegroundColor Yellow }
+                $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $where $Mode `
+                    $Grouping (-not $ImportDisabled) $ConfigType
+                foreach ($r in $reports) {
+                    $out = Write-ConsoleReportFile $r $folder
+                    Write-Host "[NCM] wrote $out"
+                }
+            }
+        }
+        return
+    }
+
+    if ($Test) {
+        if ($module -eq 'SCM') {
+            throw ('rule testing is an NCM feature; an SCM policy has no equivalent server-side dry ' +
+                'run. Import it and use Orion.PolicyEngine.Policy.PollNowAndEvaluate against one node, ' +
+                'or force NCM with -Target network.')
+        }
+        $conn = New-CliConnection
+        foreach ($p in $Path) { Invoke-CliTest $conn $p }
+        return
+    }
+
+    $conn = New-CliConnection
     foreach ($p in $Path) {
         if ($module -eq 'SCM') {
-            if ($p -match '\.(yaml|yml|scm-profile)$') {
-                $text = [System.IO.File]::ReadAllText($p)
+            if ($p -match $script:ScmInputPattern) {
+                $text = Read-ScmPolicyFile $p $log
                 $r = Import-ScmPolicyYaml $conn $text $log
                 Write-Host "SUCCESS [SCM] imported policy `"$($r.Name)`" (PolicyID $($r.PolicyId))" -ForegroundColor Green
             } else {
@@ -1157,49 +1665,37 @@ function Invoke-CliRun {
             }
         } else {
             $benchmarks = Get-StigBenchmarks $p
-            $t = Resolve-StigTarget $benchmarks (Split-Path -Leaf $p)
-            $where = $NodeWhere
-            if ($where -eq 'auto') {
-                $where = "(Vendor = 'Cisco')"
-                if ($t[1]) { $where = "(Vendor = '$($t[1])')" }
-            }
-            $base = [System.IO.Path]::GetFileNameWithoutExtension($p)
+            $where = Resolve-NcmWhere $benchmarks $p $NodeWhere
             $xmlWarning = Get-XmlConfigWarning $where
             if ($xmlWarning) { Write-Host $xmlWarning -ForegroundColor Yellow }
-            $reports = New-NcmReports $benchmarks $base $where $Mode $Grouping (-not $ImportDisabled)
-            $newIds = New-Object System.Collections.ArrayList
+            $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $where $Mode $Grouping `
+                (-not $ImportDisabled) $ConfigType
             foreach ($r in $reports) {
-                $existing = Invoke-SwisQuery $conn 'SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n' @{ n = $r.Name }
-                if ($existing.Count -gt 0) { throw "[NCM] a report named `"$($r.Name)`" already exists - delete or rename it first" }
+                $existing = @(Invoke-SwisQuery $conn 'SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n' @{ n = $r.Name })
+                if ($existing.Count -gt 0) { throw "[NCM] a report named `"$($r.Name)`" already exists - rename with -Name, delete it with -Remove, or remove it in the console; this tool never overwrites" }
             }
-            foreach ($r in $reports) {
-                try {
-                    $res = Import-NcmReport $conn $r $log (-not $NoRollback)
-                    [void]$newIds.Add($res.ReportId)
-                    Write-Host "SUCCESS [NCM] `"$($r.Name)`" - $($res.Rules) rules ($($res.ReportId))" -ForegroundColor Green
-                } catch {
-                    if ($_.Exception.Data['WireFailure']) {
-                        Write-Host (Hide-Secrets $_.Exception.Message) -ForegroundColor Yellow
-                        $folder = Split-Path -Parent (Resolve-Path $p)
-                        foreach ($rep in $reports) {
-                            Write-Host ("[NCM] wrote " + (Write-ConsoleReportFile $rep $folder))
-                        }
-                        break
-                    }
-                    throw
+            $run = Import-NcmReports $conn $reports $log (-not $NoRollback)
+            foreach ($i in $run.Imported) {
+                Write-Host "SUCCESS [NCM] `"$($i.Report.Name)`" - $($i.Rules) rules ($($i.ReportId))" -ForegroundColor Green
+            }
+            # Reports verified before a failure still get caching / disabling.
+            [void](Complete-NcmImport $conn @($run.Imported | ForEach-Object { $_.ReportId }) `
+                $ImportDisabled.IsPresent $NoCache.IsPresent $log)
+            if ($null -ne $run.Failure) {
+                if ($run.Imported.Count -gt 0) {
+                    Write-Host ("[NCM] $($run.Imported.Count) of $($reports.Count) report(s) were imported " +
+                        'before the failure and remain on the server') -ForegroundColor Yellow
                 }
-            }
-            if ($newIds.Count -gt 0 -and $ImportDisabled) {
-                # ReportStatus travels in the payload, but UpdateReportStatus is the
-                # verb that owns the field, so say it explicitly rather than trusting
-                # the import to have carried it.
-                [void](Invoke-SwisVerbCall $conn 'Cirrus.PolicyReports' 'UpdateReportStatus' `
-                    @('Disabled', @($newIds)))
-                Write-Host ("[NCM] $($newIds.Count) report(s) imported disabled and not cached; " +
-                    'enable them once the rules have been reviewed')
-            } elseif ($newIds.Count -gt 0) {
-                [void](Invoke-SwisVerbCall $conn 'Cirrus.PolicyReports' 'StartCaching' @(, @($newIds)))
-                Write-Host "[NCM] compliance caching started for $($newIds.Count) report(s)"
+                if ($run.Failure.Data['WireFailure']) {
+                    Write-Host (Hide-Secrets $run.Failure.Message) -ForegroundColor Yellow
+                    $folder = Split-Path -Parent (Resolve-Path $p)
+                    foreach ($rep in $run.Remaining) {
+                        Write-Host ('[NCM] wrote ' + (Write-ConsoleReportFile $rep $folder))
+                    }
+                    throw '[NCM] import the files written above through the web console: Compliance > Manage Policy Reports > Import'
+                }
+                Write-Host ('[NCM] not imported: ' + (($run.Remaining | ForEach-Object { '"' + $_.Name + '"' }) -join ', '))
+                throw $run.Failure
             }
         }
     }
@@ -1299,6 +1795,9 @@ function Show-StigGui {
     $targetBox.SelectedIndex = 0
     $whereBox = & $mk (New-Object System.Windows.Forms.TextBox) 380 350 24
     $whereBox.Text = 'auto'
+    function Get-GuiTarget {
+        switch ($targetBox.SelectedIndex) { 1 { return 'network' } 2 { return 'server' } default { return 'auto' } }
+    }
     $script:y += 30
     $importDisabledBox = & $mk (New-Object System.Windows.Forms.CheckBox) 12 718 22
     $importDisabledBox.Text = 'Import the NCM report disabled (no caching) so it can be reviewed first'
@@ -1349,13 +1848,15 @@ function Show-StigGui {
     $browse.Add_Click({
         $dlg = New-Object System.Windows.Forms.OpenFileDialog
         $dlg.Multiselect = $true
+        # *.scm-profile only for policy YAML from older builds; a JSON collection
+        # profile is refused by Get-FileModule when it is added.
         $dlg.Filter = 'STIG content|*.zip;*.xml;*.xsl;*.yaml;*.yml;*.scm-profile|All files|*.*'
         if ($dlg.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return }
         foreach ($f in $dlg.FileNames) {
             if ($fileList.Items.Count -ge $script:MaxZipFiles) {
                 Add-Summary "at most $($script:MaxZipFiles) files per batch" $yellow; break
             }
-            try { $m = Get-FileModule $f } catch { Add-Summary ("skipped " + $f + ": " + $_.Exception.Message) $red; continue }
+            try { $m = Get-FileModule $f (Get-GuiTarget) } catch { Add-Summary ("skipped " + $f + ": " + $_.Exception.Message) $red; continue }
             if ($null -eq $state.Module) {
                 $state.Module = $m
                 $moduleNotice.Text = "Module: locked to $m for this batch (from the first file selected)"
@@ -1419,16 +1920,16 @@ function Show-StigGui {
             $prefix = '[' + $state.Module + '] '
             try {
                 if ($state.Module -eq 'SCM') {
-                    if ($f -match '\.(yaml|yml|scm-profile)$') {
+                    if ($f -match $script:ScmInputPattern) {
                         if ($Offline) { Add-Summary ($prefix + (Split-Path -Leaf $f) + ' is already importable - nothing to convert') $null; $ok++; continue }
-                        $text = [System.IO.File]::ReadAllText($f)
+                        $text = Read-ScmPolicyFile $f $logBlock
                         $scmResult = Import-ScmPolicyYaml $conn $text $logBlock
                         $policyId = $scmResult.PolicyId
                         Add-Summary ("SUCCESS " + $prefix + (Split-Path -Leaf $f) + " (PolicyID $policyId)") ([System.Drawing.Color]::Green); $ok++
                     } else {
                         foreach ($b in (Get-StigBenchmarks $f)) {
                             if ($Offline) {
-                                $out = Write-ScmProfileFile $b (Split-Path -Parent $f)
+                                $out = Write-ScmPolicyFile $b (Split-Path -Parent $f)
                                 Add-Summary ("SUCCESS " + $prefix + "wrote " + (Split-Path -Leaf $out)) ([System.Drawing.Color]::Green)
                             } else {
                                 $r = Import-ScmBenchmark $conn $b $logBlock
@@ -1439,17 +1940,11 @@ function Show-StigGui {
                     }
                 } else {
                     $benchmarks = Get-StigBenchmarks $f
-                    $t = Resolve-StigTarget $benchmarks (Split-Path -Leaf $f)
-                    $where = $whereBox.Text.Trim()
-                    if (-not $where -or $where -eq 'auto') {
-                        $where = "(Vendor = 'Cisco')"
-                        if ($t[1]) { $where = "(Vendor = '$($t[1])')" }
-                    }
-                    $base = [System.IO.Path]::GetFileNameWithoutExtension($f)
+                    $where = Resolve-NcmWhere $benchmarks $f $whereBox.Text.Trim()
                     $xmlWarning = Get-XmlConfigWarning $where
                     if ($xmlWarning) { Add-Summary $xmlWarning $yellow; Show-Issue }
                     $reportEnabled = -not $importDisabledBox.Checked
-                    $reports = New-NcmReports $benchmarks $base $where 'manual' 'DISA STIG' $reportEnabled
+                    $reports = New-NcmReports $benchmarks (Get-ReportBaseName $f '') $where 'manual' 'DISA STIG' $reportEnabled
                     if ($Offline) {
                         foreach ($r in $reports) {
                             $out = Write-ConsoleReportFile $r (Split-Path -Parent $f)
@@ -1457,31 +1952,31 @@ function Show-StigGui {
                         }
                         $ok++
                     } else {
-                        $newIds = New-Object System.Collections.ArrayList
-                        foreach ($r in $reports) {
-                            try {
-                                $res = Import-NcmReport $conn $r $logBlock $true
-                                [void]$newIds.Add($res.ReportId)
-                                Add-Summary ("SUCCESS " + $prefix + '"' + $r.Name + '" - ' + $res.Rules + ' rules') ([System.Drawing.Color]::Green)
-                            } catch {
-                                if ($_.Exception.Data['WireFailure']) {
-                                    Add-Summary ($prefix + $_.Exception.Message) $null
-                                    foreach ($rep in $reports) {
-                                        $out = Write-ConsoleReportFile $rep (Split-Path -Parent $f)
-                                        Add-Summary ($prefix + 'wrote ' + (Split-Path -Leaf $out)) $null
-                                    }
-                                    Show-Issue
-                                    throw ($prefix + 'API import refused; console files written for WebUI import')
-                                }
-                                throw
-                            }
+                        $run = Import-NcmReports $conn $reports $logBlock $true
+                        foreach ($i in $run.Imported) {
+                            Add-Summary ("SUCCESS " + $prefix + '"' + $i.Report.Name + '" - ' + $i.Rules + ' rules') ([System.Drawing.Color]::Green)
                         }
-                        if ($newIds.Count -gt 0 -and -not $reportEnabled) {
-                            [void](Invoke-SwisVerbCall $conn 'Cirrus.PolicyReports' 'UpdateReportStatus' @('Disabled', @($newIds)))
-                            Add-Detail ($prefix + 'imported disabled and not cached; enable once reviewed')
-                        } elseif ($newIds.Count -gt 0) {
-                            [void](Invoke-SwisVerbCall $conn 'Cirrus.PolicyReports' 'StartCaching' @(, @($newIds)))
-                            Add-Detail ($prefix + 'compliance caching started')
+                        # Reports verified before a failure are still cached or disabled.
+                        $confirmed = Complete-NcmImport $conn @($run.Imported | ForEach-Object { $_.ReportId }) `
+                            (-not $reportEnabled) $false $logBlock
+                        if (-not $confirmed) {
+                            Add-Summary ($prefix + 'ReportStatus could not be confirmed as Disabled; see the detailed log') $yellow
+                            Show-Issue
+                        }
+                        if ($null -ne $run.Failure) {
+                            if ($run.Imported.Count -gt 0) {
+                                Add-Summary ($prefix + "$($run.Imported.Count) report(s) were imported before the failure and remain on the server") $yellow
+                            }
+                            if ($run.Failure.Data['WireFailure']) {
+                                Add-Summary ($prefix + $run.Failure.Message) $null
+                                foreach ($rep in $run.Remaining) {
+                                    $out = Write-ConsoleReportFile $rep (Split-Path -Parent $f)
+                                    Add-Summary ($prefix + 'wrote ' + (Split-Path -Leaf $out)) $null
+                                }
+                                Show-Issue
+                                throw ($prefix + 'API import refused; console files written for WebUI import')
+                            }
+                            throw $run.Failure
                         }
                         $ok++
                     }
@@ -1506,7 +2001,10 @@ function Show-StigGui {
 # =========================================================================
 # Entry point
 # =========================================================================
-if ($Path -and $Path.Count -gt 0) {
+if ($Remove) {
+    try { Invoke-CliRemove }
+    catch { Write-Error (Hide-Secrets $_.Exception.Message); exit 1 }
+} elseif ($Path -and $Path.Count -gt 0) {
     try { Invoke-CliRun }
     catch { Write-Error (Hide-Secrets $_.Exception.Message); exit 1 }
 } elseif (-not $NoGui) {

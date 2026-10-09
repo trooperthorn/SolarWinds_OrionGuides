@@ -189,7 +189,8 @@ node. Treat a YAML from outside the organisation as executable content.
 [`apps/disa-stig-conversion-tool/`](../../apps/disa-stig-conversion-tool/README.md) implements both paths with format
 auto-detection — zip, `*-xccdf.xml` or `.xsl` (it silently reads the benchmark next to
 the stylesheet) goes to NCM; `.yaml` goes to SCM — as a stdlib-only CLI and a desktop
-GUI buildable into a Windows executable:
+GUI buildable into a Windows executable, with a PowerShell edition that takes the same
+options and derives the same ids:
 
 ```bash
 python3 apps/disa-stig-conversion-tool/disa_stig_tool.py download U_Cisco_IOS_Router_Y26M07_STIG
@@ -204,6 +205,29 @@ Its intended safety posture is: nothing auto-executes, name collisions are error
 rather than merges, caching/evaluation is started for the specific import only, a
 failed import deletes what it created rather than leaving orphaned rules behind, and
 `remove --name … --yes` is the supported way to undo one.
+
+Since 2026-10-08 those last two follow the rollback guidance above more closely:
+
+- `remove` reads the report's tree, deletes the report with
+  `DeletePolicyReports(policyReportIds, deleteChildren)` passing false, then its policies
+  with `DeletePolicies(policyIds, deleteChildren)` passing false, then their rules with
+  `DeletePolicyRules(ruleIds)`. A policy another report is still assigned to
+  (`Cirrus.PolicyAssignment`) and a rule a surviving policy still uses
+  (`Cirrus.PolicyRuleAssignment`) are kept and named in the output. `--dry-run` prints
+  the plan without deleting. The earlier `remove` deleted only the report row, which is
+  the orphaning state described above.
+- The rollback skips any rule or policy id that existed before the run. Rule ids are
+  derived deterministically from the DISA rule id, so an earlier import of the same
+  release can share them, and whether `AddPolicyRule` keeps a submitted id is not
+  documented. The tool snapshots `Cirrus.PolicyRules` and `Cirrus.Policies` for the ids
+  it will submit and excludes those from the rollback.
+- In a package with several benchmarks, reports imported before a failure stay, are
+  cached or disabled as requested, and only the reports not yet imported are written
+  out as console files when no wire format is accepted.
+- SCM policy output is written as `.scm-policy.yaml`. `.scm-profile` is the
+  [collection-profile](../modules/scm-profile-portability-audit.md) export extension;
+  a JSON profile is refused rather than sent to `ImportPolicy`, and policy YAML that an
+  older build wrote under that extension is still accepted.
 
 For current serializer and verification limitations, read the
 [implementation findings](../modules/ncm-compliance-portability-audit.md#code-gaps-affecting-the-stig-tool-and-porter).

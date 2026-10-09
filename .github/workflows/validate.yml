@@ -29,6 +29,16 @@ jobs:
       - name: Run toolchain tests
         run: python3 tools/test_tools.py
 
+      # The DISA STIG tool against a stub SWIS: removal planning, rollback scope, seeds,
+      # file routing, multi-report failure. PowerShell parity runs only where powershell
+      # exists, so on this runner the Python edition is what is checked.
+      - name: Run DISA STIG tool tests
+        run: python3 -m unittest discover -s apps/disa-stig-conversion-tool -p "test_*.py"
+
+      # Every query embedded in both editions of the DISA STIG tool.
+      - name: Validate the DISA STIG tool's queries
+        run: python3 tools/validate_swql.py apps/disa-stig-conversion-tool
+
       # Consistency of the checked-in data: count floors, required core entities, and
       # hand-verified verb signatures. Catches extraction that degraded quietly.
       - name: Check extracted data
