@@ -14,9 +14,14 @@ namespace Porter.Areas;
 ///          PolicyReport object; Porter writes it as the SAME XML document the web
 ///          console exports (verified against real console files), UTF-16 with BOM,
 ///          so files interchange with the WebUI in both directions.
-/// Import:  AddPolicyReport(report, importFlag=true) persists report, policies, and
-///          rules in one call and returns the new server-assigned GUID; Porter then
-///          starts compliance caching for just that report so it is not inert.
+/// Import:  AddPolicyReport(report, importFlag=true) with ReportStatus Disabled returns the
+///          new server-assigned GUID; UpdateReportStatus(Disabled) confirms the status, and
+///          GetPolicyReport(id, exportFlag=true) reads the stored tree back so policy and
+///          rule counts and names are compared with the file (a server has been seen
+///          storing only the report row). A mismatch is reported as a partial import and
+///          the report stays Disabled. Reports stay Disabled and uncached unless the
+///          operator opts in to keeping the exported status; then an Enabled report is
+///          enabled and compliance caching starts for just that report.
 /// SECURITY GATE: a rule with ExecuteScriptAutomatically=true pushes configuration to
 /// failing devices on the next compliance cycle. Validation raises a blocking security
 /// flag for every such rule — the file cannot import until the operator acknowledges.
@@ -235,11 +240,29 @@ public sealed class NcmComplianceProvider : AreaProvider
 
     // ---- import: XML → contract object → AddPolicyReport ----
 
+    public override string? KeepEnabledOptionLabel =>
+        "Keep each NCM report's exported status — an Enabled report starts evaluating " +
+        "(Porter starts caching it, and the scheduled policy cache refreshes it). " +
+        "Off: reports import Disabled for review.";
+
+    /// <summary>
+    /// The status a report ends with. Imported reports start evaluating on their own — the
+    /// policy cache refreshes daily and report jobs can be scheduled — so the default is
+    /// Disabled for review (docs/modules/ncm-compliance-reports.md). Only the explicit
+    /// opt-in keeps the file's status; a file with no status keeps the console's Enabled.
+    /// </summary>
+    internal static string TargetStatus(bool keepExported, string fileStatus)
+    {
+        if (!keepExported) return "Disabled";
+        return fileStatus.Trim().Equals("Disabled", StringComparison.OrdinalIgnoreCase) ? "Disabled" : "Enabled";
+    }
+
     public override async Task<ImportOutcome> ImportAsync(string text, IReadOnlyList<string> verifyKeys,
         ImportOptions opt, CancellationToken ct)
     {
         var doc = XDocument.Parse(text);
         var root = doc.Root ?? throw new InvalidDataException("empty document");
+        var target = TargetStatus(opt.KeepEnabled, El(root, "ReportStatus"));
         var report = new Dictionary<string, object?>
         {
             ["ID"] = El(root, "ID"),
@@ -250,7 +273,9 @@ public sealed class NcmComplianceProvider : AreaProvider
             ["ShowRulesWithoutViolationFlag"] = Bool(root, "ShowRulesWithoutViolationFlag"),
             ["AssignedPolicies"] = root.Element("AssignedPolicies")?.Elements("Policy")
                 .Select(PolicyObject).ToList() ?? new List<Dictionary<string, object?>>(),
-            ["ReportStatus"] = El(root, "ReportStatus") is { Length: > 0 } s ? s : "Enabled",
+            // Always created Disabled: nothing evaluates before the stored tree is verified.
+            // The opt-in enables it afterwards.
+            ["ReportStatus"] = "Disabled",
         };
 
         var result = await Swis.InvokeAsync("Cirrus.PolicyReports", "AddPolicyReport",
@@ -259,29 +284,175 @@ public sealed class NcmComplianceProvider : AreaProvider
         if (string.IsNullOrWhiteSpace(newId))
             return new ImportOutcome(false, "AddPolicyReport did not return the new report id");
 
-        var rows = await Swis.QueryAsync(
-            "SELECT PolicyReportID, Name FROM Cirrus.PolicyReports WHERE PolicyReportID = @id",
-            new Dictionary<string, object?> { ["id"] = newId }, ct);
-        string? confirmed = null;
-        foreach (var row in rows.EnumerateArray())
-            confirmed = row.GetProperty("Name").GetString();
-        if (confirmed is null)
-            return new ImportOutcome(false,
-                $"AddPolicyReport returned {newId} but no data returned when reading it back (No Data Returned)");
-
-        // A report is inert until compliance caching runs; start it for just this one.
-        var caching = "";
+        // The status travels in the payload, but UpdateReportStatus is the verb that owns it.
+        var statusNote = "";
         try
         {
-            await Swis.InvokeAsync("Cirrus.PolicyReports", "StartCaching",
-                new object?[] { new[] { newId } }, ct);
-            caching = " · compliance caching started";
+            await Swis.InvokeAsync("Cirrus.PolicyReports", "UpdateReportStatus",
+                new object?[] { "Disabled", new[] { newId } }, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            caching = $" · start compliance caching manually ({ex.Message})";
+            statusNote = $" · UpdateReportStatus(Disabled) failed ({ex.Message}) — check the status in the console";
         }
-        return new ImportOutcome(true, $"\"{confirmed}\" ({newId}){caching}");
+
+        // A server has been observed accepting the nested call and storing only the report
+        // row, so the row alone proves nothing: read the whole tree back and compare it with
+        // what the file carried.
+        var expected = ExpectedTree(root);
+        JsonElement? tree;
+        try
+        {
+            tree = await Swis.InvokeAsync("Cirrus.PolicyReports", "GetPolicyReport",
+                new object?[] { newId, true }, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return new ImportOutcome(false,
+                $"report {newId} was created but GetPolicyReport(id, true) failed ({ex.Message}), so its " +
+                $"policies and rules are unverified · left Disabled and not cached{statusNote}");
+        }
+        var actual = tree is { ValueKind: JsonValueKind.Object } t ? ReadBackTree(t) : null;
+        var differences = actual is null
+            ? new List<string> { "GetPolicyReport(id, true) returned no report object" }
+            : CompareTrees(expected, actual);
+        if (differences.Count > 0)
+        {
+            var held = actual is null ? "nothing readable"
+                : $"{actual.Policies.Count} policies / {actual.RuleCount} rules";
+            return new ImportOutcome(false,
+                $"PARTIAL import: report {newId} was created but the server holds {held}, the file " +
+                $"carried {expected.Policies.Count} policies / {expected.RuleCount} rules — " +
+                string.Join("; ", differences.Take(5)) +
+                (differences.Count > 5 ? $"; … and {differences.Count - 5} more" : "") +
+                $" · left Disabled and not cached; delete or repair it before use{statusNote}",
+                Partial: true);
+        }
+
+        var enabledNote = "";
+        if (target == "Enabled")
+        {
+            try
+            {
+                await Swis.InvokeAsync("Cirrus.PolicyReports", "UpdateReportStatus",
+                    new object?[] { "Enabled", new[] { newId } }, ct);
+                // An enabled report shows nothing until cached; start it for just this one
+                // (an empty array would re-cache every report on the server).
+                try
+                {
+                    await Swis.InvokeAsync("Cirrus.PolicyReports", "StartCaching",
+                        new object?[] { new[] { newId } }, ct);
+                    enabledNote = " · compliance caching started";
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    enabledNote = $" · start compliance caching manually ({ex.Message})";
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                enabledNote = $" · UpdateReportStatus(Enabled) failed ({ex.Message}); left Disabled";
+            }
+        }
+        else
+        {
+            // Disabled for review: caching is skipped, as the import guidance says.
+            enabledNote = opt.KeepEnabled
+                ? " · not cached (the file's status is Disabled)"
+                : " · not cached; enable it in the console (or with UpdateReportStatus) after review";
+        }
+
+        var rows = await Swis.QueryAsync(
+            "SELECT PolicyReportID, Name, ReportStatus FROM Cirrus.PolicyReports WHERE PolicyReportID = @id",
+            new Dictionary<string, object?> { ["id"] = newId }, ct);
+        string? confirmed = null;
+        var stored = "unknown";
+        foreach (var row in rows.EnumerateArray())
+        {
+            confirmed = row.GetProperty("Name").GetString();
+            if (row.TryGetProperty("ReportStatus", out var rs))
+                stored = rs.ValueKind switch
+                {
+                    JsonValueKind.True => "Enabled",
+                    JsonValueKind.False => "Disabled",
+                    _ => rs.ToString(),
+                };
+        }
+        if (confirmed is null)
+            return new ImportOutcome(false,
+                $"AddPolicyReport returned {newId} and GetPolicyReport matched the tree, but the " +
+                "report row was not returned when reading it back (No Data Returned)");
+
+        var chosen = opt.KeepEnabled ? $"{target} (kept from file)" : "Disabled (Porter default)";
+        return new ImportOutcome(true,
+            $"\"{confirmed}\" ({newId}) · {expected.Policies.Count} policies / {expected.RuleCount} rules " +
+            $"verified with GetPolicyReport · status chosen {chosen}, stored {stored}{enabledNote}{statusNote}");
+    }
+
+    /// <summary>Policy and rule names in one report tree, in document order.</summary>
+    internal sealed record ReportTree(List<(string Policy, List<string> Rules)> Policies)
+    {
+        public int RuleCount => Policies.Sum(p => p.Rules.Count);
+    }
+
+    /// <summary>What the file asks the server to store.</summary>
+    internal static ReportTree ExpectedTree(XElement root)
+        => new((root.Element("AssignedPolicies")?.Elements("Policy") ?? Enumerable.Empty<XElement>())
+            .Select(p => (El(p, "PolicyName"),
+                (p.Element("AssignedPolicyRules")?.Elements("PolicyRule") ?? Enumerable.Empty<XElement>())
+                    .Select(r => El(r, "RuleName")).ToList()))
+            .ToList());
+
+    /// <summary>What GetPolicyReport(id, exportFlag=true) says the server stored. Null when
+    /// the nested AssignedPolicies array is absent but the report lists policy ids — the
+    /// tree was not returned, so it cannot be compared.</summary>
+    internal static ReportTree? ReadBackTree(JsonElement report)
+    {
+        if (!report.TryGetProperty("AssignedPolicies", out var pols) || pols.ValueKind != JsonValueKind.Array)
+        {
+            var listed = report.TryGetProperty("AssignedPoliciesList", out var ids) &&
+                         ids.ValueKind == JsonValueKind.Array && ids.GetArrayLength() > 0;
+            return listed ? null : new ReportTree(new());
+        }
+        var list = new List<(string, List<string>)>();
+        foreach (var p in pols.EnumerateArray())
+        {
+            var rules = new List<string>();
+            if (p.TryGetProperty("AssignedPolicyRules", out var rs) && rs.ValueKind == JsonValueKind.Array)
+                foreach (var r in rs.EnumerateArray()) rules.Add(S(r, "RuleName"));
+            list.Add((S(p, "PolicyName"), rules));
+        }
+        return new ReportTree(list);
+    }
+
+    /// <summary>Differences between the file's tree and the stored one: policy count, rule
+    /// count, and per-policy rule names. Empty means they match.</summary>
+    internal static List<string> CompareTrees(ReportTree expected, ReportTree actual)
+    {
+        var diffs = new List<string>();
+        if (expected.Policies.Count != actual.Policies.Count)
+            diffs.Add($"policies: expected {expected.Policies.Count}, stored {actual.Policies.Count}");
+        if (expected.RuleCount != actual.RuleCount)
+            diffs.Add($"rules: expected {expected.RuleCount}, stored {actual.RuleCount}");
+
+        var stored = actual.Policies.GroupBy(p => p.Policy, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+        foreach (var (policy, rules) in expected.Policies)
+        {
+            if (!stored.TryGetValue(policy, out var candidates) || candidates.Count == 0)
+            {
+                diffs.Add($"policy \"{policy}\" missing");
+                continue;
+            }
+            var match = candidates[0];
+            candidates.RemoveAt(0);
+            var missing = rules.Except(match.Rules, StringComparer.Ordinal).ToList();
+            if (match.Rules.Count != rules.Count || missing.Count > 0)
+                diffs.Add($"policy \"{policy}\": expected {rules.Count} rules, stored {match.Rules.Count}" +
+                    (missing.Count > 0 ? $" (missing \"{string.Join("\", \"", missing.Take(3))}\"" +
+                        (missing.Count > 3 ? ", …" : "") + ")" : ""));
+        }
+        return diffs;
     }
 
     private static string El(XElement parent, string name) => parent.Element(name)?.Value ?? "";

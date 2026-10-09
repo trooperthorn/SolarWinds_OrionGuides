@@ -17,7 +17,7 @@ public sealed record PackageItem(string Area, string RelPath, string Name, byte[
 /// </summary>
 public static class PackageWriter
 {
-    /// <summary>"Porter 0.2.0" — read from the assembly so the manifest can never drift
+    /// <summary>"Porter 0.3.0" — read from the assembly so the manifest can never drift
     /// from the version the csproj actually ships.</summary>
     internal static string ToolName
     {

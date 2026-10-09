@@ -98,9 +98,19 @@ public class PlanDefaultsTests
     [Fact]
     public async Task DefaultPlan_IsEmpty_AndWidgetKeysAreReadFromTheFile()
     {
-        var provider = new ReportsProvider(TestData.Session());
-        Assert.Empty(await provider.PlanAsync("<Report/>", CancellationToken.None));
+        var provider = new SamTemplatesProvider(TestData.Session());
+        Assert.Empty(await provider.PlanAsync("<ArrayOfApplicationTemplate/>", CancellationToken.None));
         Assert.Equal(new[] { "w-1", "w-2" }, DashboardsProvider.WidgetKeys(TestData.Dashboard));
         Assert.Empty(DashboardsProvider.WidgetKeys("not json"));
+    }
+
+    [Fact]
+    public async Task ReportPlan_NamesTheReport_AndSkipsTheFolderCheckWithoutACategory()
+    {
+        // No LimitationCategory in the file: nothing to check, so no query is sent.
+        var lines = await new ReportsProvider(TestData.Session())
+            .PlanAsync("<Report><Name>Inventory</Name></Report>", CancellationToken.None);
+        var line = Assert.Single(lines);
+        Assert.Equal("would create report \"Inventory\"", line);
     }
 }

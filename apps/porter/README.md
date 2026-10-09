@@ -1,7 +1,7 @@
 # Porter
 
 A Windows utility that moves SolarWinds Observability Self-Hosted configuration between
-installations over the SWIS API. **v0.2 provides eight configuration providers** behind one
+installations over the SWIS API. **v0.3 provides eight configuration providers** behind one
 generic Connect → Direction → Constellation → Select/Stage → Run workflow: Modern
 Dashboards, Alerts, Reports, SAM Templates, WPM Recordings, NCM Device Templates,
 Nodes + Custom Properties, and NCM Compliance Reports. Every area is a provider behind
@@ -25,7 +25,8 @@ The executable lands in `Porter\bin\Release\net8.0-windows\win-x64\publish\Porte
 a single file, no runtime install needed on the target machine (air-gap friendly).
 
 Tests and CI: `dotnet test Porter.sln -c Release` runs the xUnit suite in `Porter.Tests`
-(validators, copy rewrite, CSV round trip, package reader, crypto, run reports).
+(validators, copy rewrite, CSV round trip, package reader and encoding detection, crypto,
+run reports, SAM collision keys against the real samples, NCM tree comparison).
 `.github/workflows/porter.yml` builds and tests on `windows-latest` for any change under
 `apps/porter/`.
 
@@ -33,7 +34,7 @@ Tests and CI: `dotnet test Porter.sln -c Release` runs the xUnit suite in `Porte
 design choice, not a substantiated universal DISA STIG requirement. No benchmark, version,
 or rule ID is cited for that earlier claim. The executable requests UAC elevation.
 
-## The v0.1 verification round-trip
+## The verification round-trip
 
 1. Run Porter (accept the UAC prompt), connect to server A — username/password or
    "connect as my current Windows account". **TLS verification defaults to on.** SWIS
@@ -56,11 +57,13 @@ or rule ID is cited for that earlier claim. The executable requests UAC elevatio
    duplicate widget keys, the SWQL-stored-twice check).
 4. Pick the collision policy: **Skip** (skips are reported by name) or **Import as copy**
    (dashboard and widget identity keys remapped, dashboards renamed "… (Copy)").
-   Embedded object GUIDs are preserved; see the identity limits below.
+   A file collides when its dashboard key **or any of its widget keys** already exists on
+   the target, because a same-key import overwrites the existing widget wherever it is
+   placed. Embedded object GUIDs are preserved; see the identity limits below.
 5. Dry run first if you like — full validation plus collision checks, zero writes. Each
-   GO file also logs a read-only `plan:` — dashboards it would create and widget keys
-   already on the target, custom properties it would create and how each node row
-   resolves (one match / not found / ambiguous; first 50 rows listed).
+   GO file also logs a read-only `plan:` — dashboards it would create, custom properties
+   it would create and how each node row resolves (one match / not found / ambiguous;
+   first 50 rows listed), and each report's limitation-category check.
 6. Import. The dashboards verb returns void, so Porter verifies each import by re-querying
    the dashboard `unique_key` and reports the new DashboardIDs.
 
@@ -95,26 +98,46 @@ package, and at most 5,000 entries per archive.
 
 ## Identity and verification limits
 
-Code review on 2026-09-18 found these limits; this review did not perform a live import:
+Code review on 2026-09-18 found the limits this section originally listed; Porter 0.3.0
+changed the behavior as described below. Neither the review nor the 0.3.0 change performed
+a live import.
 
-- Collision queries inspect dashboard keys in `Orion.Dashboards.Instances`. Widget keys
-  are only checked in the dry-run plan (`Orion.Dashboards.Widgets.UniqueKey`, listed as
-  warnings), not treated as collisions, so a different dashboard can still reuse a
-  widget key. "Skip" is not complete protection against shared-widget changes.
-- `AsCopy` builds one old-to-new key map per input document. Duplicate old widget keys
-  remain duplicate after remapping; it does not split conflicting definitions or provide
-  an explicit per-dashboard sharing policy. Embedded GUIDs are not all regenerated.
-- Local duplicate-widget findings are warnings. Inspect them before import. A dry run
-  covers the implemented validation and collision checks, not every server-side conflict.
+- **Collisions (0.3.0).** Dashboard keys are checked in `Orion.Dashboards.Instances` and
+  every widget key in `Orion.Dashboards.Widgets.UniqueKey`, with UUID spelling normalized
+  and named keys compared case-insensitively. A widget key already on the target is a
+  collision: under Skip the file is skipped and the run report names the widget key and
+  the dashboards that place it (`Orion.Dashboards.Links`). A target whose widget keys
+  cannot be read fails the file instead of importing it unchecked.
+- **Copy (0.3.0).** New keys avoid every dashboard and widget key on the target, and
+  dashboard and widget keys are mapped separately. A widget key carrying different
+  definitions inside one file is refused (placements cannot say which one they mean);
+  identical duplicates keep one new key. Each file gets its own key map, so two files
+  that shared a widget become independent copies. A widget placed on several dashboards
+  in one file stays shared within the copy, detached from the original. Embedded GUIDs
+  are not regenerated.
+- **Groups and routes on copy (0.3.0).** `groupId` moves to a new group (copies grouped
+  together in one file stay together; the tab labels are kept) and `routeId` and
+  `dashboardRoutes` are cleared to the empty forms seen in other exports, so a copy does
+  not join the original's tabs or share its route. A warning in the run log says what
+  changed; links that target the original's route still reach the original.
+- **Self-references on copy (0.3.0).** Quoted dashboard-name literals are rewritten in
+  `swql` and `swqlQuery` fields, and in `swql`, `swqlQuery` and conditional `query` fields
+  inside the dashboard-level `configuration`, which can be a JSON-encoded string and is
+  decoded and re-encoded for the purpose.
+- Local duplicate-widget findings are warnings. Inspect them before import. When the
+  two stored copies of a widget's SWQL differ, Porter warns and does not claim which one
+  runs. A dry run covers the implemented validation and collision checks, not every
+  server-side conflict.
+- Collision checks run per file against the live target, not across every file of a
+  batch before the first import. There is no update mode.
 - Post-import dashboard-key lookup establishes that matching dashboard rows exist. It
   does not verify every resource property, query result, rendered widget, or whether an
   existing dashboard's shared widget changed.
 
 Before using these tools for modified shared dashboards, follow the
 [widget identity audit](../../docs/webui/modern-dashboard-widget-identity-audit.md).
-Required follow-up: target widget inventory, package-wide identity comparison, explicit
-sharing/isolation choice, and content-level read-back. These are documented gaps, not
-features implemented by this documentation update.
+Still open: package-wide identity comparison before import, an explicit update mode, and
+content-level read-back.
 
 Source: [DashboardsArea.cs](Porter/Areas/DashboardsArea.cs), [DashboardValidator.cs](Porter/Areas/DashboardValidator.cs), and [DashboardsProvider.cs](Porter/Areas/DashboardsProvider.cs).
 
@@ -142,13 +165,15 @@ them):
 | Alerts | `Orion.AlertConfigurations.Import(alertXml)` (export: `Export`) |
 | Reports | `Orion.Report.CreateReport(definition)` |
 | SAM templates | `Orion.APM.ApplicationTemplate.ImportTemplate(template)` (export: `ExportTemplate`) |
-| NCM compliance | `Cirrus.PolicyReports.AddPolicyReport(report, importFlag)` then `Cirrus.PolicyReports.StartCaching([newId])` (export: `GetPolicyReport`) |
+| NCM compliance | `Cirrus.PolicyReports.AddPolicyReport(report, importFlag)` (created `Disabled`), `UpdateReportStatus`, read-back with `GetPolicyReport(id, true)`; `StartCaching([newId])` only when the operator keeps an `Enabled` status (export: `GetPolicyReport`) |
 | NCM device templates | CRUD `Create` on `Cli.DeviceTemplates` |
 | WPM recordings | `Orion.SEUM.Recordings.Import(recording)` (export: `Export`) |
 | Node custom properties | `Orion.NodesCustomProperties.CreateCustomProperty` / `CreateCustomPropertyWithValues` (validated first with `ValidateCustomProperty`), values via CRUD update on `…/CustomProperties` |
 
 An import whose verification query returns nothing is reported as **No data
-returned** for that item, never as success.
+returned** for that item, never as success. An import that wrote something but read back
+incomplete (an NCM report without all its policies and rules) is reported as **partial**
+and counted as a failure.
 
 ## TLS: living with — or replacing — the SolarWinds-Orion certificate
 
@@ -226,18 +251,18 @@ error sentence stay plain. For the record:
 | Captain's Log | The JSONL session log (content stays plain) | Run screen |
 | First Contact | The unknown-certificate pin dialog | Verified mode |
 
-## Area status (v0.1)
+## Area status (v0.3)
 
 | Area | Mechanism (verified 2026.2) | Status |
 | --- | --- | --- |
 | Modern Dashboards | `Orion.Dashboards.Instances.Export/Import` verb pair · client-side copy rewrite | **Flight-ready** |
-| Alerts | `Export(id, stripSensitiveData)` / `Import` → `AlertImportResult` · needs manageAlerts | **Flight-ready** |
+| Alerts | `Export(id, stripSensitiveData)` / `Import` → `AlertImportResult` · the 2026.2 schema declares `admin` and `manageAlerts` on both verbs | **Flight-ready** |
 | Reports | `SELECT Definition` + `CreateReport` (9 positional params, `limitationCategory` third) | **Flight-ready** |
-| SAM Templates | `ExportTemplate(int)` / `ImportTemplate` — `.apmtemplate`, UniqueId collision key | **Flight-ready** |
+| SAM Templates | `ExportTemplate(int)` / `ImportTemplate` — `.apmtemplate`, the template's own UniqueId as collision key | **Flight-ready** |
 | WPM Recordings | `Export(id, password)` / `Import(content, name, password)` — cipher password mandatory | **Flight-ready** |
 | NCM Device Templates | `TemplateXml` column out · SWIS CRUD Create in · built-ins read-only | **Flight-ready** |
 | Nodes + Custom Properties | one CSV · `CreateCustomProperty` (admin) + per-node `…/CustomProperties` update | **Flight-ready** |
-| NCM Compliance Reports | `GetPolicyReport(id, true)` / `AddPolicyReport(report, true)` + `StartCaching` | Implemented; nested read-back verification gap documented in the [audit](../../docs/modules/ncm-compliance-portability-audit.md) |
+| NCM Compliance Reports | `GetPolicyReport(id, true)` / `AddPolicyReport(report, true)`, imported `Disabled`, tree read back; `StartCaching` on opt-in | Implemented; nested read-back added in 0.3.0, not live-tested (see the [audit](../../docs/modules/ncm-compliance-portability-audit.md)) |
 | Discovery + Credentials | partial by design — secrets never leave a server | In Dry Dock (v2) |
 | Universal Device Pollers | export-only; definitions have no SWIS create | In Dry Dock (v2) |
 | Device Studio | no SWIS route in 2026.2 | Uncharted |
@@ -252,11 +277,20 @@ error sentence stay plain. For the record:
   e.g. a referenced custom property missing) lands as a warning, not a success.
 - **Reports** — export is the `Definition` column, byte-for-byte what the console's
   export button writes. Import is `CreateReport` (create-only); name collisions skip. A
-  file whose root is not `<Report>` is an error, not a warning.
+  file whose root is not `<Report>` is an error, not a warning. The definition's
+  `LimitationCategory` names a folder that has to exist on the target; there is no
+  entity listing those folders, so the dry run and the import check whether any report
+  the account can see already uses it. If none does, the item is reported as a warning
+  to confirm the folder (absence cannot be proven that way). With a Windows-session
+  connection `CreateReport`'s `userName` is sent empty, because the session never learns
+  the account name.
   Report *schedules* have no SWIS route anywhere — they never travel.
 - **SAM Templates** — the `.apmtemplate` XML travels verbatim, including every script
   monitor's `ScriptBody` — Porter warns per file so embedded secrets get reviewed.
-  Assigned credentials never travel; re-choose them after import.
+  Assigned credentials never travel; re-choose them after import. The collision key is
+  the `UniqueId` that is a direct child of `<ApplicationTemplate>`; every component
+  carries its own `UniqueId`, and current exports list components first, so the first
+  `UniqueId` in the file is a component's (fixed in 0.3.0).
 - **WPM Recordings** — the platform itself demands a cipher password on export and the
   same one on import (this is the API's own file encryption, separate from Porter's
   optional `.zip.aes` packaging). Porter wraps the ciphered blob in a small envelope
@@ -268,11 +302,18 @@ error sentence stay plain. For the record:
   and are read-only server-side; a collision against one is reported as such. Imports
   land with **auto-detect OFF** — enabling *Use for Auto Detect* is a deliberate
   console step, so an imported template can never silently re-route existing nodes.
+  `Author` is empty for a Windows-session connection, which never learns the account
+  name.
 - **Nodes + Custom Properties** — one CSV: `Caption`, `IPAddress`, then every node
   custom property, plus annotation rows (`#datatype`, `#allowedvalues`, `#mandatory`,
   `#default`) so definitions are recreated faithfully — restricted-value lists included.
-  Import pre-flights each new definition with `ValidateCustomProperty`, creates it
-  (admin needed), then writes values matching nodes by IP with Caption fallback.
+  Import pre-flights each new definition with `ValidateCustomProperty` and reads its
+  `CustomPropertyValidationResult`: only `Status` `Valid` goes on to create the
+  definition (admin needed). `Exists` reuses the definition, as for one already on the
+  target, with a note; `IsSystem`, `IsReserved`, `Error` or an unreadable result stop
+  that definition and are reported with the status and `ErrorMessage`. `Status` is read
+  as a name or a number. Values are then written matching nodes by IP with Caption
+  fallback.
   Ambiguous matches are skipped and named, never guessed; every row fails individually
   and the outcome accounts for all of it. Values with embedded newlines round-trip.
   Cells starting with `=`, `+`, `-`, `@`, tab or CR are exported with a leading `'` so
@@ -280,13 +321,22 @@ error sentence stay plain. For the record:
   cells accept true/false/1/0/yes/no; anything else is reported and that cell is not
   written. SNMP community strings are deliberately not exported.
 - **NCM Compliance Reports** — Porter writes the observed element structure as UTF-16
-  with a matching declaration. Validate interchange on the target console. Its current
-  import verifies the report row rather than the full nested tree; see the
-  [portability audit](../../docs/modules/ncm-compliance-portability-audit.md). Import validation raises a **blocking
-  security flag** for every rule with `ExecuteScriptAutomatically=true` (those rules
-  push configuration to failing devices once cached); the file cannot be imported
-  until the operator ticks the acknowledgement. After import Porter starts compliance
-  caching for just that report. See
+  with a matching declaration. Validate interchange on the target console. On import a
+  BOM-less UTF-16 file is detected and read as UTF-16, and a UTF-8 file that declares
+  `utf-16` is read as UTF-8 with the fallback shown on the staged row and in the run log.
+  Import validation raises a **blocking security flag** for every rule with
+  `ExecuteScriptAutomatically=true` (those rules push configuration to failing devices
+  once cached); the file cannot be imported until the operator ticks the acknowledgement.
+  Imported reports would start evaluating on their own (the policy cache refreshes daily
+  and report jobs can be scheduled), so **reports import `Disabled` by default**: Porter
+  creates the report disabled, confirms it with `UpdateReportStatus`, and does not start
+  caching. The opt-in checkbox "Keep each NCM report's exported status" keeps the file's
+  status; an `Enabled` report is then enabled and compliance caching starts for just that
+  report. Either way the report is enabled only after Porter reads the stored tree back
+  with `GetPolicyReport(id, true)` and the policy and rule counts and names match the
+  file. A mismatch is reported as a **partial** import with both counts, and the report
+  stays disabled. The chosen and stored status are recorded per item in the run report.
+  See the [portability audit](../../docs/modules/ncm-compliance-portability-audit.md) and
   [docs/modules/ncm-compliance-reports.md](../../docs/modules/ncm-compliance-reports.md).
 
 ## Layout

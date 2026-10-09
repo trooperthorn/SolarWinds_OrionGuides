@@ -84,7 +84,7 @@ Read this before relying on this repository for something load-bearing. If you h
 
 **[ValidateCustomProperty](../automation/custom-properties.md#validatecustomproperty)**
 
-- The shape of `CustomPropertyValidationResult` is not recorded in the published schema, so it is unverified here.
+- Two things the contract does not settle are unverified here: whether the JSON REST endpoint serializes `Status` as the member name or as its number, and what each status covers beyond its name.
 
 **[`DataType` is not `ValueType`](../automation/custom-properties.md#datatype-is-not-valuetype)**
 

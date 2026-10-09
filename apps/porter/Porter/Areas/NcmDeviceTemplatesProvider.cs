@@ -143,6 +143,8 @@ public sealed class NcmDeviceTemplatesProvider : AreaProvider
             UseForAutoDetect = false,
             TemplateXml = text,
             Comments = "",
+            // Empty for a Windows-session connection: SwisSession sends the process's
+            // default credentials and never learns the account name.
             Author = Swis.Username ?? "",
         }, ct);
 

@@ -13,6 +13,8 @@ public sealed class StagedFile
     public required string FileName { get; init; }
     public required string Text { get; init; }
     public required AreaValidation Validation { get; init; }
+    /// <summary>Non-blocking reader findings (encoding fallback), logged with the run.</summary>
+    public IReadOnlyList<string> Notes { get; init; } = Array.Empty<string>();
     public string StatusGlyph => !Validation.Ok ? "✕"
         : Validation.SecurityFlags.Count > 0 ? "✋"
         : Validation.Warnings.Count > 0 ? "⚠" : "✓";
@@ -33,6 +35,11 @@ public partial class ImportView : UserControl
         TitleText.Text = $"Import — {provider.DisplayName} · The Airlock";
         StageList.ItemsSource = _staged;
         if (provider.RequiresCipherPassword) CipherPanel.Visibility = Visibility.Visible;
+        if (provider.KeepEnabledOptionLabel is { Length: > 0 } keepLabel)
+        {
+            KeepEnabledText.Text = keepLabel;
+            KeepEnabledBox.Visibility = Visibility.Visible;
+        }
         switch (provider.CopyMode)
         {
             case CopyMode.NotSupported:
@@ -88,11 +95,15 @@ public partial class ImportView : UserControl
                     if (SourceLine(contents.Info) is { Length: > 0 } source)
                         validation.Detail = validation.Detail.Length > 0
                             ? $"{source} — {validation.Detail}" : source;
+                    if (entry.Notes.Count > 0)
+                        validation.Detail = string.Join(" · ",
+                            new[] { validation.Detail }.Where(d => d.Length > 0).Concat(entry.Notes));
                     _staged.Add(new StagedFile
                     {
                         FileName = entry.DisplayName,
                         Text = entry.Text,
                         Validation = validation,
+                        Notes = entry.Notes,
                     });
                 }
             }
@@ -176,6 +187,7 @@ public partial class ImportView : UserControl
         var options = new ImportOptions
         {
             CipherPassword = _provider.RequiresCipherPassword ? CipherPass.Password : null,
+            KeepEnabled = _provider.KeepEnabledOptionLabel is not null && KeepEnabledBox.IsChecked == true,
         };
         var provider = _provider;
 
@@ -190,6 +202,10 @@ public partial class ImportView : UserControl
             var outcome = RunOutcome.Completed;
             try
             {
+                if (provider.KeepEnabledOptionLabel is not null)
+                    log.Report(options.KeepEnabled
+                        ? "Status: keeping each item's exported status (opted in)"
+                        : "Status: items import Disabled (default) — enable them after review");
                 foreach (var file in skippedInvalid)
                 {
                     summary.Skipped++;
@@ -203,10 +219,15 @@ public partial class ImportView : UserControl
                     // Between items only: a file already in flight finishes, so an abort never
                     // leaves a half-imported definition behind.
                     ct.ThrowIfCancellationRequested();
+                    foreach (var readerNote in file.Notes)
+                    {
+                        log.Report($"  note: {file.FileName}: {readerNote}");
+                        SessionLog.Log(dryRun ? "dry-run" : "import", file.FileName, "note", readerNote);
+                    }
                     try
                     {
                         var keys = file.Validation.Items.Select(i => i.Key).ToList();
-                        var collisions = await provider.FindCollisionsAsync(keys, ct);
+                        var collisions = await provider.FindCollisionsAsync(file.Text, keys, ct);
                         var text = file.Text;
                         var verifyKeys = keys;
                         var note = "";
@@ -218,6 +239,12 @@ public partial class ImportView : UserControl
                                 collisions.TryGetValue(i.Key, out var existing)
                                 ? $"\"{existing}\" (already on target)"
                                 : $"\"{i.Name}\" (skipped with its file)").ToList();
+                            // Nested identities (dashboard widget keys) that are not item keys:
+                            // name each, so a skip never reads as unexplained.
+                            var itemKeys = keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                            var nested = collisions.Where(c => !itemKeys.Contains(c.Key)).ToList();
+                            parts.AddRange(nested.Take(10).Select(c => $"{c.Key}: {c.Value}"));
+                            if (nested.Count > 10) parts.Add($"… and {nested.Count - 10} more");
                             var detail = string.Join(", ", parts);
                             summary.SkippedNames.Add($"{file.FileName} — {detail}");
                             summary.Items.Add(new RunItem(file.FileName, dryRun ? "no-go" : "skipped", detail));
@@ -227,7 +254,7 @@ public partial class ImportView : UserControl
                         }
                         if (collisions.Count > 0 && provider.CopyMode == CopyMode.ClientRewrite)
                         {
-                            var rewrite = provider.AsCopy(file.Text);
+                            var rewrite = await provider.AsCopyAsync(file.Text, ct);
                             text = rewrite.Text;
                             verifyKeys = rewrite.NewKeys;
                             note = $" as copy: {string.Join(", ", rewrite.NewNames.Select(n => $"\"{n}\""))}";
@@ -263,6 +290,13 @@ public partial class ImportView : UserControl
                             SessionLog.Log("import", file.FileName, "ok", result.Detail);
                             summary.Items.Add(new RunItem(file.FileName, "ok", result.Detail));
                             summary.Ok++;
+                        }
+                        else if (result.Partial)
+                        {
+                            log.Report($"  PARTIAL: {result.Detail}");
+                            SessionLog.Log("import", file.FileName, "partial", result.Detail);
+                            summary.Items.Add(new RunItem(file.FileName, "partial", result.Detail));
+                            summary.Failed++;
                         }
                         else
                         {

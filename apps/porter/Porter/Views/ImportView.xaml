@@ -39,6 +39,9 @@
                           Checked="AllowWarn_Changed" Unchecked="AllowWarn_Changed">
                     <TextBlock TextWrapping="Wrap" Text="Import files that carry warnings"/>
                 </CheckBox>
+                <CheckBox x:Name="KeepEnabledBox" IsChecked="False" Visibility="Collapsed" Margin="0,6,0,0">
+                    <TextBlock x:Name="KeepEnabledText" TextWrapping="Wrap"/>
+                </CheckBox>
                 <CheckBox x:Name="AckSecurityBox" Visibility="Collapsed" Margin="0,6,0,0"
                           Checked="AllowWarn_Changed" Unchecked="AllowWarn_Changed">
                     <TextBlock TextWrapping="Wrap" Foreground="#8A5A00"

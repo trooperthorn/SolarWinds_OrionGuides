@@ -89,8 +89,12 @@ public sealed class SamTemplatesProvider : AreaProvider
             {
                 var name = t.Elements().FirstOrDefault(e => e.Name.LocalName == "Name")?.Value?.Trim()
                     ?? System.IO.Path.GetFileNameWithoutExtension(fileName);
-                var uniqueId = t.Descendants().FirstOrDefault(e => e.Name.LocalName == "UniqueId")?.Value?.Trim()
-                    ?? "";
+                // The template's own UniqueId is a DIRECT child of <ApplicationTemplate>. Every
+                // <ComponentTemplate> carries a UniqueId too, and current exports put
+                // ComponentTemplates before the template's metadata, so the first descendant
+                // would be a component's GUID, not the template's
+                // (docs/modules/sam-templates.md).
+                var uniqueId = TemplateUniqueId(t);
                 v.Items.Add((uniqueId.Length > 0 ? uniqueId : name, name));
                 scripts += t.Descendants().Count(e => e.Name.LocalName == "ScriptBody" &&
                     !string.IsNullOrWhiteSpace(e.Value));
@@ -107,6 +111,11 @@ public sealed class SamTemplatesProvider : AreaProvider
         }
         return v;
     }
+
+    /// <summary>The template's own UniqueId: the direct child of the ApplicationTemplate
+    /// element, never a nested ComponentTemplate's. Empty when the file has none.</summary>
+    internal static string TemplateUniqueId(XElement template)
+        => template.Elements().FirstOrDefault(e => e.Name.LocalName == "UniqueId")?.Value?.Trim() ?? "";
 
     public override async Task<Dictionary<string, string>> FindCollisionsAsync(
         IReadOnlyCollection<string> keys, CancellationToken ct)
