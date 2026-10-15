@@ -146,7 +146,9 @@ XCCDF benchmark found inside".
   rules it names follow the file whatever the mode, and their note says so. The file is
   the hand-off point for an automated task that reads each rule's check text and
   proposes real patterns; the tool validates what comes back and names the rule and
-  pattern at fault.
+  pattern at fault. The design of that task, the per-rule decisions it must make, the
+  schema-2 members it needs and how to score it before trusting it are in
+  [pattern-review-task.md](pattern-review-task.md).
 - **The read-back accepts the server's names; the server rebuilds the scope SQL.** With
   the typed criteria in place the whole NDM report imported (35 rules, the policy, the
   report), and the tool's own verification then rolled it back: it read the tree under
