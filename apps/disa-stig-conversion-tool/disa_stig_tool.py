@@ -116,7 +116,7 @@ import zlib
 
 # One version for the tool, shared by both editions (disa_stig_tool.ps1 carries the
 # same number). It is written into every log file's start-of-run line.
-TOOL_VERSION = "2.1.0"
+TOOL_VERSION = "2.2.0"
 USER_AGENT = f"disa-stig-conversion-tool/{TOOL_VERSION}"
 
 DEFAULT_PORT = 17774
@@ -1880,30 +1880,64 @@ def multi_line_pattern(pattern, pattern_type="Like", must_contain=True, conditio
 # by a reviewer or by an automated task that reads the check text, and read back by
 # --pattern-drafts. --write-pattern-drafts writes what a run produced, with each rule's
 # check text, as the starting point for that review.
-PATTERN_DRAFTS_SCHEMA = "disa-stig-tool/pattern-drafts/1"
+# Schema 2 (2.2.0) adds per rule: confidence (low, medium or high), review_reason (why
+# the reviewer decided as it did; both are carried into the rule's Comments note) and
+# config_block {start, end, type, must_exist}, which maps onto the rule object's
+# ConfigBlockStart, ConfigBlockEnd, ConfigBlockPatternType and ConfigBlockMustExist so a
+# pattern can be scoped to a stanza (every interface, every line). A schema-1 file still
+# loads; the writer emits schema 2.
+PATTERN_DRAFTS_SCHEMA = "disa-stig-tool/pattern-drafts/2"
+PATTERN_DRAFTS_SCHEMAS_ACCEPTED = ("disa-stig-tool/pattern-drafts/1", PATTERN_DRAFTS_SCHEMA)
+CONFIDENCE_LEVELS = ("low", "medium", "high")
+
+
+def _draft_config_block(path, rid, block):
+    """The validated ``config_block`` of a drafts entry as rule-object members, or None."""
+    if block is None:
+        return None
+    if not isinstance(block, dict) or not str(block.get("start") or "").strip():
+        raise ValueError(f"{path}: rule {rid}: \"config_block\" must be an object with a "
+                         "non-empty \"start\"")
+    btype = str(block.get("type") or "Like")
+    if btype not in ("Like", "Regex"):
+        raise ValueError(f"{path}: rule {rid}: config_block type must be Like or Regex")
+    return {"ConfigBlockStart": str(block["start"]),
+            "ConfigBlockEnd": str(block.get("end") or ""),
+            "ConfigBlockPatternType": btype,
+            "ConfigBlockMustExist": bool(block.get("must_exist", False)),
+            "IsConfigBlockPatternRegEx": btype == "Regex"}
 
 
 def load_pattern_drafts(path):
     """{rule id: draft} from a pattern-drafts JSON file, validated: a draft is either
     ``{"advanced": true, "patterns": [{"pattern", "type", "must_contain", "condition"}]}``
     or ``{"pattern": "...", "type": "Like"|"Regex"}``, both with an optional
-    ``must_exist`` (true: alert when not found) and ``note``. None when ``path`` is None."""
+    ``must_exist`` (true: alert when not found), ``note``, ``confidence`` (low, medium or
+    high), ``review_reason`` and ``config_block`` ({start, end, type, must_exist}, schema
+    2). None when ``path`` is None."""
     if not path:
         return None
     with open(path, encoding="utf-8-sig") as fh:
         doc = json.load(fh)
     if not isinstance(doc, dict) or not isinstance(doc.get("rules"), dict):
         raise ValueError(f"{path}: not a pattern-drafts file (an object with a \"rules\" object)")
-    if doc.get("schema") not in (None, PATTERN_DRAFTS_SCHEMA):
-        raise ValueError(f"{path}: schema {doc.get('schema')!r} is not {PATTERN_DRAFTS_SCHEMA}")
+    if doc.get("schema") not in (None,) + PATTERN_DRAFTS_SCHEMAS_ACCEPTED:
+        raise ValueError(f"{path}: schema {doc.get('schema')!r} is not "
+                         + " or ".join(PATTERN_DRAFTS_SCHEMAS_ACCEPTED))
     drafts = {}
     for rid, draft in doc["rules"].items():
         if not isinstance(draft, dict):
             raise ValueError(f"{path}: rule {rid}: the draft must be an object")
+        confidence = draft.get("confidence")
+        if confidence is not None and confidence not in CONFIDENCE_LEVELS:
+            raise ValueError(f"{path}: rule {rid}: confidence must be low, medium or high")
         if draft.get("skip"):
             continue
         entry = {"must_exist": bool(draft.get("must_exist", True)),
-                 "note": str(draft.get("note") or "")}
+                 "note": str(draft.get("note") or ""),
+                 "confidence": str(confidence or ""),
+                 "review_reason": str(draft.get("review_reason") or ""),
+                 "config_block": _draft_config_block(path, rid, draft.get("config_block"))}
         if draft.get("advanced") or draft.get("patterns"):
             pats = draft.get("patterns")
             if not isinstance(pats, list) or not pats:
@@ -1974,12 +2008,25 @@ def pattern_drafts_document(benchmarks, reports, drafts=None):
                 else:
                     entry["pattern"] = ro.get("SimplePatternText", "")
                     entry["type"] = ro.get("PatternType", "Like")
+                # Schema 2 members, written only when set so a schema-1 reader sees the
+                # same file it saw before.
+                if ro.get("ConfigBlockStart"):
+                    entry["config_block"] = {
+                        "start": ro["ConfigBlockStart"], "end": ro.get("ConfigBlockEnd") or "",
+                        "type": ro.get("ConfigBlockPatternType") or "Like",
+                        "must_exist": bool(ro.get("ConfigBlockMustExist"))}
+                draft = (drafts or {}).get(key) or (drafts or {}).get(ro.get("_vuln_id")) or {}
+                if draft.get("confidence"):
+                    entry["confidence"] = draft["confidence"]
+                if draft.get("review_reason"):
+                    entry["review_reason"] = draft["review_reason"]
                 rules_out[key] = entry
     return {"schema": PATTERN_DRAFTS_SCHEMA,
             "about": "Edit a rule's pattern or patterns (and must_exist), set \"skip\": true "
                      "to leave a rule to the run's own mode, and pass the file back with "
                      "--pattern-drafts. Values in the patterns are the STIG's examples until "
-                     "reviewed.",
+                     "reviewed. Schema 2 adds per rule: confidence (low, medium or high), "
+                     "review_reason, and config_block {start, end, type, must_exist}.",
             "rules": rules_out}
 
 
@@ -2133,6 +2180,8 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX, drafts=None):
         "PATTERN NOT SET: this sentinel never matches, so the rule flags every node "
         "as a violation until you replace it with a real pattern for this check."
     )
+    config_block = {"ConfigBlockStart": "", "ConfigBlockEnd": "", "ConfigBlockPatternType": "Like",
+                    "ConfigBlockMustExist": False, "IsConfigBlockPatternRegEx": False}
     draft_entry = None
     if drafts:
         draft_entry = drafts.get(display) or drafts.get(rule["vuln_id"])
@@ -2146,6 +2195,13 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX, drafts=None):
         note = ("PATTERN FROM DRAFTS FILE: " + (draft_entry["note"] or "supplied for this rule "
                 "by a reviewer or an automated task; verify it before trusting this rule's "
                 "results."))
+        # Schema 2: the reviewer's confidence and reason travel with the rule into NCM.
+        if draft_entry.get("confidence"):
+            note += " Review confidence: " + draft_entry["confidence"] + "."
+        if draft_entry.get("review_reason"):
+            note += " Review reason: " + draft_entry["review_reason"]
+        if draft_entry.get("config_block"):
+            config_block = dict(draft_entry["config_block"])
         log_event("build", f"{display}: pattern from the drafts file "
                            f"({len(multi) or 1} pattern(s), must exist {must_exist})", "debug")
     elif mode == "blocks":
@@ -2231,11 +2287,12 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX, drafts=None):
         "PatternMustExist": must_exist,
         "AdvancedMode": bool(multi),
         "MultiLineRulePatterns": multi,
-        "ConfigBlockStart": "",
-        "ConfigBlockEnd": "",
-        "ConfigBlockPatternType": "Like",
-        "ConfigBlockMustExist": False,
-        "IsConfigBlockPatternRegEx": False,
+        # Empty unless a schema-2 drafts entry scopes the rule to a config block.
+        "ConfigBlockStart": config_block["ConfigBlockStart"],
+        "ConfigBlockEnd": config_block["ConfigBlockEnd"],
+        "ConfigBlockPatternType": config_block["ConfigBlockPatternType"],
+        "ConfigBlockMustExist": config_block["ConfigBlockMustExist"],
+        "IsConfigBlockPatternRegEx": config_block["IsConfigBlockPatternRegEx"],
         "ErrorLevel": SEVERITY_TO_ERRORLEVEL.get(rule["severity"], 1),
         # No remediation script (2.0.0): the Fix Text is prose, so it goes into
         # Comments under "Fix:". The field is sent empty rather than omitted, because

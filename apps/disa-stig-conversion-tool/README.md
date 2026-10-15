@@ -20,7 +20,7 @@ it is refused, offline `convert` included, until `--vendor` or `--node-where` sa
 nodes it applies to. Earlier builds scoped it to every Cisco node.
 
 The tool ships in **two self-contained single-file editions**, both at version
-**2.1.0** (`TOOL_VERSION` in the Python file, `$script:ToolVersion` in the PowerShell
+**2.2.0** (`TOOL_VERSION` in the Python file, `$script:ToolVersion` in the PowerShell
 file; every run log records it). The Python edition is the reference. For the same input
 and [version suffix](#version-suffix-and-the-upgrade-workflow) both derive the same NCM
 `RuleId`s and `PolicyId`s, the same SCM policy and rule `uniqueId`s, the same report and
@@ -34,6 +34,10 @@ serialization parity for advanced rules: the
 records differences and offline-reproduced limitations. The generated default rules are basic:
 
 - **`disa_stig_tool.py`** — Python 3, standard library only (no `orionsdk`).
+- **`pattern_review.py`** (2.2.0) — the pattern review task beside the Python edition: one
+  Claude request per rule over a pattern-drafts file, as a Message Batch, writing a
+  reviewed drafts file the tool reads back. Needs the `anthropic` package; the tool itself
+  does not. Design and status in [pattern-review-task.md](pattern-review-task.md).
 - **`disa_stig_tool.ps1`** — Windows PowerShell 5.1+ / PowerShell 7+, built-in .NET
   classes only (no `SwisPowerShell`, no gallery modules). Run it plain for the
   WinForms GUI, or with the parameters in [the table below](#cli-parameters-in-both-editions).
@@ -58,6 +62,53 @@ Both GUIs open with a disclaimer — *"This is not built by SolarWinds Inc. or D
 All Code is visible for Code Audit and documentation is available for SWIS calls."* —
 and require acknowledging that imported reports must be checked and that resolution
 falls on Agency application of the DISA STIG standards before the tool opens.
+
+## What changed in 2.2.0
+
+2.2.0 (2026-10-15) builds steps 1 and 3 of [pattern-review-task.md](pattern-review-task.md):
+the pattern-drafts file gains the members a reviewer needs, and a script runs the review
+with Claude. Nothing changes for a run without a drafts file; the import payloads and the
+console file are unchanged for every rule a drafts entry does not scope to a config block.
+
+- **Pattern-drafts schema 2** (`disa-stig-tool/pattern-drafts/2`, both editions). Three new
+  members per rule, all optional: `confidence` (`low`, `medium` or `high`),
+  `review_reason` (why the reviewer decided as it did) and `config_block`
+  (`{"start", "end", "type": "Like"|"Regex", "must_exist"}`), which maps onto the rule's
+  `ConfigBlockStart`, `ConfigBlockEnd`, `ConfigBlockPatternType` and `ConfigBlockMustExist`
+  so a pattern can be scoped to a stanza (every interface, every VTY line). The members
+  already existed on the rule object and in both file writers; nothing set them before.
+  `--pattern-drafts` validates them with the rule named (a confidence outside the three
+  values, a `config_block` without a `start`, a type other than Like or Regex), and the
+  rule's Comments note carries the confidence and reason into NCM after the drafts note:
+  `PATTERN FROM DRAFTS FILE: <note> Review confidence: medium. Review reason: <reason>`.
+  `--write-pattern-drafts` emits schema 2, writing the three members only when they are
+  set, and a schema-1 file still loads; any other schema string is refused.
+- **`pattern_review.py`: the review task as a batch script** (Python edition only; it
+  needs the `anthropic` package, which brings `pydantic`). It reads a drafts file, builds
+  one request per rule (the contract from the design document as the system prompt, the
+  V-230158 worked example as a user/assistant pair, then the rule's id, title, STIG id,
+  check text, Fix Text and current draft), submits them as one Message Batch keyed by rule
+  id with structured output (a Pydantic model of the rule entry: `outcome`, `skip`,
+  `advanced`, `must_exist`, `patterns`, `config_block`, `note`, `confidence`,
+  `review_reason`), and writes `reviewed.json` in schema 2 with the batch's raw results
+  beside it as `reviewed.batch-results.jsonl`. Every note starts with
+  `reviewed <date> by <model> (prompt <hash>, pattern_review <version>)`, the file's
+  `review` object repeats the model, prompt hash, date, batch id, the rules a fallback
+  model answered and the rules that failed, and an existing output file is never
+  overwritten. Default model `claude-opus-5-5` at effort `high`, adaptive thinking (the
+  model's default; the script sends no `thinking` parameter). A rule the batch answers
+  with a refusal is re-sent on its own with `fallbacks: "default"` under the
+  `server-side-fallback-2026-07-01` beta, because the Batches API rejects that parameter;
+  the note then names the model that answered. `--dry-run` prints the system prompt, the
+  worked example and every per-rule prompt without a client; `--no-wait` submits and
+  prints the batch id, `--batch-id ID` collects a batch submitted earlier; `--rules` and
+  `--limit` narrow a run. `REVIEWED.json --score LABELLED.json` compares two
+  pattern-drafts files pattern by pattern and counts exact matches, equivalent patterns
+  (a Like literal and the Regex that escapes it, whitespace and case aside) and
+  disagreements by the reviewed file's `outcome` class, which is the measurement step 4
+  of the design needs. `test_pattern_review.py` covers the prompt builder, the scorer and
+  the schema round trip into the tool through a fake client; no test calls the API, and
+  the round-trip tests skip where `pydantic` is not installed.
 
 ## What changed in 2.1.0
 
@@ -138,10 +189,11 @@ XCCDF benchmark found inside".
 - **Pattern drafts: a file for a reviewer or an automated task.** `--write-pattern-drafts
   FILE` writes, for every rule a run built, its id, title, STIG id, check text, Fix
   Text, where its pattern came from (`sentinel`, `heuristic`, `blocks` or `drafts`) and
-  the pattern itself, as JSON (`schema` `disa-stig-tool/pattern-drafts/1`). Edit a
-  rule's `pattern` (with `type` Like or Regex) or its `patterns` list (`pattern`,
-  `type`, `must_contain`, `condition` AND or OR), set `must_exist`, add a `note`, set
-  `"skip": true` to leave a rule to the run's mode, and pass the file back with
+  the pattern itself, as JSON (`schema` `disa-stig-tool/pattern-drafts/1`; 2.2.0 writes
+  schema 2, which adds `confidence`, `review_reason` and `config_block`, and still reads
+  1). Edit a rule's `pattern` (with `type` Like or Regex) or its `patterns` list
+  (`pattern`, `type`, `must_contain`, `condition` AND or OR), set `must_exist`, add a
+  `note`, set `"skip": true` to leave a rule to the run's mode, and pass the file back with
   `--pattern-drafts FILE` (PowerShell: `-WritePatternDrafts`, `-PatternDrafts`): the
   rules it names follow the file whatever the mode, and their note says so. The file is
   the hand-off point for an automated task that reads each rule's check text and
