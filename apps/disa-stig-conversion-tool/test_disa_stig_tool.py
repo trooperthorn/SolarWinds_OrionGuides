@@ -1821,14 +1821,115 @@ class PythonPinTests(TempDirTest):
             self.assertEqual(len(server.seen), 1, "the refused connection delivered nothing")
 
 
+class ApiTokenTests(TempDirTest):
+    """SWIS API tokens (platform 2026.4+): sent as Authorization: Bearer on the same
+    endpoint, verbs and payloads; exclusive with a username/password; never logged."""
+
+    def test_token_auth_builds_a_bearer_header_and_leaves_the_call_unchanged(self):
+        token = "Tok-Py-4410.eyJhbGciOiJSUzM4NCJ9.sig"
+        client = tool.SwisClient("orion.example.com", None, None, api_token=token)
+        self.assertEqual(client.auth_header(), f"Bearer {token}")
+        self.assertEqual(client.auth_method, "API token (bearer)")
+        basic = tool.SwisClient("orion.example.com", "admin", "Pw-Basic-1190")
+        self.assertEqual(basic.auth_method, "basic auth")
+        self.assertEqual(basic.auth_header(),
+                         "Basic " + base64.b64encode(b"admin:Pw-Basic-1190").decode())
+        captured = {}
+
+        class _Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def fake_urlopen(req, context=None, timeout=None):
+            captured["req"] = req
+            return _Resp(json.dumps("new-rule-id").encode())
+
+        with mock.patch.object(tool.urllib.request, "urlopen", fake_urlopen):
+            result = client.invoke("Cirrus.PolicyReports", "GetPolicyReport", tool.NIL_GUID, False)
+        self.assertEqual(result, "new-rule-id")
+        req = captured["req"]
+        self.assertEqual(req.get_header("Authorization"), f"Bearer {token}")
+        self.assertEqual(req.get_method(), "POST")
+        self.assertEqual(req.full_url, f"https://orion.example.com:{tool.DEFAULT_PORT}"
+                                       f"{tool.BASE_PATH}/Invoke/Cirrus.PolicyReports/GetPolicyReport")
+        self.assertEqual(json.loads(req.data.decode()), [tool.NIL_GUID, False])
+        self.assertEqual(req.get_header("Content-type"), "application/json")
+
+    def test_token_and_password_auth_are_mutually_exclusive(self):
+        with self.assertRaisesRegex(tool.SwisError, "mutually exclusive"):
+            tool.SwisClient("orion.example.com", "admin", None, api_token="Tok-Py-1")
+        with self.assertRaisesRegex(tool.SwisError, "mutually exclusive"):
+            tool.SwisClient("orion.example.com", None, "pw", api_token="Tok-Py-1")
+        self.assertEqual(tool.auth_mode(True, None), "token")
+        self.assertEqual(tool.auth_mode(False, "admin"), "basic")
+        self.assertEqual(tool.auth_mode(False, None, windows_auth=True), "windows")
+        with self.assertRaisesRegex(tool.SwisError, "--api-token and --user are mutually exclusive"):
+            tool.auth_mode(True, "admin")
+        with self.assertRaisesRegex(tool.SwisError, "mutually exclusive"):
+            tool.auth_mode(False, "admin", windows_auth=True)
+        with self.assertRaisesRegex(tool.SwisError, r"pass --user .* or --api-token"):
+            tool.auth_mode(False, None)
+        # The parser accepts --api-token without --user, and --user without it.
+        parser = tool.build_parser()
+        args = parser.parse_args(["import", "x.zip", "--host", "h", "--api-token"])
+        self.assertTrue(args.api_token)
+        self.assertIsNone(args.user)
+        args = parser.parse_args(["import", "x.zip", "--host", "h", "--user", "admin"])
+        self.assertFalse(args.api_token)
+        # connect() refuses the pair before any prompt or network access.
+        args = parser.parse_args(["import", "x.zip", "--host", "h", "--user", "admin", "--api-token"])
+        with mock.patch.object(tool.getpass, "getpass", side_effect=AssertionError("prompted")):
+            with self.assertRaisesRegex(tool.SwisError, "mutually exclusive"):
+                tool.connect(args)
+
+    def test_the_token_never_reaches_the_log(self):
+        token = "Tok-Log-Secret-8824"
+        path = os.path.join(self.tmp, "token.log")
+        self.addCleanup(tool.close_logging)
+        tool.setup_logging(path, "debug")
+        client = tool.SwisClient("orion.example.com", None, None, api_token=token)
+        tool.log_event("swis", f"server echoed the token {token}", "error")
+        swis = tool.logged(FakeSwis())
+        swis.query("SELECT PolicyReportID FROM Cirrus.PolicyReports WHERE Name = @n", {"n": token})
+        parser = tool.build_parser()
+        args = parser.parse_args(["import", "x.zip", "--host", "orion.example.com", "--api-token"])
+        with mock.patch.dict(os.environ, {"SWIS_API_TOKEN": token}), \
+                mock.patch.object(tool, "fetch_server_cert", side_effect=AssertionError("no network")):
+            connected = tool.connect(args)
+        self.assertEqual(connected.inner.auth_header(), client.auth_header())
+        tool.close_logging()
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertNotIn(token, text)
+        self.assertIn("with an API token (bearer)", text)
+        self.assertIn("token from SWIS_API_TOKEN", text)
+        self.assertNotIn("as user", text)
+
+    def test_cli_run_logs_without_the_token_from_the_environment(self):
+        token = "Tok-Cli-Secret-3391"
+        env = dict(os.environ, SWIS_API_TOKEN=token)
+        log = os.path.join(self.tmp, "cli-token.log")
+        result = subprocess.run([sys.executable, PY_TOOL, "convert", self.router_zip(),
+                                 "--grouping", token, "--log-file", log], cwd=self.tmp, env=env,
+                                capture_output=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+        text = "\n".join(read_log_lines(log))
+        self.assertIn("command line: disa_stig_tool.py convert", text)
+        self.assertNotIn(token, text)
+
+
 PS_LOOPBACK_RUNNER = r"""
-param([string]$Tool, [string]$Base, [string]$Pin, [string]$Mode)
+param([string]$Tool, [string]$Base, [string]$Pin, [string]$Mode, [string]$Auth = 'basic')
 . $Tool -NoGui
 $sentinel = [System.Net.Security.RemoteCertificateValidationCallback] { param($a, $b, $c, $d) $false }
 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $sentinel
 $script:ForceHttpClient = ($Mode -eq 'httpclient')
 if ($Pin -eq 'none') { $Pin = '' }
-$conn = New-SwisConnection '127.0.0.1' 1 'admin' 'Loopback-Pw-5512' $false $false $Pin
+if ($Auth -eq 'token') { $conn = New-SwisConnection '127.0.0.1' 1 '' '' $false $false $Pin 'Loopback-Tok-7733' }
+else { $conn = New-SwisConnection '127.0.0.1' 1 'admin' 'Loopback-Pw-5512' $false $false $Pin }
 $conn.Base = $Base
 $out = [ordered]@{}
 try {
@@ -2977,10 +3078,10 @@ class PowerShellEditionTests(TempDirTest):
             self.assertRegex(line, LOG_LINE_RE)
         self.assertEqual(len([line for line in ps_lines if "declares a DTD" in line]), 2)
 
-    def run_ps_loopback(self, base, pin, mode):
+    def run_ps_loopback(self, base, pin, mode, auth="basic"):
         runner = self.write("loopback.ps1", PS_LOOPBACK_RUNNER)
         result = run_powershell("-File", runner, "-Tool", PS_TOOL, "-Base", base,
-                                "-Pin", pin or "none", "-Mode", mode, timeout=180)
+                                "-Pin", pin or "none", "-Mode", mode, "-Auth", auth, timeout=180)
         text = result.stdout.decode(errors="replace")
         self.assertIn("{", text, text + result.stderr.decode(errors="replace"))
         return json.loads(text[text.index("{"):])
@@ -3001,6 +3102,23 @@ class PowerShellEditionTests(TempDirTest):
                 self.assertEqual(json.loads(seen["body"].decode("utf-8")),
                                  [{"RuleName": "Café — ✓"}])
                 self.assertTrue(seen["auth"].startswith("Basic "))
+
+    def test_powershell_token_auth_sends_the_same_bearer_header_on_both_paths(self):
+        """Parity with SwisClient.auth_header: an API token travels as
+        "Authorization: Bearer <token>" on both transport paths, and the verb path
+        and positional payload are the ones basic auth sends."""
+        for mode in ("restmethod", "httpclient"):
+            with self.subTest(mode=mode), loopback_server() as server:
+                base = f"http://127.0.0.1:{server.server_address[1]}{tool.BASE_PATH}"
+                res = self.run_ps_loopback(base, None, mode, auth="token")
+                self.assertTrue(res["ok"], res)
+                seen = server.seen[0]
+                self.assertEqual(seen["auth"], "Bearer Loopback-Tok-7733")
+                self.assertEqual(seen["path"], tool.BASE_PATH + "/Invoke/Cirrus.PolicyReports/AddPolicyRule")
+                self.assertEqual(json.loads(seen["body"].decode("utf-8")),
+                                 [{"RuleName": "Café — ✓"}])
+                py = tool.SwisClient("127.0.0.1", None, None, api_token="Loopback-Tok-7733")
+                self.assertEqual(py.auth_header(), seen["auth"])
 
     def test_powershell_pin_fails_closed_on_both_paths(self):
         made = make_self_signed(os.path.join(self.tmp, "server"))
@@ -3032,7 +3150,8 @@ class PowerShellEditionTests(TempDirTest):
         password in the environment and on the command line: every line of both
         logs matches the same contract, and neither carries the password."""
         secret = "Parity-Secret-6630"
-        env = dict(os.environ, SWIS_PASSWORD=secret)
+        token = "Parity-Token-6631"
+        env = dict(os.environ, SWIS_PASSWORD=secret, SWIS_API_TOKEN=token)
         results = {}
         for edition in ("py", "ps"):
             folder = os.path.join(self.tmp, edition)
@@ -3041,11 +3160,11 @@ class PowerShellEditionTests(TempDirTest):
             log = os.path.join(self.tmp, f"{edition}.log")
             if edition == "py":
                 cmd = [sys.executable, PY_TOOL, "convert", source, "--name", secret,
-                       "--log-file", log]
+                       "--grouping", token, "--log-file", log]
             else:
                 cmd = [POWERSHELL, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                        "-File", PS_TOOL, "-Convert", "-Path", source, "-Name", secret,
-                       "-LogFile", log]
+                       "-Grouping", token, "-LogFile", log]
             proc = subprocess.run(cmd, cwd=folder, env=env, capture_output=True, timeout=300)
             self.assertEqual(proc.returncode, 0, (edition, proc.stdout.decode(errors="replace"),
                                                   proc.stderr.decode(errors="replace")))
@@ -3058,6 +3177,7 @@ class PowerShellEditionTests(TempDirTest):
                     self.assertRegex(line, LOG_LINE_RE)
                 text = "\n".join(lines)
                 self.assertNotIn(secret, text)
+                self.assertNotIn(token, text)
                 self.assertIn(f"DISA STIG Conversion Tool {tool.TOOL_VERSION} (", lines[0])
                 self.assertTrue(lines[-1].endswith(" s") and "run end: exit code 0;" in lines[-1])
                 self.assertIn("2 file(s) written", lines[-1])

@@ -36,7 +36,10 @@ verbatim through ``Orion.PolicyEngine.Policy.ImportPolicy``.
             --host orion.example.com --user admin --yes
 
 The password is read from the SWIS_PASSWORD environment variable, or prompted for.
-Never hard-code it and never pass it on the command line.
+Never hard-code it and never pass it on the command line. --api-token (platform
+2026.4+) authenticates with a SWIS API token instead of a user name and password:
+the token is read from SWIS_API_TOKEN, or prompted for, and sent as a bearer
+token; it excludes --user.
 
 Every run writes a log file, one line per decision and per SWIS call, with secrets
 redacted; its path is printed when the run starts and ends. --log-file PATH and
@@ -534,19 +537,32 @@ class SwisClient:
     """Minimal SWIS REST client — the same contract scripts/python/swis_client.py shows."""
 
     def __init__(self, host, username, password, port=DEFAULT_PORT, verify=True, ca_file=None,
-                 pinned_pem=None):
+                 pinned_pem=None, api_token=None):
         self.base = f"https://{host}:{port}{BASE_PATH}"
         self.username = username
         self.password = password
-        register_secret(password)
-        # The Basic token carries the password too, so it is redacted as well.
-        register_secret(base64.b64encode(f"{username}:{password}".encode()).decode())
+        self.api_token = api_token
+        if api_token:
+            # A SWIS API token (platform 2026.4+) is a bearer secret: it is sent on
+            # every call as "Authorization: Bearer <token>" and identifies the
+            # account it was created for, so no user name travels with it.
+            if username or password:
+                raise SwisError("an API token and a username/password are mutually "
+                                "exclusive; pass one or the other")
+            register_secret(api_token)
+            self.auth_method = "API token (bearer)"
+            who = "with an API token (bearer)"
+        else:
+            register_secret(password)
+            # The Basic token carries the password too, so it is redacted as well.
+            register_secret(base64.b64encode(f"{username}:{password}".encode()).decode())
+            self.auth_method = "basic auth"
+            who = f"as user '{username}' (basic auth)"
         tls = ("pinned server certificate" if pinned_pem else
                f"verified against {ca_file}" if verify and ca_file else
                "verified against the system trust store" if verify else
                "NOT verified (--insecure, lab only)")
-        log_event("swis", f"SWIS endpoint https://{host}:{port}{BASE_PATH} as user "
-                          f"'{username}' (basic auth); TLS {tls}")
+        log_event("swis", f"SWIS endpoint https://{host}:{port}{BASE_PATH} {who}; TLS {tls}")
         if not verify and not pinned_pem:
             log_event("swis", "TLS verification is off for this session", "warn")
         if pinned_pem:
@@ -570,8 +586,7 @@ class SwisClient:
         req = urllib.request.Request(url, data=data, method=method)
         req.add_header("Content-Type", "application/json")
         req.add_header("Accept", "application/json")
-        token = base64.b64encode(f"{self.username}:{self.password}".encode()).decode()
-        req.add_header("Authorization", f"Basic {token}")
+        req.add_header("Authorization", self.auth_header())
         try:
             with urllib.request.urlopen(req, context=self.ctx, timeout=300) as resp:
                 payload = resp.read().decode("utf-8", "replace")
@@ -593,6 +608,14 @@ class SwisClient:
         except TRANSPORT_ERRORS as exc:
             # A read timeout, a reset connection, a truncated or non-JSON body.
             raise transport_error(exc, url) from exc
+
+    def auth_header(self):
+        """The Authorization header value every call carries: Bearer for an API
+        token, Basic for a username and password."""
+        if self.api_token:
+            return f"Bearer {self.api_token}"
+        token = base64.b64encode(f"{self.username}:{self.password}".encode()).decode()
+        return f"Basic {token}"
 
     def query(self, swql, parameters=None):
         body = {"query": swql}
@@ -4572,13 +4595,40 @@ def import_scm_benchmarks(swis, benchmarks, os_info, log=print, suffix=DEFAULT_S
         "per node.")
 
 
+def auth_mode(use_api_token, user, windows_auth=False):
+    """Which credential a CLI run uses: "token", "basic" or "windows". The three
+    are mutually exclusive; the same rule is Resolve-CliAuthMode in the PowerShell
+    edition. Raises SwisError for an ambiguous or missing choice."""
+    chosen = [name for name, on in (("--api-token", use_api_token), ("--user", bool(user)),
+                                    ("--windows-auth", windows_auth)) if on]
+    if len(chosen) > 1:
+        raise SwisError(f"{' and '.join(chosen)} are mutually exclusive; pass one of them")
+    if not chosen:
+        raise SwisError("pass --user (password from SWIS_PASSWORD or a prompt) or "
+                        "--api-token (token from SWIS_API_TOKEN or a prompt)")
+    return {"--api-token": "token", "--user": "basic", "--windows-auth": "windows"}[chosen[0]]
+
+
 def connect(args):
     """Build a SwisClient from the shared connection arguments."""
-    password = os.environ.get("SWIS_PASSWORD")
-    log_event("swis", f"connecting to {args.host}:{args.port} as user '{args.user}'; password "
-                      + ("from SWIS_PASSWORD" if password else "prompted for"))
-    password = password or getpass.getpass(f"password for {args.user}: ")
-    register_secret(password)
+    mode = auth_mode(getattr(args, "api_token", False), args.user)
+    if mode == "token":
+        api_token = os.environ.get("SWIS_API_TOKEN")
+        log_event("swis", f"connecting to {args.host}:{args.port} with an API token (bearer); "
+                          "token " + ("from SWIS_API_TOKEN" if api_token else "prompted for"))
+        api_token = api_token or getpass.getpass(f"API token for {args.host}: ")
+        if not api_token:
+            raise SwisError("the API token is empty")
+        register_secret(api_token)
+        user = password = None
+    else:
+        user = args.user
+        password = os.environ.get("SWIS_PASSWORD")
+        log_event("swis", f"connecting to {args.host}:{args.port} as user '{user}' (basic auth); "
+                          "password " + ("from SWIS_PASSWORD" if password else "prompted for"))
+        password = password or getpass.getpass(f"password for {user}: ")
+        register_secret(password)
+        api_token = None
     pinned = None
     if args.pin_server_cert:
         pinned, fingerprint, stock = fetch_server_cert(args.host, args.port)
@@ -4586,8 +4636,8 @@ def connect(args):
                           f"{fingerprint}" + (" (stock SolarWinds-Orion)" if stock else ""))
         print(f"pinned the server certificate — SHA-256 {fingerprint}"
               + (" (stock SolarWinds-Orion certificate)" if stock else ""))
-    return logged(SwisClient(args.host, args.user, password, port=args.port,
-                             verify=not args.insecure, ca_file=args.ca_file, pinned_pem=pinned))
+    return logged(SwisClient(args.host, user, password, port=args.port, verify=not args.insecure,
+                             ca_file=args.ca_file, pinned_pem=pinned, api_token=api_token))
 
 
 def cmd_test(args):
@@ -4959,7 +5009,11 @@ def add_log_args(p):
 
 def add_connection_args(p):
     p.add_argument("--host", required=True)
-    p.add_argument("--user", required=True)
+    p.add_argument("--user", help="SWIS account; its password comes from SWIS_PASSWORD or a "
+                                  "prompt, never the command line")
+    p.add_argument("--api-token", action="store_true",
+                   help="authenticate with a SWIS API token (platform 2026.4+) read from "
+                        "SWIS_API_TOKEN or a prompt and sent as a bearer token; excludes --user")
     p.add_argument("--port", type=int, default=DEFAULT_PORT)
     p.add_argument("--ca-file", help="CA bundle that signs the SWIS certificate")
     p.add_argument("--pin-server-cert", action="store_true",
@@ -5125,20 +5179,25 @@ class App:
         self.password = tk.StringVar()
         self.pass_entry = ttk.Entry(conn, textvariable=self.password, show="•")
         self.pass_entry.grid(row=2, column=1, columnspan=3, sticky="ew", **pad)
+        ttk.Label(conn, text="API token (2026.4+, instead of username/password)").grid(
+            row=3, column=0, sticky="w", **pad)
+        self.api_token = tk.StringVar()
+        self.token_entry = ttk.Entry(conn, textvariable=self.api_token, show="•")
+        self.token_entry.grid(row=3, column=1, columnspan=3, sticky="ew", **pad)
         self.win_auth = tk.BooleanVar(value=False)
         ttk.Checkbutton(conn, text="Login with current Windows user",
                         variable=self.win_auth, command=self._toggle_auth).grid(
-            row=3, column=0, columnspan=2, sticky="w", **pad)
+            row=4, column=0, columnspan=2, sticky="w", **pad)
         self.verify_tls = tk.BooleanVar(value=True)
         ttk.Checkbutton(conn, text="Verify TLS certificate (default)",
-                        variable=self.verify_tls).grid(row=3, column=2, columnspan=2,
+                        variable=self.verify_tls).grid(row=4, column=2, columnspan=2,
                                                        sticky="e", **pad)
         # live connection status, directly under the login controls
         self.conn_status = tk.StringVar(value="Connection: not tested")
         ttk.Label(conn, textvariable=self.conn_status).grid(
-            row=4, column=0, columnspan=2, sticky="w", **pad)
+            row=5, column=0, columnspan=2, sticky="w", **pad)
         ttk.Button(conn, text="Trust server certificate…",
-                   command=self._on_pin_cert).grid(row=4, column=2, columnspan=2,
+                   command=self._on_pin_cert).grid(row=5, column=2, columnspan=2,
                                                    sticky="e", **pad)
 
         # --- files (up to MAX_BATCH_FILES; one module per batch) --------------
@@ -5241,6 +5300,7 @@ class App:
         state = "disabled" if self.win_auth.get() else "normal"
         self.user_entry.configure(state=state)
         self.pass_entry.configure(state=state)
+        self.token_entry.configure(state=state)
 
     # ---- logging: colored summary, hidden detail -----------------------------
 
@@ -5386,8 +5446,14 @@ class App:
                 self._log(msg)
             return logged(WindowsAuthClient(host, port, verify))
         user = self.user.get().strip()
+        token = self.api_token.get().strip()
+        if token:
+            if user or self.password.get():
+                raise SwisError("enter either a username and password or an API token, not both")
+            return logged(SwisClient(host, None, None, port=port, verify=verify,
+                                     pinned_pem=self.pinned_pem, api_token=token))
         if not user:
-            raise SwisError("enter a username (or tick Windows-user login)")
+            raise SwisError("enter a username, an API token, or tick Windows-user login")
         return logged(SwisClient(host, user, self.password.get(), port=port, verify=verify,
                                  pinned_pem=self.pinned_pem))
 
@@ -5784,8 +5850,9 @@ def _announce_log(path):
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else list(argv)
     # Registered before anything is logged, so the start-of-run command line and
-    # every later line are redacted even when the password was never used.
+    # every later line are redacted even when the password or token was never used.
     register_secret(os.environ.get("SWIS_PASSWORD"))
+    register_secret(os.environ.get("SWIS_API_TOKEN"))
     # No arguments (a double-click on Windows) or an explicit "gui" opens the GUI.
     if not argv or argv[0] == "gui":
         gui_args = build_gui_parser().parse_args(argv[1:])

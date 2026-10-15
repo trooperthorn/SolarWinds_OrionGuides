@@ -24,6 +24,10 @@ credentials live in memory only and are redacted from every log line; empty
 read-backs report "No Data Returned"; SCM configuration content
 (Orion.SCM.Results.ElementContents) is never read.
 
+-ApiToken (platform 2026.4+) authenticates with a SWIS API token instead of a
+user name and password: the token is read from $env:SWIS_API_TOKEN, or prompted
+for, and sent as a bearer token; it excludes -Username and -WindowsAuth.
+
 Every run writes a log file in the same line format as the Python edition, one
 line per decision and per SWIS call, secrets redacted; its path is printed when
 the run starts and ends. -LogFile <path> and -LogLevel debug|info|warn change it.
@@ -40,6 +44,10 @@ Local file conversion only - writes .ncm-report.xml / .scm-policy.yaml files.
 .EXAMPLE
 .\disa_stig_tool.ps1 -Path .\stig.zip -Server orion.example.com -Username admin
 Imports over SWIS (password prompted, or set $env:SWIS_PASSWORD).
+
+.EXAMPLE
+.\disa_stig_tool.ps1 -Path .\stig.zip -Server orion.example.com -ApiToken
+Imports over SWIS with an API token (prompted, or set $env:SWIS_API_TOKEN).
 
 .EXAMPLE
 .\disa_stig_tool.ps1 -Test -Path .\stig.zip -Server orion.example.com -Username admin -ConfigId <ConfigID>
@@ -63,6 +71,7 @@ param(
     [string]$Server,
     [int]$Port = 17774,
     [string]$Username,
+    [switch]$ApiToken,
     [switch]$WindowsAuth,
     [switch]$Insecure,
     [switch]$PinServerCert,
@@ -2271,7 +2280,15 @@ function New-PinCheck([string]$Thumb, [bool]$AcceptAny = $false) {
 
 function New-SwisConnection([string]$SwisServer, [int]$SwisPort, [string]$User,
                             [string]$Password, [bool]$UseWindowsAuth,
-                            [bool]$AllowInsecure, [string]$PinnedThumb) {
+                            [bool]$AllowInsecure, [string]$PinnedThumb,
+                            [string]$Token = '') {
+    # A SWIS API token (platform 2026.4+) is a bearer secret: it is sent on every
+    # call as "Authorization: Bearer <token>" and identifies the account it was
+    # created for, so no user name travels with it.
+    if ($Token -and ($User -or $Password -or $UseWindowsAuth)) {
+        throw 'an API token and a username/password (or Windows login) are mutually exclusive; pass one or the other'
+    }
+    if ($Token) { Register-Secret $Token }
     if ($Password) {
         Register-Secret $Password
         # The Basic token carries the password too, so it is redacted as well.
@@ -2281,14 +2298,15 @@ function New-SwisConnection([string]$SwisServer, [int]$SwisPort, [string]$User,
     $tls = 'verified against the system trust store'
     if ($PinnedThumb) { $tls = 'pinned server certificate' }
     elseif ($AllowInsecure) { $tls = 'NOT verified (-Insecure, lab only)' }
-    $who = "user '$User' (basic auth)"
-    if ($UseWindowsAuth) { $who = "the current Windows user '$([Environment]::UserName)' (Negotiate)" }
-    Write-ToolLog swis info "SWIS endpoint $base as $who; TLS $tls"
+    $who = "as user '$User' (basic auth)"
+    if ($UseWindowsAuth) { $who = "as the current Windows user '$([Environment]::UserName)' (Negotiate)" }
+    if ($Token) { $who = 'with an API token (bearer)' }
+    Write-ToolLog swis info "SWIS endpoint $base $who; TLS $tls"
     if ($AllowInsecure -and -not $PinnedThumb) { Write-ToolLog swis warn 'TLS verification is off for this session' }
     if ($AllowInsecure -and $PinnedThumb) { Write-ToolLog swis info '-Insecure is ignored: a pinned certificate is always checked' }
     return @{
         Base = $base
-        User = $User; Password = $Password; WindowsAuth = $UseWindowsAuth
+        User = $User; Password = $Password; WindowsAuth = $UseWindowsAuth; Token = $Token
         Insecure = $AllowInsecure; PinnedThumb = $PinnedThumb
         HttpClient = $null; PinCheck = $null; PlanLogged = $false
     }
@@ -2339,6 +2357,15 @@ function Get-SwisErrorDetail([string]$Text) {
     return $Text
 }
 
+function Get-SwisAuthHeader($Conn) {
+    # The Authorization header value every call carries: Bearer for an API token,
+    # Basic for a username and password; $null for the Windows login (the handler
+    # negotiates it). The Python edition's SwisClient.auth_header.
+    if ($Conn.Token) { return 'Bearer ' + $Conn.Token }
+    if ($Conn.WindowsAuth) { return $null }
+    return 'Basic ' + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($Conn.User + ':' + $Conn.Password))
+}
+
 function Invoke-SwisHttpClient($Conn, [string]$Method, [string]$Uri, $Request) {
     # One request through a System.Net.Http.HttpClient kept on the connection.
     # Returns @{ Status; Ok; Text }; transport failures throw.
@@ -2358,9 +2385,9 @@ function Invoke-SwisHttpClient($Conn, [string]$Method, [string]$Uri, $Request) {
     }
     $message = New-Object System.Net.Http.HttpRequestMessage((New-Object System.Net.Http.HttpMethod($Method.ToUpperInvariant())), $Uri)
     [void]$message.Headers.Accept.Add((New-Object System.Net.Http.Headers.MediaTypeWithQualityHeaderValue('application/json')))
-    if (-not $Conn.WindowsAuth) {
-        $token = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($Conn.User + ':' + $Conn.Password))
-        $message.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Basic', $token)
+    $auth = Get-SwisAuthHeader $Conn
+    if ($auth) {
+        $message.Headers.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::Parse($auth)
     }
     if ($null -ne $Request) {
         $content = New-Object System.Net.Http.ByteArrayContent(, [byte[]]$Request.Bytes)
@@ -2394,11 +2421,7 @@ function Invoke-SwisRest($Conn, [string]$Method, [string]$RestPath, $Body) {
         }
         $params = @{ Method = $Method; Uri = $uri; TimeoutSec = 300 }
         if ($Conn.WindowsAuth) { $params.UseDefaultCredentials = $true }
-        else {
-            $token = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(
-                $Conn.User + ':' + $Conn.Password))
-            $params.Headers = @{ Authorization = "Basic $token" }
-        }
+        else { $params.Headers = @{ Authorization = (Get-SwisAuthHeader $Conn) } }
         if ($null -ne $request) { $params.Body = [byte[]]$request.Bytes; $params.ContentType = $request.ContentType }
         if ($plan.SkipCertificateCheck) { $params.SkipCertificateCheck = $true }
         if ($plan.ScopedCallback) {
@@ -4141,20 +4164,46 @@ function Get-ScmOsFamily($Benchmarks, [string]$SourcePath) {
 # =========================================================================
 # CLI driver
 # =========================================================================
+function Resolve-CliAuthMode([bool]$UseApiToken, [string]$User, [bool]$UseWindowsAuth) {
+    # Which credential a CLI run uses: 'token', 'basic' or 'windows'. The three are
+    # mutually exclusive; the same rule is auth_mode() in the Python edition.
+    $chosen = @()
+    if ($UseApiToken) { $chosen += '-ApiToken' }
+    if ($User) { $chosen += '-Username' }
+    if ($UseWindowsAuth) { $chosen += '-WindowsAuth' }
+    if ($chosen.Count -gt 1) { throw (($chosen -join ' and ') + ' are mutually exclusive; pass one of them') }
+    if ($chosen.Count -eq 0) {
+        throw 'pass -Username (password from SWIS_PASSWORD or a prompt), -ApiToken (token from SWIS_API_TOKEN or a prompt) or -WindowsAuth'
+    }
+    return @{ '-ApiToken' = 'token'; '-Username' = 'basic'; '-WindowsAuth' = 'windows' }[$chosen[0]]
+}
+
+function Read-SecretPrompt([string]$Prompt) {
+    $sec = Read-Host -Prompt $Prompt -AsSecureString
+    return [System.Runtime.InteropServices.Marshal]::PtrToStringUni(
+        [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($sec))
+}
+
 function New-CliConnection {
-    # Shared by import, -Test and -Remove: password from $env:SWIS_PASSWORD or a
-    # prompt (never a parameter), optional certificate pin, connection check.
-    if (-not $Server) { throw 'pass -Server (and -Username, or -WindowsAuth)' }
-    $pw = ''
-    if (-not $WindowsAuth) {
+    # Shared by import, -Test and -Remove: password from $env:SWIS_PASSWORD (or the
+    # API token from $env:SWIS_API_TOKEN) or a prompt, never a parameter; optional
+    # certificate pin; connection check.
+    if (-not $Server) { throw 'pass -Server (and -Username, -ApiToken or -WindowsAuth)' }
+    $mode = Resolve-CliAuthMode $ApiToken.IsPresent $Username $WindowsAuth.IsPresent
+    $pw = ''; $token = ''
+    if ($mode -eq 'token') {
+        $token = $env:SWIS_API_TOKEN
+        $source = 'prompted for'; if ($token) { $source = 'from SWIS_API_TOKEN' }
+        Write-ToolLog swis info "connecting to ${Server}:$Port with an API token (bearer); token $source"
+        if (-not $token) { $token = Read-SecretPrompt "API token for $Server" }
+        if (-not $token) { throw 'the API token is empty' }
+        Register-Secret $token
+    }
+    elseif ($mode -eq 'basic') {
         $pw = $env:SWIS_PASSWORD
         $source = 'prompted for'; if ($pw) { $source = 'from SWIS_PASSWORD' }
-        Write-ToolLog swis info "connecting to ${Server}:$Port as user '$Username'; password $source"
-        if (-not $pw) {
-            $sec = Read-Host -Prompt "password for $Username" -AsSecureString
-            $pw = [System.Runtime.InteropServices.Marshal]::PtrToStringUni(
-                [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($sec))
-        }
+        Write-ToolLog swis info "connecting to ${Server}:$Port as user '$Username' (basic auth); password $source"
+        if (-not $pw) { $pw = Read-SecretPrompt "password for $Username" }
         Register-Secret $pw
     }
     $pin = $null
@@ -4166,7 +4215,7 @@ function New-CliConnection {
         Write-ToolLog swis info "pinned the certificate ${Server}:$Port presents: SHA-256 $($info.Thumbprint)$stockNote"
         Write-Host "pinned the server certificate - SHA-256 $($info.Thumbprint)$stockNote"
     }
-    $conn = New-SwisConnection $Server $Port $Username $pw $WindowsAuth.IsPresent $Insecure.IsPresent $pin
+    $conn = New-SwisConnection $Server $Port $Username $pw $WindowsAuth.IsPresent $Insecure.IsPresent $pin $token
     $status = Test-SwisConnection $conn
     Write-Host (Hide-Secrets $status.Detail)
     if ($status.Status -eq 'red') { throw $status.Detail }
@@ -4569,7 +4618,7 @@ function Show-StigGui {
     $red    = [System.Drawing.Color]::FromArgb(255, 199, 206)
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'DISA STIG Conversion Tool'
-    $form.Size = New-Object System.Drawing.Size(760, 760)
+    $form.Size = New-Object System.Drawing.Size(760, 810)
     $form.StartPosition = 'CenterScreen'
 
     $script:y = 12
@@ -4591,6 +4640,11 @@ function Show-StigGui {
     $userBox = & $mk (New-Object System.Windows.Forms.TextBox) 12 270 24
     $passBox = & $mk (New-Object System.Windows.Forms.TextBox) 300 270 24
     $passBox.UseSystemPasswordChar = $true
+    $script:y += 32
+    L 'API token (2026.4+, instead of username/password)' 12 440 | Out-Null
+    $script:y += 18
+    $tokenBox = & $mk (New-Object System.Windows.Forms.TextBox) 12 558 24
+    $tokenBox.UseSystemPasswordChar = $true
     $script:y += 32
     $winAuth = & $mk (New-Object System.Windows.Forms.CheckBox) 12 330 22
     $winAuth.Text = 'Login with current Windows user'
@@ -4688,6 +4742,7 @@ function Show-StigGui {
     $winAuth.Add_CheckedChanged({
         $userBox.Enabled = -not $winAuth.Checked
         $passBox.Enabled = -not $winAuth.Checked
+        $tokenBox.Enabled = -not $winAuth.Checked
     })
 
     $browse.Add_Click({
@@ -4729,8 +4784,13 @@ function Show-StigGui {
 
     function New-GuiConnection {
         Register-Secret $passBox.Text
+        Register-Secret $tokenBox.Text.Trim()
+        if ($tokenBox.Text.Trim() -and -not $winAuth.Checked -and ($userBox.Text.Trim() -or $passBox.Text)) {
+            throw 'enter either a username and password or an API token, not both'
+        }
+        $guiToken = ''; if (-not $winAuth.Checked) { $guiToken = $tokenBox.Text.Trim() }
         New-SwisConnection $serverBox.Text.Trim() ([int]$portBox.Text) $userBox.Text.Trim() `
-            $passBox.Text $winAuth.Checked (-not $verifyTls.Checked) $state.Pinned
+            $passBox.Text $winAuth.Checked (-not $verifyTls.Checked) $state.Pinned $guiToken
     }
 
     $testBtn.Add_Click({
@@ -4904,8 +4964,9 @@ function Show-StigGui {
 # =========================================================================
 function Start-ToolRun([string]$Mode) {
     # Registered before anything is logged, so the start-of-run command line and
-    # every later line are redacted even when the password was never used.
+    # every later line are redacted even when the password or token was never used.
     Register-Secret $env:SWIS_PASSWORD
+    Register-Secret $env:SWIS_API_TOKEN
     $p = Initialize-ToolLog $LogFile $LogLevel
     Write-Host "log file: $p"
     Write-ToolLogStart $Mode
