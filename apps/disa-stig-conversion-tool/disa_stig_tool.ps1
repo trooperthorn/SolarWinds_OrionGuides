@@ -2741,6 +2741,65 @@ function Undo-NcmNestedImport($Conn, [string]$ReportId, $Preexisting, [scriptblo
     }
 }
 
+# How each report reached the server, by report name (Python NCM_IMPORT_ROUTES, 2.1.0):
+# set by Import-NcmReport, read by Get-NcmImportSummary for the log view.
+$script:NcmImportRoutes = @{}
+
+function Get-ReportCounts($Report) {
+    $pols = @($Report.AssignedPolicies)
+    $rules = 0; foreach ($p in $pols) { $rules += @($p.AssignedPolicyRules).Count }
+    return @{ Policies = $pols.Count; Rules = $rules }
+}
+
+function Get-NcmImportSummary($Reports, $Imported, $Remaining, [bool]$ConsoleFiles = $false) {
+    # Python ncm_import_summary: how each report was imported (route, server id,
+    # policy and rule counts), which were not, then the totals against the package.
+    $lines = New-Object System.Collections.ArrayList
+    $gotPol = 0; $gotRules = 0
+    foreach ($i in @($Imported)) {
+        $c = Get-ReportCounts $i.Report
+        $route = 'API'; if ($script:NcmImportRoutes.ContainsKey($i.Report.Name)) { $route = $script:NcmImportRoutes[$i.Report.Name] }
+        [void]$lines.Add("imported via ${route}: `"$($i.Report.Name)`" ($($i.ReportId)) - $($c.Policies) policy(ies), $($i.Rules) rules")
+        $gotPol += $c.Policies; $gotRules += [int]$i.Rules
+    }
+    foreach ($rep in @($Remaining)) {
+        $c = Get-ReportCounts $rep
+        $how = 'not imported'; if ($ConsoleFiles) { $how = 'console-importable file written; import it through the web console' }
+        [void]$lines.Add("${how}: `"$($rep.Name)`" - $($c.Policies) policy(ies), $($c.Rules) rules")
+    }
+    $totalPol = 0; $totalRules = 0
+    foreach ($rep in @($Reports)) { $c = Get-ReportCounts $rep; $totalPol += $c.Policies; $totalRules += $c.Rules }
+    [void]$lines.Add("NCM totals: $(@($Imported).Count) of $(@($Reports).Count) report(s), $gotPol of $totalPol policy(ies), " +
+        "$gotRules of $totalRules rule(s) imported and verified on the server")
+    return , @($lines)
+}
+
+function Get-NcmOfflineSummary($Reports, $Files) {
+    $totalPol = 0; $totalRules = 0
+    foreach ($rep in @($Reports)) { $c = Get-ReportCounts $rep; $totalPol += $c.Policies; $totalRules += $c.Rules }
+    return ("NCM totals: $(@($Files).Count) console file(s) written for $(@($Reports).Count) report(s), " +
+        "$totalPol policy(ies), $totalRules rule(s); nothing was sent to a server")
+}
+
+function Get-ScmImportSummary($Entries, [string]$What = 'imported') {
+    # Python scm_import_summary: each policy's name and rule count, then the totals.
+    # $Entries: array of @{ Name; PolicyId ($null when offline); Rules }.
+    $lines = New-Object System.Collections.ArrayList
+    $total = 0
+    foreach ($e in @($Entries)) {
+        $id = ''; if ($null -ne $e.PolicyId) { $id = " (PolicyID $($e.PolicyId))" }
+        [void]$lines.Add("SCM policy `"$($e.Name)`"$id - $($e.Rules) rules defined")
+        $total += [int]$e.Rules
+    }
+    [void]$lines.Add("SCM totals: $(@($Entries).Count) policy(ies), $total rule(s) $What")
+    return , @($lines)
+}
+
+function Get-ScmRuleCount([string]$Yaml) {
+    $norm = ([string]$Yaml) -replace "`r`n", "`n"
+    return ([regex]::Matches($norm, '(?m)^- displayId:')).Count
+}
+
 function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $true) {
     # Probe with one cheap AddPolicyRule per wire format (JSON object,
     # DataContract XML, plain XML), then run bottom-up in the accepted format.
@@ -2766,6 +2825,7 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
                 @((Get-WireArgument $f 'rule' $probeRule $null))
             $firstId = Get-CleanId $result $probeRule.RuleId
             $format = $f
+            $script:NcmImportRoutes[$Report.Name] = "API, per item ($($labels[$f]))"
             Send-Log $Log 'import' 'info' "[NCM] server accepts $($labels[$f])"
             break
         } catch {
@@ -2837,6 +2897,7 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
             throw
         }
     }
+    $script:NcmImportRoutes[$Report.Name] = 'API, one nested AddPolicyReport (console-format XML)'
     Send-Log $Log 'import' 'warn' '[NCM] no per-item wire format accepted; trying one nested console-format AddPolicyReport'
     $reportId = ''
     try {
@@ -3146,6 +3207,7 @@ function Import-ScmPolicyItems($Conn, $Items, [scriptblock]$Log, [scriptblock]$O
         Send-Log $Log 'scm' 'info' "[SCM] collision check: none of the $($items.Count) policies exists yet"
     }
     $imported = New-Object System.Collections.ArrayList
+    $entries = New-Object System.Collections.ArrayList
     foreach ($it in $items) {
         try { $r = Import-ScmPolicyYaml $Conn $it.Text $Log }
         catch {
@@ -3161,9 +3223,12 @@ function Import-ScmPolicyItems($Conn, $Items, [scriptblock]$Log, [scriptblock]$O
         }
         [void]$imported.Add($r)
         $from = ''; if ($it.Member) { $from = " from $($it.Member)" }
-        Send-Log $Log 'scm' 'info' "[SCM] imported SCM policy `"$($r.Name)`" (PolicyID $($r.PolicyId))$from"
+        $n = Get-ScmRuleCount $it.Text
+        [void]$entries.Add(@{ Name = $r.Name; PolicyId = $r.PolicyId; Rules = $n })
+        Send-Log $Log 'scm' 'info' "[SCM] imported SCM policy `"$($r.Name)`" (PolicyID $($r.PolicyId)) - $n rules defined$from"
         if ($OnSuccess) { & $OnSuccess $r $it }
     }
+    foreach ($line in (Get-ScmImportSummary @($entries))) { Send-Log $Log 'scm' 'info' "[SCM] $line" }
     return , @($imported)
 }
 
@@ -3901,10 +3966,14 @@ function Invoke-CliRun {
                 if ($xmlWarning) { Write-Host $xmlWarning -ForegroundColor Yellow }
                 $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $scope.Where $Mode `
                     $Grouping (-not $ImportDisabled) $ConfigType $runSuffix
+                $written = New-Object System.Collections.ArrayList
                 foreach ($r in $reports) {
                     $out = Write-ConsoleReportFile $r $folder
-                    Write-Host "[NCM] wrote $out"
+                    [void]$written.Add($out)
+                    $c = Get-ReportCounts $r
+                    Write-Host "[NCM] wrote $out - $($c.Policies) policy(ies), $($c.Rules) rules"
                 }
+                Send-Log $log 'file' 'info' ('[NCM] ' + (Get-NcmOfflineSummary $reports $written))
             }
         }
         return
@@ -3935,10 +4004,13 @@ function Invoke-CliRun {
                 $family = Get-ScmOsFamily $benchmarks $p
                 Write-ScmProbePlan $family $template $ScmProbeTemplate $log
                 Test-ScmCollision $conn $benchmarks $runSuffix $log
+                $entries = New-Object System.Collections.ArrayList
                 foreach ($b in $benchmarks) {
                     $r = Import-ScmBenchmark $conn $b $log $runSuffix $family $template
-                    Write-Host "SUCCESS [SCM] `"$($r.Name)`" (PolicyID $($r.PolicyId))" -ForegroundColor Green
+                    [void]$entries.Add(@{ Name = $r.Name; PolicyId = $r.PolicyId; Rules = @($b.Rules).Count })
+                    Write-Host "SUCCESS [SCM] `"$($r.Name)`" (PolicyID $($r.PolicyId)) - $(@($b.Rules).Count) rules defined" -ForegroundColor Green
                 }
+                foreach ($line in (Get-ScmImportSummary @($entries))) { Send-Log $log 'scm' 'info' "[SCM] $line" }
             }
         } else {
             $benchmarks = Get-StigBenchmarks $p
@@ -3961,6 +4033,10 @@ function Invoke-CliRun {
             # console files that are due below are still written.
             $confirmed = Complete-NcmImport $conn @($run.Imported | ForEach-Object { $_.ReportId }) `
                 $ImportDisabled.IsPresent $NoCache.IsPresent $log
+            $sumLevel = 'info'; if ($null -ne $run.Failure) { $sumLevel = 'warn' }
+            foreach ($line in (Get-NcmImportSummary $reports $run.Imported $run.Remaining ([bool]($run.Failure -and $run.Failure.Data['WireFailure'])))) {
+                Send-Log $log 'import' $sumLevel "[NCM] $line"
+            }
             if ($null -eq $run.Failure -and -not $confirmed) {
                 $state = 'caching'; if ($ImportDisabled) { $state = 'disabled state' }
                 throw "[NCM] the reports were imported and verified, but the requested $state could not be confirmed; see the warning above"
@@ -4241,10 +4317,14 @@ function Show-StigGui {
                             }
                             $ok++; continue
                         }
+                        $packEntries = New-Object System.Collections.ArrayList
                         [void](Import-ScmPolicyItems $conn $scmItems $logBlock {
                             param($r, $it)
-                            Add-Summary ("SUCCESS " + $prefix + '"' + $r.Name + '"' + " (PolicyID $($r.PolicyId))") ([System.Drawing.Color]::Green)
+                            $n = Get-ScmRuleCount $it.Text
+                            [void]$packEntries.Add(@{ Name = $r.Name; PolicyId = $r.PolicyId; Rules = $n })
+                            Add-Summary ("SUCCESS " + $prefix + '"' + $r.Name + '"' + " (PolicyID $($r.PolicyId)) - $n rules defined") ([System.Drawing.Color]::Green)
                         })
+                        Add-Summary ($prefix + (Get-ScmImportSummary @($packEntries))[-1]) ([System.Drawing.Color]::Green)
                         $ok++
                     } else {
                         $guiSuffix = Test-Suffix $suffixBox.Text.Trim()
@@ -4252,15 +4332,23 @@ function Show-StigGui {
                         $family = Get-ScmOsFamily $benchmarks $f
                         Write-ScmProbePlan $family $null '' $logBlock
                         if (-not $Offline) { Test-ScmCollision $conn $benchmarks $guiSuffix $logBlock }
+                        $scmEntries = New-Object System.Collections.ArrayList
                         foreach ($b in $benchmarks) {
                             if ($Offline) {
                                 $out = Write-ScmPolicyFile $b (Split-Path -Parent $f) $guiSuffix $family
-                                Add-Summary ("SUCCESS " + $prefix + "wrote " + (Split-Path -Leaf $out)) ([System.Drawing.Color]::Green)
+                                $polName = Get-ScmPolicyName $b $guiSuffix
+                                [void]$scmEntries.Add(@{ Name = $polName; PolicyId = $null; Rules = @($b.Rules).Count })
+                                Add-Summary ("SUCCESS " + $prefix + "wrote " + (Split-Path -Leaf $out) + " - SCM policy `"$polName`", $(@($b.Rules).Count) rules defined") ([System.Drawing.Color]::Green)
                             } else {
                                 $r = Import-ScmBenchmark $conn $b $logBlock $guiSuffix $family
-                                Add-Summary ("SUCCESS " + $prefix + '"' + $r.Name + '"') ([System.Drawing.Color]::Green)
+                                [void]$scmEntries.Add(@{ Name = $r.Name; PolicyId = $r.PolicyId; Rules = @($b.Rules).Count })
+                                Add-Summary ("SUCCESS " + $prefix + '"' + $r.Name + "`" (PolicyID $($r.PolicyId)) - $(@($b.Rules).Count) rules defined") ([System.Drawing.Color]::Green)
                             }
                         }
+                        $scmWhat = 'imported'; if ($Offline) { $scmWhat = 'written' }
+                        $scmTotals = (Get-ScmImportSummary @($scmEntries) $scmWhat)[-1]
+                        Add-Summary ($prefix + $scmTotals) ([System.Drawing.Color]::Green)
+                        Write-ToolLog scm info $scmTotals
                         if ($family -eq 'linux') {
                             Add-Summary ($prefix + "Linux: the SCM probe is Unverified on Linux nodes; see README 'Testing Linux STIGs in SCM'") $yellow
                         }
@@ -4275,10 +4363,16 @@ function Show-StigGui {
                     $reportEnabled = -not $importDisabledBox.Checked
                     $reports = New-NcmReports $benchmarks (Get-ReportBaseName $f '') $scope.Where 'manual' 'DISA STIG' $reportEnabled 'Any' $guiSuffix
                     if ($Offline) {
+                        $written = New-Object System.Collections.ArrayList
                         foreach ($r in $reports) {
                             $out = Write-ConsoleReportFile $r (Split-Path -Parent $f)
-                            Add-Summary ("SUCCESS " + $prefix + "wrote " + (Split-Path -Leaf $out)) ([System.Drawing.Color]::Green)
+                            [void]$written.Add($out)
+                            $c = Get-ReportCounts $r
+                            Add-Summary ("SUCCESS " + $prefix + "wrote " + (Split-Path -Leaf $out) + " - $($c.Policies) policy(ies), $($c.Rules) rules") ([System.Drawing.Color]::Green)
                         }
+                        $offlineTotals = Get-NcmOfflineSummary $reports $written
+                        Add-Summary ($prefix + $offlineTotals) $null
+                        Write-ToolLog file info $offlineTotals
                         $ok++
                     } else {
                         [void](Invoke-NcmPreflight $conn $logBlock)
@@ -4295,6 +4389,12 @@ function Show-StigGui {
                             $wanted = 'cached (StartCaching)'; if (-not $reportEnabled) { $wanted = 'Disabled' }
                             Add-Summary ($prefix + "the imported reports could not be confirmed as $wanted; see the detailed log") $yellow
                             Show-Issue
+                        }
+                        $sumColor = [System.Drawing.Color]::Green; $sumLevel = 'info'
+                        if ($null -ne $run.Failure) { $sumColor = $null; $sumLevel = 'warn' }
+                        foreach ($line in (Get-NcmImportSummary $reports $run.Imported $run.Remaining ([bool]($run.Failure -and $run.Failure.Data['WireFailure'])))) {
+                            Add-Summary ($prefix + $line) $sumColor
+                            Write-ToolLog import $sumLevel $line
                         }
                         if ($null -ne $run.Failure) {
                             if ($run.Imported.Count -gt 0) {

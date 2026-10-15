@@ -443,6 +443,21 @@ try {
     Assert-Equal 0 (@($script:Calls | Where-Object { $_ -ne 'query' })).Count 'the audit only queries'
     function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
 
+    # --- 6d. import summaries name the route and the totals (2.1.0) -------
+    $sumReport = @{ Name = 'Rep_v1'; AssignedPolicies = @(@{ PolicyName = 'P'; AssignedPolicyRules = @(@{ RuleId = 'a' }, @{ RuleId = 'b' }) }) }
+    $script:NcmImportRoutes['Rep_v1'] = 'API, per item (JSON contract objects)'
+    $sumLines = Get-NcmImportSummary @($sumReport) @(@{ Report = $sumReport; ReportId = 'abc'; Rules = 2 }) @()
+    Assert-Equal 'imported via API, per item (JSON contract objects): "Rep_v1" (abc) - 1 policy(ies), 2 rules' $sumLines[0] 'summary names the route, id and counts'
+    Assert-Equal 'NCM totals: 1 of 1 report(s), 1 of 1 policy(ies), 2 of 2 rule(s) imported and verified on the server' $sumLines[-1] 'NCM totals line'
+    $sumLines = Get-NcmImportSummary @($sumReport) @() @($sumReport) $true
+    Assert-True ($sumLines[0].StartsWith('console-importable file written; import it through the web console: "Rep_v1"')) 'a report the API refused is listed with its console file'
+    Assert-True ((Get-NcmOfflineSummary @($sumReport) @('a.xml')).StartsWith('NCM totals: 1 console file(s) written for 1 report(s), 1 policy(ies), 2 rule(s)')) 'offline totals'
+    $scmLines = Get-ScmImportSummary @(@{ Name = 'IIS Test Policy'; PolicyId = 7; Rules = 18 }, @{ Name = 'SQL'; PolicyId = $null; Rules = 79 })
+    Assert-Equal 'SCM policy "IIS Test Policy" (PolicyID 7) - 18 rules defined' $scmLines[0] 'SCM line with id'
+    Assert-Equal 'SCM policy "SQL" - 79 rules defined' $scmLines[1] 'SCM line without id'
+    Assert-Equal 'SCM totals: 2 policy(ies), 97 rule(s) imported' $scmLines[-1] 'SCM totals line'
+    Assert-Equal 1 (Get-ScmRuleCount $crlf) 'rule count survives CRLF'
+
     # --- 7. report naming and truncation match Python ----------------------
     $bench = @{ BenchmarkId = 'B1'; Title = 'T' * 300; Version = '1'; Release = 'Release: 1'; StatusDate = '';
                 Source = 's.xml'; Edition = 'manual'; Rules = @(@{ VulnId = 'V-1'; RuleId = 'SV-1r1_rule'; StigId = 'X-1';

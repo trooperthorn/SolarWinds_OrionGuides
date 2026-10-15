@@ -1160,6 +1160,7 @@ def import_scm_policy_items(swis, items, log=print, done=None):
                 raise SwisError(msg)
         _say(log, "scm", f"collision check: none of the {len(items)} policies exists yet")
     imported = []
+    entries = []
     for it in items:
         try:
             policy_id, name = import_scm_policy(swis, it["text"], log=log)
@@ -1173,10 +1174,14 @@ def import_scm_policy_items(swis, items, log=print, done=None):
                 raise SwisError(msg) from exc
             raise
         imported.append((policy_id, name))
-        _say(log, "scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id})"
-                         + (f" from {it['member']}" if it["member"] else ""))
+        n_rules = len(scan_scm_policy(it["text"])["rules"])
+        entries.append((name, policy_id, n_rules))
+        _say(log, "scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id}) — {n_rules} "
+                         "rules defined" + (f" from {it['member']}" if it["member"] else ""))
         if done:
             done(policy_id, name, it)
+    for line in scm_import_summary(entries):
+        _say(log, "scm", line)
     return imported
 
 
@@ -2720,6 +2725,7 @@ def import_ncm_report(swis, report, log=print, rollback=True):
                                  spec["rule"](probe_rule))
             first_rule_id = _clean_id(result, probe_rule["RuleId"])
             fmt = name
+            NCM_IMPORT_ROUTES[report["Name"]] = f"API, per item ({spec['label']})"
             _say(log, "import", f"server accepts {spec['label']}")
             break
         except Exception as exc:
@@ -2737,6 +2743,7 @@ def import_ncm_report(swis, report, log=print, rollback=True):
     if fmt:
         return _import_ncm_bottom_up(swis, report, log, WIRE_FORMATS[fmt],
                                      first_rule_id, rollback, preexisting)
+    NCM_IMPORT_ROUTES[report["Name"]] = "API, one nested AddPolicyReport (console-format XML)"
     return _import_ncm_nested(swis, report, log, rollback, preexisting, rejections)
 
 
@@ -2915,6 +2922,62 @@ def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True,
                                 f"and {len(policy_ids)} policy/policies were left on the server "
                                 "(--no-rollback)", "warn")
         raise
+
+
+# How each report reached the server, by report name (2.1.0): set by import_ncm_report
+# when a wire format is accepted or the nested route is tried, read by
+# ncm_import_summary for the log view.
+NCM_IMPORT_ROUTES = {}
+
+
+def _report_counts(report):
+    policies = report.get("AssignedPolicies") or []
+    return len(policies), sum(len(p.get("AssignedPolicyRules") or []) for p in policies)
+
+
+def ncm_import_summary(reports, imported, remaining=(), console_files=False):
+    """The lines the log view shows after an NCM run: how each report was imported
+    (the route, its server id, its policy and rule counts), which were not, and the
+    totals of reports, policies and rules imported against what the package holds."""
+    lines = []
+    done_names = set()
+    for rep, new_id, n_rules in imported:
+        n_pol, _n = _report_counts(rep)
+        route = NCM_IMPORT_ROUTES.get(rep["Name"], "API")
+        lines.append(f"imported via {route}: \"{rep['Name']}\" ({new_id}) — {n_pol} "
+                     f"policy(ies), {n_rules} rules")
+        done_names.add(rep["Name"])
+    for rep in remaining:
+        n_pol, n_rules = _report_counts(rep)
+        how = ("console-importable file written; import it through the web console"
+               if console_files else "not imported")
+        lines.append(f"{how}: \"{rep['Name']}\" — {n_pol} policy(ies), {n_rules} rules")
+    total_pol = sum(_report_counts(r)[0] for r in reports)
+    total_rules = sum(_report_counts(r)[1] for r in reports)
+    got_pol = sum(_report_counts(r)[0] for r, _i, _n in imported)
+    got_rules = sum(n for _r, _i, n in imported)
+    lines.append(f"NCM totals: {len(imported)} of {len(reports)} report(s), {got_pol} of "
+                 f"{total_pol} policy(ies), {got_rules} of {total_rules} rule(s) imported "
+                 "and verified on the server")
+    return lines
+
+
+def ncm_offline_summary(reports, files):
+    """The totals line after an offline NCM conversion."""
+    total_pol = sum(_report_counts(r)[0] for r in reports)
+    total_rules = sum(_report_counts(r)[1] for r in reports)
+    return (f"NCM totals: {len(files)} console file(s) written for {len(reports)} report(s), "
+            f"{total_pol} policy(ies), {total_rules} rule(s); nothing was sent to a server")
+
+
+def scm_import_summary(entries, what="imported"):
+    """The lines the log view shows after an SCM run: each policy's name and rule
+    count, then the totals. ``entries`` is [(policy name, policy id or None, rules)]."""
+    lines = [f"SCM policy \"{name}\"" + (f" (PolicyID {pid})" if pid is not None else "")
+             + f" — {n} rules defined" for name, pid, n in entries]
+    lines.append(f"SCM totals: {len(entries)} policy(ies), {sum(n for _a, _b, n in entries)} "
+                 f"rule(s) {what}")
+    return lines
 
 
 def import_ncm_reports(swis, reports, log=print, rollback=True):
@@ -3958,11 +4021,15 @@ def import_scm_benchmarks(swis, benchmarks, os_info, log=print, suffix=DEFAULT_S
     suffix = validate_suffix(suffix)
     log_scm_probe_plan(family, probe_template, template_path, log=log)
     scm_collision_check(swis, benchmarks, suffix, log=log)
+    entries = []
     for b in benchmarks:
         yaml_text = xccdf_to_scm_yaml(b, suffix, family, probe_template)
         policy_id, name = import_scm_policy(swis, yaml_text, log=log)
+        entries.append((name, policy_id, len(b["rules"])))
         _say(log, "scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id}) — "
                          f"{len(b['rules'])} manual-review rules")
+    for line in scm_import_summary(entries):
+        _say(log, "scm", line)
     log_event("scope", f"SCM policies are not assigned by this tool; suggested node query: "
                        f"SELECT NodeID, Caption, MachineType FROM Orion.Nodes WHERE {swql}")
     log(f"Assign to your {os_name} nodes under Settings → SCM Settings → Policies "
@@ -4255,6 +4322,9 @@ def cmd_import(args):
     # that are due below are still written.
     confirmed = finish_ncm_imports(swis, new_ids, disabled=args.disabled,
                                    no_cache=args.no_cache, log=print)
+    for line in ncm_import_summary(reports, imported, remaining,
+                                   console_files=isinstance(failure, NcmWireError)):
+        _say(print, "import", line, "info" if failure is None else "warn")
     if failure is None:
         if not confirmed:
             sys.exit("error: the reports were imported and verified, but the requested "
@@ -4901,10 +4971,15 @@ class App:
                     self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} "
                                        "(policy member, bytes unchanged)", "success")
                 return True
-            import_scm_policy_items(
-                swis, items, log=self._log,
-                done=lambda policy_id, name, _it: self._summary_line(
-                    f"SUCCESS {prefix} \"{name}\" (PolicyID {policy_id})", "success"))
+            entries = []
+
+            def done(policy_id, name, it):
+                n_rules = len(scan_scm_policy(it["text"])["rules"])
+                entries.append((name, policy_id, n_rules))
+                self._summary_line(f"SUCCESS {prefix} \"{name}\" (PolicyID {policy_id}) — "
+                                   f"{n_rules} rules defined", "success")
+            import_scm_policy_items(swis, items, log=self._log, done=done)
+            self._summary_line(f"{prefix} {scm_import_summary(entries)[-1]}", "success")
             return True
         suffix = validate_suffix(self.suffix.get().strip())
         benchmarks = load_benchmarks(path)
@@ -4913,18 +4988,25 @@ class App:
         log_scm_probe_plan(family, log=self._log)
         if not offline:
             scm_collision_check(swis, benchmarks, suffix, log=self._log)
+        entries = []
         for b in benchmarks:
             if offline:
                 out = os.path.join(folder, scm_policy_filename(b, suffix=suffix))
                 write_text_file(out, xccdf_to_scm_yaml(b, suffix, family))
+                entries.append((scm_policy_name(b, suffix), None, len(b["rules"])))
                 self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
-                                   f"{len(b['rules'])} rules", "success")
+                                   f"SCM policy \"{scm_policy_name(b, suffix)}\", "
+                                   f"{len(b['rules'])} rules defined", "success")
             else:
                 policy_id, name = import_scm_policy(swis, xccdf_to_scm_yaml(b, suffix, family),
                                                     log=self._log)
+                entries.append((name, policy_id, len(b["rules"])))
                 self._summary_line(f"SUCCESS {prefix} \"{name}\" "
                                    f"(PolicyID {policy_id}) — {len(b['rules'])} "
-                                   "manual-review rules", "success")
+                                   "manual-review rules defined", "success")
+        totals = scm_import_summary(entries, "written" if offline else "imported")[-1]
+        self._summary_line(f"{prefix} {totals}", "success")
+        log_event("scm", totals)
         if family == "linux":
             self._summary_line(f"{prefix} Linux: the SCM probe is Unverified on Linux nodes; "
                                "see README 'Testing Linux STIGs in SCM'", "warn")
@@ -4946,12 +5028,14 @@ class App:
         folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
                                                     os.W_OK) else tempfile.gettempdir()
         if offline:
+            files = []
             for report in reports:
                 out = write_console_file(report, folder)
-                n_rules = sum(len(p["AssignedPolicyRules"])
-                              for p in report["AssignedPolicies"])
+                files.append(out)
+                n_pol, n_rules = _report_counts(report)
                 self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
-                                   f"{n_rules} rules", "success")
+                                   f"{n_pol} policy(ies), {n_rules} rules", "success")
+            self._summary_line(f"{prefix} {ncm_offline_summary(reports, files)}")
             return True
         ncm_preflight(swis, log=self._log)
         scope_preflight(swis, scope, allow_empty=self.allow_empty_scope.get(), log=self._log)
@@ -4969,6 +5053,10 @@ class App:
             self._summary_line(f"{prefix} the imported reports could not be confirmed as "
                                f"{state}; see the detailed log", "warn")
             self._show_issue()
+        for line in ncm_import_summary(reports, imported, remaining,
+                                       console_files=isinstance(failure, NcmWireError)):
+            self._summary_line(f"{prefix} {line}", "success" if failure is None else None)
+            log_event("import", line, "info" if failure is None else "warn")
         if failure is None:
             return confirmed
         if isinstance(failure, NcmWireError):

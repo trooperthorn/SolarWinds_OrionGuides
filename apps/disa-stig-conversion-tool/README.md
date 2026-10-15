@@ -97,6 +97,14 @@ XCCDF benchmark found inside".
   policy references are listed as orphans: a server can keep a rule although its
   `AddPolicyRule` answer was an error, and such a rule carries a server-assigned id the
   id-based collision check cannot see. Nothing is created, changed or deleted.
+- **Import summary in the log view.** After every NCM run the summary pane (and the run
+  log) says how each report reached the server (`imported via API, per item (JSON
+  contract objects)`, `imported via API, one nested AddPolicyReport`, or
+  `console-importable file written`) with its server id and its policy and rule counts,
+  then an `NCM totals:` line of reports, policies and rules imported and verified against
+  what the package holds. Offline conversion gives the same totals for the files
+  written. Every SCM run lists each policy's name, PolicyID and number of rules defined,
+  then an `SCM totals:` line.
 - **`--log-body-limit CHARS` / `-LogBodyLimit`.** Debug-level request, response and
   HTTP error bodies were always cut to 4 KB; `0` now writes them whole, and the whole
   SWIS fault document (not only its `Message`) is logged at debug level.

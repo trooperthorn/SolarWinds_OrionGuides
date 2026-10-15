@@ -765,6 +765,37 @@ class AuditTests(TempDirTest):
         self.assertIn("audit is read-only", out.getvalue())
         self.assertEqual([c for c in fake.calls if c[0] == "invoke"], [])
 
+    def test_import_summaries_name_the_route_and_the_totals(self):
+        zip_path = self.router_zip()
+        reports = tool.build_reports(tool.load_benchmarks(zip_path), source_path=zip_path)
+        rep = reports[0]
+        n_pol, n_rules = tool._report_counts(rep)
+        tool.NCM_IMPORT_ROUTES[rep["Name"]] = "API, per item (JSON contract objects)"
+        lines = tool.ncm_import_summary([rep], [(rep, "abc", n_rules)], [])
+        self.assertEqual(lines[0], f"imported via API, per item (JSON contract objects): "
+                                   f"\"{rep['Name']}\" (abc) — {n_pol} policy(ies), {n_rules} rules")
+        self.assertEqual(lines[-1], f"NCM totals: 1 of 1 report(s), {n_pol} of {n_pol} "
+                                    f"policy(ies), {n_rules} of {n_rules} rule(s) imported and "
+                                    "verified on the server")
+        lines = tool.ncm_import_summary([rep], [], [rep], console_files=True)
+        self.assertTrue(lines[0].startswith("console-importable file written; import it "
+                                            f"through the web console: \"{rep['Name']}\""))
+        self.assertTrue(lines[-1].startswith("NCM totals: 0 of 1 report(s), 0 of"))
+        self.assertIn("1 console file(s) written for 1 report(s)",
+                      tool.ncm_offline_summary([rep], ["a.xml"]))
+        scm = tool.scm_import_summary([("IIS Test Policy", 7, 18), ("SQL", None, 79)])
+        self.assertEqual(scm, ["SCM policy \"IIS Test Policy\" (PolicyID 7) — 18 rules defined",
+                               "SCM policy \"SQL\" — 79 rules defined",
+                               "SCM totals: 2 policy(ies), 97 rule(s) imported"])
+        # The CLI import prints the summary and the run log carries it.
+        fake = FakeSwis()
+        out = io.StringIO()
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(out):
+            tool.cmd_import(import_args(zip_path))
+        self.assertIn("imported via API, per item (JSON contract objects):", out.getvalue())
+        self.assertIn(f"NCM totals: {len(reports)} of {len(reports)} report(s)", out.getvalue())
+
     def test_audit_needs_a_path_or_a_name(self):
         with self.assertRaises(SystemExit):
             tool.cmd_audit(argparse.Namespace(path=None, name=None, suffix="_v1"))
