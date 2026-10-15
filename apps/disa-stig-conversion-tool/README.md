@@ -112,14 +112,35 @@ XCCDF benchmark found inside".
   run log lists what was renamed, filled and dropped. The XML-string routes stay as
   documented fallbacks, although the fault bodies show the endpoint never converts a
   JSON string to a contract type. Unverified until the next live run.
-- **Check Content and Fix Text in the Remediation field.** With the read-back fixed both
-  Cisco IOS Router reports imported and verified (127 of 127 rules). At the operator's
-  request the rule's Remediation field now carries the STIG's Check Content and Fix Text
-  as prose under `Check Content:` and `Fix Text:` headings with the CCIs last, the layout
-  of a working console-made STIG report; the Comments keep the identifiers, the sentinel
+- **`--mode blocks`: the check text's configuration examples become the rule.** With the
+  read-back fixed both Cisco IOS Router reports imported and verified (127 of 127 rules),
+  and the operator rebuilt one rule by hand the way they wanted all of them: the
+  configuration example blocks the STIG check shows as an **Advanced Config Search**,
+  one "must contain" block each, AND-joined, alerting when a block is not found, and the
+  Fix Text in the Remediation field. That is what `--mode blocks` (the GUI's third mode)
+  now generates: `extract_config_blocks` keeps runs of configuration lines (a lower-case
+  first word or a known CLI keyword, no sentence punctuation, no prose markers such as
+  "verify", "if the", "this is a finding"), drops ellipsis lines, and breaks a block at
+  a blank line or prose; each block is one `MultiLineRulePattern` (`Like`, `Criteria`
+  true, `Condition` AND after the first), `AdvancedMode` true, `PatternMustExist` true.
+  The values in the blocks are the STIG's examples (`x.x.x.x`, `2001::1:0:22/64`,
+  `FILTER_IPV6`), so every such rule is a draft and its note says so; a check with no
+  configuration lines keeps the sentinel. The Remediation field carries the Fix Text
+  under a `Fix Text:` heading with the CCIs last; the Comments keep the identifiers, the
   note, the description sections and the check text. `ExecuteScriptAutomatically` stays
-  false. SCM policies are unchanged (`checkText` and `remediationDescription` already
-  carry both).
+  false. SCM policies are unchanged.
+- **Pattern drafts: a file for a reviewer or an automated task.** `--write-pattern-drafts
+  FILE` writes, for every rule a run built, its id, title, STIG id, check text, Fix
+  Text, where its pattern came from (`sentinel`, `heuristic`, `blocks` or `drafts`) and
+  the pattern itself, as JSON (`schema` `disa-stig-tool/pattern-drafts/1`). Edit a
+  rule's `pattern` (with `type` Like or Regex) or its `patterns` list (`pattern`,
+  `type`, `must_contain`, `condition` AND or OR), set `must_exist`, add a `note`, set
+  `"skip": true` to leave a rule to the run's mode, and pass the file back with
+  `--pattern-drafts FILE` (PowerShell: `-WritePatternDrafts`, `-PatternDrafts`): the
+  rules it names follow the file whatever the mode, and their note says so. The file is
+  the hand-off point for an automated task that reads each rule's check text and
+  proposes real patterns; the tool validates what comes back and names the rule and
+  pattern at fault.
 - **The read-back accepts the server's names; the server rebuilds the scope SQL.** With
   the typed criteria in place the whole NDM report imported (35 rules, the policy, the
   report), and the tool's own verification then rolled it back: it read the tree under
@@ -410,7 +431,9 @@ them.
 | `--suffix _vN` | `-Suffix _vN` | Version suffix on every name and id seed (`_v1` by default) |
 | `--scm-probe-template FILE` | `-ScmProbeTemplate FILE` | Replace the SCM attestation probe's source block ([Linux testing](#testing-linux-stigs-in-scm)) |
 | `--config-type` | `-ConfigType` | Config type the rules scan (`Any`, `Running`, `Startup`, ...) |
-| `--mode manual\|heuristic` | `-Mode manual\|heuristic` | Sentinel or drafted patterns |
+| `--mode manual\|heuristic\|blocks` | `-Mode manual\|heuristic\|blocks` | Sentinel, one drafted line, or the check text's configuration example blocks as an Advanced Config Search |
+| `--pattern-drafts FILE` | `-PatternDrafts FILE` | Patterns per rule id from a reviewed (or generated) pattern-drafts JSON file; they override the mode for the rules named |
+| `--write-pattern-drafts FILE` | `-WritePatternDrafts FILE` | Write the patterns this run produced, with each rule's check text, as a pattern-drafts JSON file to edit and pass back |
 | `--disabled` | `-ImportDisabled` | `ReportStatus` `Disabled`, no caching; honored by convert too |
 | `--no-cache` | `-NoCache` | Import without `StartCaching` |
 | `--no-rollback` | `-NoRollback` | Keep what a failed import created |

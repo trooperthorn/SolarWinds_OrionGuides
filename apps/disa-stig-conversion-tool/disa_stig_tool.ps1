@@ -73,7 +73,9 @@ param(
     [switch]$AllowEmptyScope,
     [string]$Suffix = '_v1',
     [string]$ScmProbeTemplate,
-    [ValidateSet('manual', 'heuristic')][string]$Mode = 'manual',
+    [ValidateSet('manual', 'heuristic', 'blocks')][string]$Mode = 'manual',
+    [string]$PatternDrafts,
+    [string]$WritePatternDrafts,
     [string]$Name,
     [string]$Grouping = 'DISA STIG',
     [string]$ConfigType = 'Any',
@@ -1323,6 +1325,198 @@ function Get-HxReferent([string]$Sentence, $Cond, $Candidates) {
     return @{ Line = $null; How = $null }
 }
 
+# -Mode blocks (Python extract_config_blocks / blocks_draft, 2.1.0): the configuration
+# example blocks a STIG check text shows become an Advanced Config Search, one "must
+# contain" block each, AND-joined, alerting when a block is not found.
+$script:CfgProseMarkers = @('this is a finding', ' must ', ' should ', 'verify', 'review', 'ensure',
+    'determine', 'configure', 'for example', 'example below', 'as shown', 'note:', 'step ',
+    'if the ', 'if a ', 'if an ', 'if any', 'if it ', 'if there', 'the following', 'such as')
+$script:CfgKeywords = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+foreach ($kw in @(('interface ip ipv6 no router line access-list deny permit service logging ntp snmp-server aaa ' +
+    'username hostname banner crypto class-map policy-map class match set priority bandwidth ' +
+    'police control-plane mpls neighbor network vlan spanning-tree switchport shutdown description ' +
+    'login exec-timeout transport enable archive boot clock key address-family route-map ' +
+    'prefix-list vrf tacacs tacacs-server radius radius-server cns call-home version mls ' +
+    'storm-control errdisable cdp lldp vtp dot1x tunnel zone object nat http ssh domain host ' +
+    'name-server standby vrrp bgp ospf eigrp isis rip queue shape random-detect management system ' +
+    'security password encapsulation lacp channel-group port-channel mac arp dhcp auto exec ' +
+    'privilege parser file memory process platform redundancy license ethernet fastethernet ' +
+    'gigabitethernet tengigabitethernet loopback end exit ! dns ftp tftp scp sftp telnet ' +
+    'object-group route static monitor flow sampler ipv4 pim igmp mld multicast cef mtu speed ' +
+    'duplex negotiation auto-cost area passive-interface distribute-list timers authentication ' +
+    'accounting authorization session-limit access-class ntp-server source destination permit-all') -split '\s+')) {
+    if ($kw) { [void]$script:CfgKeywords.Add($kw) }
+}
+
+function Get-ConfigLine([string]$Line) {
+    # Python _config_line: the line as a config example line (indentation kept), or $null.
+    if ($null -eq $Line -or -not $Line.Trim() -or $Line -match '^\s*(?:\u2026|\.\.\.|\.\s*\.\s*\.)\s*$') { return $null }
+    $text = ($Line.TrimEnd()) -replace '\s*(?:\u2026|\.\.\.)\s*$', ''
+    $stripped = $text.Trim()
+    $lower = $stripped.ToLowerInvariant()
+    if ($stripped.EndsWith('.') -or $stripped.EndsWith(':') -or $stripped.EndsWith('?')) { return $null }
+    foreach ($m in $script:CfgProseMarkers) { if ($lower.Contains($m)) { return $null } }
+    $m = [regex]::Match($text, '^\s*(!|[A-Za-z][A-Za-z0-9-]*)')
+    if (-not $m.Success) { return $null }
+    $first = $m.Groups[1].Value
+    $known = $script:CfgKeywords.Contains($first.ToLowerInvariant())
+    $words = @($stripped -split '\s+' | Where-Object { $_ }).Count
+    $isLower = ($first -ceq $first.ToLowerInvariant())
+    if (-not $known -and -not ($isLower -and $words -le 10)) { return $null }
+    if (@('end', 'exit', '!') -contains $first.ToLowerInvariant() -and $words -eq 1) { return $null }
+    return $text
+}
+
+function Get-ConfigBlocks([string]$CheckContent, [int]$Limit = 10) {
+    # Python extract_config_blocks: runs of consecutive config lines, broken by a blank
+    # line or prose; identical blocks once; at most $Limit. Each block is a string[].
+    $blocks = New-Object System.Collections.ArrayList
+    $current = New-Object System.Collections.ArrayList
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+    $flush = {
+        if ($current.Count -gt 0) {
+            $key = (@($current | ForEach-Object { $_.Trim() }) -join "`n")
+            if ($seen.Add($key)) { [void]$blocks.Add([string[]]@($current)) }
+            $current.Clear()
+        }
+    }
+    foreach ($raw in (([string]$CheckContent) -replace "`r`n", "`n") -split "`n") {
+        $line = Get-ConfigLine $raw
+        if ($null -eq $line) { & $flush } else { [void]$current.Add($line) }
+    }
+    & $flush
+    if ($blocks.Count -gt $Limit) { return , @($blocks[0..($Limit - 1)]) }
+    return , @($blocks)
+}
+
+function New-MultiLinePattern([string]$Pattern, [string]$PatternType = 'Like', [bool]$MustContain = $true, [string]$Condition = '') {
+    # Python multi_line_pattern: one MultiLineRulePattern in the console's member order.
+    return [ordered]@{ EndBracket = ''; PatternType = $PatternType; Condition = $Condition; Pattern = $Pattern
+                       Criteria = $MustContain; BeginBracket = ''; IsRegEx = ($PatternType -eq 'Regex') }
+}
+
+function New-BlocksDraft([string]$CheckContent) {
+    # Python blocks_draft: @{ Patterns; Blocks }.
+    $patterns = New-Object System.Collections.ArrayList
+    $i = 0
+    $all = Get-ConfigBlocks $CheckContent   # one array object; assign, do not wrap in @()
+    foreach ($block in @($all)) {
+        $cond = ''; if ($i -gt 0) { $cond = 'AND' }
+        [void]$patterns.Add((New-MultiLinePattern (@($block) -join "`n") 'Like' $true $cond))
+        $i++
+    }
+    return @{ Patterns = @($patterns); Blocks = $patterns.Count }
+}
+
+$script:PatternDraftsSchema = 'disa-stig-tool/pattern-drafts/1'
+
+function Read-PatternDrafts([string]$Path) {
+    # Python load_pattern_drafts: @{ <rule id> = @{ MustExist; Note; Patterns | Pattern, Type } }
+    # from a pattern-drafts JSON file, validated; $null without a path.
+    if (-not $Path) { return $null }
+    $raw = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+    try { $doc = ConvertFrom-Json $raw } catch { throw "${Path}: not JSON ($($_.Exception.Message))" }
+    if ($null -eq $doc -or -not $doc.PSObject.Properties['rules']) { throw "${Path}: not a pattern-drafts file (an object with a `"rules`" object)" }
+    if ($doc.PSObject.Properties['schema'] -and $doc.schema -and $doc.schema -ne $script:PatternDraftsSchema) {
+        throw "${Path}: schema '$($doc.schema)' is not $($script:PatternDraftsSchema)"
+    }
+    $drafts = @{}
+    foreach ($prop in $doc.rules.PSObject.Properties) {
+        $rid = $prop.Name; $d = $prop.Value
+        if ($null -eq $d -or $d -is [string]) { throw "${Path}: rule ${rid}: the draft must be an object" }
+        if ($d.PSObject.Properties['skip'] -and $d.skip) { continue }
+        $mustExist = $true; if ($d.PSObject.Properties['must_exist']) { $mustExist = [bool]$d.must_exist }
+        $note = ''; if ($d.PSObject.Properties['note'] -and $d.note) { $note = [string]$d.note }
+        $entry = @{ MustExist = $mustExist; Note = $note }
+        $hasPatterns = $d.PSObject.Properties['patterns'] -and $null -ne $d.patterns
+        $advanced = ($d.PSObject.Properties['advanced'] -and $d.advanced) -or $hasPatterns
+        if ($advanced) {
+            $pats = @($d.patterns)
+            if ($pats.Count -eq 0) { throw "${Path}: rule ${rid}: `"patterns`" must be a non-empty list" }
+            $entry.Patterns = New-Object System.Collections.ArrayList
+            $i = 0
+            foreach ($p in $pats) {
+                $pat = ''; if ($p.PSObject.Properties['pattern']) { $pat = [string]$p.pattern }
+                if (-not $pat.Trim()) { throw "${Path}: rule ${rid}: pattern $($i + 1) needs a `"pattern`"" }
+                $ptype = 'Like'; if ($p.PSObject.Properties['type'] -and $p.type) { $ptype = [string]$p.type }
+                $cond = ''; if ($i -gt 0) { $cond = 'AND' }
+                if ($p.PSObject.Properties['condition'] -and $p.condition) { $cond = ([string]$p.condition).ToUpperInvariant() }
+                if (@('Like', 'Regex') -notcontains $ptype -or @('', 'AND', 'OR') -notcontains $cond) {
+                    throw "${Path}: rule ${rid}: pattern $($i + 1): type must be Like or Regex and condition AND, OR or empty"
+                }
+                $mustContain = $true; if ($p.PSObject.Properties['must_contain']) { $mustContain = [bool]$p.must_contain }
+                if ($i -eq 0) { $cond = '' }
+                [void]$entry.Patterns.Add((New-MultiLinePattern $pat $ptype $mustContain $cond))
+                $i++
+            }
+            $entry.Patterns = @($entry.Patterns)
+        } else {
+            $pat = ''; if ($d.PSObject.Properties['pattern']) { $pat = ([string]$d.pattern).Trim() }
+            $ptype = 'Like'; if ($d.PSObject.Properties['type'] -and $d.type) { $ptype = [string]$d.type }
+            if (-not $pat -or @('Like', 'Regex') -notcontains $ptype) { throw "${Path}: rule ${rid}: needs a `"pattern`" (type Like or Regex) or `"patterns`"" }
+            $entry.Pattern = $pat; $entry.Type = $ptype
+        }
+        $drafts[[string]$rid] = $entry
+    }
+    Write-ToolLog build info "pattern drafts: $($drafts.Count) rule(s) from $Path"
+    return $drafts
+}
+
+function Get-RuleDraftOrigin($RuleObj, $Drafts) {
+    # Python rule_draft_origin: drafts, blocks, heuristic or sentinel.
+    if ($Drafts -and ($Drafts.ContainsKey([string]$RuleObj._vuln_id) -or $Drafts.ContainsKey([string]$RuleObj._display_id))) { return 'drafts' }
+    if ($RuleObj.AdvancedMode) { return 'blocks' }
+    if (([string]$RuleObj.SimplePatternText).StartsWith('STIG-MANUAL-REVIEW-', [StringComparison]::Ordinal)) { return 'sentinel' }
+    return 'heuristic'
+}
+
+function Write-PatternDrafts([string]$Path, $Benchmarks, $Reports, $Drafts, [scriptblock]$Log) {
+    # Python write_pattern_drafts: every built rule with its id, title, check text, where
+    # its pattern came from and the pattern itself, to edit and pass back with -PatternDrafts.
+    $source = @{}
+    foreach ($b in @($Benchmarks)) { foreach ($r in @($b.Rules)) { $source[[string]$r.VulnId] = $r } }
+    $rules = [ordered]@{}
+    $counts = @{}
+    foreach ($rep in @($Reports)) {
+        foreach ($pol in @($rep.AssignedPolicies)) {
+            foreach ($ro in @($pol.AssignedPolicyRules)) {
+                $src = $source[[string]$ro._vuln_id]
+                $key = [string]$ro._display_id; if (-not $key) { $key = [string]$ro._vuln_id }
+                $origin = Get-RuleDraftOrigin $ro $Drafts
+                $counts[$origin] = 1 + $(if ($counts.ContainsKey($origin)) { $counts[$origin] } else { 0 })
+                $entry = [ordered]@{
+                    title = [string]$(if ($src) { $src.Title } else { '' })
+                    stig_id = [string]$(if ($src) { $src.StigId } else { '' })
+                    check_content = [string]$(if ($src) { $src.CheckContent } else { '' })
+                    fix_text = [string]$(if ($src) { $src.FixText } else { '' })
+                    origin = $origin
+                    must_exist = [bool]$ro.PatternMustExist
+                    advanced = [bool]$ro.AdvancedMode
+                }
+                if ($ro.AdvancedMode) {
+                    $entry.patterns = @(foreach ($p in @($ro.MultiLineRulePatterns)) {
+                        [ordered]@{ pattern = [string]$p.Pattern; type = [string]$p.PatternType; must_contain = [bool]$p.Criteria; condition = [string]$p.Condition } })
+                } else {
+                    $entry.pattern = [string]$ro.SimplePatternText
+                    $entry.type = [string]$ro.PatternType
+                }
+                $rules[$key] = $entry
+            }
+        }
+    }
+    $doc = [ordered]@{
+        schema = $script:PatternDraftsSchema
+        about = ('Edit a rule''s pattern or patterns (and must_exist), set "skip": true to leave a rule to the run''s own mode, ' +
+                 'and pass the file back with --pattern-drafts. Values in the patterns are the STIG''s examples until reviewed.')
+        rules = $rules
+    }
+    [System.IO.File]::WriteAllText($Path, ((ConvertTo-Json -InputObject $doc -Depth 8) -replace "`r`n", "`n") + "`n", $script:Utf8NoBom)
+    Add-ToolLogStat 'FilesWritten'
+    $summary = (@($counts.Keys | Sort-Object | ForEach-Object { "$($counts[$_]) $_" }) -join ', ')
+    Send-Log $Log 'file' 'info' "wrote $([System.IO.Path]::GetFullPath($Path)): pattern drafts for $($rules.Count) rule(s) ($summary); edit and pass back with -PatternDrafts"
+    return $Path
+}
+
 function Get-HeuristicDraft([string]$CheckContent) {
     # Python heuristic_draft: @{ Pattern; MustExist; Source; How } when one sentence
     # names a config line and says plainly whether it must be present or absent, else
@@ -1384,14 +1578,46 @@ function Get-RuleSections($Rule) {
     return , @($Rule.Sections | ForEach-Object { , @([string]$_[0], [string]$_[1]) })
 }
 
-function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string]$Suffix = '_v1') {
+function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string]$Suffix = '_v1', $Drafts = $null) {
     $pattern = 'STIG-MANUAL-REVIEW-' + $Rule.VulnId
     $display = $Rule.VulnId; if ((Test-RuleField $Rule 'DisplayId') -and $Rule.DisplayId) { $display = $Rule.DisplayId }
     $patternType = 'Like'
     $mustExist = $true
+    $multi = @()
     $note = 'PATTERN NOT SET: this sentinel never matches, so the rule flags every ' +
             'node as a violation until you replace it with a real pattern for this check.'
-    if ($PatternMode -eq 'heuristic') {
+    $draftEntry = $null
+    if ($Drafts) {
+        if ($Drafts.ContainsKey([string]$display)) { $draftEntry = $Drafts[[string]$display] }
+        elseif ($Drafts.ContainsKey([string]$Rule.VulnId)) { $draftEntry = $Drafts[[string]$Rule.VulnId] }
+    }
+    if ($draftEntry) {
+        $mustExist = [bool]$draftEntry.MustExist
+        if ($draftEntry.ContainsKey('Patterns') -and @($draftEntry.Patterns).Count -gt 0) {
+            $multi = @(foreach ($p in @($draftEntry.Patterns)) { [ordered]@{} + $p })
+            $pattern = ''
+        } else {
+            $pattern = $draftEntry.Pattern; $patternType = $draftEntry.Type
+        }
+        $why = $draftEntry.Note
+        if (-not $why) { $why = 'supplied for this rule by a reviewer or an automated task; verify it before trusting this rule''s results.' }
+        $note = 'PATTERN FROM DRAFTS FILE: ' + $why
+        $n = @($multi).Count; if ($n -eq 0) { $n = 1 }
+        Write-ToolLog build debug "${display}: pattern from the drafts file ($n pattern(s), must exist $mustExist)"
+    } elseif ($PatternMode -eq 'blocks') {
+        $draft = New-BlocksDraft $Rule.CheckContent
+        if ($draft.Blocks -gt 0) {
+            $multi = @($draft.Patterns)
+            $pattern = ''
+            $note = "DRAFT BLOCKS: $($draft.Blocks) configuration example block(s) from the STIG check text, as an " +
+                    'Advanced Config Search (every block must be found, AND). The values are the STIG''s examples ' +
+                    '(addresses, names, numbers): replace them with yours and verify before trusting this rule''s results.'
+            Write-ToolLog build debug "$display blocks: $($draft.Blocks) example block(s) extracted"
+        } else {
+            $note += ' Blocks mode kept the sentinel: the check text shows no configuration lines.'
+            Write-ToolLog build debug "$display blocks: sentinel kept (no configuration lines)"
+        }
+    } elseif ($PatternMode -eq 'heuristic') {
         $draft = Get-HeuristicDraft $Rule.CheckContent
         if (-not $draft.Pattern) {
             $note += ' Heuristic mode kept the sentinel: ' + $draft.Reason + '.'
@@ -1454,8 +1680,8 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
         SimplePatternText = $pattern
         PatternType = $patternType
         PatternMustExist = $mustExist
-        AdvancedMode = $false
-        MultiLineRulePatterns = @()
+        AdvancedMode = (@($multi).Count -gt 0)
+        MultiLineRulePatterns = @($multi)
         ConfigBlockStart = ''
         ConfigBlockEnd = ''
         ConfigBlockPatternType = 'Like'
@@ -1472,6 +1698,9 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
         ExecuteRemediationScriptPerBlock = $false
         ExecuteScriptInConfigMode = $false
         Owner = 'DISA STIG Conversion Tool'
+        # Bookkeeping for the pattern-drafts file, not contract members (Python _vuln_id).
+        _vuln_id = [string]$Rule.VulnId
+        _display_id = [string]$display
     }
 }
 
@@ -1479,7 +1708,6 @@ function Get-RemediationText($Rule) {
     # Python remediation_text: the STIG's Check Content and Fix Text as prose under
     # "Check Content:" and "Fix Text:" headings, the CCIs last; '' with neither.
     $parts = New-Object System.Collections.ArrayList
-    if ($Rule.CheckContent) { [void]$parts.Add("Check Content:`n" + ([string]$Rule.CheckContent).Trim()) }
     if ($Rule.FixText) { [void]$parts.Add("Fix Text:`n" + ([string]$Rule.FixText).Trim()) }
     if ($parts.Count -gt 0 -and $Rule.Ccis -and @($Rule.Ccis).Count -gt 0) { [void]$parts.Add('CCI: ' + (@($Rule.Ccis) -join ', ')) }
     return ($parts -join "`n`n")
@@ -1489,8 +1717,14 @@ function Write-NcmBuildCounts([string]$ReportName, $SourceRules, $Rules, [string
     # Python log_build_counts: where the Fix Text went and, in heuristic mode, how many
     # rules got a draft of each polarity.
     $withFix = @(@($SourceRules) | Where-Object { $_.FixText }).Count
-    Write-ToolLog build info ("report `"$ReportName`": Check Content and Fix Text of $withFix rule(s) placed in the rule's " +
-        'Remediation field as prose ("Check Content:" / "Fix Text:"); ExecuteScriptAutomatically false')
+    Write-ToolLog build info ("report `"$ReportName`": Fix Text of $withFix rule(s) placed in the rule's Remediation field " +
+        'as prose ("Fix Text:", CCIs last); ExecuteScriptAutomatically false')
+    $advanced = @(@($Rules) | Where-Object { $_.AdvancedMode })
+    if ($advanced.Count -gt 0) {
+        $blocks = 0; foreach ($r in $advanced) { $blocks += @($r.MultiLineRulePatterns).Count }
+        Write-ToolLog build info ("report `"$ReportName`": $($advanced.Count) of $(@($Rules).Count) rule(s) carry an Advanced Config " +
+            "Search ($blocks pattern block(s) in all); the rest keep the sentinel")
+    }
     if ($PatternMode -ne 'heuristic') { return }
     $all = @($Rules)
     $drafted = @($all | Where-Object { -not ([string]$_.SimplePatternText).StartsWith('STIG-MANUAL-REVIEW-', [StringComparison]::Ordinal) })
@@ -1502,7 +1736,7 @@ function Write-NcmBuildCounts([string]$ReportName, $SourceRules, $Rules, [string
 
 function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
                         [string]$PatternMode, [string]$Folder, [bool]$Enabled = $true,
-                        [string]$ConfigTypes = 'Any', [string]$Suffix = '_v1') {
+                        [string]$ConfigTypes = 'Any', [string]$Suffix = '_v1', $Drafts = $null) {
     # One report per benchmark (matching the console's own one-policy-per-report
     # exports): the router zip yields NDM (35 rules) and RTR (92 rules) reports.
     # $BaseName comes from Get-ReportBaseName, mirroring Python's `name`. $Suffix
@@ -1513,7 +1747,7 @@ function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
     foreach ($b in $Benchmarks) {
         $ruleGroup = $Folder
         if ($b.BenchmarkId) { $ruleGroup = "$Folder/$($b.BenchmarkId)" }
-        $rules = @($b.Rules | ForEach-Object { New-NcmRule $_ $ruleGroup $PatternMode $Suffix })
+        $rules = @($b.Rules | ForEach-Object { New-NcmRule $_ $ruleGroup $PatternMode $Suffix $Drafts })
         $policy = [ordered]@{
             PolicyId = Get-NcmPolicyId $b $Suffix
             PolicyName = Get-NcmPolicyName $b $Suffix
@@ -4104,8 +4338,10 @@ function Invoke-CliTest($Conn, [string]$SourcePath) {
     }
     $benchmarks = Get-StigBenchmarks $SourcePath
     $scope = Resolve-NcmScope $benchmarks $SourcePath $NodeWhere $Vendor $MachineType
+    $cliDrafts = Read-PatternDrafts $PatternDrafts
     $reports = New-NcmReports $benchmarks (Get-ReportBaseName $SourcePath $Name) $scope.Where $Mode $Grouping `
-        (-not $ImportDisabled) $ConfigType $Suffix
+        (-not $ImportDisabled) $ConfigType $Suffix $cliDrafts
+    if ($WritePatternDrafts) { [void](Write-PatternDrafts $WritePatternDrafts $benchmarks $reports $cliDrafts { param($m) Write-Host $m }) }
     $rules = @($reports | ForEach-Object { $_.AssignedPolicies } | ForEach-Object { $_.AssignedPolicyRules })
     $total = $rules.Count
     if ($Limit -gt 0 -and $rules.Count -gt $Limit) { $rules = @($rules[0..($Limit - 1)]) }
@@ -4187,8 +4423,10 @@ function Invoke-CliRun {
                 $scope = Resolve-NcmScope $benchmarks $p $NodeWhere $Vendor $MachineType
                 $xmlWarning = Get-XmlConfigWarning $scope.Where
                 if ($xmlWarning) { Write-Host $xmlWarning -ForegroundColor Yellow }
+                $cliDrafts = Read-PatternDrafts $PatternDrafts
                 $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $scope.Where $Mode `
-                    $Grouping (-not $ImportDisabled) $ConfigType $runSuffix
+                    $Grouping (-not $ImportDisabled) $ConfigType $runSuffix $cliDrafts
+                if ($WritePatternDrafts) { [void](Write-PatternDrafts $WritePatternDrafts $benchmarks $reports $cliDrafts $log) }
                 $written = New-Object System.Collections.ArrayList
                 foreach ($r in $reports) {
                     $out = Write-ConsoleReportFile $r $folder
@@ -4240,8 +4478,10 @@ function Invoke-CliRun {
             $scope = Resolve-NcmScope $benchmarks $p $NodeWhere $Vendor $MachineType
             $xmlWarning = Get-XmlConfigWarning $scope.Where
             if ($xmlWarning) { Write-Host $xmlWarning -ForegroundColor Yellow }
+            $cliDrafts = Read-PatternDrafts $PatternDrafts
             $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p $Name) $scope.Where $Mode $Grouping `
-                (-not $ImportDisabled) $ConfigType $runSuffix
+                (-not $ImportDisabled) $ConfigType $runSuffix $cliDrafts
+            if ($WritePatternDrafts) { [void](Write-PatternDrafts $WritePatternDrafts $benchmarks $reports $cliDrafts $log) }
             [void](Invoke-NcmPreflight $conn $log)
             # Before the first write: the scope must select nodes, and nothing this run
             # would create (names, PolicyIds, RuleIds) may exist already.

@@ -958,6 +958,99 @@ class AuditTests(TempDirTest):
         self.assertTrue(any("stored the node scope as \"Where (Vendor = 'Cisco')\"" in line
                             for line in lines), lines)
 
+    IPV6_CHECK = (
+        "This requirement is not applicable for the DODIN Backbone.\n\n"
+        "Review the router configuration to determine if it is compliant with this requirement.\n\n"
+        "Step 1: Verify that an inbound IPv6 ACL has been configured on the external interface.\n\n"
+        "interface gigabitethernet1/0\n ipv6 address 2001::1:0:22/64\n ipv6 traffic-filter FILTER_IPV6 in\n\n"
+        "Step 2: Verify that the ACL drops IPv6 packets containing a Destination Option header as "
+        "shown in the example below.\n\n"
+        "ipv6 access-list FILTER_IPV6\n deny 60 any any dest-option log\n deny hbh any any dest-option log\n"
+        " permit ipv6 …\n …\n …\n …\n deny ipv6 any any log\n\n"
+        "If the router is not configured to drop IPv6 packets containing a Destination Option "
+        "header, this is a finding.")
+
+    def test_blocks_mode_builds_an_advanced_config_search_from_the_check_examples(self):
+        # The three example blocks of the screenshot, prose and ellipses left out.
+        blocks = tool.extract_config_blocks(self.IPV6_CHECK)
+        self.assertEqual(blocks, [
+            ["interface gigabitethernet1/0", " ipv6 address 2001::1:0:22/64",
+             " ipv6 traffic-filter FILTER_IPV6 in"],
+            ["ipv6 access-list FILTER_IPV6", " deny 60 any any dest-option log",
+             " deny hbh any any dest-option log", " permit ipv6"],
+            [" deny ipv6 any any log"]])
+        rule = tool.rule_object(make_rule(1, check=self.IPV6_CHECK, fix="Fix it."), "G", "blocks")
+        self.assertTrue(rule["AdvancedMode"])
+        self.assertEqual(rule["SimplePatternText"], "")
+        self.assertTrue(rule["PatternMustExist"])
+        pats = rule["MultiLineRulePatterns"]
+        self.assertEqual([p["Condition"] for p in pats], ["", "AND", "AND"])
+        self.assertEqual([p["Criteria"] for p in pats], [True, True, True])
+        self.assertEqual([p["PatternType"] for p in pats], ["Like"] * 3)
+        self.assertEqual(pats[0]["Pattern"], "\n".join(blocks[0]))
+        self.assertIn("DRAFT BLOCKS: 3 configuration example block(s)", rule["Comments"])
+        self.assertEqual(rule["RemediateScript"], "Fix Text:\nFix it.\n\nCCI: CCI-000001")
+        # No config lines: the sentinel stays, with a note.
+        prose = tool.rule_object(make_rule(2, check="Interview the administrator."), "G", "blocks")
+        self.assertFalse(prose["AdvancedMode"])
+        self.assertTrue(prose["SimplePatternText"].startswith("STIG-MANUAL-REVIEW-"))
+        self.assertIn("Blocks mode kept the sentinel", prose["Comments"])
+        # The console file carries the blocks as the console's own member layout.
+        reports = tool.build_reports([make_benchmark("B", [make_rule(1, check=self.IPV6_CHECK)])],
+                                     mode="blocks")
+        with open(tool.write_console_file(reports[0], self.tmp), encoding="utf-8", newline="") as fh:
+            text = fh.read()
+        self.assertEqual(text.count("<MultiLineRulePattern>"), 3)
+        self.assertIn("<Condition>AND</Condition>", text)
+        self.assertIn("<Pattern>interface gigabitethernet1/0\r\n ipv6 address 2001::1:0:22/64", text)
+        self.assertIn("<AdvancedMode>true</AdvancedMode>", text)
+
+    def test_pattern_drafts_round_trip(self):
+        bench = make_benchmark("B", [make_rule(1, check=self.IPV6_CHECK),
+                                     make_rule(2, check="Interview the administrator.")])
+        reports = tool.build_reports([bench], mode="blocks")
+        out = os.path.join(self.tmp, "drafts.json")
+        tool.write_pattern_drafts(out, [bench], reports, log=None)
+        with open(out, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        self.assertEqual(doc["schema"], tool.PATTERN_DRAFTS_SCHEMA)
+        self.assertEqual(doc["rules"]["V-1"]["origin"], "blocks")
+        self.assertEqual(len(doc["rules"]["V-1"]["patterns"]), 3)
+        self.assertEqual(doc["rules"]["V-1"]["check_content"], self.IPV6_CHECK)
+        self.assertEqual(doc["rules"]["V-2"]["origin"], "sentinel")
+        self.assertTrue(doc["rules"]["V-2"]["pattern"].startswith("STIG-MANUAL-REVIEW-"))
+        # A reviewer (or an automated task) edits the file and passes it back: the
+        # edited rule follows the file, the skipped one follows the run's mode.
+        doc["rules"]["V-1"] = {"advanced": True, "must_exist": True, "note": "reviewed",
+                               "patterns": [{"pattern": "ipv6 traffic-filter FILTER_IPV6 in",
+                                             "type": "Like", "must_contain": True}]}
+        doc["rules"]["V-2"] = {"pattern": "ip http server", "type": "Like", "must_exist": False}
+        with open(out, "w", encoding="utf-8") as fh:
+            json.dump(doc, fh)
+        drafts = tool.load_pattern_drafts(out)
+        rebuilt = tool.build_reports([bench], mode="manual", drafts=drafts)
+        r1, r2 = rebuilt[0]["AssignedPolicies"][0]["AssignedPolicyRules"]
+        self.assertTrue(r1["AdvancedMode"])
+        self.assertEqual([p["Pattern"] for p in r1["MultiLineRulePatterns"]],
+                         ["ipv6 traffic-filter FILTER_IPV6 in"])
+        self.assertIn("PATTERN FROM DRAFTS FILE: reviewed", r1["Comments"])
+        self.assertFalse(r2["AdvancedMode"])
+        self.assertEqual((r2["SimplePatternText"], r2["PatternMustExist"]), ("ip http server", False))
+        self.assertEqual(tool.rule_draft_origin(r1, drafts), "drafts")
+        # Bad files are refused with the rule named.
+        with open(out, "w", encoding="utf-8") as fh:
+            json.dump({"schema": tool.PATTERN_DRAFTS_SCHEMA,
+                       "rules": {"V-9": {"patterns": [{"type": "Like"}]}}}, fh)
+        with self.assertRaisesRegex(ValueError, r"rule V-9: pattern 1 needs a \"pattern\""):
+            tool.load_pattern_drafts(out)
+        # The bookkeeping keys never reach the console file or the server shape.
+        tool.NCM_SHAPES.clear()
+        self.addCleanup(tool.NCM_SHAPES.clear)
+        tool.NCM_SHAPES["rule"] = {"ID": "", "Name": "", "MultiLineRulePatterns": []}
+        sent = tool.conform_to_shape(r1, "rule")
+        self.assertNotIn("_vuln_id", sent)
+        self.assertEqual(len(sent["MultiLineRulePatterns"]), 1)
+
     def test_audit_needs_a_path_or_a_name(self):
         with self.assertRaises(SystemExit):
             tool.cmd_audit(argparse.Namespace(path=None, name=None, suffix="_v1"))
@@ -2271,15 +2364,15 @@ class ContentFidelityTests(TempDirTest):
 
     # item 7 ---------------------------------------------------------------
     def test_check_and_fix_text_go_into_the_remediation_field_as_prose(self):
-        # 2.1.0: the Remediation field carries the Check Content and Fix Text under the
-        # headings a working console-made STIG report uses, the CCIs last; it is prose
-        # and ExecuteScriptAutomatically stays false. The Comments keep the identifiers,
-        # the sentinel note, the description sections and the check text.
+        # 2.1.0: the Remediation field carries the Fix Text under the heading a working
+        # console-made STIG report uses, the CCIs last; it is prose and
+        # ExecuteScriptAutomatically stays false. The Comments keep the identifiers,
+        # the sentinel note, the description sections and the check text; the check
+        # text's config examples are the rule's pattern in blocks mode.
         rule = tool.rule_object(make_rule(5, check="Review the config.",
                                           fix="Configure:\nno ip http server"), "G", "manual")
         self.assertEqual(rule["RemediateScript"],
-                         "Check Content:\nReview the config.\n\nFix Text:\nConfigure:\nno ip http server"
-                         "\n\nCCI: CCI-000005")
+                         "Fix Text:\nConfigure:\nno ip http server\n\nCCI: CCI-000005")
         self.assertEqual(rule["RemediateScriptType"], "CLI")
         self.assertFalse(rule["ExecuteScriptAutomatically"])
         self.assertNotIn("Fix:", rule["Comments"])
@@ -2296,7 +2389,7 @@ class ContentFidelityTests(TempDirTest):
                       text)
         self.assertIn("<RemediateScript />", text)   # the rule with neither
         self.assertIn("<RemediateScriptType>CLI</RemediateScriptType>", text)
-        self.assertIn("Check Content and Fix Text of 1 rule(s) placed in the rule's Remediation field",
+        self.assertIn("Fix Text of 1 rule(s) placed in the rule's Remediation field",
                       "\n".join(self.lines()))
 
     # item 8 ---------------------------------------------------------------

@@ -1778,6 +1778,226 @@ def _hx_referent(sentence, cond, candidates):
     return None, None
 
 
+# ---------------------------------------------------------------------------
+# --mode blocks (2.1.0): the configuration example blocks a STIG check text shows
+# become an NCM Advanced Config Search, one "must contain" block each, AND-joined,
+# alerting when a block is not found. This is the layout an operator builds by hand
+# in the console from the same text. The values in the blocks are the STIG's examples
+# (x.x.x.x, 2001::1:0:22/64, FILTER_IPV6), so every rule is a draft to be reviewed.
+# ---------------------------------------------------------------------------
+
+# A line of prose, not of configuration, contains one of these (lower case).
+_CFG_PROSE_MARKERS = ("this is a finding", " must ", " should ", "verify", "review", "ensure",
+                      "determine", "configure", "for example", "example below", "as shown",
+                      "note:", "step ", "if the ", "if a ", "if an ", "if any", "if it ",
+                      "if there", "the following", "such as")
+_CFG_ELLIPSIS = re.compile(r"^\s*(?:…|\.\.\.|\.\s*\.\s*\.)\s*$")
+_CFG_TRAILING_ELLIPSIS = re.compile(r"\s*(?:…|\.\.\.)\s*$")
+_CFG_FIRST_TOKEN = re.compile(r"^\s*(!|[A-Za-z][A-Za-z0-9-]*)")
+# First tokens of configuration lines a STIG check shows (IOS, IOS-XE, NX-OS, ASA, and the
+# common ground of other CLIs); a lower-case first token is accepted without this list.
+_CFG_KEYWORDS = frozenset("""
+interface ip ipv6 no router line access-list deny permit service logging ntp snmp-server aaa
+username hostname banner crypto class-map policy-map class match set priority bandwidth
+police control-plane mpls neighbor network vlan spanning-tree switchport shutdown description
+login exec-timeout transport enable archive boot clock key address-family route-map
+prefix-list vrf tacacs tacacs-server radius radius-server cns call-home version mls
+storm-control errdisable cdp lldp vtp dot1x tunnel zone object nat http ssh domain host
+name-server standby vrrp bgp ospf eigrp isis rip queue shape random-detect management system
+security password encapsulation lacp channel-group port-channel mac arp dhcp auto exec
+privilege parser file memory process platform redundancy license ethernet fastethernet
+gigabitethernet tengigabitethernet loopback end exit ! dns ftp tftp scp sftp telnet
+object-group route static monitor flow sampler ipv4 pim igmp mld multicast cef mtu speed
+duplex negotiation auto-cost area passive-interface distribute-list timers authentication
+accounting authorization session-limit access-class ntp-server source destination permit-all
+""".split())
+
+
+def _config_line(line):
+    """The line as a config example line (indentation kept), or None for prose."""
+    if not line.strip() or _CFG_ELLIPSIS.match(line):
+        return None
+    text = _CFG_TRAILING_ELLIPSIS.sub("", line.rstrip())
+    stripped = text.strip()
+    lower = stripped.lower()
+    if stripped.endswith((".", ":", "?")) or any(m in lower for m in _CFG_PROSE_MARKERS):
+        return None
+    m = _CFG_FIRST_TOKEN.match(text)
+    if not m:
+        return None
+    first = m.group(1)
+    known = first.lower() in _CFG_KEYWORDS
+    if not known and not (first.islower() and len(stripped.split()) <= 10):
+        return None
+    if first.lower() in ("end", "exit", "!") and len(stripped.split()) == 1:
+        return None
+    return text
+
+
+def extract_config_blocks(check_content, limit=10):
+    """The configuration example blocks in a check text: runs of consecutive config
+    lines, broken by a blank line or by prose; identical blocks once; at most
+    ``limit``. Each block is a list of lines with their indentation."""
+    blocks, current, seen = [], [], set()
+
+    def flush():
+        if current:
+            key = "\n".join(line.strip() for line in current)
+            if key not in seen:
+                seen.add(key)
+                blocks.append(list(current))
+            current.clear()
+
+    for raw in (check_content or "").replace("\r\n", "\n").split("\n"):
+        line = _config_line(raw)
+        if line is None:
+            flush()
+        else:
+            current.append(line)
+    flush()
+    return blocks[:limit]
+
+
+def blocks_draft(check_content):
+    """{"patterns": [MultiLineRulePattern dicts], "blocks": n} for --mode blocks: one
+    pattern per example block (Like, must contain, AND-joined); empty when the check
+    text shows no configuration lines."""
+    patterns = []
+    for i, block in enumerate(extract_config_blocks(check_content)):
+        patterns.append(multi_line_pattern("\n".join(block), "Like", True, "AND" if i else ""))
+    return {"patterns": patterns, "blocks": len(patterns)}
+
+
+def multi_line_pattern(pattern, pattern_type="Like", must_contain=True, condition=""):
+    """One MultiLineRulePattern in the console's member order (the server fills RuleId,
+    PatternId and FoundMatch itself)."""
+    return {"EndBracket": "", "PatternType": pattern_type, "Condition": condition,
+            "Pattern": pattern, "Criteria": bool(must_contain), "BeginBracket": "",
+            "IsRegEx": pattern_type == "Regex"}
+
+
+# Pattern drafts (2.1.0): a JSON file that supplies the pattern for named rules, written
+# by a reviewer or by an automated task that reads the check text, and read back by
+# --pattern-drafts. --write-pattern-drafts writes what a run produced, with each rule's
+# check text, as the starting point for that review.
+PATTERN_DRAFTS_SCHEMA = "disa-stig-tool/pattern-drafts/1"
+
+
+def load_pattern_drafts(path):
+    """{rule id: draft} from a pattern-drafts JSON file, validated: a draft is either
+    ``{"advanced": true, "patterns": [{"pattern", "type", "must_contain", "condition"}]}``
+    or ``{"pattern": "...", "type": "Like"|"Regex"}``, both with an optional
+    ``must_exist`` (true: alert when not found) and ``note``. None when ``path`` is None."""
+    if not path:
+        return None
+    with open(path, encoding="utf-8-sig") as fh:
+        doc = json.load(fh)
+    if not isinstance(doc, dict) or not isinstance(doc.get("rules"), dict):
+        raise ValueError(f"{path}: not a pattern-drafts file (an object with a \"rules\" object)")
+    if doc.get("schema") not in (None, PATTERN_DRAFTS_SCHEMA):
+        raise ValueError(f"{path}: schema {doc.get('schema')!r} is not {PATTERN_DRAFTS_SCHEMA}")
+    drafts = {}
+    for rid, draft in doc["rules"].items():
+        if not isinstance(draft, dict):
+            raise ValueError(f"{path}: rule {rid}: the draft must be an object")
+        if draft.get("skip"):
+            continue
+        entry = {"must_exist": bool(draft.get("must_exist", True)),
+                 "note": str(draft.get("note") or "")}
+        if draft.get("advanced") or draft.get("patterns"):
+            pats = draft.get("patterns")
+            if not isinstance(pats, list) or not pats:
+                raise ValueError(f"{path}: rule {rid}: \"patterns\" must be a non-empty list")
+            entry["patterns"] = []
+            for i, p in enumerate(pats):
+                if not isinstance(p, dict) or not str(p.get("pattern") or "").strip():
+                    raise ValueError(f"{path}: rule {rid}: pattern {i + 1} needs a \"pattern\"")
+                ptype = str(p.get("type") or "Like")
+                cond = str(p.get("condition") or ("AND" if i else "")).upper()
+                if ptype not in ("Like", "Regex") or cond not in ("", "AND", "OR"):
+                    raise ValueError(f"{path}: rule {rid}: pattern {i + 1}: type must be Like or "
+                                     "Regex and condition AND, OR or empty")
+                entry["patterns"].append(multi_line_pattern(
+                    str(p["pattern"]), ptype, bool(p.get("must_contain", True)),
+                    "" if i == 0 else cond))
+        else:
+            pattern = str(draft.get("pattern") or "").strip()
+            ptype = str(draft.get("type") or "Like")
+            if not pattern or ptype not in ("Like", "Regex"):
+                raise ValueError(f"{path}: rule {rid}: needs a \"pattern\" (type Like or Regex) "
+                                 "or \"patterns\"")
+            entry["pattern"], entry["type"] = pattern, ptype
+        drafts[str(rid)] = entry
+    log_event("build", f"pattern drafts: {len(drafts)} rule(s) from {path}")
+    return drafts
+
+
+def rule_draft_origin(rule_obj, drafts):
+    """Where a built rule's pattern came from: drafts, blocks, heuristic or sentinel."""
+    if drafts and (rule_obj.get("_vuln_id") in drafts or rule_obj.get("_display_id") in drafts):
+        return "drafts"
+    if rule_obj.get("AdvancedMode"):
+        return "blocks"
+    if str(rule_obj.get("SimplePatternText") or "").startswith("STIG-MANUAL-REVIEW-"):
+        return "sentinel"
+    return "heuristic"
+
+
+def pattern_drafts_document(benchmarks, reports, drafts=None):
+    """The pattern-drafts document for what a run built: every rule with its id, title,
+    check text, where its pattern came from and the pattern itself, ready to be edited
+    (by a person or an automated task) and fed back with --pattern-drafts."""
+    rules_out = {}
+    source = {}
+    for b in benchmarks:
+        for r in b["rules"]:
+            source[r["vuln_id"]] = r
+    for rep in reports:
+        for pol in rep["AssignedPolicies"]:
+            for ro in pol["AssignedPolicyRules"]:
+                src = source.get(ro.get("_vuln_id"), {})
+                key = ro.get("_display_id") or ro.get("_vuln_id")
+                entry = {
+                    "title": src.get("title", ""),
+                    "stig_id": src.get("stig_id", ""),
+                    "check_content": src.get("check_content", ""),
+                    "fix_text": src.get("fix_text", ""),
+                    "origin": rule_draft_origin(ro, drafts),
+                    "must_exist": bool(ro.get("PatternMustExist", True)),
+                    "advanced": bool(ro.get("AdvancedMode")),
+                }
+                if ro.get("AdvancedMode"):
+                    entry["patterns"] = [
+                        {"pattern": p["Pattern"], "type": p["PatternType"],
+                         "must_contain": bool(p["Criteria"]), "condition": p["Condition"]}
+                        for p in ro.get("MultiLineRulePatterns") or []]
+                else:
+                    entry["pattern"] = ro.get("SimplePatternText", "")
+                    entry["type"] = ro.get("PatternType", "Like")
+                rules_out[key] = entry
+    return {"schema": PATTERN_DRAFTS_SCHEMA,
+            "about": "Edit a rule's pattern or patterns (and must_exist), set \"skip\": true "
+                     "to leave a rule to the run's own mode, and pass the file back with "
+                     "--pattern-drafts. Values in the patterns are the STIG's examples until "
+                     "reviewed.",
+            "rules": rules_out}
+
+
+def write_pattern_drafts(path, benchmarks, reports, drafts=None, log=print):
+    doc = pattern_drafts_document(benchmarks, reports, drafts)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(doc, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    _bump("files_written")
+    counts = {}
+    for entry in doc["rules"].values():
+        counts[entry["origin"]] = counts.get(entry["origin"], 0) + 1
+    _say(log, "file", f"wrote {os.path.abspath(path)}: pattern drafts for {len(doc['rules'])} "
+                      "rule(s) (" + ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
+                      + "); edit and pass back with --pattern-drafts")
+    return path
+
+
 def heuristic_draft(check_content):
     """A draft (pattern, polarity) for --mode heuristic, or the reason there is none.
 
@@ -1883,12 +2103,11 @@ def rule_sections(rule):
 
 
 def remediation_text(rule):
-    """The rule's Remediation field: the STIG's Check Content and Fix Text as prose under
-    "Check Content:" and "Fix Text:" headings, the CCIs last, the layout of a working
-    console-made STIG report. Empty when the rule has neither."""
+    """The rule's Remediation field: the STIG's Fix Text as prose under a "Fix Text:"
+    heading with the CCIs last, the layout of a working console-made STIG report. The
+    check text belongs to the rule's pattern (blocks mode) and Comments. Empty when
+    the rule has no Fix Text."""
     parts = []
-    if rule.get("check_content"):
-        parts.append("Check Content:\n" + rule["check_content"].strip())
     if rule.get("fix_text"):
         parts.append("Fix Text:\n" + rule["fix_text"].strip())
     if parts and rule.get("ccis"):
@@ -1896,21 +2115,54 @@ def remediation_text(rule):
     return "\n\n".join(parts)
 
 
-def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
+def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX, drafts=None):
     """One XCCDF rule → one Cirrus.PolicyReports rule contract object.
 
     Field names follow the SolarWinds.NCM.Contracts.Compliance.PolicyRule contract
-    (docs/modules/ncm-compliance-reports.md), not the SWQL column names.
+    (docs/modules/ncm-compliance-reports.md), not the SWQL column names. ``mode`` is
+    manual (sentinel), heuristic (one drafted line) or blocks (the check text's config
+    example blocks as an Advanced Config Search); a ``drafts`` entry for the rule
+    (load_pattern_drafts) wins over the mode.
     """
     sentinel = f"STIG-MANUAL-REVIEW-{rule['vuln_id']}"
     display = rule.get("display_id") or rule["vuln_id"]
     pattern_type = "Like"
     must_exist = True
+    multi = []
     pattern, note = sentinel, (
         "PATTERN NOT SET: this sentinel never matches, so the rule flags every node "
         "as a violation until you replace it with a real pattern for this check."
     )
-    if mode == "heuristic":
+    draft_entry = None
+    if drafts:
+        draft_entry = drafts.get(display) or drafts.get(rule["vuln_id"])
+    if draft_entry:
+        must_exist = draft_entry["must_exist"]
+        if draft_entry.get("patterns"):
+            multi = [dict(p) for p in draft_entry["patterns"]]
+            pattern = ""
+        else:
+            pattern, pattern_type = draft_entry["pattern"], draft_entry["type"]
+        note = ("PATTERN FROM DRAFTS FILE: " + (draft_entry["note"] or "supplied for this rule "
+                "by a reviewer or an automated task; verify it before trusting this rule's "
+                "results."))
+        log_event("build", f"{display}: pattern from the drafts file "
+                           f"({len(multi) or 1} pattern(s), must exist {must_exist})", "debug")
+    elif mode == "blocks":
+        draft = blocks_draft(rule["check_content"])
+        if draft["patterns"]:
+            multi = draft["patterns"]
+            pattern = ""
+            note = (f"DRAFT BLOCKS: {draft['blocks']} configuration example block(s) from the "
+                    "STIG check text, as an Advanced Config Search (every block must be found, "
+                    "AND). The values are the STIG's examples (addresses, names, numbers): "
+                    "replace them with yours and verify before trusting this rule's results.")
+            log_event("build", f"{display} blocks: {draft['blocks']} example block(s) extracted",
+                      "debug")
+        else:
+            note += " Blocks mode kept the sentinel: the check text shows no configuration lines."
+            log_event("build", f"{display} blocks: sentinel kept (no configuration lines)", "debug")
+    elif mode == "heuristic":
         draft = heuristic_draft(rule["check_content"])
         found = draft["pattern"]
         if not found:
@@ -1977,8 +2229,8 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
         "SimplePatternText": pattern,
         "PatternType": pattern_type,
         "PatternMustExist": must_exist,
-        "AdvancedMode": False,
-        "MultiLineRulePatterns": [],
+        "AdvancedMode": bool(multi),
+        "MultiLineRulePatterns": multi,
         "ConfigBlockStart": "",
         "ConfigBlockEnd": "",
         "ConfigBlockPatternType": "Like",
@@ -1997,6 +2249,10 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
         "ExecuteRemediationScriptPerBlock": False,
         "ExecuteScriptInConfigMode": False,
         "Owner": "DISA STIG Conversion Tool",
+        # Bookkeeping for the pattern-drafts file, not contract members: dropped by the
+        # console writer and by the server's shape, ignored by the XML writers.
+        "_vuln_id": rule["vuln_id"],
+        "_display_id": display,
     }
 
 
@@ -2105,7 +2361,7 @@ def make_node_selection_criterias(node_where):
 
 def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vendor = 'Cisco')",
                   config_type="Any", mode="manual", source_path=None, enabled=True,
-                  suffix=DEFAULT_SUFFIX):
+                  suffix=DEFAULT_SUFFIX, drafts=None):
     """Assemble one PolicyReport contract object per benchmark.
 
     ``suffix`` (validated, _v1 by default) ends every report and policy name and is
@@ -2123,7 +2379,7 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
     reports = []
     for b in benchmarks:
         policy_group = f"{grouping}/{b['benchmark_id']}" if b["benchmark_id"] else grouping
-        rules = [rule_object(r, policy_group, mode, suffix) for r in b["rules"]]
+        rules = [rule_object(r, policy_group, mode, suffix, drafts) for r in b["rules"]]
         policy = {
             "PolicyId": ncm_policy_id(b, suffix),
             "PolicyName": ncm_policy_name(b, suffix),
@@ -2165,9 +2421,15 @@ def log_build_counts(report_name, source_rules, rules, mode):
     """Info-level counts for one report: where the Fix Text went and, in heuristic
     mode, how many rules got a draft pattern of each polarity."""
     with_fix = sum(1 for r in source_rules if r["fix_text"])
-    log_event("build", f"report \"{report_name}\": Check Content and Fix Text of {with_fix} "
-                       "rule(s) placed in the rule's Remediation field as prose (\"Check "
-                       "Content:\" / \"Fix Text:\"); ExecuteScriptAutomatically false")
+    log_event("build", f"report \"{report_name}\": Fix Text of {with_fix} rule(s) placed in the "
+                       "rule's Remediation field as prose (\"Fix Text:\", CCIs last); "
+                       "ExecuteScriptAutomatically false")
+    advanced = [r for r in rules if r.get("AdvancedMode")]
+    if advanced:
+        log_event("build", f"report \"{report_name}\": {len(advanced)} of {len(rules)} rule(s) "
+                           "carry an Advanced Config Search ("
+                           f"{sum(len(r['MultiLineRulePatterns']) for r in advanced)} pattern "
+                           "block(s) in all); the rest keep the sentinel")
     if mode != "heuristic":
         return
     drafted = [r for r in rules if not r["SimplePatternText"].startswith("STIG-MANUAL-REVIEW-")]
@@ -2520,7 +2782,7 @@ def conform_to_shape(obj, kind):
         else:
             out[key] = _default_like(sample)
             missing.append(key)
-    dropped = list(unused)
+    dropped = [k for k in unused if not str(k).startswith("_")]   # "_" keys are bookkeeping
     if not NCM_SHAPES.get(f"logged:{kind}"):
         NCM_SHAPES[f"logged:{kind}"] = True
         parts = [f"JSON {kind} objects follow the server's {len(shape)}-member shape"]
@@ -4193,12 +4455,17 @@ def resolve_route(target, benchmarks, source_name, node_where=None, vendor=None,
 
 def make_reports_from_args(args, benchmarks, scope):
     where = scope["where"] if isinstance(scope, dict) else scope
-    return build_reports(
+    drafts = load_pattern_drafts(getattr(args, "pattern_drafts", None))
+    reports = build_reports(
         benchmarks, name=args.name, grouping=args.grouping,
         node_where=where, config_type=args.config_type, mode=args.mode,
         source_path=args.path, enabled=not getattr(args, "disabled", False),
-        suffix=getattr(args, "suffix", None),
+        suffix=getattr(args, "suffix", None), drafts=drafts,
     )
+    out = getattr(args, "write_pattern_drafts", None)
+    if out:
+        write_pattern_drafts(out, benchmarks, reports, drafts, log=print)
+    return reports
 
 
 def route_from_args(args, benchmarks, strict=True):
@@ -4658,9 +4925,18 @@ def add_source_args(p):
                         "'Testing Linux STIGs in SCM'.")
     p.add_argument("--config-type", default="Any",
                    help="config type the rules scan: Any, Running, Startup, ...")
-    p.add_argument("--mode", choices=("manual", "heuristic"), default="manual",
+    p.add_argument("--mode", choices=("manual", "heuristic", "blocks"), default="manual",
                    help="manual: sentinel patterns, every rule flags for review (default). "
-                        "heuristic: seed draft patterns from the STIG check text.")
+                        "heuristic: seed one draft pattern from the STIG check text. "
+                        "blocks: the check text's configuration example blocks become an "
+                        "Advanced Config Search (every block must be found, AND).")
+    p.add_argument("--pattern-drafts", metavar="FILE",
+                   help="JSON file of patterns per rule id (written by a reviewer or an "
+                        "automated task; see --write-pattern-drafts) that override the mode "
+                        "for the rules it names")
+    p.add_argument("--write-pattern-drafts", metavar="FILE",
+                   help="write the patterns this run produced, with each rule's check text, "
+                        "as a pattern-drafts JSON file to edit and pass back")
     p.add_argument("--disabled", action="store_true",
                    help="create the NCM report with ReportStatus Disabled and skip "
                         "caching, so a large benchmark can be reviewed and tuned "
@@ -4905,7 +5181,8 @@ class App:
         self.mode = tk.StringVar(value="manual")
         box = ttk.Combobox(opts, textvariable=self.mode, state="readonly", width=52,
                            values=("manual — every rule flags for review (recommended)",
-                                   "heuristic — draft patterns from the STIG check text"))
+                                   "heuristic — draft patterns from the STIG check text",
+                                   "blocks — Advanced Config Search from the check examples"))
         box.current(0)
         box.grid(row=2, column=1, sticky="w", **pad)
         self.import_disabled = tk.BooleanVar(value=False)
@@ -5297,7 +5574,9 @@ class App:
         if warning:
             self._summary_line(f"{prefix} {warning}", "warn")
             self._show_issue()
-        mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
+        mode = self.mode.get().split(" ", 1)[0].strip() or "manual"
+        if mode not in ("manual", "heuristic", "blocks"):
+            mode = "manual"
         enabled = not self.import_disabled.get()
         reports = build_reports(benchmarks, node_where=scope["where"], mode=mode,
                                 source_path=os.path.basename(path), enabled=enabled,
