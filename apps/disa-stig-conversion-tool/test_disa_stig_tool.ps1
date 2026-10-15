@@ -514,6 +514,11 @@ try {
     $longBench = @{ BenchmarkId = 'NDM'; Title = 'Cisco IOS Router NDM Security Technical Implementation Guide'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026'; StatusDate = ''; Source = 's.xml'; Edition = 'manual'; Rules = @() }
     Assert-Equal 'Cisco IOS Router NDM Security Technical Implementation Guide V3 R8_v1' (Get-NcmPolicyName $longBench '_v1') 'a long policy name carries R<n> instead of the full release text'
     Assert-Equal 'limits for SSH - HTTPS - and root' (Get-NcmSafeName 'limits for SSH, HTTPS, and root') 'commas become " -" (NCM refuses a name with a comma)'
+    $crit = New-NodeSelectionCriterias "(Vendor = 'Cisco' AND MachineType LIKE '%IOS%')"
+    Assert-Equal 2 $crit.CriteriaType 'typed criteria: web picker'
+    Assert-Equal 'Cisco' $crit.WebSelectionCriterias[0].SelectedValue 'typed criteria carry the vendor'
+    Assert-True ((New-NodeSelectionString "(Vendor = 'Cisco')").Contains("<Id>$($crit.WebSelectionCriterias[0].Id)</Id>")) 'typed criteria share the Id of the XML form'
+    Assert-True ($null -eq (New-NodeSelectionCriterias "(MachineType LIKE '%IOS%')")) 'no vendor, no typed criteria'
     $commaBench = @{ BenchmarkId = 'NDM'; Title = 'T, Inc'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026' }
     Assert-Equal 'T - Inc V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1' (Get-NcmPolicyName $commaBench '_v1') 'a policy name loses its commas'
     $shortBench = @{ BenchmarkId = 'NDM'; Title = 'Short'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026' }

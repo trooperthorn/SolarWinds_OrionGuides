@@ -2058,6 +2058,34 @@ def make_node_selection_string(node_where):
     return f"WebCriteria:{criteria}SQL:Where {where} "
 
 
+def make_node_selection_criterias(node_where):
+    """The typed twin of make_node_selection_string: the contract's
+    ``NodeSelectionCriterias`` (``SolarWinds.NCM.Contracts.InformationService.SelectionCriterias``)
+    as the 2026.4.0 server returns it from GetPolicy (member ``SelectionCriterias``):
+    ``CriteriaType`` 2 is the web picker, ``WebSelectionCriterias`` holds the same
+    Vendor criterion as the XML in the string form, with the same Id. Sent since 2.1.0
+    because AddPolicy with this member null failed on that server behind an opaque
+    NcmFaultContract. None when the scope names no vendor (the string form then has an
+    empty picker document too)."""
+    where = re.sub(r"\bNodes\.", "", node_where or "").strip()
+    vendor = picker_vendor(where if where.lower().startswith("(") else f"({where})")
+    if not vendor:
+        return None
+    return {
+        "DesktopSelectionCriteriasDbString": None,
+        "WebSelectionCriterias": [{
+            "Id": str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-criteria:" + vendor)),
+            "LogicalCondition": "",
+            "SelectedColumn": "Vendor",
+            "MatchType": "=",
+            "SelectedValue": vendor,
+        }],
+        "AssignedNodesList": [],
+        "AssignedNodesDesktopSQL": None,
+        "CriteriaType": 2,
+    }
+
+
 def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vendor = 'Cisco')",
                   config_type="Any", mode="manual", source_path=None, enabled=True,
                   suffix=DEFAULT_SUFFIX):
@@ -2086,6 +2114,7 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
                         f"status date {b['status_date']}).",
             "Grouping": grouping,
             "NodeSelectionString": make_node_selection_string(node_where),
+            "NodeSelectionCriterias": make_node_selection_criterias(node_where),
             "ConfigTypes": config_type,
             "AssignedPolicyRules": rules,
             "AssignedRulesList": [r["RuleId"] for r in rules],

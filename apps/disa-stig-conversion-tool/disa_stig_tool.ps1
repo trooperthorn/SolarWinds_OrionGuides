@@ -1090,6 +1090,30 @@ function New-NodeSelectionString([string]$Where) {
     return "WebCriteria:${criteria}SQL:Where $w "
 }
 
+function New-NodeSelectionCriterias([string]$Where) {
+    # Python make_node_selection_criterias: the typed twin of the string form, as
+    # the 2026.4.0 server returns it from GetPolicy (CriteriaType 2 = web picker, the
+    # same Vendor criterion and Id as the XML). AddPolicy with this member null
+    # failed on that server behind an opaque NcmFaultContract. $null without a vendor.
+    $w = ($Where -replace '\bNodes\.', '').Trim()
+    if (-not $w.ToLower().StartsWith('(')) { $w = "($w)" }
+    $vendor = Get-PickerVendor $w
+    if (-not $vendor) { return $null }
+    return [ordered]@{
+        DesktopSelectionCriteriasDbString = $null
+        WebSelectionCriterias = @([ordered]@{
+            Id = Get-DeterministicGuid ("stig2ncm-criteria:" + $vendor)
+            LogicalCondition = ''
+            SelectedColumn = 'Vendor'
+            MatchType = '='
+            SelectedValue = $vendor
+        })
+        AssignedNodesList = @()
+        AssignedNodesDesktopSQL = $null
+        CriteriaType = 2
+    }
+}
+
 # XCCDF severity -> NCM ErrorLevel. The console's default names for 2/1/0 are
 # critical/warning/info, but the names are editable per server.
 $script:SeverityToErrorLevel = @{ high = 2; medium = 1; low = 0 }
@@ -1487,6 +1511,7 @@ function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
                         "(benchmark $($b.BenchmarkId), status date $($b.StatusDate)).")
             Grouping = $Folder
             NodeSelectionString = New-NodeSelectionString $Where
+            NodeSelectionCriterias = New-NodeSelectionCriterias $Where
             ConfigTypes = $ConfigTypes
             AssignedPolicyRules = $rules
             AssignedRulesList = @($rules | ForEach-Object { $_.RuleId })

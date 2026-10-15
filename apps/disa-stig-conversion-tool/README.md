@@ -112,6 +112,12 @@ XCCDF benchmark found inside".
   run log lists what was renamed, filled and dropped. The XML-string routes stay as
   documented fallbacks, although the fault bodies show the endpoint never converts a
   JSON string to a contract type. Unverified until the next live run.
+- **The policy carries the typed node criteria.** With the names and the comma rule in
+  place all 35 rules of the NDM report were created; `AddPolicy` then failed behind an
+  opaque `NcmFaultContract` with `SelectionCriterias` sent null, the one member the
+  tool had no value for. The policy now carries `NodeSelectionCriterias` (the server's
+  `SelectionCriterias`): the same Vendor criterion and Id as the picker XML in
+  `NodeSelectionString`, `CriteriaType` 2. Unverified until the next live run.
 - **No comma in a generated name.** With the server's member names in place the first
   rule imported; the second was refused by NCM's own validator with "Policy name
   contains comma character" (the rule name, despite the wording), and the rollback

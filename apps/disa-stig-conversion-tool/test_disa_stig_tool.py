@@ -896,9 +896,18 @@ class AuditTests(TempDirTest):
         self.assertNotIn("IsConfigBlockPatternRegEx", sent)
         self.assertTrue(sent["SimplePatternText"].startswith("STIG-MANUAL-REVIEW-V-"))
         self.assertEqual(sent["Owner"], tool.RULE_OWNER)
-        # The policy went out with the server's misspelled list member.
+        # The policy went out with the server's misspelled list member and the typed
+        # picker criteria (SelectionCriterias), not null.
         policy = fake.verbs("AddPolicy")[0][2][0]
         self.assertEqual(list(policy), list(FakeSwis.SERVER_POLICY_SHAPE))
+        criterias = policy["SelectionCriterias"]
+        self.assertEqual(criterias["CriteriaType"], 2)
+        self.assertEqual(criterias["WebSelectionCriterias"][0]["SelectedColumn"], "Vendor")
+        self.assertEqual(criterias["WebSelectionCriterias"][0]["SelectedValue"], "Cisco")
+        # The same Id as the XML in the string form.
+        self.assertIn(f"<Id>{criterias['WebSelectionCriterias'][0]['Id']}</Id>",
+                      policy["NodeSelectionString"])
+        self.assertIsNone(tool.make_node_selection_criterias("(MachineType LIKE '%IOS%')"))
         self.assertEqual(len(policy["AssgnedPolicyRulesList"]),
                          len(built[0]["AssignedPolicies"][0]["AssignedPolicyRules"]))
         self.assertTrue(policy["Name"].endswith("_v1"))

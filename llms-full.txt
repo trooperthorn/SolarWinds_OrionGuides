@@ -23025,7 +23025,13 @@ Round-trip gotchas:
   names right, `AddPolicyRule` stored a rule and then refused the next one with HTTP
   400 "Policy name contains comma character" (`System.ArgumentException` from the same
   invoker; it is the rule's name it checks): **a rule name may not contain a comma**,
-  and none of the 3,126 rule, policy and report names on that server does.
+  and none of the 3,126 rule, policy and report names on that server does. With that
+  settled, 35 rules were created and `AddPolicy` failed with an opaque
+  `NcmFaultContract` ("ProvideFault failed") for a policy whose `SelectionCriterias`
+  was null while `NodeSelectionString` was filled: send the typed criteria too
+  (`CriteriaType` 2 and a `WebSelectionCriterias` entry mirroring the picker XML),
+  which is what `GetPolicy` returns for every console-made policy. Unverified: whether
+  that alone satisfies `AddPolicy`.
 - **Column widths (2026.4.0, from the NCM business-layer log and the table dump):**
   `NCM_PolicyRules.Name` refuses a 212-character name with SQL error 2628 ("String or
   binary data would be truncated") and stores a 184-character one, so treat it as
