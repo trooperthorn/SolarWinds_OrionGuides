@@ -97,6 +97,16 @@ XCCDF benchmark found inside".
   policy references are listed as orphans: a server can keep a rule although its
   `AddPolicyRule` answer was an error, and such a rule carries a server-assigned id the
   id-based collision check cannot see. Nothing is created, changed or deleted.
+- **JSON objects take the server's own shape.** The 2026.4 fault body for the JSON
+  route showed `ArgumentNullException` from `Regex.IsMatch` inside NCM's own
+  `AddPolicyRule`: the object had been deserialized and the verb had run, but a string
+  member the published 2026.2 contract does not list was null. Before the first probe
+  both editions now read one existing rule, policy and report back (`GetPolicyRule`,
+  `GetPolicy`, `GetPolicyReport`) and send every JSON object in the server's member
+  order with every member the server shows, filling the ones the tool's contract lacks
+  with an empty value; the run log names those members. The XML-string routes stay as
+  documented fallbacks, although the same fault bodies show the endpoint never
+  converts a JSON string to a contract type. Unverified until the next live run.
 - **Import summary in the log view.** After every NCM run the summary pane (and the run
   log) says how each report reached the server (`imported via API, per item (JSON
   contract objects)`, `imported via API, one nested AddPolicyReport`, or

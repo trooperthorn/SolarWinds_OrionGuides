@@ -2316,18 +2316,98 @@ function ConvertTo-DcXml($Report, [string]$Ns, [string]$Kind, $Item, $IdList) {
 
 $script:DcNs = 'http://schemas.datacontract.org/2004/07/SolarWinds.NCM.Contracts.Compliance'
 
+# The server's own shape of each NCM contract type (Python NCM_SHAPES, 2.1.0),
+# learned once per run from an existing rule, policy and report. A 2026.4 server
+# deserialized the JSON PolicyRule, ran AddPolicyRule and threw
+# ArgumentNullException from Regex.IsMatch: a string member the published 2026.2
+# contract does not list stayed null. JSON objects are therefore sent in the
+# server's member order with every member it shows, missing ones filled empty.
+$script:NcmShapes = @{}
+
+function Initialize-NcmShapes($Conn, [scriptblock]$Log) {
+    if ($script:NcmShapes.ContainsKey('learned')) { return }
+    $script:NcmShapes['learned'] = $true
+    $plan = @(
+        @{ Kind = 'rule'; Query = 'SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules'; Column = 'PolicyRuleID'; Verb = 'GetPolicyRule'; Extra = @() },
+        @{ Kind = 'policy'; Query = 'SELECT TOP 1 PolicyID FROM Cirrus.Policies'; Column = 'PolicyID'; Verb = 'GetPolicy'; Extra = @($false) },
+        @{ Kind = 'report'; Query = 'SELECT TOP 1 PolicyReportID FROM Cirrus.PolicyReports'; Column = 'PolicyReportID'; Verb = 'GetPolicyReport'; Extra = @($false) })
+    foreach ($p in $plan) {
+        try {
+            $rows = @(Invoke-SwisQuery $Conn $p.Query $null)
+            if ($rows.Count -eq 0) {
+                Write-ToolLog import info "server $($p.Kind) shape: no existing $($p.Kind) to read; the published contract is used"
+                continue
+            }
+            $id = Get-RowValue $rows[0] $p.Column
+            $sample = Invoke-SwisVerbCall $Conn 'Cirrus.PolicyReports' $p.Verb (@($id) + @($p.Extra))
+            if ($sample -is [string]) { try { $sample = ConvertFrom-Json $sample } catch { } }
+            if ($null -eq $sample -or $sample -is [string] -or $sample -is [System.ValueType]) {
+                Write-ToolLog import warn "server $($p.Kind) shape: $($p.Verb) returned $(Format-LogValue $sample), not an object; the published contract is used"
+                continue
+            }
+            $shape = [ordered]@{}
+            if ($sample -is [System.Collections.IDictionary]) { foreach ($k in $sample.Keys) { $shape[[string]$k] = $sample[$k] } }
+            else { foreach ($prop in $sample.PSObject.Properties) { $shape[$prop.Name] = $prop.Value } }
+            $script:NcmShapes[$p.Kind] = $shape
+            Write-ToolLog import info "server $($p.Kind) shape ($($p.Verb) on $id): $($shape.Count) member(s): $(@($shape.Keys) -join ', ')"
+        } catch {
+            Send-Log $Log 'import' 'warn' "[NCM] server $($p.Kind) shape could not be read ($($_.Exception.Message)); the published contract is used"
+        }
+    }
+}
+
+function Get-DefaultLike($Sample) {
+    if ($Sample -is [bool]) { return $false }
+    if ($Sample -is [int] -or $Sample -is [long] -or $Sample -is [double] -or $Sample -is [decimal]) { return 0 }
+    if ($Sample -is [array]) { return @() }
+    if ($Sample -is [System.Management.Automation.PSCustomObject] -or $Sample -is [System.Collections.IDictionary]) { return $null }
+    return ''
+}
+
+function ConvertTo-ServerShape($Obj, [string]$Kind) {
+    # Python conform_to_shape: the object in the server's member order, the tool's
+    # values kept (matched without regard to case), missing members filled with an
+    # empty value of the sample's type, the tool's extra members appended.
+    if (-not $script:NcmShapes.ContainsKey($Kind)) { return $Obj }
+    $shape = $script:NcmShapes[$Kind]
+    $have = @{}
+    foreach ($k in $Obj.Keys) { $have[([string]$k).ToLowerInvariant()] = $k }
+    $out = [ordered]@{}
+    $missing = New-Object System.Collections.ArrayList
+    foreach ($k in $shape.Keys) {
+        $lk = ([string]$k).ToLowerInvariant()
+        if ($have.ContainsKey($lk)) { $out[[string]$k] = $Obj[$have[$lk]] }
+        else { $out[[string]$k] = Get-DefaultLike $shape[$k]; [void]$missing.Add($k) }
+    }
+    $shapeLower = @{}
+    foreach ($k in $shape.Keys) { $shapeLower[([string]$k).ToLowerInvariant()] = $true }
+    $extra = @($Obj.Keys | Where-Object { -not $shapeLower.ContainsKey(([string]$_).ToLowerInvariant()) })
+    foreach ($k in $extra) { $out[[string]$k] = $Obj[$k] }
+    if (-not $script:NcmShapes.ContainsKey("logged:$Kind")) {
+        $script:NcmShapes["logged:$Kind"] = $true
+        $msg = "JSON $Kind objects follow the server's $($shape.Count)-member shape; "
+        if ($missing.Count -gt 0) { $msg += "members the tool's contract lacked, sent empty: $($missing -join ', ')" } else { $msg += "the tool's contract lacked none" }
+        if ($extra.Count -gt 0) { $msg += "; the tool's members the server does not show, kept: $($extra -join ', ')" }
+        $lvl = 'info'; if ($missing.Count -gt 0) { $lvl = 'warn' }
+        Write-ToolLog import $lvl $msg
+    }
+    return $out
+}
+
 function Get-WireArgument([string]$Format, [string]$Kind, $Item, $IdList) {
     switch ($Format) {
         'json' {
             switch ($Kind) {
-                'rule' { return $Item }
+                'rule' { return (ConvertTo-ServerShape $Item 'rule') }
                 'policy' {
                     $c = [ordered]@{} + $Item
-                    $c.AssignedPolicyRules = @(); $c.AssignedRulesList = @($IdList); return $c
+                    $c.AssignedPolicyRules = @(); $c.AssignedRulesList = @($IdList)
+                    return (ConvertTo-ServerShape $c 'policy')
                 }
                 'report' {
                     $c = [ordered]@{} + $Item
-                    $c.AssignedPolicies = @(); $c.AssignedPoliciesList = @($IdList); return $c
+                    $c.AssignedPolicies = @(); $c.AssignedPoliciesList = @($IdList)
+                    return (ConvertTo-ServerShape $c 'report')
                 }
             }
         }
@@ -2817,6 +2897,7 @@ function Import-NcmReport($Conn, $Report, [scriptblock]$Log, [bool]$Rollback = $
             'policy id(s) this report submits already exist on the server; a rollback will leave those alone')
     }
     $probeRule = $Report.AssignedPolicies[0].AssignedPolicyRules[0]
+    Initialize-NcmShapes $Conn $Log
     $format = $null; $firstId = $null
     $rejections = New-Object System.Collections.ArrayList
     foreach ($f in @('json', 'xml-dc', 'xml-plain')) {

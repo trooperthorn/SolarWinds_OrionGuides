@@ -282,6 +282,8 @@ class FakeSwis:
             return [{"PolicyRuleID": k} for k in list(self.rules)[:1]]
         if swql == "SELECT TOP 1 PolicyID FROM Cirrus.Policies":
             return [{"PolicyID": k} for k in list(self.policies)[:1]]
+        if swql == "SELECT TOP 1 PolicyReportID FROM Cirrus.PolicyReports":
+            return [{"PolicyReportID": k} for k in list(self.reports)[:1]]
         if "FROM Cirrus.PolicyReports WHERE Name = @n" in swql:
             return [{"PolicyReportID": k, "Name": v["Name"], "Grouping": "DISA STIG"}
                     for k, v in self.reports.items() if v["Name"] == p["n"]]
@@ -360,6 +362,36 @@ class FakeSwis:
                 self.add_policy(pid, rule_ids, pol.findtext("PolicyName"))
                 policies.append(pid)
         return self.add_report(root.findtext("Name"), policies)
+
+    # The member set a server shows for one rule / policy (learn_ncm_shapes): the
+    # published 2026.2 contract plus one member the server knows and it does not.
+    SERVER_RULE_SHAPE = ("MultiLineRulePatterns", "RuleId", "RuleName", "Comments",
+                         "ServerOnlyMember", "Grouping", "RemediateScript", "ConfigBlockStart",
+                         "ConfigBlockEnd", "ConfigBlockPatternType", "ConfigBlockMustExist",
+                         "PatternType", "PatternMustExist", "AdvancedMode", "ErrorLevel",
+                         "SimplePatternText", "ExecuteScriptAutomatically", "Owner",
+                         "RemediateScriptType", "IsConfigBlockPatternRegEx",
+                         "ExecuteRemediationScriptPerBlock", "ExecuteScriptInConfigMode")
+
+    def _GetPolicyRule(self, rule_id):
+        if rule_id not in self.rules:
+            return None
+        sample = {k: "" for k in self.SERVER_RULE_SHAPE}
+        sample.update(MultiLineRulePatterns=[], RuleId=rule_id, RuleName=self.rules[rule_id],
+                      ConfigBlockMustExist=False, PatternMustExist=True, AdvancedMode=False,
+                      ErrorLevel=1, ExecuteScriptAutomatically=False,
+                      IsConfigBlockPatternRegEx=False, ExecuteRemediationScriptPerBlock=False,
+                      ExecuteScriptInConfigMode=False, ServerOnlyMember=None)
+        return sample
+
+    def _GetPolicy(self, policy_id, export_flag):
+        pol = self.policies.get(policy_id)
+        if pol is None:
+            return None
+        return {"NodeSelectionCriterias": None, "NodeSelectionString": "", "PolicyId": policy_id,
+                "ConfigTypes": "Any", "AssignedRulesList": list(pol["rules"]),
+                "AssignedPolicyRules": [], "Grouping": "", "Comments": "",
+                "PolicyName": pol["PolicyName"]}
 
     def _GetPolicyReport(self, report_id, export_flag):
         rep = self.reports.get(report_id)
@@ -795,6 +827,33 @@ class AuditTests(TempDirTest):
             tool.cmd_import(import_args(zip_path))
         self.assertIn("imported via API, per item (JSON contract objects):", out.getvalue())
         self.assertIn(f"NCM totals: {len(reports)} of {len(reports)} report(s)", out.getvalue())
+
+    def test_json_objects_take_the_servers_member_shape(self):
+        tool.NCM_SHAPES.clear()
+        self.addCleanup(tool.NCM_SHAPES.clear)
+        zip_path = self.router_zip()
+        fake = FakeSwis()
+        # One rule already on the server, so GetPolicyRule has something to read.
+        fake.rules["2b79fcd4-5d27-4773-b556-3ba85b486fc0"] = "existing"
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            tool.cmd_import(import_args(zip_path))
+        self.assertEqual(fake.verbs("GetPolicyRule")[0][2],
+                         ("2b79fcd4-5d27-4773-b556-3ba85b486fc0",))
+        sent = fake.verbs("AddPolicyRule")[0][2][0]
+        # Server order, the server-only member present and empty, nothing lost.
+        self.assertEqual(list(sent), list(FakeSwis.SERVER_RULE_SHAPE))
+        self.assertEqual(sent["ServerOnlyMember"], "")
+        self.assertTrue(sent["SimplePatternText"].startswith("STIG-MANUAL-REVIEW-V-"))
+        self.assertEqual(sent["Owner"], tool.RULE_OWNER)
+        # Without a learned shape the object is sent as the tool builds it.
+        tool.NCM_SHAPES.clear()
+        rule = {"RuleId": "x", "Comments": "c"}
+        self.assertIs(tool.conform_to_shape(rule, "rule"), rule)
+        tool.NCM_SHAPES["rule"] = {"Comments": None, "Flag": True, "N": 2, "L": [], "O": {}}
+        self.assertEqual(tool.conform_to_shape(rule, "rule"),
+                         {"Comments": "c", "Flag": False, "N": 0, "L": [], "O": None,
+                          "RuleId": "x"})
 
     def test_audit_needs_a_path_or_a_name(self):
         with self.assertRaises(SystemExit):

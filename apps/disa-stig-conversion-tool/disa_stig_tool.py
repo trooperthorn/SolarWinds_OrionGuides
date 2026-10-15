@@ -2317,14 +2317,115 @@ def dc_report_xml(report, policy_ids, ns=DC_NS):
     return ET.tostring(root, encoding="unicode")
 
 
+# The server's own shape of each NCM contract type (2.1.0), learned once per run by
+# learn_ncm_shapes from an existing rule, policy and report: {"rule": {member: sample
+# value, ...}, "policy": ..., "report": ...}. A 2026.4 server deserialized the tool's
+# JSON PolicyRule, ran AddPolicyRule and threw ArgumentNullException from
+# Regex.IsMatch inside PolicyReportsInvoker.AddPolicyRule: a string member the
+# published 2026.2 contract does not list stayed null. The JSON object is therefore
+# sent in the server's member order with every member the server shows, missing ones
+# filled with an empty value of the sample's type.
+NCM_SHAPES = {}
+
+_SHAPE_PLAN = (
+    ("rule", "SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules", "PolicyRuleID",
+     "GetPolicyRule", ()),
+    ("policy", "SELECT TOP 1 PolicyID FROM Cirrus.Policies", "PolicyID", "GetPolicy", (False,)),
+    ("report", "SELECT TOP 1 PolicyReportID FROM Cirrus.PolicyReports", "PolicyReportID",
+     "GetPolicyReport", (False,)),
+)
+
+
+def learn_ncm_shapes(swis, log=None):
+    """Read one existing rule, policy and report back from the server (GetPolicyRule,
+    GetPolicy, GetPolicyReport) and keep their member lists in NCM_SHAPES. Runs once
+    per process; a table with no row, or a verb that fails, leaves that kind to the
+    published contract and says so."""
+    if NCM_SHAPES.get("learned"):
+        return NCM_SHAPES
+    NCM_SHAPES["learned"] = True
+    for kind, swql, column, verb, extra in _SHAPE_PLAN:
+        try:
+            rows = swis.query(swql)
+            if not rows:
+                log_event("import", f"server {kind} shape: no existing {kind} to read; the "
+                                    "published contract is used")
+                continue
+            sample = swis.invoke("Cirrus.PolicyReports", verb, rows[0].get(column), *extra)
+            if isinstance(sample, str):
+                try:
+                    sample = json.loads(sample)
+                except ValueError:
+                    pass
+            if not isinstance(sample, dict):
+                log_event("import", f"server {kind} shape: {verb} returned "
+                                    f"{_summarize_value(sample)}, not an object; the published "
+                                    "contract is used", "warn")
+                continue
+            NCM_SHAPES[kind] = dict(sample)
+            log_event("import", f"server {kind} shape ({verb} on {rows[0].get(column)}): "
+                                f"{len(sample)} member(s): {', '.join(sample)}")
+        except SwisError as exc:
+            _say(log, "import", f"server {kind} shape could not be read ({exc}); the "
+                                "published contract is used", "warn")
+    return NCM_SHAPES
+
+
+def _default_like(sample):
+    if isinstance(sample, bool):
+        return False
+    if isinstance(sample, (int, float)):
+        return 0
+    if isinstance(sample, list):
+        return []
+    if isinstance(sample, dict):
+        return None
+    return ""
+
+
+def conform_to_shape(obj, kind):
+    """``obj`` rebuilt in the server's member order for ``kind`` (see NCM_SHAPES):
+    members the server shows and the tool has keep the tool's value (matched without
+    regard to case), members the tool lacks get an empty value of the sample's type,
+    and members the tool has that the server does not show are appended. Without a
+    learned shape the object is returned as it is. The differences are logged once."""
+    shape = NCM_SHAPES.get(kind)
+    if not shape:
+        return obj
+    have = {k.lower(): k for k in obj}
+    out, missing = {}, []
+    for key, sample in shape.items():
+        mine = have.get(key.lower())
+        if mine is not None:
+            out[key] = obj[mine]
+        else:
+            out[key] = _default_like(sample)
+            missing.append(key)
+    extra = [k for k in obj if k.lower() not in {s.lower() for s in shape}]
+    for k in extra:
+        out[k] = obj[k]
+    if not NCM_SHAPES.get(f"logged:{kind}"):
+        NCM_SHAPES[f"logged:{kind}"] = True
+        log_event("import", f"JSON {kind} objects follow the server's {len(shape)}-member shape; "
+                            + (f"members the tool's contract lacked, sent empty: "
+                               f"{', '.join(missing)}" if missing else "the tool's contract "
+                               "lacked none")
+                            + (f"; the tool's members the server does not show, kept: "
+                               f"{', '.join(extra)}" if extra else ""),
+                  "warn" if missing else "info")
+    return out
+
+
 # The wire formats the probe tries, in order. Each entry maps a rule/policy/
 # report to the AddPolicyRule / AddPolicy / AddPolicyReport argument.
 WIRE_FORMATS = {
     "json": {
         "label": "JSON contract objects",
-        "rule": lambda r: r,
-        "policy": lambda p, ids: dict(p, AssignedPolicyRules=[], AssignedRulesList=ids),
-        "report": lambda rep, ids: dict(rep, AssignedPolicies=[], AssignedPoliciesList=ids),
+        "rule": lambda r: conform_to_shape(r, "rule"),
+        "policy": lambda p, ids: conform_to_shape(
+            dict(p, AssignedPolicyRules=[], AssignedRulesList=ids), "policy"),
+        "report": lambda rep, ids: conform_to_shape(
+            dict(rep, AssignedPolicies=[], AssignedPoliciesList=ids), "report"),
     },
     "xml-dc": {
         "label": "DataContract XML strings",
@@ -2716,6 +2817,7 @@ def import_ncm_report(swis, report, log=print, rollback=True):
                             f"{len(preexisting['policies'])} policy id(s) this report submits "
                             "already exist on the server; a rollback will leave those alone")
     probe_rule = report["AssignedPolicies"][0]["AssignedPolicyRules"][0]
+    learn_ncm_shapes(swis, log)
     fmt = None
     first_rule_id = None
     rejections = []

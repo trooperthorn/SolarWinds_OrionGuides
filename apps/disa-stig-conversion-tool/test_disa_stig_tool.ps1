@@ -443,6 +443,39 @@ try {
     Assert-Equal 0 (@($script:Calls | Where-Object { $_ -ne 'query' })).Count 'the audit only queries'
     function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
 
+    # --- 6e. JSON objects take the server's member shape (2.1.0) ------------
+    $script:NcmShapes.Clear()
+    $script:NcmShapes['rule'] = [ordered]@{ Comments = $null; Flag = $true; N = 2; L = @(); O = (New-Object PSObject) }
+    $shaped = ConvertTo-ServerShape ([ordered]@{ RuleId = 'x'; comments = 'c' }) 'rule'
+    Assert-Equal 'Comments,Flag,N,L,O,RuleId' (@($shaped.Keys) -join ',') 'server member order first, the tool''s extras appended'
+    Assert-Equal 'c' $shaped['Comments'] 'the tool''s value is kept regardless of key case'
+    Assert-Equal $false $shaped['Flag'] 'a missing boolean member is sent false'
+    Assert-Equal 0 $shaped['N'] 'a missing numeric member is sent 0'
+    Assert-Equal 0 (@($shaped['L'])).Count 'a missing array member is sent empty'
+    Assert-True ($null -eq $shaped['O']) 'a missing object member is sent null'
+    $script:NcmShapes.Clear()
+    $plain = [ordered]@{ RuleId = 'x' }
+    Assert-True ([object]::ReferenceEquals($plain, (ConvertTo-ServerShape $plain 'rule'))) 'without a learned shape the object is sent as it is'
+    function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$Arguments) {
+        [void]$script:Calls.Add("$SwisVerb")
+        if ($SwisVerb -eq 'GetPolicyRule') { return [PSCustomObject]@{ RuleId = $Arguments[0]; ServerOnlyMember = $null; RuleName = 'existing' } }
+        return $null
+    }
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) {
+        [void]$script:Calls.Add('query')
+        if ($Swql -eq 'SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules') { return @(@{ PolicyRuleID = 'r0' }) }
+        return @()
+    }
+    Initialize-NcmShapes @{} $null
+    Assert-Equal 'RuleId,ServerOnlyMember,RuleName' (@($script:NcmShapes['rule'].Keys) -join ',') 'the rule shape is read from GetPolicyRule on an existing rule'
+    Assert-True (-not $script:NcmShapes.ContainsKey('policy')) 'a table without rows leaves that kind to the published contract'
+    $wire = Get-WireArgument 'json' 'rule' ([ordered]@{ RuleName = 'n'; RuleId = 'id' }) $null
+    Assert-Equal 'RuleId,ServerOnlyMember,RuleName' (@($wire.Keys) -join ',') 'the JSON wire argument follows the learned shape'
+    Assert-Equal '' $wire['ServerOnlyMember'] 'the server-only member is sent empty'
+    $script:NcmShapes.Clear()
+    function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$Arguments) { [void]$script:Calls.Add("$SwisVerb"); return $null }
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
+
     # --- 6d. import summaries name the route and the totals (2.1.0) -------
     $sumReport = @{ Name = 'Rep_v1'; AssignedPolicies = @(@{ PolicyName = 'P'; AssignedPolicyRules = @(@{ RuleId = 'a' }, @{ RuleId = 'b' }) }) }
     $script:NcmImportRoutes['Rep_v1'] = 'API, per item (JSON contract objects)'
