@@ -128,7 +128,13 @@ XCCDF benchmark found inside".
   configuration lines keeps the sentinel. The Remediation field carries the Fix Text
   under a `Fix Text:` heading with the CCIs last; the Comments keep the identifiers, the
   note, the description sections and the check text. `ExecuteScriptAutomatically` stays
-  false. SCM policies are unchanged.
+  false. SCM policies are unchanged. **Verified live on 2026.4.0 (2026-10-15):** the
+  Cisco IOS Router package imported through the API in all three modes side by side
+  (`_v1` manual, `_v2` heuristic, `_v3` blocks), 127 of 127 rules each, and the
+  console's export of the blocks report carries the 216 pattern blocks of its RTR
+  policy unchanged, multi-line patterns, AND conditions and all. On that package
+  heuristic mode drafted 15 of 92 RTR rules; blocks mode gave 91 of 92 an Advanced
+  Config Search.
 - **Pattern drafts: a file for a reviewer or an automated task.** `--write-pattern-drafts
   FILE` writes, for every rule a run built, its id, title, STIG id, check text, Fix
   Text, where its pattern came from (`sentinel`, `heuristic`, `blocks` or `drafts`) and
