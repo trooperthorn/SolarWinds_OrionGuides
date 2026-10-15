@@ -40,8 +40,14 @@ Never hard-code it and never pass it on the command line.
 
 Every run writes a log file, one line per decision and per SWIS call, with secrets
 redacted; its path is printed when the run starts and ends. --log-file PATH and
---log-level debug|info|warn (on every command, and after "gui") change it. See the
-"Run log" section of README.md.
+--log-level debug|info|warn (on every command, and after "gui") change it, and
+--log-body-limit 0 writes the debug-level request, response and error bodies whole.
+See the "Run log" section of README.md.
+
+    See what the server holds for a package (read-only; also lists rules a failed
+    API import left behind):
+        python disa_stig_tool.py audit U_Cisco_IOS_Router_Y26M07_STIG.zip \\
+            --host orion.example.com --user admin
 
 What the import produces
 ------------------------
@@ -110,7 +116,7 @@ import zlib
 
 # One version for the tool, shared by both editions (disa_stig_tool.ps1 carries the
 # same number). It is written into every log file's start-of-run line.
-TOOL_VERSION = "2.0.0"
+TOOL_VERSION = "2.1.0"
 USER_AGENT = f"disa-stig-conversion-tool/{TOOL_VERSION}"
 
 DEFAULT_PORT = 17774
@@ -169,6 +175,7 @@ DEFAULT_SUFFIX = "_v1"
 SUFFIX_PATTERN = re.compile(r"^_v[0-9]+\Z")
 SUFFIX_TAIL = re.compile(r"_v([0-9]+)\Z")
 NAME_LIMIT = 250
+RULE_NAME_LIMIT = 200   # NCM_PolicyRules.Name: a 184-char name is stored on 2026.4.0, a 212-char one fails with SQL error 2628 (the message shows 100 chars of the value)
 
 
 def validate_suffix(suffix):
@@ -396,16 +403,18 @@ def close_logging():
     _LOG_STATE.update(path=None, handler=None, stream=None)
 
 
-def setup_logging(path=None, level="info"):
+def setup_logging(path=None, level="info", body_limit=None):
     """Open the run log once per run and return its absolute path.
 
     An explicit ``path`` that cannot be opened is an error. When the default
     location cannot be created, the log falls back to the temp directory rather
-    than stopping the run.
+    than stopping the run. ``body_limit`` (--log-body-limit, 2.1.0) caps the
+    debug-level request, response and error bodies; 0 writes them whole.
     """
     close_logging()
     if level not in LOG_LEVELS:
         raise ValueError(f"unknown log level {level!r}; use debug, info or warn")
+    _LOG_STATE["body_limit"] = LOG_BODY_LIMIT if body_limit is None else max(0, int(body_limit))
     candidates = [path] if path else [
         default_log_path(),
         os.path.join(tempfile.gettempdir(), "disa-stig-tool", "logs",
@@ -463,9 +472,11 @@ def _say(log, component, message, level="info"):
     log_event(component, message, level)
 
 
-def truncate_body(text, limit=LOG_BODY_LIMIT):
+def truncate_body(text, limit=None):
     text = str(text)
-    if len(text) <= limit:
+    if limit is None:
+        limit = _LOG_STATE.get("body_limit", LOG_BODY_LIMIT)
+    if limit == 0 or len(text) <= limit:
         return text
     return text[:limit] + f"... [truncated, {len(text)} chars]"
 
@@ -567,6 +578,11 @@ class SwisClient:
             return json.loads(payload) if payload.strip() else None
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")
+            if log_debug_enabled():
+                # The whole fault document (ExceptionDetail, StackTrace, inner
+                # faults), not only its Message, which is all the error line keeps.
+                log_event("swis", f"error body HTTP {exc.code} {path}: "
+                                  + truncate_body(detail), "debug")
             try:
                 detail = json.loads(detail).get("Message", detail)
             except (ValueError, AttributeError):
@@ -979,22 +995,124 @@ def load_scm_policy(path, log=None):
     return text
 
 
-def import_scm_policy(swis, text, log=None):
-    """Import one SCM policy via Orion.PolicyEngine.Policy.ImportPolicy.
+SCM_ZIP_MEMBER_SUFFIXES = (".yaml", ".yml")
 
-    Returns (policy_id, name). Refuses to import when a policy with the same
-    name **or the same uniqueId** already exists — this tool never overwrites or
-    duplicates, and SolarWinds rejects both collisions server side. Checking the
-    uniqueId matters here because the tool derives it deterministically from the
-    benchmark, so re-importing a STIG under a new --name still collides, and the
-    server-side rejection is far less legible than this one.
 
-    The import is verified by reading the rules back: ImportPolicy returning an
-    id is not by itself evidence that the rules landed.
+def read_scm_policy_zip(path, log=None):
+    """The SCM compliance policies inside a zip of policy YAML (2.1.0).
+
+    SolarWinds delivers policy packs this way: one ``.yaml`` per policy, no XCCDF.
+    Returns a list of ``{"label", "member", "text", "raw"}`` (the member's base name,
+    its full name in the archive, the decoded text ImportPolicy takes verbatim, and
+    the original bytes), or ``None`` when the zip has no ``.yaml``/``.yml`` member at
+    all, in which case it is a STIG package for load_benchmarks. A zip that mixes
+    policy YAML with ``.xml`` or nested ``.zip`` members is refused: one input is one
+    module. A YAML member that is not a policy (a JSON collection profile, or any
+    other YAML) is skipped with a warning, and the whole input is refused when no
+    member is a policy. The size limits are the STIG reader's (ZIP_MEMBER_MAX,
+    ZIP_TOTAL_MAX); nested zips are not opened.
     """
-    info = scan_scm_policy(text)
-    log_event("scm", f"SCM policy \"{info['name']}\" uniqueId {info['uniqueId'] or '(none)'}, "
-                     f"{len(info['rules'])} rule(s); checking for a name/uniqueId collision")
+    with zipfile.ZipFile(path) as zf:
+        infos = [i for i in sorted(zf.infolist(), key=lambda i: i.filename)
+                 if not i.is_dir()]
+        members = [i for i in infos if i.filename.lower().endswith(SCM_ZIP_MEMBER_SUFFIXES)]
+        if not members:
+            return None
+        others = [i.filename for i in infos if i.filename.lower().endswith((".xml", ".zip"))]
+        if others:
+            reason = (f"{path}: mixes SCM policy YAML with XCCDF or nested zip members "
+                      f"({', '.join(others[:3])}{', …' if len(others) > 3 else ''}); one input "
+                      "is one module, so split it into a policy zip and a STIG package")
+            log_event("parse", reason, "warn")
+            raise ValueError(reason)
+        log_event("parse", f"input {path}: zip of SCM policy YAML ({len(members)} "
+                           f".yaml/.yml member(s), {os.path.getsize(path)} bytes)")
+        out, budget = [], 0
+        for info in members:
+            label = info.filename
+            if info.file_size > ZIP_MEMBER_MAX:
+                _skip_member(label, f"refused: {info.file_size} bytes uncompressed is over the "
+                                    f"{ZIP_MEMBER_MAX}-byte member limit")
+                continue
+            if budget + info.file_size > ZIP_TOTAL_MAX:
+                reason = (f"refused: reading {label} would take the input past the "
+                          f"{ZIP_TOTAL_MAX}-byte total limit for zip members")
+                log_event("parse", reason, "warn")
+                raise ValueError(reason)
+            try:
+                raw = zf.read(info)
+            except (zipfile.BadZipFile, zlib.error, OSError, EOFError,
+                    NotImplementedError) as exc:
+                _skip_member(label, f"the member cannot be read ({exc})")
+                continue
+            budget += len(raw)
+            try:
+                text = decode_text_bytes(raw)
+            except UnicodeDecodeError as exc:
+                _skip_member(label, f"not UTF-8 or UTF-16 text ({exc.reason})")
+                continue
+            kind = classify_scm_text(text)
+            if kind == "profile":
+                _skip_member(label, "a JSON SCM collection profile, not a compliance policy")
+                continue
+            if kind != "policy":
+                _skip_member(label, "not a tagged-YAML SCM compliance policy")
+                continue
+            log_event("scm", f"read SCM policy member {label} ({len(raw)} bytes)")
+            out.append({"label": os.path.basename(info.filename), "member": info.filename,
+                        "text": text, "raw": raw})
+        if not out:
+            reason = (f"{path}: none of its {len(members)} .yaml/.yml member(s) is an SCM "
+                      "compliance policy (expected YAML documents tagged !policy with "
+                      "pluginName: SCM)")
+            log_event("parse", reason, "warn")
+            raise ValueError(reason)
+        for it in out:
+            info = scan_scm_policy(it["text"])
+            _say(log, "scm", f"{it['member']}: SCM policy \"{info['name']}\" — "
+                             f"{len(info['rules'])} rule(s)")
+        return out
+
+
+def scm_inputs(path, log=None):
+    """Every ready-made SCM policy an input carries, or ``None`` when the input is
+    XCCDF: a ``.yaml``/``.yml`` (or legacy ``.scm-profile``) file is one policy, a zip
+    of policy YAML is one per member (read_scm_policy_zip). Each item has the keys
+    read_scm_policy_zip documents; a single file's ``member`` and ``raw`` are None."""
+    if is_scm_path(path):
+        return [{"label": os.path.basename(path), "member": None,
+                 "text": load_scm_policy(path, log=log), "raw": None}]
+    if os.path.isfile(path) and zipfile.is_zipfile(path):
+        return read_scm_policy_zip(path, log=log)
+    return None
+
+
+def write_scm_policy_members(items, folder, log=print):
+    """Offline conversion of a policy zip: write every policy member into ``folder``
+    byte for byte (the file is already the import payload, so nothing is re-encoded),
+    under a sanitized copy of its own name. Returns the paths written."""
+    written = []
+    for it in items:
+        stem, ext = os.path.splitext(it["label"])
+        out = os.path.join(folder, safe_file_name(stem, ext.lower() or ".yaml"))
+        with open(out, "wb") as fh:
+            fh.write(it["raw"])
+        _bump("files_written")
+        log_event("file", f"wrote {os.path.abspath(out)} ({len(it['raw'])} bytes, "
+                          f"member {it['member']} unchanged)")
+        info = scan_scm_policy(it["text"])
+        _say(log, "file", f"wrote {out}: SCM policy \"{info['name']}\" — "
+                          f"{len(info['rules'])} rules (bytes unchanged)")
+        written.append(out)
+    return written
+
+
+def scm_policy_collision(swis, info):
+    """The refusal message when a policy with ``info``'s name **or** uniqueId already
+    exists on the server, else None. SolarWinds rejects both collisions server side;
+    this tool never overwrites or duplicates, and its own message is the legible one.
+    Checking the uniqueId matters because converted STIGs derive it deterministically,
+    so a re-import under a new name still collides."""
     clauses, params = [], {}
     if info["name"]:
         clauses.append("Name = @n")
@@ -1002,23 +1120,88 @@ def import_scm_policy(swis, text, log=None):
     if info["uniqueId"]:
         clauses.append("UniqueId = @u")
         params["u"] = info["uniqueId"]
-    if clauses:
-        existing = swis.query(
-            "SELECT PolicyID, Name, UniqueId, BuiltIn FROM Orion.PolicyEngine.Policy "
-            "WHERE " + " OR ".join(clauses), params)
-        if existing:
-            hit = existing[0]
-            why = ("the same name" if (hit.get("Name") or "") == info["name"]
-                   else "the same uniqueId")
-            msg = (f"a policy with {why} already exists: \"{hit.get('Name')}\" "
-                   f"(PolicyID {hit.get('PolicyID')}, UniqueId {hit.get('UniqueId')}); "
-                   "refusing to duplicate. SolarWinds rejects an import that matches "
-                   "either field.")
-            base, n = strip_suffix(info["name"])
-            if n is not None:
-                msg += " " + suffix_advice(swis, [("Orion.PolicyEngine.Policy", base)], f"_v{n}")
-            log_event("scm", msg, "error")
-            raise SwisError(msg)
+    if not clauses:
+        return None
+    existing = swis.query(
+        "SELECT PolicyID, Name, UniqueId, BuiltIn FROM Orion.PolicyEngine.Policy "
+        "WHERE " + " OR ".join(clauses), params)
+    if not existing:
+        return None
+    hit = existing[0]
+    why = ("the same name" if (hit.get("Name") or "") == info["name"]
+           else "the same uniqueId")
+    msg = (f"a policy with {why} already exists: \"{hit.get('Name')}\" "
+           f"(PolicyID {hit.get('PolicyID')}, UniqueId {hit.get('UniqueId')}"
+           + (", built in" if hit.get("BuiltIn") else "") + "); "
+           "refusing to duplicate. SolarWinds rejects an import that matches "
+           "either field.")
+    base, n = strip_suffix(info["name"])
+    if n is not None:
+        msg += " " + suffix_advice(swis, [("Orion.PolicyEngine.Policy", base)], f"_v{n}")
+    return msg
+
+
+def import_scm_policy_items(swis, items, log=print, done=None):
+    """Import ready-made SCM policies (scm_inputs) one by one.
+
+    Every member's name and uniqueId are checked before the first ImportPolicy call,
+    so a policy pack that collides with what is already on the server is refused
+    whole, nothing half-imported. ImportPolicy itself has no transaction and this tool
+    does not delete SCM policies, so a failure after that point stops the run and the
+    message names the policies already created; ``done(policy_id, name, item)`` is
+    called after each verified import. Returns [(policy_id, name)].
+    """
+    if len(items) > 1:
+        log_event("scm", f"collision check for {len(items)} policies before the first import")
+        for it in items:
+            msg = scm_policy_collision(swis, scan_scm_policy(it["text"]))
+            if msg:
+                msg = f"{it['label']}: {msg} Nothing was imported."
+                log_event("scm", msg, "error")
+                raise SwisError(msg)
+        _say(log, "scm", f"collision check: none of the {len(items)} policies exists yet")
+    imported = []
+    entries = []
+    for it in items:
+        try:
+            policy_id, name = import_scm_policy(swis, it["text"], log=log)
+        except SwisError as exc:
+            if imported:
+                names = "; ".join(f"\"{n}\" (PolicyID {p})" for p, n in imported)
+                msg = (f"stopping at {it['label']}: {exc} {len(imported)} of {len(items)} "
+                       f"policies were imported before it and stay on the server: {names}. "
+                       "Fix the cause and import the remaining files one at a time.")
+                log_event("scm", msg, "error")
+                raise SwisError(msg) from exc
+            raise
+        imported.append((policy_id, name))
+        n_rules = len(scan_scm_policy(it["text"])["rules"])
+        entries.append((name, policy_id, n_rules))
+        _say(log, "scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id}) — {n_rules} "
+                         "rules defined" + (f" from {it['member']}" if it["member"] else ""))
+        if done:
+            done(policy_id, name, it)
+    for line in scm_import_summary(entries):
+        _say(log, "scm", line)
+    return imported
+
+
+def import_scm_policy(swis, text, log=None):
+    """Import one SCM policy via Orion.PolicyEngine.Policy.ImportPolicy.
+
+    Returns (policy_id, name). Refuses to import when a policy with the same
+    name **or the same uniqueId** already exists (scm_policy_collision).
+
+    The import is verified by reading the rules back: ImportPolicy returning an
+    id is not by itself evidence that the rules landed.
+    """
+    info = scan_scm_policy(text)
+    log_event("scm", f"SCM policy \"{info['name']}\" uniqueId {info['uniqueId'] or '(none)'}, "
+                     f"{len(info['rules'])} rule(s); checking for a name/uniqueId collision")
+    msg = scm_policy_collision(swis, info)
+    if msg:
+        log_event("scm", msg, "error")
+        raise SwisError(msg)
     policy_id = swis.invoke("Orion.PolicyEngine.Policy", "ImportPolicy", text)
     if policy_id is None:
         log_event("scm", "ImportPolicy returned no PolicyID; the policy was not created", "error")
@@ -1595,6 +1778,226 @@ def _hx_referent(sentence, cond, candidates):
     return None, None
 
 
+# ---------------------------------------------------------------------------
+# --mode blocks (2.1.0): the configuration example blocks a STIG check text shows
+# become an NCM Advanced Config Search, one "must contain" block each, AND-joined,
+# alerting when a block is not found. This is the layout an operator builds by hand
+# in the console from the same text. The values in the blocks are the STIG's examples
+# (x.x.x.x, 2001::1:0:22/64, FILTER_IPV6), so every rule is a draft to be reviewed.
+# ---------------------------------------------------------------------------
+
+# A line of prose, not of configuration, contains one of these (lower case).
+_CFG_PROSE_MARKERS = ("this is a finding", " must ", " should ", "verify", "review", "ensure",
+                      "determine", "configure", "for example", "example below", "as shown",
+                      "note:", "step ", "if the ", "if a ", "if an ", "if any", "if it ",
+                      "if there", "the following", "such as")
+_CFG_ELLIPSIS = re.compile(r"^\s*(?:…|\.\.\.|\.\s*\.\s*\.)\s*$")
+_CFG_TRAILING_ELLIPSIS = re.compile(r"\s*(?:…|\.\.\.)\s*$")
+_CFG_FIRST_TOKEN = re.compile(r"^\s*(!|[A-Za-z][A-Za-z0-9-]*)")
+# First tokens of configuration lines a STIG check shows (IOS, IOS-XE, NX-OS, ASA, and the
+# common ground of other CLIs); a lower-case first token is accepted without this list.
+_CFG_KEYWORDS = frozenset("""
+interface ip ipv6 no router line access-list deny permit service logging ntp snmp-server aaa
+username hostname banner crypto class-map policy-map class match set priority bandwidth
+police control-plane mpls neighbor network vlan spanning-tree switchport shutdown description
+login exec-timeout transport enable archive boot clock key address-family route-map
+prefix-list vrf tacacs tacacs-server radius radius-server cns call-home version mls
+storm-control errdisable cdp lldp vtp dot1x tunnel zone object nat http ssh domain host
+name-server standby vrrp bgp ospf eigrp isis rip queue shape random-detect management system
+security password encapsulation lacp channel-group port-channel mac arp dhcp auto exec
+privilege parser file memory process platform redundancy license ethernet fastethernet
+gigabitethernet tengigabitethernet loopback end exit ! dns ftp tftp scp sftp telnet
+object-group route static monitor flow sampler ipv4 pim igmp mld multicast cef mtu speed
+duplex negotiation auto-cost area passive-interface distribute-list timers authentication
+accounting authorization session-limit access-class ntp-server source destination permit-all
+""".split())
+
+
+def _config_line(line):
+    """The line as a config example line (indentation kept), or None for prose."""
+    if not line.strip() or _CFG_ELLIPSIS.match(line):
+        return None
+    text = _CFG_TRAILING_ELLIPSIS.sub("", line.rstrip())
+    stripped = text.strip()
+    lower = stripped.lower()
+    if stripped.endswith((".", ":", "?")) or any(m in lower for m in _CFG_PROSE_MARKERS):
+        return None
+    m = _CFG_FIRST_TOKEN.match(text)
+    if not m:
+        return None
+    first = m.group(1)
+    known = first.lower() in _CFG_KEYWORDS
+    if not known and not (first.islower() and len(stripped.split()) <= 10):
+        return None
+    if first.lower() in ("end", "exit", "!") and len(stripped.split()) == 1:
+        return None
+    return text
+
+
+def extract_config_blocks(check_content, limit=10):
+    """The configuration example blocks in a check text: runs of consecutive config
+    lines, broken by a blank line or by prose; identical blocks once; at most
+    ``limit``. Each block is a list of lines with their indentation."""
+    blocks, current, seen = [], [], set()
+
+    def flush():
+        if current:
+            key = "\n".join(line.strip() for line in current)
+            if key not in seen:
+                seen.add(key)
+                blocks.append(list(current))
+            current.clear()
+
+    for raw in (check_content or "").replace("\r\n", "\n").split("\n"):
+        line = _config_line(raw)
+        if line is None:
+            flush()
+        else:
+            current.append(line)
+    flush()
+    return blocks[:limit]
+
+
+def blocks_draft(check_content):
+    """{"patterns": [MultiLineRulePattern dicts], "blocks": n} for --mode blocks: one
+    pattern per example block (Like, must contain, AND-joined); empty when the check
+    text shows no configuration lines."""
+    patterns = []
+    for i, block in enumerate(extract_config_blocks(check_content)):
+        patterns.append(multi_line_pattern("\n".join(block), "Like", True, "AND" if i else ""))
+    return {"patterns": patterns, "blocks": len(patterns)}
+
+
+def multi_line_pattern(pattern, pattern_type="Like", must_contain=True, condition=""):
+    """One MultiLineRulePattern in the console's member order (the server fills RuleId,
+    PatternId and FoundMatch itself)."""
+    return {"EndBracket": "", "PatternType": pattern_type, "Condition": condition,
+            "Pattern": pattern, "Criteria": bool(must_contain), "BeginBracket": "",
+            "IsRegEx": pattern_type == "Regex"}
+
+
+# Pattern drafts (2.1.0): a JSON file that supplies the pattern for named rules, written
+# by a reviewer or by an automated task that reads the check text, and read back by
+# --pattern-drafts. --write-pattern-drafts writes what a run produced, with each rule's
+# check text, as the starting point for that review.
+PATTERN_DRAFTS_SCHEMA = "disa-stig-tool/pattern-drafts/1"
+
+
+def load_pattern_drafts(path):
+    """{rule id: draft} from a pattern-drafts JSON file, validated: a draft is either
+    ``{"advanced": true, "patterns": [{"pattern", "type", "must_contain", "condition"}]}``
+    or ``{"pattern": "...", "type": "Like"|"Regex"}``, both with an optional
+    ``must_exist`` (true: alert when not found) and ``note``. None when ``path`` is None."""
+    if not path:
+        return None
+    with open(path, encoding="utf-8-sig") as fh:
+        doc = json.load(fh)
+    if not isinstance(doc, dict) or not isinstance(doc.get("rules"), dict):
+        raise ValueError(f"{path}: not a pattern-drafts file (an object with a \"rules\" object)")
+    if doc.get("schema") not in (None, PATTERN_DRAFTS_SCHEMA):
+        raise ValueError(f"{path}: schema {doc.get('schema')!r} is not {PATTERN_DRAFTS_SCHEMA}")
+    drafts = {}
+    for rid, draft in doc["rules"].items():
+        if not isinstance(draft, dict):
+            raise ValueError(f"{path}: rule {rid}: the draft must be an object")
+        if draft.get("skip"):
+            continue
+        entry = {"must_exist": bool(draft.get("must_exist", True)),
+                 "note": str(draft.get("note") or "")}
+        if draft.get("advanced") or draft.get("patterns"):
+            pats = draft.get("patterns")
+            if not isinstance(pats, list) or not pats:
+                raise ValueError(f"{path}: rule {rid}: \"patterns\" must be a non-empty list")
+            entry["patterns"] = []
+            for i, p in enumerate(pats):
+                if not isinstance(p, dict) or not str(p.get("pattern") or "").strip():
+                    raise ValueError(f"{path}: rule {rid}: pattern {i + 1} needs a \"pattern\"")
+                ptype = str(p.get("type") or "Like")
+                cond = str(p.get("condition") or ("AND" if i else "")).upper()
+                if ptype not in ("Like", "Regex") or cond not in ("", "AND", "OR"):
+                    raise ValueError(f"{path}: rule {rid}: pattern {i + 1}: type must be Like or "
+                                     "Regex and condition AND, OR or empty")
+                entry["patterns"].append(multi_line_pattern(
+                    str(p["pattern"]), ptype, bool(p.get("must_contain", True)),
+                    "" if i == 0 else cond))
+        else:
+            pattern = str(draft.get("pattern") or "").strip()
+            ptype = str(draft.get("type") or "Like")
+            if not pattern or ptype not in ("Like", "Regex"):
+                raise ValueError(f"{path}: rule {rid}: needs a \"pattern\" (type Like or Regex) "
+                                 "or \"patterns\"")
+            entry["pattern"], entry["type"] = pattern, ptype
+        drafts[str(rid)] = entry
+    log_event("build", f"pattern drafts: {len(drafts)} rule(s) from {path}")
+    return drafts
+
+
+def rule_draft_origin(rule_obj, drafts):
+    """Where a built rule's pattern came from: drafts, blocks, heuristic or sentinel."""
+    if drafts and (rule_obj.get("_vuln_id") in drafts or rule_obj.get("_display_id") in drafts):
+        return "drafts"
+    if rule_obj.get("AdvancedMode"):
+        return "blocks"
+    if str(rule_obj.get("SimplePatternText") or "").startswith("STIG-MANUAL-REVIEW-"):
+        return "sentinel"
+    return "heuristic"
+
+
+def pattern_drafts_document(benchmarks, reports, drafts=None):
+    """The pattern-drafts document for what a run built: every rule with its id, title,
+    check text, where its pattern came from and the pattern itself, ready to be edited
+    (by a person or an automated task) and fed back with --pattern-drafts."""
+    rules_out = {}
+    source = {}
+    for b in benchmarks:
+        for r in b["rules"]:
+            source[r["vuln_id"]] = r
+    for rep in reports:
+        for pol in rep["AssignedPolicies"]:
+            for ro in pol["AssignedPolicyRules"]:
+                src = source.get(ro.get("_vuln_id"), {})
+                key = ro.get("_display_id") or ro.get("_vuln_id")
+                entry = {
+                    "title": src.get("title", ""),
+                    "stig_id": src.get("stig_id", ""),
+                    "check_content": src.get("check_content", ""),
+                    "fix_text": src.get("fix_text", ""),
+                    "origin": rule_draft_origin(ro, drafts),
+                    "must_exist": bool(ro.get("PatternMustExist", True)),
+                    "advanced": bool(ro.get("AdvancedMode")),
+                }
+                if ro.get("AdvancedMode"):
+                    entry["patterns"] = [
+                        {"pattern": p["Pattern"], "type": p["PatternType"],
+                         "must_contain": bool(p["Criteria"]), "condition": p["Condition"]}
+                        for p in ro.get("MultiLineRulePatterns") or []]
+                else:
+                    entry["pattern"] = ro.get("SimplePatternText", "")
+                    entry["type"] = ro.get("PatternType", "Like")
+                rules_out[key] = entry
+    return {"schema": PATTERN_DRAFTS_SCHEMA,
+            "about": "Edit a rule's pattern or patterns (and must_exist), set \"skip\": true "
+                     "to leave a rule to the run's own mode, and pass the file back with "
+                     "--pattern-drafts. Values in the patterns are the STIG's examples until "
+                     "reviewed.",
+            "rules": rules_out}
+
+
+def write_pattern_drafts(path, benchmarks, reports, drafts=None, log=print):
+    doc = pattern_drafts_document(benchmarks, reports, drafts)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(doc, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    _bump("files_written")
+    counts = {}
+    for entry in doc["rules"].values():
+        counts[entry["origin"]] = counts.get(entry["origin"], 0) + 1
+    _say(log, "file", f"wrote {os.path.abspath(path)}: pattern drafts for {len(doc['rules'])} "
+                      "rule(s) (" + ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
+                      + "); edit and pass back with --pattern-drafts")
+    return path
+
+
 def heuristic_draft(check_content):
     """A draft (pattern, polarity) for --mode heuristic, or the reason there is none.
 
@@ -1641,6 +2044,37 @@ def ncm_rule_id(rule, suffix=DEFAULT_SUFFIX):
     return str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm:" + rule["rule_id"] + suffix))
 
 
+# NCM_Policies.Name: the longest policy name SolarWinds ships is 64 characters and the
+# column's width is not published, so a generated name longer than this is shortened to
+# "<title> V<version> R<release>" before the suffix (2.1.0). Names that fit are unchanged.
+POLICY_NAME_LIMIT = 100
+
+
+def ncm_safe_name(text):
+    """A name NCM accepts: its AddPolicyRule validator refused a rule whose name held a
+    comma ("Policy name contains comma character", 2026.4.0, 2026-10-15), and none of
+    the 3,126 rule, policy and report names on that server holds one. Every comma
+    becomes " -", the hyphen being the punctuation NCM's own names use most; runs of
+    spaces are collapsed. The exact title stays in the rule Comments."""
+    cleaned = re.sub(r"\s*,", " -", str(text or ""))
+    return re.sub(r" {2,}", " ", cleaned).strip()
+
+
+def ncm_policy_name(benchmark, suffix=DEFAULT_SUFFIX):
+    """The NCM policy name: ``<title> V<version> (<release>)`` plus the suffix, or when
+    that exceeds POLICY_NAME_LIMIT, ``<title> V<version> R<n>`` with the release number
+    DISA's "Release: n Benchmark Date: ..." carries (the full release stays in the
+    policy Comments), cut to the limit with the suffix preserved."""
+    title = ncm_safe_name(benchmark["title"])
+    full = with_suffix(f"{title} V{benchmark['version']} ({ncm_safe_name(benchmark['release'])})",
+                       suffix)
+    if len(full) <= POLICY_NAME_LIMIT:
+        return full
+    m = re.search(r"Release:\s*(\d+)", benchmark.get("release") or "")
+    short = f"{title} V{benchmark['version']}" + (f" R{m.group(1)}" if m else "")
+    return with_suffix(short, suffix, limit=POLICY_NAME_LIMIT)
+
+
 def ncm_policy_id(benchmark, suffix=DEFAULT_SUFFIX):
     return str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-policy:"
                           + (benchmark["benchmark_id"] or benchmark["title"]) + suffix))
@@ -1668,21 +2102,67 @@ def rule_sections(rule):
     return [(label, body) for label, body in sections]
 
 
-def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
+def remediation_text(rule):
+    """The rule's Remediation field: the STIG's Fix Text as prose under a "Fix Text:"
+    heading with the CCIs last, the layout of a working console-made STIG report. The
+    check text belongs to the rule's pattern (blocks mode) and Comments. Empty when
+    the rule has no Fix Text."""
+    parts = []
+    if rule.get("fix_text"):
+        parts.append("Fix Text:\n" + rule["fix_text"].strip())
+    if parts and rule.get("ccis"):
+        parts.append("CCI: " + ", ".join(rule["ccis"]))
+    return "\n\n".join(parts)
+
+
+def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX, drafts=None):
     """One XCCDF rule → one Cirrus.PolicyReports rule contract object.
 
     Field names follow the SolarWinds.NCM.Contracts.Compliance.PolicyRule contract
-    (docs/modules/ncm-compliance-reports.md), not the SWQL column names.
+    (docs/modules/ncm-compliance-reports.md), not the SWQL column names. ``mode`` is
+    manual (sentinel), heuristic (one drafted line) or blocks (the check text's config
+    example blocks as an Advanced Config Search); a ``drafts`` entry for the rule
+    (load_pattern_drafts) wins over the mode.
     """
     sentinel = f"STIG-MANUAL-REVIEW-{rule['vuln_id']}"
     display = rule.get("display_id") or rule["vuln_id"]
     pattern_type = "Like"
     must_exist = True
+    multi = []
     pattern, note = sentinel, (
         "PATTERN NOT SET: this sentinel never matches, so the rule flags every node "
         "as a violation until you replace it with a real pattern for this check."
     )
-    if mode == "heuristic":
+    draft_entry = None
+    if drafts:
+        draft_entry = drafts.get(display) or drafts.get(rule["vuln_id"])
+    if draft_entry:
+        must_exist = draft_entry["must_exist"]
+        if draft_entry.get("patterns"):
+            multi = [dict(p) for p in draft_entry["patterns"]]
+            pattern = ""
+        else:
+            pattern, pattern_type = draft_entry["pattern"], draft_entry["type"]
+        note = ("PATTERN FROM DRAFTS FILE: " + (draft_entry["note"] or "supplied for this rule "
+                "by a reviewer or an automated task; verify it before trusting this rule's "
+                "results."))
+        log_event("build", f"{display}: pattern from the drafts file "
+                           f"({len(multi) or 1} pattern(s), must exist {must_exist})", "debug")
+    elif mode == "blocks":
+        draft = blocks_draft(rule["check_content"])
+        if draft["patterns"]:
+            multi = draft["patterns"]
+            pattern = ""
+            note = (f"DRAFT BLOCKS: {draft['blocks']} configuration example block(s) from the "
+                    "STIG check text, as an Advanced Config Search (every block must be found, "
+                    "AND). The values are the STIG's examples (addresses, names, numbers): "
+                    "replace them with yours and verify before trusting this rule's results.")
+            log_event("build", f"{display} blocks: {draft['blocks']} example block(s) extracted",
+                      "debug")
+        else:
+            note += " Blocks mode kept the sentinel: the check text shows no configuration lines."
+            log_event("build", f"{display} blocks: sentinel kept (no configuration lines)", "debug")
+    elif mode == "heuristic":
         draft = heuristic_draft(rule["check_content"])
         found = draft["pattern"]
         if not found:
@@ -1728,22 +2208,29 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
         ("Machine check (SCAP edition): OVAL definition " + rule["oval_ref"]
          + " — no manual check text in this edition; the manual STIG for this "
            "product carries the prose.") if rule.get("oval_ref") and not rule["check_content"] else "",
-        # The Fix Text is guidance for an engineer, not a script (2.0.0): it lives here,
-        # and RemediateScript stays empty until reviewed commands are written into it.
-        "Fix:\n" + rule["fix_text"] if rule["fix_text"] else "",
     ) if part)
+    # The Check Content and the Fix Text also go into the rule's Remediation field, in
+    # the layout a working console-made STIG report uses ("Check Content:" and
+    # "Fix Text:" headings, the CCIs last) (2.1.0, at the operator's request). It is
+    # prose, not a script: ExecuteScriptAutomatically stays false, so nothing runs
+    # unless an operator executes the remediation by hand, and the README says so.
+    remediation = remediation_text(rule)
 
-    name = f"{display} [{rule['severity']}] {rule['title']}"
+    name = ncm_safe_name(f"{display} [{rule['severity']}] {rule['title']}")
     return {
         "RuleId": ncm_rule_id(rule, suffix),
-        "RuleName": name[:250],
+        # NCM_PolicyRules.Name is nvarchar(100): a 2026.4.0 server refused a longer
+        # name with SQL error 2628 ("String or binary data would be truncated ...
+        # column 'Name'", NcmBusinessLayerPlugin.log, 2026-10-15), both through the
+        # API and through the console import. The full title stays in Comments.
+        "RuleName": name[:RULE_NAME_LIMIT],
         "Comments": comments,
         "Grouping": grouping,
         "SimplePatternText": pattern,
         "PatternType": pattern_type,
         "PatternMustExist": must_exist,
-        "AdvancedMode": False,
-        "MultiLineRulePatterns": [],
+        "AdvancedMode": bool(multi),
+        "MultiLineRulePatterns": multi,
         "ConfigBlockStart": "",
         "ConfigBlockEnd": "",
         "ConfigBlockPatternType": "Like",
@@ -1756,12 +2243,16 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
         # audited console exports carry it on every rule; RemediateScriptType stays
         # CLI, the value all 415 rules of that corpus carry, including the one whose
         # script is empty. Nothing is ever auto-executed either way.
-        "RemediateScript": "",
+        "RemediateScript": remediation,
         "RemediateScriptType": "CLI",
         "ExecuteScriptAutomatically": False,
         "ExecuteRemediationScriptPerBlock": False,
         "ExecuteScriptInConfigMode": False,
         "Owner": "DISA STIG Conversion Tool",
+        # Bookkeeping for the pattern-drafts file, not contract members: dropped by the
+        # console writer and by the server's shape, ignored by the XML writers.
+        "_vuln_id": rule["vuln_id"],
+        "_display_id": display,
     }
 
 
@@ -1840,9 +2331,37 @@ def make_node_selection_string(node_where):
     return f"WebCriteria:{criteria}SQL:Where {where} "
 
 
+def make_node_selection_criterias(node_where):
+    """The typed twin of make_node_selection_string: the contract's
+    ``NodeSelectionCriterias`` (``SolarWinds.NCM.Contracts.InformationService.SelectionCriterias``)
+    as the 2026.4.0 server returns it from GetPolicy (member ``SelectionCriterias``):
+    ``CriteriaType`` 2 is the web picker, ``WebSelectionCriterias`` holds the same
+    Vendor criterion as the XML in the string form, with the same Id. Sent since 2.1.0
+    because AddPolicy with this member null failed on that server behind an opaque
+    NcmFaultContract. None when the scope names no vendor (the string form then has an
+    empty picker document too)."""
+    where = re.sub(r"\bNodes\.", "", node_where or "").strip()
+    vendor = picker_vendor(where if where.lower().startswith("(") else f"({where})")
+    if not vendor:
+        return None
+    return {
+        "DesktopSelectionCriteriasDbString": None,
+        "WebSelectionCriterias": [{
+            "Id": str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-criteria:" + vendor)),
+            "LogicalCondition": "",
+            "SelectedColumn": "Vendor",
+            "MatchType": "=",
+            "SelectedValue": vendor,
+        }],
+        "AssignedNodesList": [],
+        "AssignedNodesDesktopSQL": None,
+        "CriteriaType": 2,
+    }
+
+
 def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vendor = 'Cisco')",
                   config_type="Any", mode="manual", source_path=None, enabled=True,
-                  suffix=DEFAULT_SUFFIX):
+                  suffix=DEFAULT_SUFFIX, drafts=None):
     """Assemble one PolicyReport contract object per benchmark.
 
     ``suffix`` (validated, _v1 by default) ends every report and policy name and is
@@ -1860,14 +2379,15 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
     reports = []
     for b in benchmarks:
         policy_group = f"{grouping}/{b['benchmark_id']}" if b["benchmark_id"] else grouping
-        rules = [rule_object(r, policy_group, mode, suffix) for r in b["rules"]]
+        rules = [rule_object(r, policy_group, mode, suffix, drafts) for r in b["rules"]]
         policy = {
             "PolicyId": ncm_policy_id(b, suffix),
-            "PolicyName": with_suffix(f"{b['title']} V{b['version']} ({b['release']})", suffix),
+            "PolicyName": ncm_policy_name(b, suffix),
             "Comments": f"Imported by the DISA STIG Conversion Tool from {b['source']} (benchmark {b['benchmark_id']}, "
                         f"status date {b['status_date']}).",
             "Grouping": grouping,
             "NodeSelectionString": make_node_selection_string(node_where),
+            "NodeSelectionCriterias": make_node_selection_criterias(node_where),
             "ConfigTypes": config_type,
             "AssignedPolicyRules": rules,
             "AssignedRulesList": [r["RuleId"] for r in rules],
@@ -1876,7 +2396,7 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
         report_name = f"{base} - {b['benchmark_id']}" if name and b["benchmark_id"] else base
         reports.append({
             "ID": str(uuid.uuid4()),  # advisory only — the server assigns its own GUID
-            "Name": with_suffix(report_name, suffix),
+            "Name": with_suffix(ncm_safe_name(report_name), suffix),
             "Comments": f"DISA STIG imported by the DISA STIG Conversion Tool from "
                         f"{b['source']} ({b['release']}).",
             "Group": grouping,
@@ -1901,8 +2421,15 @@ def log_build_counts(report_name, source_rules, rules, mode):
     """Info-level counts for one report: where the Fix Text went and, in heuristic
     mode, how many rules got a draft pattern of each polarity."""
     with_fix = sum(1 for r in source_rules if r["fix_text"])
-    log_event("build", f"report \"{report_name}\": Fix Text of {with_fix} rule(s) kept in the "
-                       "rule Comments under \"Fix:\"; RemediateScript is left empty")
+    log_event("build", f"report \"{report_name}\": Fix Text of {with_fix} rule(s) placed in the "
+                       "rule's Remediation field as prose (\"Fix Text:\", CCIs last); "
+                       "ExecuteScriptAutomatically false")
+    advanced = [r for r in rules if r.get("AdvancedMode")]
+    if advanced:
+        log_event("build", f"report \"{report_name}\": {len(advanced)} of {len(rules)} rule(s) "
+                           "carry an Advanced Config Search ("
+                           f"{sum(len(r['MultiLineRulePatterns']) for r in advanced)} pattern "
+                           "block(s) in all); the rest keep the sentinel")
     if mode != "heuristic":
         return
     drafted = [r for r in rules if not r["SimplePatternText"].startswith("STIG-MANUAL-REVIEW-")]
@@ -1967,10 +2494,28 @@ def _sub(parent, name, text):
     return el
 
 
+# Every real console export seen so far (2026.2.2 and the 2026.4 file Development
+# confirmed importable) gives a simple-mode rule one MultiLineRulePattern with an
+# empty Regex pattern; none carries an empty <MultiLineRulePatterns /> list. The console
+# file matches that (2.1.0). The API contract payloads (JSON, DataContract XML) are
+# unchanged: there the list stays empty, as documented in the README contract table.
+SIMPLE_MODE_PLACEHOLDER_PATTERN = {"PatternType": "Regex", "Pattern": "", "Criteria": True,
+                                   "Condition": "", "BeginBracket": "", "EndBracket": ""}
+
+
+def console_rule_patterns(rule):
+    """The MultiLineRulePattern entries a console file carries for ``rule``: its own,
+    or the simple-mode placeholder when it has none and is not in advanced mode."""
+    own = rule.get("MultiLineRulePatterns") or []
+    if own or rule.get("AdvancedMode"):
+        return own
+    return [SIMPLE_MODE_PLACEHOLDER_PATTERN]
+
+
 def _rule_xml_into(parent, rule):
     r = ET.SubElement(parent, "PolicyRule")
     pats = ET.SubElement(r, "MultiLineRulePatterns")
-    for p in rule.get("MultiLineRulePatterns") or []:
+    for p in console_rule_patterns(rule):
         m = ET.SubElement(pats, "MultiLineRulePattern")
         _sub(m, "EndBracket", p.get("EndBracket") or "")
         _sub(m, "PatternType", str(p.get("PatternType") or "Like"))
@@ -2117,14 +2662,151 @@ def dc_report_xml(report, policy_ids, ns=DC_NS):
     return ET.tostring(root, encoding="unicode")
 
 
+# The server's own shape of each NCM contract type (2.1.0), learned once per run by
+# learn_ncm_shapes from an existing rule, policy and report: {"rule": {member: sample
+# value, ...}, "policy": ..., "report": ...}. A 2026.4 server deserialized the tool's
+# JSON PolicyRule, ran AddPolicyRule and threw ArgumentNullException from
+# Regex.IsMatch inside PolicyReportsInvoker.AddPolicyRule: a string member the
+# published 2026.2 contract does not list stayed null. The JSON object is therefore
+# sent in the server's member order with every member the server shows, missing ones
+# filled with an empty value of the sample's type.
+NCM_SHAPES = {}
+
+_SHAPE_PLAN = (
+    ("rule", "SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules", "PolicyRuleID",
+     "GetPolicyRule", ()),
+    ("policy", "SELECT TOP 1 PolicyID FROM Cirrus.Policies", "PolicyID", "GetPolicy", (False,)),
+    ("report", "SELECT TOP 1 PolicyReportID FROM Cirrus.PolicyReports", "PolicyReportID",
+     "GetPolicyReport", (False,)),
+)
+
+
+def learn_ncm_shapes(swis, log=None):
+    """Read one existing rule, policy and report back from the server (GetPolicyRule,
+    GetPolicy, GetPolicyReport) and keep their member lists in NCM_SHAPES. Runs once
+    per process; a table with no row, or a verb that fails, leaves that kind to the
+    published contract and says so."""
+    if NCM_SHAPES.get("learned"):
+        return NCM_SHAPES
+    NCM_SHAPES["learned"] = True
+    for kind, swql, column, verb, extra in _SHAPE_PLAN:
+        try:
+            rows = swis.query(swql)
+            if not rows:
+                log_event("import", f"server {kind} shape: no existing {kind} to read; the "
+                                    "published contract is used")
+                continue
+            sample = swis.invoke("Cirrus.PolicyReports", verb, rows[0].get(column), *extra)
+            if isinstance(sample, str):
+                try:
+                    sample = json.loads(sample)
+                except ValueError:
+                    pass
+            if not isinstance(sample, dict):
+                log_event("import", f"server {kind} shape: {verb} returned "
+                                    f"{_summarize_value(sample)}, not an object; the published "
+                                    "contract is used", "warn")
+                continue
+            NCM_SHAPES[kind] = dict(sample)
+            log_event("import", f"server {kind} shape ({verb} on {rows[0].get(column)}): "
+                                f"{len(sample)} member(s): {', '.join(sample)}")
+        except SwisError as exc:
+            _say(log, "import", f"server {kind} shape could not be read ({exc}); the "
+                                "published contract is used", "warn")
+    return NCM_SHAPES
+
+
+def _default_like(sample):
+    if isinstance(sample, bool):
+        return False
+    if isinstance(sample, (int, float)):
+        return 0
+    if isinstance(sample, list):
+        return []
+    if isinstance(sample, dict):
+        return None
+    return ""
+
+
+# The 2026.4.0 server names its JSON members differently from the published 2026.2
+# contract: a rule carries ID and Name (not RuleId and RuleName), a policy carries ID,
+# Name, SelectionCriterias, AssgnedPolicyRulesList and AssgnedPolicyRules (sic), a
+# report carries Policies (not AssignedPolicies). Two members match when their stems
+# agree: lower case, with these qualifying prefixes stripped repeatedly.
+_MEMBER_PREFIXES = ("assigned", "assgned", "node", "rule", "policy")
+
+
+def member_stem(name):
+    stem = str(name).lower()
+    changed = True
+    while changed:
+        changed = False
+        for prefix in _MEMBER_PREFIXES:
+            if stem.startswith(prefix) and len(stem) > len(prefix):
+                stem = stem[len(prefix):]
+                changed = True
+    return stem
+
+
+def conform_to_shape(obj, kind):
+    """``obj`` rebuilt in the server's member order for ``kind`` (see NCM_SHAPES).
+
+    Every member the server shows gets the tool's value when a member of the tool's
+    object has the same name (without regard to case) or, failing that, the same stem
+    (member_stem: RuleId -> ID, PolicyName -> Name, AssignedRulesList ->
+    AssgnedPolicyRulesList, AssignedPolicies -> Policies); a member the tool has no
+    value for gets an empty value of the sample's type. Members of the tool's object
+    the server does not show are dropped: Newtonsoft would ignore them, and a GUID
+    sent under a name the server does not know is a GUID the server never stores.
+    Without a learned shape the object is returned as it is. What was renamed, filled
+    and dropped is logged once per kind.
+    """
+    shape = NCM_SHAPES.get(kind)
+    if not shape:
+        return obj
+    unused = dict(obj)
+    by_lower = {k.lower(): k for k in obj}
+    by_stem = {}
+    for k in obj:
+        by_stem.setdefault(member_stem(k), k)
+    out, renamed, missing = {}, [], []
+    for key, sample in shape.items():
+        mine = by_lower.get(key.lower())
+        if mine is None:
+            candidate = by_stem.get(member_stem(key))
+            if candidate is not None and candidate in unused:
+                mine = candidate
+                renamed.append(f"{mine} -> {key}")
+        if mine is not None and mine in unused:
+            out[key] = unused.pop(mine)
+        else:
+            out[key] = _default_like(sample)
+            missing.append(key)
+    dropped = [k for k in unused if not str(k).startswith("_")]   # "_" keys are bookkeeping
+    if not NCM_SHAPES.get(f"logged:{kind}"):
+        NCM_SHAPES[f"logged:{kind}"] = True
+        parts = [f"JSON {kind} objects follow the server's {len(shape)}-member shape"]
+        if renamed:
+            parts.append("renamed to the server's members: " + ", ".join(renamed))
+        if missing:
+            parts.append("members the tool has no value for, sent empty: " + ", ".join(missing))
+        if dropped:
+            parts.append("the tool's members the server does not show, dropped: "
+                         + ", ".join(dropped))
+        log_event("import", "; ".join(parts), "warn" if missing else "info")
+    return out
+
+
 # The wire formats the probe tries, in order. Each entry maps a rule/policy/
 # report to the AddPolicyRule / AddPolicy / AddPolicyReport argument.
 WIRE_FORMATS = {
     "json": {
         "label": "JSON contract objects",
-        "rule": lambda r: r,
-        "policy": lambda p, ids: dict(p, AssignedPolicyRules=[], AssignedRulesList=ids),
-        "report": lambda rep, ids: dict(rep, AssignedPolicies=[], AssignedPoliciesList=ids),
+        "rule": lambda r: conform_to_shape(r, "rule"),
+        "policy": lambda p, ids: conform_to_shape(
+            dict(p, AssignedPolicyRules=[], AssignedRulesList=ids), "policy"),
+        "report": lambda rep, ids: conform_to_shape(
+            dict(rep, AssignedPolicies=[], AssignedPoliciesList=ids), "report"),
     },
     "xml-dc": {
         "label": "DataContract XML strings",
@@ -2255,7 +2937,9 @@ def read_back_tree(stored):
     not returned, which is not the same as an empty report)."""
     if not isinstance(stored, dict):
         return None
-    policies = stored.get("AssignedPolicies")
+    # The 2026.4.0 server answers with its own member names (Policies, Name,
+    # AssgnedPolicyRules); the published ones are accepted too (see member_stem).
+    policies = _member(stored, "AssignedPolicies", "Policies")
     if not isinstance(policies, list):
         listed = stored.get("AssignedPoliciesList")
         return None if isinstance(listed, list) and listed else []
@@ -2263,11 +2947,37 @@ def read_back_tree(stored):
     for p in policies:
         if not isinstance(p, dict):
             return None
-        rules = p.get("AssignedPolicyRules") or []
+        rules = _member(p, "AssignedPolicyRules", "AssgnedPolicyRules") or []
         if not isinstance(rules, list) or not all(isinstance(r, dict) for r in rules):
             return None
-        tree.append((str(p.get("PolicyName") or ""), [str(r.get("RuleName") or "") for r in rules]))
+        tree.append((str(_member(p, "PolicyName", "Name") or ""),
+                     [str(_member(r, "RuleName", "Name") or "") for r in rules]))
     return tree
+
+
+def _member(obj, *names):
+    """The first of ``names`` present in ``obj`` (the published contract name and the
+    server's own), matched without regard to case; None when none is."""
+    lower = {str(k).lower(): k for k in obj}
+    for name in names:
+        key = lower.get(name.lower())
+        if key is not None:
+            return obj[key]
+    return None
+
+
+def stored_scope_sql(stored):
+    """The ``SQL:Where …`` part of the first stored policy's NodeSelectionString, or
+    None. The 2026.4.0 server rebuilds that SQL from the typed SelectionCriterias it
+    was given, so a condition that lived only in the submitted SQL (the Cisco
+    MachineType pattern) is not what the stored report filters on."""
+    if not isinstance(stored, dict):
+        return None
+    policies = _member(stored, "AssignedPolicies", "Policies")
+    if not isinstance(policies, list) or not policies or not isinstance(policies[0], dict):
+        return None
+    text = str(_member(policies[0], "NodeSelectionString") or "")
+    return text.split("SQL:", 1)[1].strip() if "SQL:" in text else None
 
 
 def compare_report_trees(expected, actual):
@@ -2338,6 +3048,19 @@ def _verify_report(swis, report_id, report, log):
         raise NcmVerificationError(msg)
     _say(log, "verify", f"verified: report holds {len(actual)} policies and {n_rules} rules, "
                         "matching the import (policy names and rule names compared)")
+    sent_sql = None
+    for p in report.get("AssignedPolicies") or []:
+        text = str(p.get("NodeSelectionString") or "")
+        sent_sql = text.split("SQL:", 1)[1].strip() if "SQL:" in text else None
+        break
+    stored_sql = stored_scope_sql(stored)
+    if sent_sql and stored_sql and " ".join(sent_sql.split()) != " ".join(stored_sql.split()):
+        _say(log, "verify",
+             f"warning: the server stored the node scope as \"{stored_sql}\", not the submitted "
+             f"\"{sent_sql}\": it rebuilds the SQL from the typed selection criteria, which carry "
+             "the Vendor condition only. Add the remaining condition (the MachineType pattern) "
+             "in the console under the report's node selection, or it scopes every node of "
+             "that vendor.", "warn")
     return report_id, len(actual), n_rules
 
 
@@ -2516,6 +3239,7 @@ def import_ncm_report(swis, report, log=print, rollback=True):
                             f"{len(preexisting['policies'])} policy id(s) this report submits "
                             "already exist on the server; a rollback will leave those alone")
     probe_rule = report["AssignedPolicies"][0]["AssignedPolicyRules"][0]
+    learn_ncm_shapes(swis, log)
     fmt = None
     first_rule_id = None
     rejections = []
@@ -2525,6 +3249,7 @@ def import_ncm_report(swis, report, log=print, rollback=True):
                                  spec["rule"](probe_rule))
             first_rule_id = _clean_id(result, probe_rule["RuleId"])
             fmt = name
+            NCM_IMPORT_ROUTES[report["Name"]] = f"API, per item ({spec['label']})"
             _say(log, "import", f"server accepts {spec['label']}")
             break
         except Exception as exc:
@@ -2542,6 +3267,7 @@ def import_ncm_report(swis, report, log=print, rollback=True):
     if fmt:
         return _import_ncm_bottom_up(swis, report, log, WIRE_FORMATS[fmt],
                                      first_rule_id, rollback, preexisting)
+    NCM_IMPORT_ROUTES[report["Name"]] = "API, one nested AddPolicyReport (console-format XML)"
     return _import_ncm_nested(swis, report, log, rollback, preexisting, rejections)
 
 
@@ -2720,6 +3446,62 @@ def _import_ncm_bottom_up(swis, report, log, spec, first_rule_id, rollback=True,
                                 f"and {len(policy_ids)} policy/policies were left on the server "
                                 "(--no-rollback)", "warn")
         raise
+
+
+# How each report reached the server, by report name (2.1.0): set by import_ncm_report
+# when a wire format is accepted or the nested route is tried, read by
+# ncm_import_summary for the log view.
+NCM_IMPORT_ROUTES = {}
+
+
+def _report_counts(report):
+    policies = report.get("AssignedPolicies") or []
+    return len(policies), sum(len(p.get("AssignedPolicyRules") or []) for p in policies)
+
+
+def ncm_import_summary(reports, imported, remaining=(), console_files=False):
+    """The lines the log view shows after an NCM run: how each report was imported
+    (the route, its server id, its policy and rule counts), which were not, and the
+    totals of reports, policies and rules imported against what the package holds."""
+    lines = []
+    done_names = set()
+    for rep, new_id, n_rules in imported:
+        n_pol, _n = _report_counts(rep)
+        route = NCM_IMPORT_ROUTES.get(rep["Name"], "API")
+        lines.append(f"imported via {route}: \"{rep['Name']}\" ({new_id}) — {n_pol} "
+                     f"policy(ies), {n_rules} rules")
+        done_names.add(rep["Name"])
+    for rep in remaining:
+        n_pol, n_rules = _report_counts(rep)
+        how = ("console-importable file written; import it through the web console"
+               if console_files else "not imported")
+        lines.append(f"{how}: \"{rep['Name']}\" — {n_pol} policy(ies), {n_rules} rules")
+    total_pol = sum(_report_counts(r)[0] for r in reports)
+    total_rules = sum(_report_counts(r)[1] for r in reports)
+    got_pol = sum(_report_counts(r)[0] for r, _i, _n in imported)
+    got_rules = sum(n for _r, _i, n in imported)
+    lines.append(f"NCM totals: {len(imported)} of {len(reports)} report(s), {got_pol} of "
+                 f"{total_pol} policy(ies), {got_rules} of {total_rules} rule(s) imported "
+                 "and verified on the server")
+    return lines
+
+
+def ncm_offline_summary(reports, files):
+    """The totals line after an offline NCM conversion."""
+    total_pol = sum(_report_counts(r)[0] for r in reports)
+    total_rules = sum(_report_counts(r)[1] for r in reports)
+    return (f"NCM totals: {len(files)} console file(s) written for {len(reports)} report(s), "
+            f"{total_pol} policy(ies), {total_rules} rule(s); nothing was sent to a server")
+
+
+def scm_import_summary(entries, what="imported"):
+    """The lines the log view shows after an SCM run: each policy's name and rule
+    count, then the totals. ``entries`` is [(policy name, policy id or None, rules)]."""
+    lines = [f"SCM policy \"{name}\"" + (f" (PolicyID {pid})" if pid is not None else "")
+             + f" — {n} rules defined" for name, pid, n in entries]
+    lines.append(f"SCM totals: {len(entries)} policy(ies), {sum(n for _a, _b, n in entries)} "
+                 f"rule(s) {what}")
+    return lines
 
 
 def import_ncm_reports(swis, reports, log=print, rollback=True):
@@ -3592,14 +4374,20 @@ def scm_policy_filename(benchmark, stem=None, suffix=DEFAULT_SUFFIX):
 
 
 def cmd_parse(args):
-    if is_scm_path(args.path):
-        info = scan_scm_policy(load_scm_policy(args.path, log=print))
-        sev = ", ".join(f"{v} {k}" for k, v in sorted(info["severity_counts"].items()))
-        print(f"{info['name']}  (SCM compliance policy)")
-        print(f"  {len(info['rules'])} rules: {sev}")
-        if args.rules:
-            for r in info["rules"]:
-                print(f"    {r}")
+    items = scm_inputs(args.path, log=None)
+    if items is not None:
+        if items[0]["member"] is not None:
+            print(f"{os.path.basename(args.path)}: zip of {len(items)} SCM compliance "
+                  "policies (imported verbatim, one ImportPolicy call each)")
+        for it in items:
+            info = scan_scm_policy(it["text"])
+            sev = ", ".join(f"{v} {k}" for k, v in sorted(info["severity_counts"].items()))
+            where = f", from {it['member']}" if it["member"] else ""
+            print(f"{info['name']}  (SCM compliance policy{where})")
+            print(f"  {len(info['rules'])} rules: {sev}")
+            if args.rules:
+                for r in info["rules"]:
+                    print(f"    {r}")
         return
     benchmarks = load_benchmarks(args.path)
     print(resolve_route("auto", benchmarks, os.path.basename(args.path), strict=False)[2])
@@ -3667,12 +4455,17 @@ def resolve_route(target, benchmarks, source_name, node_where=None, vendor=None,
 
 def make_reports_from_args(args, benchmarks, scope):
     where = scope["where"] if isinstance(scope, dict) else scope
-    return build_reports(
+    drafts = load_pattern_drafts(getattr(args, "pattern_drafts", None))
+    reports = build_reports(
         benchmarks, name=args.name, grouping=args.grouping,
         node_where=where, config_type=args.config_type, mode=args.mode,
         source_path=args.path, enabled=not getattr(args, "disabled", False),
-        suffix=getattr(args, "suffix", None),
+        suffix=getattr(args, "suffix", None), drafts=drafts,
     )
+    out = getattr(args, "write_pattern_drafts", None)
+    if out:
+        write_pattern_drafts(out, benchmarks, reports, drafts, log=print)
+    return reports
 
 
 def route_from_args(args, benchmarks, strict=True):
@@ -3687,12 +4480,21 @@ def probe_template_from_args(args):
 
 
 def cmd_build(args):
-    if is_scm_path(args.path):
-        info = scan_scm_policy(load_scm_policy(args.path, log=print))
-        print(f"\"{info['name']}\" is an SCM compliance policy: the YAML file itself is "
-              "the import payload — nothing to build.\n"
-              "Import it with:  disa_stig_tool.py import <file> …  "
-              "(or POST [yamlText] to Invoke/Orion.PolicyEngine.Policy/ImportPolicy)")
+    items = scm_inputs(args.path, log=print)
+    if items is not None:
+        if items[0]["member"] is None:
+            info = scan_scm_policy(items[0]["text"])
+            print(f"\"{info['name']}\" is an SCM compliance policy: the YAML file itself is "
+                  "the import payload — nothing to build.\n"
+                  "Import it with:  disa_stig_tool.py import <file> …  "
+                  "(or POST [yamlText] to Invoke/Orion.PolicyEngine.Policy/ImportPolicy)")
+            return
+        # A policy zip: the members are already import payloads, so offline
+        # conversion unpacks them unchanged for the console or a later import.
+        output_ignored(getattr(args, "output", None), len(items), "SCM policies")
+        write_scm_policy_members(items, ".", log=print)
+        print("import with:  disa_stig_tool.py import <the zip or one file> …  or through "
+              "the web console: Settings → SCM Settings → Policies → Import")
         return
     suffix = validate_suffix(getattr(args, "suffix", None))
     template, template_path = probe_template_from_args(args)
@@ -3748,11 +4550,15 @@ def import_scm_benchmarks(swis, benchmarks, os_info, log=print, suffix=DEFAULT_S
     suffix = validate_suffix(suffix)
     log_scm_probe_plan(family, probe_template, template_path, log=log)
     scm_collision_check(swis, benchmarks, suffix, log=log)
+    entries = []
     for b in benchmarks:
         yaml_text = xccdf_to_scm_yaml(b, suffix, family, probe_template)
         policy_id, name = import_scm_policy(swis, yaml_text, log=log)
+        entries.append((name, policy_id, len(b["rules"])))
         _say(log, "scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id}) — "
                          f"{len(b['rules'])} manual-review rules")
+    for line in scm_import_summary(entries):
+        _say(log, "scm", line)
     log_event("scope", f"SCM policies are not assigned by this tool; suggested node query: "
                        f"SELECT NodeID, Caption, MachineType FROM Orion.Nodes WHERE {swql}")
     log(f"Assign to your {os_name} nodes under Settings → SCM Settings → Policies "
@@ -3786,7 +4592,7 @@ def connect(args):
 
 def cmd_test(args):
     """Evaluate the generated rules against a real config without importing."""
-    if is_scm_path(args.path):
+    if scm_inputs(args.path) is not None:
         sys.exit("error: rule testing is an NCM feature; an SCM policy has no "
                  "equivalent server-side dry run. Import it and use "
                  "Orion.PolicyEngine.Policy.PollNowAndEvaluate against one node.")
@@ -3827,6 +4633,149 @@ def similar_report_names(swis, name):
         return ""
     return ("; reports whose names start with it (since 2.0.0 every name ends in a version "
             "suffix such as _v1): " + ", ".join(f"\"{n}\"" for n in names[:10]))
+
+
+RULE_OWNER = "DISA STIG Conversion Tool"
+
+
+def _query_in_chunks(swis, swql, ids, size=100):
+    """Run an ``IN @ids`` query over ``ids`` in bounded chunks."""
+    rows = []
+    ids = [i for i in ids if i]
+    for i in range(0, len(ids), size):
+        rows.extend(swis.query(swql, {"ids": ids[i:i + size]}))
+    return rows
+
+
+def ncm_server_audit(swis, report_names=(), policy_names=(), policy_ids=(), rule_ids=(),
+                     rule_names=(), owner=RULE_OWNER, grouping_prefix="DISA STIG"):
+    """Read-only: what each NCM compliance table holds for the given names and ids.
+
+    Returns a dict with one list of rows per table (``reports``, ``assignments``,
+    ``policies``, ``rule_assignments``, ``rules_by_id``, ``rules_by_name``,
+    ``rules_by_owner``) plus ``orphans``: rules the tool created (by Owner) that no
+    policy references. The name lookups matter because a server that stores a rule
+    under its own GUID (AddPolicyRule returns the id it assigned) is invisible to
+    the id-based collision check, and a rule created by an AddPolicyRule call whose
+    HTTP answer was still an error would sit in the rules library unreferenced.
+    """
+    out = {}
+    out["reports"] = [row for n in report_names for row in swis.query(
+        "SELECT PolicyReportID, Name, Grouping, ReportStatus, CacheStatus, LastError "
+        "FROM Cirrus.PolicyReports WHERE Name = @n", {"n": n})]
+    report_ids = [r.get("PolicyReportID") for r in out["reports"]]
+    out["assignments"] = _query_in_chunks(
+        swis, "SELECT PolicyReportID, PolicyID FROM Cirrus.PolicyAssignment "
+              "WHERE PolicyReportID IN @ids", report_ids)
+    linked_policy_ids = [a.get("PolicyID") for a in out["assignments"]]
+    out["policies"] = [row for n in policy_names for row in swis.query(
+        "SELECT PolicyID, Name FROM Cirrus.Policies WHERE Name = @n", {"n": n})]
+    seen = {str(p.get("PolicyID")).lower() for p in out["policies"]}
+    for row in _query_in_chunks(swis, "SELECT PolicyID, Name, Grouping, ConfigType FROM "
+                                      "Cirrus.Policies WHERE PolicyID IN @ids",
+                                list(policy_ids) + linked_policy_ids):
+        if str(row.get("PolicyID")).lower() not in seen:
+            seen.add(str(row.get("PolicyID")).lower())
+            out["policies"].append(row)
+    out["rule_assignments"] = _query_in_chunks(
+        swis, "SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment "
+              "WHERE PolicyID IN @ids", [p.get("PolicyID") for p in out["policies"]])
+    out["rules_by_id"] = _query_in_chunks(
+        swis, "SELECT PolicyRuleID, Name, Owner, Grouping FROM Cirrus.PolicyRules "
+              "WHERE PolicyRuleID IN @ids", list(rule_ids))
+    out["rules_by_name"] = [row for n in rule_names for row in swis.query(
+        "SELECT PolicyRuleID, Name, Owner FROM Cirrus.PolicyRules WHERE Name = @n", {"n": n})]
+    out["rules_by_owner"] = swis.query(
+        "SELECT PolicyRuleID, Name, Grouping FROM Cirrus.PolicyRules WHERE Owner = @o",
+        {"o": owner}) if owner else []
+    # A console import rewrites Owner to the importing account (seen live: rules this
+    # tool generated stored with Owner 'admin'), so the tool's grouping is the second
+    # mark of a tool-created rule, and the two sets are merged for the orphan check.
+    out["rules_by_grouping"] = swis.query(
+        "SELECT PolicyRuleID, Name, Grouping, Owner FROM Cirrus.PolicyRules "
+        "WHERE Grouping LIKE @g", {"g": grouping_prefix + "%"}) if grouping_prefix else []
+    tool_made, seen_ids = [], set()
+    for row in out["rules_by_owner"] + out["rules_by_grouping"]:
+        rid = str(row.get("PolicyRuleID")).lower()
+        if rid not in seen_ids:
+            seen_ids.add(rid)
+            tool_made.append(row)
+    referenced = {str(a.get("PolicyRuleID")).lower() for a in _query_in_chunks(
+        swis, "SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment "
+              "WHERE PolicyRuleID IN @ids", [r.get("PolicyRuleID") for r in tool_made])}
+    out["orphans"] = [r for r in tool_made
+                      if str(r.get("PolicyRuleID")).lower() not in referenced]
+    return out
+
+
+def cmd_audit(args):
+    """Read-only: which NCM compliance tables hold rows from a package or report."""
+    if not args.path and not args.name:
+        sys.exit("error: give a STIG package path, --name <report name>, or both")
+    suffix = validate_suffix(args.suffix)
+    report_names = [args.name] if args.name else []
+    policy_names, policy_ids, rule_ids, rule_names = [], [], [], []
+    if args.path:
+        benchmarks = load_benchmarks(args.path)
+        # The scope does not affect any name or id, so the default one is used.
+        reports = build_reports(benchmarks, source_path=args.path, suffix=suffix)
+        for rep in reports:
+            report_names.append(rep["Name"])
+            for pol in rep["AssignedPolicies"]:
+                policy_names.append(pol["PolicyName"])
+                policy_ids.append(pol["PolicyId"])
+                for rule in pol["AssignedPolicyRules"]:
+                    rule_ids.append(rule["RuleId"])
+                    rule_names.append(rule["RuleName"])
+        print(f"{os.path.basename(args.path)}: {len(reports)} report(s), "
+              f"{len(policy_names)} policy(ies), {len(rule_ids)} rule(s) would be generated "
+              f"with suffix {suffix}; looking each up on the server")
+    log_event("verify", f"audit: {len(report_names)} report name(s), {len(policy_names)} "
+                        f"policy name(s), {len(rule_ids)} rule id(s), owner \"{RULE_OWNER}\"")
+    swis = logged(connect(args))
+    found = ncm_server_audit(swis, report_names, policy_names, policy_ids, rule_ids, rule_names)
+
+    def section(title, rows, columns):
+        print(f"\n{title}: {len(rows)} row(s)")
+        log_event("verify", f"audit {title}: {len(rows)} row(s)")
+        for row in rows[:50]:
+            print("  " + "  ".join(f"{c}={_one_line(row.get(c), 70)}" for c in columns
+                                   if row.get(c) not in (None, "")))
+        if len(rows) > 50:
+            print(f"  ... {len(rows) - 50} more in the run log")
+        for row in rows:
+            log_event("verify", "  " + "; ".join(f"{c}={row.get(c)}" for c in columns), "debug")
+
+    section("Cirrus.PolicyReports (by name)", found["reports"],
+            ("PolicyReportID", "Name", "Grouping", "ReportStatus", "CacheStatus", "LastError"))
+    section("Cirrus.PolicyAssignment (report -> policy)", found["assignments"],
+            ("PolicyReportID", "PolicyID"))
+    section("Cirrus.Policies (by name, by generated id, by assignment)", found["policies"],
+            ("PolicyID", "Name", "Grouping", "ConfigType"))
+    section("Cirrus.PolicyRuleAssignment (policy -> rule)", found["rule_assignments"],
+            ("PolicyID", "PolicyRuleID"))
+    section("Cirrus.PolicyRules (by generated id)", found["rules_by_id"],
+            ("PolicyRuleID", "Name", "Owner", "Grouping"))
+    section("Cirrus.PolicyRules (by generated name)", found["rules_by_name"],
+            ("PolicyRuleID", "Name", "Owner"))
+    section(f"Cirrus.PolicyRules (Owner = \"{RULE_OWNER}\", any run)", found["rules_by_owner"],
+            ("PolicyRuleID", "Name", "Grouping"))
+    section("Cirrus.PolicyRules (Grouping under \"DISA STIG\", any run; a console import "
+            "rewrites Owner)", found["rules_by_grouping"],
+            ("PolicyRuleID", "Name", "Grouping", "Owner"))
+    section("orphan rules: created by this tool, referenced by no policy", found["orphans"],
+            ("PolicyRuleID", "Name", "Grouping", "Owner"))
+    if found["orphans"]:
+        msg = (f"{len(found['orphans'])} rule(s) this tool created sit in the NCM rules "
+               "library without a policy: a console or API import stopped after creating "
+               "them (seen live: a console import that failed on a later rule's name left "
+               "the rules before it). They are visible under Compliance -> Manage Policy "
+               "Rules and can be deleted there, or with "
+               "Cirrus.PolicyReports.DeletePolicyRules(ids).")
+        print("\n" + msg)
+        log_event("verify", msg, "warn")
+    print("\naudit is read-only: nothing was created, changed or deleted.")
+    return found
 
 
 def cmd_remove(args):
@@ -3877,15 +4826,15 @@ def cmd_remove(args):
 
 
 def cmd_import(args):
+    items = scm_inputs(args.path, log=print)
     swis = logged(connect(args))
 
-    if is_scm_path(args.path):
-        text = load_scm_policy(args.path, log=print)
-        policy_id, name = import_scm_policy(swis, text, log=print)
-        log_event("scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id})")
-        print(f"imported SCM policy \"{name}\" (PolicyID {policy_id}).")
-        print("Assign it to nodes under Settings → SCM Settings → Policies, or via "
-              "Orion.PolicyEngine.Policy.AssignToEntity.")
+    if items is not None:
+        imported = import_scm_policy_items(swis, items, log=print)
+        print(f"imported {len(imported)} SCM compliance "
+              f"{'policy' if len(imported) == 1 else 'policies'}. Assign "
+              f"{'it' if len(imported) == 1 else 'them'} to nodes under Settings → SCM "
+              "Settings → Policies, or via Orion.PolicyEngine.Policy.AssignToEntity.")
         return
 
     suffix = validate_suffix(getattr(args, "suffix", None))
@@ -3917,6 +4866,9 @@ def cmd_import(args):
     # that are due below are still written.
     confirmed = finish_ncm_imports(swis, new_ids, disabled=args.disabled,
                                    no_cache=args.no_cache, log=print)
+    for line in ncm_import_summary(reports, imported, remaining,
+                                   console_files=isinstance(failure, NcmWireError)):
+        _say(print, "import", line, "info" if failure is None else "warn")
     if failure is None:
         if not confirmed:
             sys.exit("error: the reports were imported and verified, but the requested "
@@ -3973,9 +4925,18 @@ def add_source_args(p):
                         "'Testing Linux STIGs in SCM'.")
     p.add_argument("--config-type", default="Any",
                    help="config type the rules scan: Any, Running, Startup, ...")
-    p.add_argument("--mode", choices=("manual", "heuristic"), default="manual",
+    p.add_argument("--mode", choices=("manual", "heuristic", "blocks"), default="manual",
                    help="manual: sentinel patterns, every rule flags for review (default). "
-                        "heuristic: seed draft patterns from the STIG check text.")
+                        "heuristic: seed one draft pattern from the STIG check text. "
+                        "blocks: the check text's configuration example blocks become an "
+                        "Advanced Config Search (every block must be found, AND).")
+    p.add_argument("--pattern-drafts", metavar="FILE",
+                   help="JSON file of patterns per rule id (written by a reviewer or an "
+                        "automated task; see --write-pattern-drafts) that override the mode "
+                        "for the rules it names")
+    p.add_argument("--write-pattern-drafts", metavar="FILE",
+                   help="write the patterns this run produced, with each rule's check text, "
+                        "as a pattern-drafts JSON file to edit and pass back")
     p.add_argument("--disabled", action="store_true",
                    help="create the NCM report with ReportStatus Disabled and skip "
                         "caching, so a large benchmark can be reviewed and tuned "
@@ -3989,8 +4950,11 @@ def add_log_args(p):
                         "~/.local/state/disa-stig-tool/logs)")
     p.add_argument("--log-level", choices=("debug", "info", "warn"), default="info",
                    help="info (default) logs every decision and SWIS call; debug adds the "
-                        "redacted request and response bodies (cut to 4 KB); warn keeps "
-                        "only warnings and errors")
+                        "redacted request, response and HTTP error bodies (cut to "
+                        "--log-body-limit); warn keeps only warnings and errors")
+    p.add_argument("--log-body-limit", type=int, default=LOG_BODY_LIMIT, metavar="CHARS",
+                   help=f"cut each debug-level body to this many characters (default "
+                        f"{LOG_BODY_LIMIT}); 0 writes every body whole")
 
 
 def add_connection_args(p):
@@ -4099,8 +5063,7 @@ BTN_GREEN, BTN_YELLOW, BTN_RED = "#c6efce", "#ffeb9c", "#ffc7ce"
 
 def file_module(path):
     """NCM or SCM for one file — the module a batch locks to."""
-    if is_scm_path(path):
-        load_scm_policy(path)   # refuses a JSON collection profile up front
+    if scm_inputs(path) is not None:   # refuses a JSON collection profile up front
         return "SCM"
     benchmarks = load_benchmarks(path)
     kind, _info = detect_target(benchmarks, os.path.basename(path))
@@ -4218,7 +5181,8 @@ class App:
         self.mode = tk.StringVar(value="manual")
         box = ttk.Combobox(opts, textvariable=self.mode, state="readonly", width=52,
                            values=("manual — every rule flags for review (recommended)",
-                                   "heuristic — draft patterns from the STIG check text"))
+                                   "heuristic — draft patterns from the STIG check text",
+                                   "blocks — Advanced Config Search from the check examples"))
         box.current(0)
         box.grid(row=2, column=1, sticky="w", **pad)
         self.import_disabled = tk.BooleanVar(value=False)
@@ -4548,18 +5512,29 @@ class App:
         self._run_bg(work)
 
     def _do_scm(self, swis, path, offline, prefix):
-        if is_scm_path(path):
-            if offline:
-                self._summary_line(f"{prefix} {os.path.basename(path)} is already an "
-                                   "importable SCM policy — nothing to convert")
-                return True
-            policy_id, name = import_scm_policy(swis, load_scm_policy(path, log=self._log),
-                                                log=self._log)
-            self._summary_line(f"SUCCESS {prefix} \"{name}\" (PolicyID {policy_id})",
-                               "success")
-            return True
         folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
                                                     os.W_OK) else tempfile.gettempdir()
+        items = scm_inputs(path, log=self._log)
+        if items is not None:
+            if offline:
+                if items[0]["member"] is None:
+                    self._summary_line(f"{prefix} {os.path.basename(path)} is already an "
+                                       "importable SCM policy — nothing to convert")
+                    return True
+                for out in write_scm_policy_members(items, folder, log=self._log):
+                    self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} "
+                                       "(policy member, bytes unchanged)", "success")
+                return True
+            entries = []
+
+            def done(policy_id, name, it):
+                n_rules = len(scan_scm_policy(it["text"])["rules"])
+                entries.append((name, policy_id, n_rules))
+                self._summary_line(f"SUCCESS {prefix} \"{name}\" (PolicyID {policy_id}) — "
+                                   f"{n_rules} rules defined", "success")
+            import_scm_policy_items(swis, items, log=self._log, done=done)
+            self._summary_line(f"{prefix} {scm_import_summary(entries)[-1]}", "success")
+            return True
         suffix = validate_suffix(self.suffix.get().strip())
         benchmarks = load_benchmarks(path)
         kind, os_info = detect_target(benchmarks, os.path.basename(path))
@@ -4567,18 +5542,25 @@ class App:
         log_scm_probe_plan(family, log=self._log)
         if not offline:
             scm_collision_check(swis, benchmarks, suffix, log=self._log)
+        entries = []
         for b in benchmarks:
             if offline:
                 out = os.path.join(folder, scm_policy_filename(b, suffix=suffix))
                 write_text_file(out, xccdf_to_scm_yaml(b, suffix, family))
+                entries.append((scm_policy_name(b, suffix), None, len(b["rules"])))
                 self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
-                                   f"{len(b['rules'])} rules", "success")
+                                   f"SCM policy \"{scm_policy_name(b, suffix)}\", "
+                                   f"{len(b['rules'])} rules defined", "success")
             else:
                 policy_id, name = import_scm_policy(swis, xccdf_to_scm_yaml(b, suffix, family),
                                                     log=self._log)
+                entries.append((name, policy_id, len(b["rules"])))
                 self._summary_line(f"SUCCESS {prefix} \"{name}\" "
                                    f"(PolicyID {policy_id}) — {len(b['rules'])} "
-                                   "manual-review rules", "success")
+                                   "manual-review rules defined", "success")
+        totals = scm_import_summary(entries, "written" if offline else "imported")[-1]
+        self._summary_line(f"{prefix} {totals}", "success")
+        log_event("scm", totals)
         if family == "linux":
             self._summary_line(f"{prefix} Linux: the SCM probe is Unverified on Linux nodes; "
                                "see README 'Testing Linux STIGs in SCM'", "warn")
@@ -4592,7 +5574,9 @@ class App:
         if warning:
             self._summary_line(f"{prefix} {warning}", "warn")
             self._show_issue()
-        mode = "heuristic" if self.mode.get().startswith("heuristic") else "manual"
+        mode = self.mode.get().split(" ", 1)[0].strip() or "manual"
+        if mode not in ("manual", "heuristic", "blocks"):
+            mode = "manual"
         enabled = not self.import_disabled.get()
         reports = build_reports(benchmarks, node_where=scope["where"], mode=mode,
                                 source_path=os.path.basename(path), enabled=enabled,
@@ -4600,12 +5584,14 @@ class App:
         folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
                                                     os.W_OK) else tempfile.gettempdir()
         if offline:
+            files = []
             for report in reports:
                 out = write_console_file(report, folder)
-                n_rules = sum(len(p["AssignedPolicyRules"])
-                              for p in report["AssignedPolicies"])
+                files.append(out)
+                n_pol, n_rules = _report_counts(report)
                 self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} — "
-                                   f"{n_rules} rules", "success")
+                                   f"{n_pol} policy(ies), {n_rules} rules", "success")
+            self._summary_line(f"{prefix} {ncm_offline_summary(reports, files)}")
             return True
         ncm_preflight(swis, log=self._log)
         scope_preflight(swis, scope, allow_empty=self.allow_empty_scope.get(), log=self._log)
@@ -4623,6 +5609,10 @@ class App:
             self._summary_line(f"{prefix} the imported reports could not be confirmed as "
                                f"{state}; see the detailed log", "warn")
             self._show_issue()
+        for line in ncm_import_summary(reports, imported, remaining,
+                                       console_files=isinstance(failure, NcmWireError)):
+            self._summary_line(f"{prefix} {line}", "success" if failure is None else None)
+            log_event("import", line, "info" if failure is None else "warn")
         if failure is None:
             return confirmed
         if isinstance(failure, NcmWireError):
@@ -4751,6 +5741,20 @@ def build_parser():
                          "unshared policies and rules, and never shared ones")
     rm.add_argument("--yes", action="store_true", help="confirm the deletion")
     add_log_args(rm)
+
+    au = sub.add_parser("audit", help="read-only: show which NCM compliance tables on the "
+                                      "server hold rows from a STIG package or report, "
+                                      "including rules left behind by failed API imports")
+    add_connection_args(au)
+    au.add_argument("path", nargs="?",
+                    help="STIG zip, directory or *-xccdf.xml whose generated names and ids "
+                         "are looked up (optional with --name)")
+    au.add_argument("--name", help="exact report name to look up instead of, or as well "
+                                   "as, the package")
+    au.add_argument("--suffix", default=DEFAULT_SUFFIX,
+                    help=f"version suffix the names and ids were generated with "
+                         f"(default {DEFAULT_SUFFIX})")
+    add_log_args(au)
     return top
 
 
@@ -4785,7 +5789,7 @@ def main(argv=None):
     # No arguments (a double-click on Windows) or an explicit "gui" opens the GUI.
     if not argv or argv[0] == "gui":
         gui_args = build_gui_parser().parse_args(argv[1:])
-        path = setup_logging(gui_args.log_file, gui_args.log_level)
+        path = setup_logging(gui_args.log_file, gui_args.log_level, gui_args.log_body_limit)
         _announce_log(path)
         log_run_start(argv, mode="gui")
         code = 0
@@ -4807,14 +5811,14 @@ def main(argv=None):
         return
     configure_console_streams()
     args = build_parser().parse_args(argv)
-    path = setup_logging(args.log_file, args.log_level)
+    path = setup_logging(args.log_file, args.log_level, getattr(args, "log_body_limit", None))
     _announce_log(path)
     log_run_start(argv)
     code = 0
     try:
         {"download": cmd_download, "parse": cmd_parse, "build": cmd_build,
          "convert": cmd_build, "import": cmd_import, "test": cmd_test,
-         "remove": cmd_remove}[args.cmd](args)
+         "remove": cmd_remove, "audit": cmd_audit}[args.cmd](args)
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else 1
         if isinstance(exc.code, str):

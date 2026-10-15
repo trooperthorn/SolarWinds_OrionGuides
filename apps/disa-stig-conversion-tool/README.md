@@ -9,7 +9,7 @@ remediable item. Two target modules, detected automatically from the file:
 | --- | --- |
 | STIG zip / xccdf `.xml` / `.xsl` for a **network device** (Cisco, Juniper, Arista, Palo Alto, F5, Fortinet, …) | **NCM** compliance policy report (`Cirrus.PolicyReports`), node scope set from the vendor and, for Cisco, the platform's `MachineType` ([node scope](#node-scope-vendor-and-cisco-platform)) |
 | STIG zip / xccdf `.xml` for a **server OS** (Windows, Linux, RHEL, Debian, Ubuntu, CentOS) | **Server Configuration Monitor** — converted to an SCM policy and imported via `Orion.PolicyEngine.Policy.ImportPolicy` (Linux: see [Testing Linux STIGs in SCM](#testing-linux-stigs-in-scm)) |
-| SCM compliance policy `.yaml` / `.scm-policy.yaml` (`!policy`, `pluginName: SCM`) | **Server Configuration Monitor**, imported verbatim |
+| SCM compliance policy `.yaml` / `.scm-policy.yaml` (`!policy`, `pluginName: SCM`), or a **zip of them** (a SolarWinds policy pack such as `Policies.zip`) | **Server Configuration Monitor**, imported verbatim, one `ImportPolicy` call per policy ([details](#scm-policies-server-configuration-monitor)) |
 
 The **Compliance target** dropdown (or `--target`) controls the routing:
 **Auto Compliance Assignment** (default) decides from the file and benchmark
@@ -20,7 +20,7 @@ it is refused, offline `convert` included, until `--vendor` or `--node-where` sa
 nodes it applies to. Earlier builds scoped it to every Cisco node.
 
 The tool ships in **two self-contained single-file editions**, both at version
-**2.0.0** (`TOOL_VERSION` in the Python file, `$script:ToolVersion` in the PowerShell
+**2.1.0** (`TOOL_VERSION` in the Python file, `$script:ToolVersion` in the PowerShell
 file; every run log records it). The Python edition is the reference. For the same input
 and [version suffix](#version-suffix-and-the-upgrade-workflow) both derive the same NCM
 `RuleId`s and `PolicyId`s, the same SCM policy and rule `uniqueId`s, the same report and
@@ -58,6 +58,148 @@ Both GUIs open with a disclaimer — *"This is not built by SolarWinds Inc. or D
 All Code is visible for Code Audit and documentation is available for SWIS calls."* —
 and require acknowledging that imported reports must be checked and that resolution
 falls on Agency application of the DISA STIG standards before the tool opens.
+
+## What changed in 2.1.0
+
+2.1.0 (2026-10-15) accepts a **zip of SCM compliance policies** as an input, in both
+editions, which is how SolarWinds delivers policy packs (one `!policy` YAML per policy,
+UTF-8 with a BOM and CRLF, no XCCDF inside). Earlier builds refused such a zip with "no
+XCCDF benchmark found inside".
+
+- **Routing.** A zip whose `.yaml`/`.yml` members are tagged-YAML policies is an SCM input
+  like a single policy file: `parse` lists every policy, `import` sends each member's text
+  verbatim to `ImportPolicy`, `convert` (and the GUI's Local File Conversion Only) unpacks
+  the members next to the zip **byte for byte** under sanitized copies of their names, for
+  the console's Settings → SCM Settings → Policies → Import or a later `import`. Members
+  that are not policies (PDFs, a JSON collection profile, other YAML) are skipped with a
+  warning; a zip with no policy member is refused, and so is one that mixes policy YAML with
+  XCCDF `.xml` or nested zips (one input is one module). A STIG package has no YAML members
+  and is read as before.
+- **Collisions.** Every member's name and `uniqueId` are checked before the first
+  `ImportPolicy` call, so a pack that collides with a policy already on the server
+  (including the built-in ones, which the message now says) is refused whole, nothing
+  half-imported. `ImportPolicy` has no transaction and this tool never deletes an SCM
+  policy, so a failure after that point stops the run and names the policies already
+  created.
+- **Console file: placeholder pattern.** A simple-mode rule in the `.ncm-report.xml` now
+  carries one `MultiLineRulePattern` (`PatternType` Regex, empty `Pattern`, `Criteria`
+  true) instead of an empty `<MultiLineRulePatterns />`. Every console export examined,
+  including a 2026.4 file confirmed importable, has that shape, and the empty list was
+  the one structural difference between the tool's file and those exports. The API
+  payloads are unchanged. Unverified: whether this alone makes the console accept the
+  file.
+- **`audit` command / `-Audit`** (read-only). Given a STIG package, a report name
+  (`--name` / `-Name`), or both, it looks up on the server what each NCM compliance
+  table holds for the names and ids the tool would generate: `Cirrus.PolicyReports`,
+  `Cirrus.PolicyAssignment`, `Cirrus.Policies`, `Cirrus.PolicyRuleAssignment` and
+  `Cirrus.PolicyRules`, the last by generated id, by generated name and by
+  `Owner = "DISA STIG Conversion Tool"` across every run. Rules the tool created that no
+  policy references are listed as orphans: a server can keep a rule although its
+  `AddPolicyRule` answer was an error, and such a rule carries a server-assigned id the
+  id-based collision check cannot see. Nothing is created, changed or deleted.
+- **JSON objects take the server's own shape and names.** Read live on 2026.4.0 with
+  `GetPolicyRule`, `GetPolicy` and `GetPolicyReport`: the server's JSON members are not
+  the published 2026.2 contract's. A rule carries `ID` and `Name` (not `RuleId` and
+  `RuleName`) and no `IsConfigBlockPatternRegEx`; a policy carries `ID`, `Name`,
+  `SelectionCriterias`, `AssgnedPolicyRulesList` and `AssgnedPolicyRules` (sic); a
+  report carries `Policies` (not `AssignedPolicies`). That is why the JSON route failed:
+  the server never saw a rule name and its own `AddPolicyRule` threw
+  `ArgumentNullException` from `Regex.IsMatch`. Before the first probe both editions
+  now read one existing rule, policy and report back and send every JSON object in the
+  server's member order under the server's names (members are matched by name, then by
+  stem: `RuleId` → `ID`, `AssignedPolicies` → `Policies`), filling members the tool has
+  no value for with an empty value and dropping members the server does not show; the
+  run log lists what was renamed, filled and dropped. The XML-string routes stay as
+  documented fallbacks, although the fault bodies show the endpoint never converts a
+  JSON string to a contract type. Unverified until the next live run.
+- **`--mode blocks`: the check text's configuration examples become the rule.** With the
+  read-back fixed both Cisco IOS Router reports imported and verified (127 of 127 rules),
+  and the operator rebuilt one rule by hand the way they wanted all of them: the
+  configuration example blocks the STIG check shows as an **Advanced Config Search**,
+  one "must contain" block each, AND-joined, alerting when a block is not found, and the
+  Fix Text in the Remediation field. That is what `--mode blocks` (the GUI's third mode)
+  now generates: `extract_config_blocks` keeps runs of configuration lines (a lower-case
+  first word or a known CLI keyword, no sentence punctuation, no prose markers such as
+  "verify", "if the", "this is a finding"), drops ellipsis lines, and breaks a block at
+  a blank line or prose; each block is one `MultiLineRulePattern` (`Like`, `Criteria`
+  true, `Condition` AND after the first), `AdvancedMode` true, `PatternMustExist` true.
+  The values in the blocks are the STIG's examples (`x.x.x.x`, `2001::1:0:22/64`,
+  `FILTER_IPV6`), so every such rule is a draft and its note says so; a check with no
+  configuration lines keeps the sentinel. The Remediation field carries the Fix Text
+  under a `Fix Text:` heading with the CCIs last; the Comments keep the identifiers, the
+  note, the description sections and the check text. `ExecuteScriptAutomatically` stays
+  false. SCM policies are unchanged. **Verified live on 2026.4.0 (2026-10-15):** the
+  Cisco IOS Router package imported through the API in all three modes side by side
+  (`_v1` manual, `_v2` heuristic, `_v3` blocks), 127 of 127 rules each, and the
+  console's export of the blocks report carries the 216 pattern blocks of its RTR
+  policy unchanged, multi-line patterns, AND conditions and all. On that package
+  heuristic mode drafted 15 of 92 RTR rules; blocks mode gave 91 of 92 an Advanced
+  Config Search.
+- **Pattern drafts: a file for a reviewer or an automated task.** `--write-pattern-drafts
+  FILE` writes, for every rule a run built, its id, title, STIG id, check text, Fix
+  Text, where its pattern came from (`sentinel`, `heuristic`, `blocks` or `drafts`) and
+  the pattern itself, as JSON (`schema` `disa-stig-tool/pattern-drafts/1`). Edit a
+  rule's `pattern` (with `type` Like or Regex) or its `patterns` list (`pattern`,
+  `type`, `must_contain`, `condition` AND or OR), set `must_exist`, add a `note`, set
+  `"skip": true` to leave a rule to the run's mode, and pass the file back with
+  `--pattern-drafts FILE` (PowerShell: `-WritePatternDrafts`, `-PatternDrafts`): the
+  rules it names follow the file whatever the mode, and their note says so. The file is
+  the hand-off point for an automated task that reads each rule's check text and
+  proposes real patterns; the tool validates what comes back and names the rule and
+  pattern at fault. The design of that task, the per-rule decisions it must make, the
+  schema-2 members it needs and how to score it before trusting it are in
+  [pattern-review-task.md](pattern-review-task.md).
+- **The read-back accepts the server's names; the server rebuilds the scope SQL.** With
+  the typed criteria in place the whole NDM report imported (35 rules, the policy, the
+  report), and the tool's own verification then rolled it back: it read the tree under
+  the published names and the server answered with its own (`Policies`, `Name`,
+  `AssgnedPolicyRules`). The read-back now accepts both. The same reply showed the
+  stored policy's SQL as `Where (Vendor = 'Cisco')`: the server regenerates the SQL part
+  of `NodeSelectionString` from the typed `SelectionCriterias`, so the Cisco
+  `MachineType` condition, which lived only in the submitted SQL, is dropped on an API
+  import. The verification now warns when the stored scope differs from the submitted
+  one; add the MachineType condition in the console under the report's node selection.
+  Unverified: whether a second `WebSelectionCriteria` for `MachineType` can carry a LIKE
+  pattern (a console-made export shows `MatchType` `=` producing `MachineType = '%IOS%'`,
+  which matches nothing).
+- **The policy carries the typed node criteria.** With the names and the comma rule in
+  place all 35 rules of the NDM report were created; `AddPolicy` then failed behind an
+  opaque `NcmFaultContract` with `SelectionCriterias` sent null, the one member the
+  tool had no value for. The policy now carries `NodeSelectionCriterias` (the server's
+  `SelectionCriterias`): the same Vendor criterion and Id as the picker XML in
+  `NodeSelectionString`, `CriteriaType` 2. Unverified until the next live run.
+- **No comma in a generated name.** With the server's member names in place the first
+  rule imported; the second was refused by NCM's own validator with "Policy name
+  contains comma character" (the rule name, despite the wording), and the rollback
+  removed the first. None of the 3,126 names that server holds has a comma, so every
+  comma in a rule, policy or report name becomes " -", the punctuation NCM's own names
+  use most. The exact title stays in the rule Comments.
+- **Rule names are cut to 200 characters, policy names shortened past 100.** The NCM
+  business-layer log of the same server shows the console import of the generated file
+  dying on its third rule with SQL error 2628, "String or binary data would be
+  truncated in table NCM_PolicyRules, column Name": the generated `V-<id> [severity]
+  <title>` names ran to 212 characters, and a 184-character one is stored, so
+  `RULE_NAME_LIMIT` is 200. The two rules before it stayed in the rules library with no
+  policy, with `Owner` rewritten to the importing account; `audit` therefore also finds
+  tool-created rules by their `DISA STIG` grouping. The policy name's column width is
+  not published and SolarWinds' longest shipped name is 64, so a generated policy name
+  over 100 characters becomes `<title> V<version> R<n>` plus the suffix; names that fit
+  are unchanged, and the full release text stays in the policy Comments.
+- **Import summary in the log view.** After every NCM run the summary pane (and the run
+  log) says how each report reached the server (`imported via API, per item (JSON
+  contract objects)`, `imported via API, one nested AddPolicyReport`, or
+  `console-importable file written`) with its server id and its policy and rule counts,
+  then an `NCM totals:` line of reports, policies and rules imported and verified against
+  what the package holds. Offline conversion gives the same totals for the files
+  written. Every SCM run lists each policy's name, PolicyID and number of rules defined,
+  then an `SCM totals:` line.
+- **`--log-body-limit CHARS` / `-LogBodyLimit`.** Debug-level request, response and
+  HTTP error bodies were always cut to 4 KB; `0` now writes them whole, and the whole
+  SWIS fault document (not only its `Message`) is logged at debug level.
+- **Unverified on a live server:** the import path for the files of such a pack. The
+  payload is unchanged (the member text, as a single file always was), only the way it
+  reaches the tool is new. The files carry `builtIn: true`; that column is read-only on
+  the server and the doc records as unverified whether an import honours it.
 
 ## What changed in 2.0.0
 
@@ -200,6 +342,8 @@ The outputs are the exact payloads the API import would have sent:
   console.
 - **SCM** → one `.scm-policy.yaml` per benchmark (the `!policy` YAML document) — import
   through the console, or later with this tool's `import` against the file.
+- **A zip of SCM policies** → its policy members, unpacked next to the zip byte for byte
+  (they are already the import payload), under sanitized copies of their names.
 
 The repository's SCM documentation names no file extension for compliance policies,
 and the policies SolarWinds publishes are plain `.yaml`, so the tool writes
@@ -295,7 +439,9 @@ them.
 | `--suffix _vN` | `-Suffix _vN` | Version suffix on every name and id seed (`_v1` by default) |
 | `--scm-probe-template FILE` | `-ScmProbeTemplate FILE` | Replace the SCM attestation probe's source block ([Linux testing](#testing-linux-stigs-in-scm)) |
 | `--config-type` | `-ConfigType` | Config type the rules scan (`Any`, `Running`, `Startup`, ...) |
-| `--mode manual\|heuristic` | `-Mode manual\|heuristic` | Sentinel or drafted patterns |
+| `--mode manual\|heuristic\|blocks` | `-Mode manual\|heuristic\|blocks` | Sentinel, one drafted line, or the check text's configuration example blocks as an Advanced Config Search |
+| `--pattern-drafts FILE` | `-PatternDrafts FILE` | Patterns per rule id from a reviewed (or generated) pattern-drafts JSON file; they override the mode for the rules named |
+| `--write-pattern-drafts FILE` | `-WritePatternDrafts FILE` | Write the patterns this run produced, with each rule's check text, as a pattern-drafts JSON file to edit and pass back |
 | `--disabled` | `-ImportDisabled` | `ReportStatus` `Disabled`, no caching; honored by convert too |
 | `--no-cache` | `-NoCache` | Import without `StartCaching` |
 | `--no-rollback` | `-NoRollback` | Keep what a failed import created |
@@ -464,8 +610,8 @@ with the reason in the log. Packages download from
 | --- | --- |
 | Group id + severity + Rule title | `RuleName` — `V-215662 [medium] The Cisco router must…`; when one Group holds several Rules, each is named `V-215662/SV-215662r1_rule [medium] …` so names stay unique |
 | severity high / medium / low | `ErrorLevel` 2 / 1 / 0 (console names critical / warning / info by default; the names are editable per server). A missing, `unknown` or `info` severity is imported as medium, with a warning that lists the rules |
-| IDs (V, SV, STIG ID, CCIs, the Group title's SRG id, the legacy V- and SV- ids) + every description section (VulnDiscussion, FalsePositives, FalseNegatives, Mitigations, PotentialImpacts, ThirdPartyTools, MitigationControl, Responsibility, IAControls; empty ones are left out) + check-content + fixtext | `Comments`, in that order, the Fix Text last under `Fix:` |
-| fixtext (the Fix Text) | Not a script: since 2.0.0 it is kept in `Comments`, and `RemediateScript` is sent empty (type `CLI`); **never auto-executed** |
+| IDs (V, SV, STIG ID, CCIs, the Group title's SRG id, the legacy V- and SV- ids) + every description section (VulnDiscussion, FalsePositives, FalseNegatives, Mitigations, PotentialImpacts, ThirdPartyTools, MitigationControl, Responsibility, IAControls; empty ones are left out) + check-content | `Comments`, in that order, the check text last under `Check:` |
+| check-content + fixtext (the Check Content and the Fix Text) | `RemediateScript`, as prose under `Check Content:` and `Fix Text:` headings with the CCIs last (the layout of a working console-made STIG report; 2.1.0, at the operator's request), type `CLI`. It is guidance, not commands: `ExecuteScriptAutomatically` is false, so nothing runs unless an operator executes the remediation by hand, and sending this prose to a device would only produce rejected lines |
 | every Rule of every Group (each check) | one NCM rule. A Rule without an id gets `noid-<uuid5 of its title and position>`, and a rule id that repeats gets `-dup2`, `-dup3`, each with a warning |
 | one benchmark | one policy — the device scope ([node scope](#node-scope-vendor-and-cisco-platform): the vendor, plus the Cisco platform's `MachineType`, or `--node-where`) |
 | one benchmark | one report **named `<zip name> - <benchmark>_v1`** (the router zip yields an NDM report with 35 rules and an RTR report with 92), `Enabled`, in the `DISA STIG` folder — a converter packaging choice, not a one-policy limit in the console format |
@@ -641,8 +787,18 @@ and optional fields. Current preview is regex-based. Both editions check `Name` 
 `UniqueId` before importing (the PowerShell edition normalizes CRLF line endings first,
 so a Windows-edited file is checked too) and read the rule count back afterwards; that
 read-back rejects a policy holding no rules, which also catches a returned id of 0, but
-it does not compare the count or the content with the file. A ZIP containing policy
-YAML is not accepted by the XCCDF package reader.
+it does not compare the count or the content with the file.
+
+Since 2.1.0 a **zip of policy YAML** is accepted too (SolarWinds ships policy packs this
+way, for example `Policies.zip` with the IIS, SQL Server and Windows Server STIG
+policies): every `.yaml`/`.yml` member that is a tagged-YAML policy is read, decoded by
+its bytes (UTF-8 or UTF-16, with or without a BOM; the BOM is dropped and the line
+endings kept), and imported verbatim with one `ImportPolicy` call per member after a
+collision check over the whole pack. `parse` lists the members, `convert` unpacks them
+unchanged for a console import, and `import <zip>` imports them. Non-policy members are
+skipped with a warning, a zip without any policy member is refused, and a zip that mixes
+policy YAML with XCCDF `.xml` or nested zips is refused as well, since one input is one
+module.
 
 ## Run log
 
@@ -774,10 +930,12 @@ line is written, so it is masked even in the logged command line.
 ## Safety posture
 
 - `ExecuteScriptAutomatically` is always false. A downloaded checklist must never be
-  allowed to push configuration to devices on its own. Since 2.0.0 the tool writes no
-  remediation script at all: the Fix Text is guidance, kept in the rule comments under
-  `Fix:`, and an engineer writes reviewed commands into the script field before anything
-  can be run from the console. The same caution applies
+  allowed to push configuration to devices on its own. Since 2.1.0 the remediation field
+  holds the STIG's Check Content and Fix Text as prose under headings, the way a working
+  console-made STIG report does (2.0.0 left it empty and kept the Fix Text in the
+  comments). That text is guidance, not commands: executing it by hand from the console
+  would send headings and sentences a device rejects, so an engineer replaces it with
+  reviewed commands before anything is meant to run. The same caution applies
   in reverse to SCM YAML: its `!scm.powershell` scripts run on every assigned node, so
   read them before importing a file from outside the organisation.
 - The importer never updates or deletes an existing report: a collision on any name or
@@ -966,15 +1124,15 @@ that actually filters nodes, e.g.
 | Field | Type | The tool sets |
 | --- | --- | --- |
 | `RuleId` | string GUID | uuid5 of the DISA rule id and the version suffix (stable across re-imports with the same suffix) |
-| `RuleName`, `Comments`, `Grouping`, `Owner` | string | Name ≤250 chars; comments carry the identifiers (CCIs, SRG id, legacy ids), the draft or sentinel note, every description section, the check text and the Fix Text under `Fix:` |
+| `RuleName`, `Comments`, `Grouping`, `Owner` | string | Name ≤200 chars (`NCM_PolicyRules.Name`: a 212-char name fails with SQL error 2628 on 2026.4.0, a 184-char one is stored); comments carry the identifiers (CCIs, SRG id, legacy ids), the draft or sentinel note, every description section, the check text and the Fix Text under `Fix:` |
 | `SimplePatternText` | string | Sentinel or heuristic pattern |
 | `PatternType` | string | `Like`, or `Regex` when a heuristic pattern carries `*` or `?` (see above). Regular expressions are evaluated by the .NET engine, and NCM reports the first line of a multi-line match as the violation |
 | `PatternMustExist` | boolean | `true` = violation when the pattern is missing; a heuristic draft for a must-not check sets `false` (violation when found) |
 | `AdvancedMode` | boolean | `false` — simple pattern, not `MultiLineRulePatterns` |
-| `MultiLineRulePatterns` | array | Empty; the contract's ten members are `{Pattern, PatternType, IsRegEx, Condition, Criteria, BeginBracket, EndBracket}` plus `RuleId`, `PatternId` and `FoundMatch`, which the server fills in. `Condition` is the `AND`/`OR` joining a pattern to the previous one and the brackets are the grouping parentheses |
+| `MultiLineRulePatterns` | array | Empty in the API payloads. The **console file** instead gives every simple-mode rule one placeholder `MultiLineRulePattern` (`PatternType` Regex, empty `Pattern`, `Criteria` true), because every real console export carries one and none carries an empty list (2.1.0). The contract's ten members are `{Pattern, PatternType, IsRegEx, Condition, Criteria, BeginBracket, EndBracket}` plus `RuleId`, `PatternId` and `FoundMatch`, which the server fills in. `Condition` is the `AND`/`OR` joining a pattern to the previous one and the brackets are the grouping parentheses |
 | `ConfigBlockStart` / `ConfigBlockEnd` / `ConfigBlockPatternType` / `ConfigBlockMustExist` / `IsConfigBlockPatternRegEx` | string/boolean | Unused (`""` / `Like` / `false`) — restricts matching to a config stanza |
 | `ErrorLevel` | number | `0` info, `1` warning, `2` critical. The console's *names* for these are editable per server (NCM Settings → Compliance Policy Report Management → Manage Violation Levels), so the words this tool prints may not match what an operator sees |
-| `RemediateScript` | string | Empty since 2.0.0; the Fix Text is prose and is in `Comments`. It is sent empty rather than left out: the contract (`types.json`) marks no member optional, and every rule in the audited console exports carries the element |
+| `RemediateScript` | string | The Check Content and Fix Text as prose under `Check Content:` / `Fix Text:` headings, CCIs last (2.1.0; 2.0.0 sent it empty and kept the Fix Text in `Comments`). Sent empty, not left out, when a rule has neither: the contract (`types.json`) marks no member optional, and every rule in the audited console exports carries the element |
 | `RemediateScriptType` | string | `CLI`, the value every audited rule carries, the one with an empty script included |
 | `ExecuteScriptAutomatically` | boolean | **Always `false`** — `true` pushes remediation to failing devices on its own |
 | `ExecuteRemediationScriptPerBlock`, `ExecuteScriptInConfigMode` | boolean | `false` |

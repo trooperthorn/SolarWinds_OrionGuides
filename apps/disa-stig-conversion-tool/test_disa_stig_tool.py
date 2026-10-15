@@ -282,6 +282,8 @@ class FakeSwis:
             return [{"PolicyRuleID": k} for k in list(self.rules)[:1]]
         if swql == "SELECT TOP 1 PolicyID FROM Cirrus.Policies":
             return [{"PolicyID": k} for k in list(self.policies)[:1]]
+        if swql == "SELECT TOP 1 PolicyReportID FROM Cirrus.PolicyReports":
+            return [{"PolicyReportID": k} for k in list(self.reports)[:1]]
         if "FROM Cirrus.PolicyReports WHERE Name = @n" in swql:
             return [{"PolicyReportID": k, "Name": v["Name"], "Grouping": "DISA STIG"}
                     for k, v in self.reports.items() if v["Name"] == p["n"]]
@@ -309,6 +311,17 @@ class FakeSwis:
                     if row["Name"] == p.get("n") or row["UniqueId"] == p.get("u")]
         if "FROM Orion.PolicyEngine.Rule WHERE PolicyID = @p" in swql:
             return [{"N": next((r["Rules"] for r in self.scm if r["PolicyID"] == p["p"]), 0)}]
+        if "FROM Cirrus.PolicyRules WHERE Owner = @o" in swql:
+            # Every rule the fake holds counts as tool-created.
+            return ([{"PolicyRuleID": k, "Name": v, "Grouping": "DISA STIG"}
+                     for k, v in self.rules.items()] if p.get("o") == tool.RULE_OWNER else [])
+        if "FROM Cirrus.PolicyRules WHERE Name = @n" in swql:
+            return [{"PolicyRuleID": k, "Name": v, "Owner": tool.RULE_OWNER}
+                    for k, v in self.rules.items() if v == p["n"]]
+        if "FROM Cirrus.PolicyRules WHERE Grouping LIKE @g" in swql:
+            # Every rule the fake holds sits in the tool's grouping.
+            return [{"PolicyRuleID": k, "Name": v, "Grouping": p["g"].rstrip("%"), "Owner": "admin"}
+                    for k, v in self.rules.items()]
         raise AssertionError(f"FakeSwis has no answer for: {swql}")
 
     def invoke(self, entity, verb, *args):
@@ -318,17 +331,29 @@ class FakeSwis:
         return self.results.get(verb, result)
 
     # -- Cirrus.PolicyReports verbs ------------------------------------------
+    # The server's 2026.4 member names (seen live): a rule carries ID and Name, a
+    # policy ID, Name and AssgnedPolicyRulesList (sic), a report Policies. The fake
+    # accepts both the published names and the server's, like a lenient server would.
+    @staticmethod
+    def _member(obj, *names):
+        for n in names:
+            if n in obj:
+                return obj[n]
+        raise KeyError(names)
+
     def _AddPolicyRule(self, rule):
         if self._rejecting() or self.reject_items or not isinstance(rule, dict):
             raise tool.SwisError(DOCUMENTED_400S[0])
-        self.rules[rule["RuleId"]] = rule["RuleName"]
-        return f'"{rule["RuleId"]}"'
+        rid = self._member(rule, "RuleId", "ID")
+        self.rules[rid] = self._member(rule, "RuleName", "Name")
+        return f'"{rid}"'
 
     def _AddPolicy(self, policy, import_flag):
         if self._rejecting():
             raise tool.SwisError(DOCUMENTED_400S[1])
         pid = str(uuid.uuid4())
-        self.add_policy(pid, policy["AssignedRulesList"], policy["PolicyName"])
+        self.add_policy(pid, self._member(policy, "AssignedRulesList", "AssgnedPolicyRulesList"),
+                        self._member(policy, "PolicyName", "Name"))
         return pid
 
     def _AddPolicyReport(self, report, import_flag):
@@ -354,10 +379,57 @@ class FakeSwis:
                 policies.append(pid)
         return self.add_report(root.findtext("Name"), policies)
 
+    # The member sets a 2026.4.0 server showed for one rule and one policy
+    # (learn_ncm_shapes, GetPolicyRule / GetPolicy read live on 2026-10-15): ID and Name
+    # instead of RuleId / RuleName and PolicyId / PolicyName, no
+    # IsConfigBlockPatternRegEx, misspelled AssgnedPolicyRulesList / AssgnedPolicyRules,
+    # SelectionCriterias instead of NodeSelectionCriterias.
+    SERVER_RULE_SHAPE = ("Name", "MultiLineRulePatterns", "ID", "Comments", "Grouping",
+                         "RemediateScript", "ConfigBlockStart", "ConfigBlockEnd",
+                         "ConfigBlockPatternType", "ConfigBlockMustExist", "PatternType",
+                         "PatternMustExist", "AdvancedMode", "ErrorLevel", "SimplePatternText",
+                         "ExecuteScriptAutomatically", "Owner", "RemediateScriptType",
+                         "ExecuteRemediationScriptPerBlock", "ExecuteScriptInConfigMode")
+    SERVER_POLICY_SHAPE = ("Name", "SelectionCriterias", "NodeSelectionString", "ID",
+                           "ConfigTypes", "AssgnedPolicyRulesList", "AssgnedPolicyRules",
+                           "Grouping", "Comments")
+
+    def _GetPolicyRule(self, rule_id):
+        if rule_id not in self.rules:
+            return None
+        sample = {k: "" for k in self.SERVER_RULE_SHAPE}
+        sample.update(MultiLineRulePatterns=[], ID=rule_id, Name=self.rules[rule_id],
+                      ConfigBlockMustExist=False, PatternMustExist=True, AdvancedMode=False,
+                      ErrorLevel=1, ExecuteScriptAutomatically=False,
+                      ExecuteRemediationScriptPerBlock=False, ExecuteScriptInConfigMode=False)
+        return sample
+
+    def _GetPolicy(self, policy_id, export_flag):
+        pol = self.policies.get(policy_id)
+        if pol is None:
+            return None
+        sample = {k: "" for k in self.SERVER_POLICY_SHAPE}
+        sample.update(Name=pol["PolicyName"], SelectionCriterias={"CriteriaType": 2},
+                      ID=policy_id, ConfigTypes="Any", AssgnedPolicyRulesList=list(pol["rules"]),
+                      AssgnedPolicyRules=[])
+        return sample
+
+    SERVER_REPORT_SHAPE = ("Name", "ID", "Comments", "Group", "ShowSummaryFlag",
+                           "ShowRulesWithoutViolationFlag", "AssignedPoliciesList", "Policies",
+                           "ReportStatus")
+
     def _GetPolicyReport(self, report_id, export_flag):
         rep = self.reports.get(report_id)
         if rep is None:
             return None
+        if not export_flag:
+            # The server's 2026.4 shape for a plain read (learn_ncm_shapes).
+            sample = {k: "" for k in self.SERVER_REPORT_SHAPE}
+            sample.update(Name=rep["Name"], ID=report_id, ShowSummaryFlag=False,
+                          ShowRulesWithoutViolationFlag=True,
+                          AssignedPoliciesList=list(rep["policies"]), Policies=[],
+                          ReportStatus=0)
+            return sample
         pols = []
         for pid in rep["policies"]:
             pol = self.policies.get(pid, {"PolicyName": "?", "rules": []})
@@ -650,6 +722,347 @@ class ScmRoutingTests(TempDirTest):
         self.assertFalse([f for f in os.listdir(self.tmp) if f.endswith(".scm-profile")])
         with open(os.path.join(self.tmp, written[0]), encoding="utf-8") as fh:
             self.assertTrue(fh.read().startswith("!policy\n"))
+
+    # -- 2.1.0: a zip of SCM policy YAML (a SolarWinds policy pack) is an SCM input --
+
+    POLICY_2 = POLICY_LF.replace("IIS Test Policy", "SQL Test Policy").replace(
+        "81d7a7f2-d976-486d-a6b9-39f2298c2348", "2c5417c0-eec4-441f-b1cc-3144cdbafddc")
+    # UTF-8 with a BOM and CRLF, exactly as SolarWinds ships policy packs.
+    POLICY_1_RAW = b"\xef\xbb\xbf" + POLICY_LF.replace("\n", "\r\n").encode()
+
+    def policy_zip(self, name="Policies.zip", extra=()):
+        members = [("IIS_8.5_Server_STIG_(version_1,_rel._10).yaml", self.POLICY_1_RAW),
+                   ("sub/SQL.yml", self.POLICY_2.encode()),
+                   ("Readme.pdf", b"%PDF-1.4")] + list(extra)
+        return self.write(name, zip_bytes(members))
+
+    def test_policy_zip_routes_to_scm_and_parses_every_member(self):
+        path = self.policy_zip()
+        self.assertEqual(tool.file_module(path), "SCM")
+        items = tool.scm_inputs(path)
+        self.assertEqual([it["member"] for it in items],
+                         ["IIS_8.5_Server_STIG_(version_1,_rel._10).yaml", "sub/SQL.yml"])
+        # The BOM is stripped and CRLF kept: ImportPolicy gets the member text verbatim.
+        self.assertEqual(items[0]["text"], POLICY_LF.replace("\n", "\r\n"))
+        self.assertEqual(items[0]["raw"], self.POLICY_1_RAW)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            tool.cmd_parse(argparse.Namespace(path=path, rules=False))
+        self.assertIn("zip of 2 SCM compliance policies", out.getvalue())
+        self.assertIn("IIS Test Policy  (SCM compliance policy, from IIS_8.5", out.getvalue())
+        self.assertIn("SQL Test Policy", out.getvalue())
+
+    def test_policy_zip_imports_each_member_after_one_collision_check(self):
+        path = self.policy_zip()
+        fake = FakeSwis()
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            tool.cmd_import(import_args(path))
+        sent = [call[2][0] for call in fake.verbs("ImportPolicy")]
+        self.assertEqual(sent, [POLICY_LF.replace("\n", "\r\n"), self.POLICY_2])
+        self.assertEqual([row["Name"] for row in fake.scm], ["IIS Test Policy", "SQL Test Policy"])
+        # A collision on the second member refuses the whole zip before any import.
+        fake = FakeSwis()
+        fake.scm.append({"PolicyID": 7, "Name": "SQL Test Policy", "UniqueId": "other",
+                         "Rules": 1})
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(tool.SwisError, r"SQL\.yml: a policy with the same name "
+                                                        r"already exists.*Nothing was imported"):
+                tool.cmd_import(import_args(path))
+        self.assertEqual(fake.verbs("ImportPolicy"), [])
+
+    def test_policy_zip_convert_unpacks_members_unchanged(self):
+        path = self.policy_zip()
+        cwd = os.getcwd()
+        os.chdir(self.tmp)
+        self.addCleanup(os.chdir, cwd)
+        with contextlib.redirect_stdout(io.StringIO()):
+            tool.cmd_build(import_args(path, output=None))
+        written = sorted(f for f in os.listdir(self.tmp) if f.endswith((".yaml", ".yml")))
+        self.assertEqual(written, ["IIS_8.5_Server_STIG__version_1__rel._10_.yaml", "SQL.yml"])
+        with open(os.path.join(self.tmp, written[0]), "rb") as fh:
+            self.assertEqual(fh.read(), self.POLICY_1_RAW)
+
+    def test_mixed_and_policy_free_zips(self):
+        mixed = self.policy_zip("mixed.zip", extra=[("U_X-xccdf.xml", b"<x/>")])
+        with self.assertRaisesRegex(ValueError, "mixes SCM policy YAML with XCCDF"):
+            tool.scm_inputs(mixed)
+        with self.assertRaisesRegex(ValueError, "mixes SCM policy YAML with XCCDF"):
+            tool.file_module(mixed)
+        nothing = self.write("none.zip", zip_bytes([("notes.yaml", "a: 1\n"),
+                                                    ("p.yml", PROFILE_JSON)]))
+        with self.assertRaisesRegex(ValueError, r"none of its 2 \.yaml/\.yml member"):
+            tool.scm_inputs(nothing)
+        # A STIG package has no YAML members and is left to the XCCDF reader.
+        self.assertIsNone(tool.scm_inputs(self.router_zip()))
+        self.assertEqual(tool.file_module(self.router_zip()), "NCM")
+
+
+class AuditTests(TempDirTest):
+    def test_audit_lists_each_table_and_finds_orphans(self):
+        zip_path = self.router_zip()
+        fake = FakeSwis()
+        report = tool.build_reports(tool.load_benchmarks(zip_path), source_path=zip_path)[0]
+        pol = report["AssignedPolicies"][0]
+        for r in pol["AssignedPolicyRules"]:
+            fake.rules[r["RuleId"]] = r["RuleName"]
+        fake.add_policy(pol["PolicyId"], [r["RuleId"] for r in pol["AssignedPolicyRules"]],
+                        pol["PolicyName"])
+        fake.add_report(report["Name"], [pol["PolicyId"]])
+        # A failed API attempt left one tool-owned rule under a server-assigned id.
+        orphan = "11111111-1111-1111-1111-111111111111"
+        fake.rules[orphan] = pol["AssignedPolicyRules"][0]["RuleName"]
+        out = io.StringIO()
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(out):
+            found = tool.cmd_audit(argparse.Namespace(path=zip_path, name=None, suffix="_v1"))
+        self.assertEqual([r["Name"] for r in found["reports"]], [report["Name"]])
+        self.assertEqual(len(found["assignments"]), 1)
+        self.assertEqual([p["PolicyID"] for p in found["policies"]], [pol["PolicyId"]])
+        self.assertEqual(len(found["rule_assignments"]), len(pol["AssignedPolicyRules"]))
+        self.assertEqual(len(found["rules_by_id"]), len(pol["AssignedPolicyRules"]))
+        # The name lookup sees the orphan the id lookup cannot.
+        self.assertIn(orphan, [r["PolicyRuleID"] for r in found["rules_by_name"]])
+        self.assertEqual([r["PolicyRuleID"] for r in found["orphans"]], [orphan])
+        self.assertIn("orphan rules: created by this tool, referenced by no policy: 1 row(s)",
+                      out.getvalue())
+        self.assertIn("audit is read-only", out.getvalue())
+        self.assertEqual([c for c in fake.calls if c[0] == "invoke"], [])
+
+    def test_import_summaries_name_the_route_and_the_totals(self):
+        zip_path = self.router_zip()
+        reports = tool.build_reports(tool.load_benchmarks(zip_path), source_path=zip_path)
+        rep = reports[0]
+        n_pol, n_rules = tool._report_counts(rep)
+        tool.NCM_IMPORT_ROUTES[rep["Name"]] = "API, per item (JSON contract objects)"
+        lines = tool.ncm_import_summary([rep], [(rep, "abc", n_rules)], [])
+        self.assertEqual(lines[0], f"imported via API, per item (JSON contract objects): "
+                                   f"\"{rep['Name']}\" (abc) — {n_pol} policy(ies), {n_rules} rules")
+        self.assertEqual(lines[-1], f"NCM totals: 1 of 1 report(s), {n_pol} of {n_pol} "
+                                    f"policy(ies), {n_rules} of {n_rules} rule(s) imported and "
+                                    "verified on the server")
+        lines = tool.ncm_import_summary([rep], [], [rep], console_files=True)
+        self.assertTrue(lines[0].startswith("console-importable file written; import it "
+                                            f"through the web console: \"{rep['Name']}\""))
+        self.assertTrue(lines[-1].startswith("NCM totals: 0 of 1 report(s), 0 of"))
+        self.assertIn("1 console file(s) written for 1 report(s)",
+                      tool.ncm_offline_summary([rep], ["a.xml"]))
+        scm = tool.scm_import_summary([("IIS Test Policy", 7, 18), ("SQL", None, 79)])
+        self.assertEqual(scm, ["SCM policy \"IIS Test Policy\" (PolicyID 7) — 18 rules defined",
+                               "SCM policy \"SQL\" — 79 rules defined",
+                               "SCM totals: 2 policy(ies), 97 rule(s) imported"])
+        # The CLI import prints the summary and the run log carries it.
+        fake = FakeSwis()
+        out = io.StringIO()
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(out):
+            tool.cmd_import(import_args(zip_path))
+        self.assertIn("imported via API, per item (JSON contract objects):", out.getvalue())
+        self.assertIn(f"NCM totals: {len(reports)} of {len(reports)} report(s)", out.getvalue())
+
+    def test_json_objects_take_the_servers_member_shape(self):
+        tool.NCM_SHAPES.clear()
+        self.addCleanup(tool.NCM_SHAPES.clear)
+        zip_path = self.router_zip()
+        fake = FakeSwis()
+        # One rule, policy and report already on the server, so each Get verb has a
+        # row to read the server's shape from.
+        fake.rules["2b79fcd4-5d27-4773-b556-3ba85b486fc0"] = "existing"
+        fake.add_policy("73f0cfe7-b59f-4b55-925e-00dc86e00d1f",
+                        ["2b79fcd4-5d27-4773-b556-3ba85b486fc0"], "Existing policy")
+        fake.add_report("Existing report", ["73f0cfe7-b59f-4b55-925e-00dc86e00d1f"])
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            tool.cmd_import(import_args(zip_path))
+        self.assertEqual(fake.verbs("GetPolicyRule")[0][2],
+                         ("2b79fcd4-5d27-4773-b556-3ba85b486fc0",))
+        self.assertEqual(fake.verbs("GetPolicy")[0][2],
+                         ("73f0cfe7-b59f-4b55-925e-00dc86e00d1f", False))
+        # The report went out with the server's names: Policies, not AssignedPolicies.
+        report_sent = fake.verbs("AddPolicyReport")[0][2][0]
+        self.assertEqual(list(report_sent), list(FakeSwis.SERVER_REPORT_SHAPE))
+        self.assertEqual(report_sent["Policies"], [])
+        self.assertEqual(len(report_sent["AssignedPoliciesList"]), 1)
+        sent = fake.verbs("AddPolicyRule")[0][2][0]
+        built = tool.build_reports(tool.load_benchmarks(zip_path), source_path=zip_path)
+        first = built[0]["AssignedPolicies"][0]["AssignedPolicyRules"][0]
+        # Server order and the server's names: RuleId -> ID and RuleName -> Name carry the
+        # tool's values, the member the server does not show is dropped, nothing invented.
+        self.assertEqual(list(sent), list(FakeSwis.SERVER_RULE_SHAPE))
+        self.assertEqual(sent["ID"], first["RuleId"])
+        self.assertEqual(sent["Name"], first["RuleName"])
+        self.assertNotIn("RuleId", sent)
+        self.assertNotIn("IsConfigBlockPatternRegEx", sent)
+        self.assertTrue(sent["SimplePatternText"].startswith("STIG-MANUAL-REVIEW-V-"))
+        self.assertEqual(sent["Owner"], tool.RULE_OWNER)
+        # The policy went out with the server's misspelled list member and the typed
+        # picker criteria (SelectionCriterias), not null.
+        policy = fake.verbs("AddPolicy")[0][2][0]
+        self.assertEqual(list(policy), list(FakeSwis.SERVER_POLICY_SHAPE))
+        criterias = policy["SelectionCriterias"]
+        self.assertEqual(criterias["CriteriaType"], 2)
+        self.assertEqual(criterias["WebSelectionCriterias"][0]["SelectedColumn"], "Vendor")
+        self.assertEqual(criterias["WebSelectionCriterias"][0]["SelectedValue"], "Cisco")
+        # The same Id as the XML in the string form.
+        self.assertIn(f"<Id>{criterias['WebSelectionCriterias'][0]['Id']}</Id>",
+                      policy["NodeSelectionString"])
+        self.assertIsNone(tool.make_node_selection_criterias("(MachineType LIKE '%IOS%')"))
+        self.assertEqual(len(policy["AssgnedPolicyRulesList"]),
+                         len(built[0]["AssignedPolicies"][0]["AssignedPolicyRules"]))
+        self.assertTrue(policy["Name"].endswith("_v1"))
+        # Stems: the published names map onto the server's.
+        for mine, server in (("RuleId", "ID"), ("RuleName", "Name"), ("PolicyId", "ID"),
+                             ("PolicyName", "Name"), ("AssignedRulesList", "AssgnedPolicyRulesList"),
+                             ("AssignedPolicyRules", "AssgnedPolicyRules"),
+                             ("NodeSelectionCriterias", "SelectionCriterias"),
+                             ("AssignedPolicies", "Policies"), ("Comments", "Comments")):
+            self.assertEqual(tool.member_stem(mine), tool.member_stem(server), (mine, server))
+        self.assertNotEqual(tool.member_stem("AssignedPoliciesList"), tool.member_stem("Policies"))
+        # Without a learned shape the object is sent as the tool builds it.
+        tool.NCM_SHAPES.clear()
+        rule = {"RuleId": "x", "Comments": "c", "Odd": 1}
+        self.assertIs(tool.conform_to_shape(rule, "rule"), rule)
+        tool.NCM_SHAPES["rule"] = {"ID": "guid", "Comments": None, "Flag": True, "N": 2,
+                                   "L": [], "O": {}}
+        self.assertEqual(tool.conform_to_shape(rule, "rule"),
+                         {"ID": "x", "Comments": "c", "Flag": False, "N": 0, "L": [], "O": None})
+
+    def test_read_back_accepts_the_servers_member_names(self):
+        # The 2026.4.0 export reply: Policies / Name / AssgnedPolicyRules / Name, and
+        # a NodeSelectionString the server rebuilt from the typed criteria.
+        stored = {"Name": "Rep_v1", "ID": "r", "AssignedPoliciesList": ["p"],
+                  "Policies": [{"Name": "Pol_v1", "ID": "p",
+                                "NodeSelectionString": "WebCriteria:<x/>SQL:Where (Vendor = 'Cisco') ",
+                                "AssgnedPolicyRulesList": ["a", "b"],
+                                "AssgnedPolicyRules": [{"Name": "V-1 [medium] A", "ID": "a"},
+                                                       {"Name": "V-2 [low] B", "ID": "b"}]}]}
+        self.assertEqual(tool.read_back_tree(stored),
+                         [("Pol_v1", ["V-1 [medium] A", "V-2 [low] B"])])
+        self.assertEqual(tool.stored_scope_sql(stored), "Where (Vendor = 'Cisco')")
+        # The published names still read.
+        published = {"AssignedPolicies": [{"PolicyName": "P", "AssignedPolicyRules":
+                                           [{"RuleName": "R"}]}]}
+        self.assertEqual(tool.read_back_tree(published), [("P", ["R"])])
+        # A tree that was not returned is still told apart from an empty report.
+        self.assertIsNone(tool.read_back_tree({"AssignedPoliciesList": ["p"], "Policies": None}))
+        # The verifier accepts the server-shaped tree and warns about the rebuilt scope.
+        report = {"AssignedPolicies": [{"PolicyName": "Pol_v1", "NodeSelectionString":
+                                        "WebCriteria:<x/>SQL:Where (Vendor = 'Cisco' AND MachineType LIKE '%IOS%') ",
+                                        "AssignedPolicyRules": [{"RuleName": "V-1 [medium] A"},
+                                                                {"RuleName": "V-2 [low] B"}]}]}
+        swis = mock.Mock()
+        swis.invoke.return_value = stored
+        lines, log = capture()
+        self.assertEqual(tool._verify_report(swis, "r", report, log), ("r", 1, 2))
+        self.assertTrue(any("stored the node scope as \"Where (Vendor = 'Cisco')\"" in line
+                            for line in lines), lines)
+
+    IPV6_CHECK = (
+        "This requirement is not applicable for the DODIN Backbone.\n\n"
+        "Review the router configuration to determine if it is compliant with this requirement.\n\n"
+        "Step 1: Verify that an inbound IPv6 ACL has been configured on the external interface.\n\n"
+        "interface gigabitethernet1/0\n ipv6 address 2001::1:0:22/64\n ipv6 traffic-filter FILTER_IPV6 in\n\n"
+        "Step 2: Verify that the ACL drops IPv6 packets containing a Destination Option header as "
+        "shown in the example below.\n\n"
+        "ipv6 access-list FILTER_IPV6\n deny 60 any any dest-option log\n deny hbh any any dest-option log\n"
+        " permit ipv6 …\n …\n …\n …\n deny ipv6 any any log\n\n"
+        "If the router is not configured to drop IPv6 packets containing a Destination Option "
+        "header, this is a finding.")
+
+    def test_blocks_mode_builds_an_advanced_config_search_from_the_check_examples(self):
+        # The three example blocks of the screenshot, prose and ellipses left out.
+        blocks = tool.extract_config_blocks(self.IPV6_CHECK)
+        self.assertEqual(blocks, [
+            ["interface gigabitethernet1/0", " ipv6 address 2001::1:0:22/64",
+             " ipv6 traffic-filter FILTER_IPV6 in"],
+            ["ipv6 access-list FILTER_IPV6", " deny 60 any any dest-option log",
+             " deny hbh any any dest-option log", " permit ipv6"],
+            [" deny ipv6 any any log"]])
+        rule = tool.rule_object(make_rule(1, check=self.IPV6_CHECK, fix="Fix it."), "G", "blocks")
+        self.assertTrue(rule["AdvancedMode"])
+        self.assertEqual(rule["SimplePatternText"], "")
+        self.assertTrue(rule["PatternMustExist"])
+        pats = rule["MultiLineRulePatterns"]
+        self.assertEqual([p["Condition"] for p in pats], ["", "AND", "AND"])
+        self.assertEqual([p["Criteria"] for p in pats], [True, True, True])
+        self.assertEqual([p["PatternType"] for p in pats], ["Like"] * 3)
+        self.assertEqual(pats[0]["Pattern"], "\n".join(blocks[0]))
+        self.assertIn("DRAFT BLOCKS: 3 configuration example block(s)", rule["Comments"])
+        self.assertEqual(rule["RemediateScript"], "Fix Text:\nFix it.\n\nCCI: CCI-000001")
+        # No config lines: the sentinel stays, with a note.
+        prose = tool.rule_object(make_rule(2, check="Interview the administrator."), "G", "blocks")
+        self.assertFalse(prose["AdvancedMode"])
+        self.assertTrue(prose["SimplePatternText"].startswith("STIG-MANUAL-REVIEW-"))
+        self.assertIn("Blocks mode kept the sentinel", prose["Comments"])
+        # The console file carries the blocks as the console's own member layout.
+        reports = tool.build_reports([make_benchmark("B", [make_rule(1, check=self.IPV6_CHECK)])],
+                                     mode="blocks")
+        with open(tool.write_console_file(reports[0], self.tmp), encoding="utf-8", newline="") as fh:
+            text = fh.read()
+        self.assertEqual(text.count("<MultiLineRulePattern>"), 3)
+        self.assertIn("<Condition>AND</Condition>", text)
+        self.assertIn("<Pattern>interface gigabitethernet1/0\r\n ipv6 address 2001::1:0:22/64", text)
+        self.assertIn("<AdvancedMode>true</AdvancedMode>", text)
+
+    def test_pattern_drafts_round_trip(self):
+        bench = make_benchmark("B", [make_rule(1, check=self.IPV6_CHECK),
+                                     make_rule(2, check="Interview the administrator.")])
+        reports = tool.build_reports([bench], mode="blocks")
+        out = os.path.join(self.tmp, "drafts.json")
+        tool.write_pattern_drafts(out, [bench], reports, log=None)
+        with open(out, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        self.assertEqual(doc["schema"], tool.PATTERN_DRAFTS_SCHEMA)
+        self.assertEqual(doc["rules"]["V-1"]["origin"], "blocks")
+        self.assertEqual(len(doc["rules"]["V-1"]["patterns"]), 3)
+        self.assertEqual(doc["rules"]["V-1"]["check_content"], self.IPV6_CHECK)
+        self.assertEqual(doc["rules"]["V-2"]["origin"], "sentinel")
+        self.assertTrue(doc["rules"]["V-2"]["pattern"].startswith("STIG-MANUAL-REVIEW-"))
+        # A reviewer (or an automated task) edits the file and passes it back: the
+        # edited rule follows the file, the skipped one follows the run's mode.
+        doc["rules"]["V-1"] = {"advanced": True, "must_exist": True, "note": "reviewed",
+                               "patterns": [{"pattern": "ipv6 traffic-filter FILTER_IPV6 in",
+                                             "type": "Like", "must_contain": True}]}
+        doc["rules"]["V-2"] = {"pattern": "ip http server", "type": "Like", "must_exist": False}
+        with open(out, "w", encoding="utf-8") as fh:
+            json.dump(doc, fh)
+        drafts = tool.load_pattern_drafts(out)
+        rebuilt = tool.build_reports([bench], mode="manual", drafts=drafts)
+        r1, r2 = rebuilt[0]["AssignedPolicies"][0]["AssignedPolicyRules"]
+        self.assertTrue(r1["AdvancedMode"])
+        self.assertEqual([p["Pattern"] for p in r1["MultiLineRulePatterns"]],
+                         ["ipv6 traffic-filter FILTER_IPV6 in"])
+        self.assertIn("PATTERN FROM DRAFTS FILE: reviewed", r1["Comments"])
+        self.assertFalse(r2["AdvancedMode"])
+        self.assertEqual((r2["SimplePatternText"], r2["PatternMustExist"]), ("ip http server", False))
+        self.assertEqual(tool.rule_draft_origin(r1, drafts), "drafts")
+        # Bad files are refused with the rule named.
+        with open(out, "w", encoding="utf-8") as fh:
+            json.dump({"schema": tool.PATTERN_DRAFTS_SCHEMA,
+                       "rules": {"V-9": {"patterns": [{"type": "Like"}]}}}, fh)
+        with self.assertRaisesRegex(ValueError, r"rule V-9: pattern 1 needs a \"pattern\""):
+            tool.load_pattern_drafts(out)
+        # The bookkeeping keys never reach the console file or the server shape.
+        tool.NCM_SHAPES.clear()
+        self.addCleanup(tool.NCM_SHAPES.clear)
+        tool.NCM_SHAPES["rule"] = {"ID": "", "Name": "", "MultiLineRulePatterns": []}
+        sent = tool.conform_to_shape(r1, "rule")
+        self.assertNotIn("_vuln_id", sent)
+        self.assertEqual(len(sent["MultiLineRulePatterns"]), 1)
+
+    def test_audit_needs_a_path_or_a_name(self):
+        with self.assertRaises(SystemExit):
+            tool.cmd_audit(argparse.Namespace(path=None, name=None, suffix="_v1"))
+
+    def test_log_body_limit_zero_keeps_whole_bodies(self):
+        tool.setup_logging(os.path.join(self.tmp, "a.log"), "debug", body_limit=0)
+        self.addCleanup(tool.close_logging)
+        self.assertEqual(tool.truncate_body("x" * 10000), "x" * 10000)
+        tool.setup_logging(os.path.join(self.tmp, "b.log"), "debug", body_limit=10)
+        self.assertTrue(tool.truncate_body("x" * 11).startswith("xxxxxxxxxx... [truncated"))
+        tool.setup_logging(os.path.join(self.tmp, "c.log"), "debug")
+        self.assertEqual(len(tool.truncate_body("x" * 4096)), 4096)
 
 
 # ---------------------------------------------------------------------------
@@ -1221,7 +1634,7 @@ class LoggingTests(TempDirTest):
         self.assertIn("run end: exit code 1;", lines[-1])
 
     def test_version_constant(self):
-        self.assertEqual(tool.TOOL_VERSION, "2.0.0")
+        self.assertEqual(tool.TOOL_VERSION, "2.1.0")
         with open(PS_TOOL, encoding="ascii") as fh:
             self.assertIn(f"$script:ToolVersion = '{tool.TOOL_VERSION}'", fh.read())
 
@@ -1461,8 +1874,27 @@ class SuffixTests(TempDirTest):
         self.assertEqual(v2["Name"], "Pkg - NDM_v2")
         for report, suffix in ((v1, "_v1"), (v2, "_v2")):
             policy = report["AssignedPolicies"][0]
-            self.assertEqual(len(policy["PolicyName"]), 250)
+            # A name over POLICY_NAME_LIMIT is shortened to "<title> V<version> R<n>" and
+            # cut to the limit (2.1.0); the suffix survives the cut.
+            self.assertEqual(len(policy["PolicyName"]), tool.POLICY_NAME_LIMIT)
             self.assertTrue(policy["PolicyName"].endswith(suffix), "the suffix survives the cut")
+        # No generated name carries a comma: NCM's AddPolicyRule refuses it.
+        self.assertEqual(tool.ncm_safe_name("limits for SSH, HTTPS, and root"),
+                         "limits for SSH - HTTPS - and root")
+        comma = make_benchmark("NDM,1", [make_rule(1, title="Set a, b, and c.")], title="T, Inc")
+        rep = tool.build_reports([comma], name="Pkg, v1")[0]
+        self.assertEqual(rep["Name"], "Pkg - v1 - NDM -1_v1")
+        self.assertEqual(rep["AssignedPolicies"][0]["PolicyName"],
+                         "T - Inc V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1")
+        self.assertEqual(rep["AssignedPolicies"][0]["AssignedPolicyRules"][0]["RuleName"],
+                         "V-1 [medium] Set a - b - and c.")
+        # A name that fits keeps the full "(Release: ...)" form; a long one carries R<n>.
+        short = tool.build_reports([make_benchmark("NDM", [make_rule(1)], title="Short")])[0]
+        self.assertEqual(short["AssignedPolicies"][0]["PolicyName"],
+                         "Short V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1")
+        long_title = "Cisco IOS Router NDM Security Technical Implementation Guide"
+        long_rep = tool.build_reports([make_benchmark("NDM", [make_rule(1)], title=long_title)])[0]
+        self.assertEqual(long_rep["AssignedPolicies"][0]["PolicyName"], long_title + " V3 R8_v1")
         ids = lambda rep: {rep["AssignedPolicies"][0]["PolicyId"]} | {
             r["RuleId"] for r in rep["AssignedPolicies"][0]["AssignedPolicyRules"]}
         self.assertEqual(ids(v1) & ids(v2), set(), "_v2 shares no id with _v1")
@@ -1931,24 +2363,34 @@ class ContentFidelityTests(TempDirTest):
                       counts[0])
 
     # item 7 ---------------------------------------------------------------
-    def test_fix_text_moves_to_comments_and_the_script_stays_empty(self):
-        rule = tool.rule_object(make_rule(5, fix="Configure:\nno ip http server"), "G", "manual")
-        self.assertEqual((rule["RemediateScript"], rule["RemediateScriptType"]), ("", "CLI"))
+    def test_check_and_fix_text_go_into_the_remediation_field_as_prose(self):
+        # 2.1.0: the Remediation field carries the Fix Text under the heading a working
+        # console-made STIG report uses, the CCIs last; it is prose and
+        # ExecuteScriptAutomatically stays false. The Comments keep the identifiers,
+        # the sentinel note, the description sections and the check text; the check
+        # text's config examples are the rule's pattern in blocks mode.
+        rule = tool.rule_object(make_rule(5, check="Review the config.",
+                                          fix="Configure:\nno ip http server"), "G", "manual")
+        self.assertEqual(rule["RemediateScript"],
+                         "Fix Text:\nConfigure:\nno ip http server\n\nCCI: CCI-000005")
+        self.assertEqual(rule["RemediateScriptType"], "CLI")
         self.assertFalse(rule["ExecuteScriptAutomatically"])
-        self.assertTrue(rule["Comments"].endswith("Fix:\nConfigure:\nno ip http server"))
-        no_fix = tool.rule_object(make_rule(6, fix=""), "G", "manual")
-        self.assertNotIn("Fix:", no_fix["Comments"])
+        self.assertNotIn("Fix:", rule["Comments"])
+        self.assertIn("Check:\nReview the config.", rule["Comments"])
+        neither = tool.rule_object(make_rule(6, fix=""), "G", "manual")
+        self.assertEqual(neither["RemediateScript"], "")
+        only_fix = tool.rule_object(make_rule(7, fix="Do it."), "G", "manual")
+        self.assertEqual(only_fix["RemediateScript"], "Fix Text:\nDo it.\n\nCCI: CCI-000007")
         reports = tool.build_reports([make_benchmark("Fix_STIG", [make_rule(5), make_rule(6, fix="")])])
         out = tool.write_console_file(reports[0], self.tmp)
         with open(out, encoding="utf-8", newline="") as fh:
             text = fh.read()
-        self.assertIn("<RemediateScript />", text)
+        self.assertIn("<RemediateScript>Fix Text:\r\nConfigure it.\r\n\r\nCCI: CCI-000005</RemediateScript>",
+                      text)
+        self.assertIn("<RemediateScript />", text)   # the rule with neither
         self.assertIn("<RemediateScriptType>CLI</RemediateScriptType>", text)
-        self.assertIn("Fix:\r\nConfigure it.", text)
-        self.assertIn('Fix Text of 1 rule(s) kept in the rule Comments under "Fix:"', "\n".join(self.lines()))
-        for fmt in ("xml-dc", "xml-plain"):
-            dc = tool.WIRE_FORMATS[fmt]["rule"](reports[0]["AssignedPolicies"][0]["AssignedPolicyRules"][0])
-            self.assertIn("RemediateScript />", dc)
+        self.assertIn("Fix Text of 1 rule(s) placed in the rule's Remediation field",
+                      "\n".join(self.lines()))
 
     # item 8 ---------------------------------------------------------------
     def test_scm_rules_stay_failed_without_a_translate_node(self):
@@ -2046,6 +2488,31 @@ class ContentFidelityTests(TempDirTest):
         self.assertEqual(set(re.findall(r"^  severity: (\S+)$", yaml_text, re.MULTILINE)),
                          {"High", "Medium", "Low"})
 
+    def test_console_file_gives_simple_mode_rules_the_placeholder_pattern(self):
+        # 2.1.0: real console exports never carry an empty <MultiLineRulePatterns />;
+        # a simple-mode rule gets one empty Regex pattern, in the console's member order.
+        report = tool.build_reports([make_benchmark("Ph_STIG", [make_rule(1), make_rule(2)])])[0]
+        with open(tool.write_console_file(report, self.tmp), encoding="utf-8", newline="") as fh:
+            text = fh.read()
+        self.assertNotIn("<MultiLineRulePatterns />", text)
+        placeholder = ("<MultiLineRulePatterns>\r\n            <MultiLineRulePattern>\r\n"
+                       "              <EndBracket />\r\n              <PatternType>Regex</PatternType>\r\n"
+                       "              <Condition />\r\n              <Pattern />\r\n"
+                       "              <Criteria>true</Criteria>\r\n              <BeginBracket />\r\n"
+                       "            </MultiLineRulePattern>\r\n          </MultiLineRulePatterns>")
+        self.assertEqual(text.count(placeholder), 2)
+        # A rule with patterns of its own, or in advanced mode, is left alone.
+        own = {"PatternType": "Like", "Pattern": "ip http server", "Criteria": True,
+               "Condition": "", "BeginBracket": "", "EndBracket": ""}
+        self.assertEqual(tool.console_rule_patterns({"MultiLineRulePatterns": [own]}), [own])
+        self.assertEqual(tool.console_rule_patterns({"AdvancedMode": True}), [])
+        self.assertEqual(tool.console_rule_patterns({"AdvancedMode": False}),
+                         [tool.SIMPLE_MODE_PLACEHOLDER_PATTERN])
+        # The API payloads keep the empty list the contract table documents.
+        rule = report["AssignedPolicies"][0]["AssignedPolicyRules"][0]
+        self.assertEqual(rule["MultiLineRulePatterns"], [])
+        self.assertIn("<MultiLineRulePatterns />", tool.dc_rule_xml(rule, ns=""))
+
     def test_console_file_keeps_the_xsd_and_xsi_declarations(self):
         report = tool.build_reports([make_benchmark("Ns_STIG", [make_rule(1)])])[0]
         with open(tool.write_console_file(report, self.tmp), encoding="utf-8", newline="") as fh:
@@ -2117,8 +2584,11 @@ class ContentFidelityTests(TempDirTest):
                                             "/ SRG SRG-NET-000362-RTR-000112 / legacy V-78221, SV-92927\n\n"))
         for needle in ("Discussion:\nWhy The router", "False positives:\nNone known.",
                        "Mitigations:\nFilter at the edge.", "IA controls:\nECSC-1",
-                       "Responsibility:\nNetwork Administrator", "Fix:\nRemove it:"):
+                       "Responsibility:\nNetwork Administrator"):
             self.assertIn(needle, comments)
+        # The Fix Text lives in the Remediation field since 2.1.0, under its heading.
+        self.assertIn("Fix Text:\nRemove it:", tool.rule_object(rule, "G", "manual")["RemediateScript"])
+        self.assertNotIn("Fix:\nRemove it:", comments)
         description = tool.scm_rule_description(rule)
         self.assertTrue(description.startswith("Why The router must not forward directed broadcasts.\n\n"
                                                "False positives:\nNone known."))
@@ -2458,7 +2928,10 @@ class PowerShellEditionTests(TempDirTest):
         self.assertEqual(len(ps["files"][9]["reports"]), 5)
         self.assertIn("\\u2028", ps["files"][7]["scm"][0])
         cut = ps["memory"][4]["reports"][0]["AssignedPolicies"][0]["AssignedPolicyRules"][-1]["RuleName"]
-        self.assertEqual(cut, "V-30 [medium] " + "A" * 230 + ASTRAL * 6)
+        # RULE_NAME_LIMIT (200) code points, in both editions, so the astral characters
+        # beyond it are cut whole.
+        self.assertEqual(cut, ("V-30 [medium] " + "A" * 230 + ASTRAL * 6)[:tool.RULE_NAME_LIMIT])
+        self.assertEqual(len(cut), 200)
         self.assertTrue(ps["memory"][4]["reports"][0]["Name"].endswith(ASTRAL * 7 + "_v1"))
         # The comparison covered real decisions, not only refusals.
         self.assertEqual(sum(1 for r in ps["scopes"] if r.get("error")), 6)

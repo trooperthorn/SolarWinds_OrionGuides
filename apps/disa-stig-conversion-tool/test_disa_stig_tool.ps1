@@ -359,6 +359,48 @@ try {
     Assert-Throws { Read-ScmPolicyFile $profile $null } 'collection profile' 'JSON .scm-profile is refused as a collection profile'
     Assert-Throws { Get-FileModule $profile } 'collection profile' 'Get-FileModule refuses a JSON .scm-profile'
 
+    # --- 5b. a zip of SCM policy YAML is an SCM input (2.1.0) ---------------
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    function New-TestZip([string]$ZipPath, $Members) {
+        # $Members: array of @(name, bytes)
+        if (Test-Path -LiteralPath $ZipPath) { Remove-Item -LiteralPath $ZipPath }
+        $fs = [System.IO.File]::Open($ZipPath, 'CreateNew')
+        $za = New-Object System.IO.Compression.ZipArchive($fs, 'Create')
+        foreach ($m in $Members) {
+            $e = $za.CreateEntry($m[0]); $s = $e.Open(); $s.Write($m[1], 0, $m[1].Length); $s.Dispose()
+        }
+        $za.Dispose(); $fs.Dispose()
+    }
+    $policy2 = $lf.Replace('IIS Test Policy', 'SQL Test Policy').Replace('81d7a7f2-d976-486d-a6b9-39f2298c2348', '2c5417c0-eec4-441f-b1cc-3144cdbafddc')
+    # UTF-8 with a BOM and CRLF, exactly as SolarWinds ships policy packs.
+    $crlfBom = [byte[]]@(0xEF, 0xBB, 0xBF) + [System.Text.Encoding]::UTF8.GetBytes($crlf)
+    $policyZip = Join-Path $scratch 'Policies.zip'
+    New-TestZip $policyZip @(
+        @('IIS_8.5_Server_STIG_(version_1,_rel._10).yaml', $crlfBom),
+        @('sub/SQL.yml', [System.Text.Encoding]::UTF8.GetBytes($policy2)),
+        @('Readme.pdf', [System.Text.Encoding]::ASCII.GetBytes('%PDF-1.4')))
+    Assert-Equal 'SCM' (Get-FileModule $policyZip) 'a zip of policy YAML routes to SCM'
+    $zipItems = Get-ScmInputs $policyZip $null   # one array object; see Get-ScmInputs
+    Assert-Equal 2 $zipItems.Count 'both policy members are read and the PDF is skipped'
+    Assert-Equal 'IIS_8.5_Server_STIG_(version_1,_rel._10).yaml' $zipItems[0].Member 'members come in ordinal order'
+    Assert-Equal $crlf $zipItems[0].Text 'BOM stripped, CRLF kept: ImportPolicy gets the member text verbatim'
+    Assert-Equal 'sub/SQL.yml' $zipItems[1].Member 'a member in a folder is read too'
+    $unpackDir = Join-Path $scratch 'unpacked'
+    New-Item -ItemType Directory -Path $unpackDir | Out-Null
+    $unpacked = Write-ScmPolicyMembers $zipItems $unpackDir $null   # one array object, like Get-ScmInputs
+    Assert-Equal 'IIS_8.5_Server_STIG__version_1__rel._10_.yaml' (Split-Path -Leaf $unpacked[0]) 'unpacked member name is sanitized like Python'
+    Assert-Equal ([Convert]::ToBase64String($crlfBom)) ([Convert]::ToBase64String([System.IO.File]::ReadAllBytes($unpacked[0]))) 'unpacked bytes are unchanged'
+    $mixedZip = Join-Path $scratch 'mixed.zip'
+    New-TestZip $mixedZip @(@('a.yaml', $crlfBom), @('U_X-xccdf.xml', [System.Text.Encoding]::UTF8.GetBytes('<x/>')))
+    Assert-Throws { Get-ScmInputs $mixedZip $null } 'mixes SCM policy YAML' 'a zip mixing policy YAML and XCCDF is refused'
+    $noneZip = Join-Path $scratch 'none.zip'
+    New-TestZip $noneZip @(@('notes.yaml', [System.Text.Encoding]::UTF8.GetBytes("a: 1`n")), @('p.yml', [System.Text.Encoding]::UTF8.GetBytes($profileJson)))
+    Assert-Throws { Get-ScmInputs $noneZip $null } 'none of its 2' 'a zip whose YAML members are not policies is refused'
+    $xmlOnlyZip = Join-Path $scratch 'stig.zip'
+    New-TestZip $xmlOnlyZip @(, @('U_X-xccdf.xml', [System.Text.Encoding]::UTF8.GetBytes('<x/>')))   # @(, …): one member, not flattened
+    Assert-True ($null -eq (Get-ScmInputs $xmlOnlyZip $null)) 'a zip without YAML members is left to the XCCDF reader'
+
     # --- 6. Import-ScmPolicyYaml validates !policy before any SWIS call -----
     $script:Calls = New-Object System.Collections.ArrayList
     function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$Arguments) {
@@ -367,6 +409,95 @@ try {
     function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
     Assert-Throws { Import-ScmPolicyYaml @{} 'name: not a policy' $captureLog } 'not an SCM compliance policy' 'Import-ScmPolicyYaml rejects text without !policy'
     Assert-Equal 0 $script:Calls.Count 'no SWIS call made for rejected text'
+
+    # --- 6b. Import-ScmPolicyItems checks every member before the first import
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) {
+        [void]$script:Calls.Add('query')
+        if ($Swql -match 'FROM Orion.PolicyEngine.Policy WHERE' -and $Parameters.n -eq 'SQL Test Policy') {
+            return @(@{ PolicyID = 7; Name = 'SQL Test Policy'; UniqueId = 'other'; BuiltIn = $true })
+        }
+        return @()
+    }
+    $script:Calls.Clear()
+    Assert-Throws { Import-ScmPolicyItems @{} $zipItems $null $null } 'SQL\.yml: a policy with the same name already exists.*built in.*Nothing was imported' 'a collision on the second member refuses the whole zip'
+    Assert-Equal 0 (@($script:Calls | Where-Object { $_ -eq 'ImportPolicy' })).Count 'no ImportPolicy call was made for the refused zip'
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
+
+    # --- 6c. Get-NcmServerAudit is read-only and finds orphan rules (2.1.0) --
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) {
+        [void]$script:Calls.Add('query')
+        if ($Swql -match 'FROM Cirrus.PolicyRules WHERE Owner = @o') {
+            return @(@{ PolicyRuleID = 'aaaa'; Name = 'linked'; Grouping = 'g' }, @{ PolicyRuleID = 'bbbb'; Name = 'orphan'; Grouping = 'g' })
+        }
+        if ($Swql -match 'FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids') { return @(@{ PolicyID = 'p1'; PolicyRuleID = 'AAAA' }) }
+        if ($Swql -match 'FROM Cirrus.PolicyReports WHERE Name = @n') { return @(@{ PolicyReportID = 'r1'; Name = $Parameters.n; Grouping = 'g' }) }
+        if ($Swql -match 'FROM Cirrus.PolicyAssignment WHERE PolicyReportID IN @ids') { return @(@{ PolicyReportID = 'r1'; PolicyID = 'p1' }) }
+        if ($Swql -match 'FROM Cirrus.Policies WHERE PolicyID IN @ids') { return @(@{ PolicyID = 'p1'; Name = 'pol' }) }
+        return @()
+    }
+    $script:Calls.Clear()
+    $serverAudit = Get-NcmServerAudit @{} @('Rep') @() @() @('x') @('linked')
+    Assert-Equal 1 (@($serverAudit.reports)).Count 'audit finds the report by name'
+    Assert-Equal 1 (@($serverAudit.policies)).Count 'audit finds the policy through the assignment'
+    Assert-Equal 'bbbb' (@($serverAudit.orphans))[0].PolicyRuleID 'the tool-owned rule no policy references is an orphan (id match is case-insensitive)'
+    Assert-Equal 0 (@($script:Calls | Where-Object { $_ -ne 'query' })).Count 'the audit only queries'
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
+
+    # --- 6e. JSON objects take the server's member shape (2.1.0) ------------
+    $script:NcmShapes.Clear()
+    $script:NcmShapes['rule'] = [ordered]@{ Comments = $null; Flag = $true; N = 2; L = @(); O = (New-Object PSObject) }
+    $shaped = ConvertTo-ServerShape ([ordered]@{ RuleId = 'x'; comments = 'c'; Odd = 1 }) 'rule'
+    Assert-Equal 'Comments,Flag,N,L,O' (@($shaped.Keys) -join ',') 'server member order; the tool''s members the server does not show are dropped'
+    Assert-Equal 'c' $shaped['Comments'] 'the tool''s value is kept regardless of key case'
+    foreach ($pair in @(@('RuleId', 'ID'), @('RuleName', 'Name'), @('PolicyId', 'ID'), @('PolicyName', 'Name'),
+                        @('AssignedRulesList', 'AssgnedPolicyRulesList'), @('AssignedPolicyRules', 'AssgnedPolicyRules'),
+                        @('NodeSelectionCriterias', 'SelectionCriterias'), @('AssignedPolicies', 'Policies'))) {
+        Assert-Equal (Get-MemberStem $pair[1]) (Get-MemberStem $pair[0]) "stem of $($pair[0]) matches the server's $($pair[1])"
+    }
+    Assert-True ((Get-MemberStem 'AssignedPoliciesList') -ne (Get-MemberStem 'Policies')) 'the id list and the nested list keep distinct stems'
+    Assert-Equal $false $shaped['Flag'] 'a missing boolean member is sent false'
+    Assert-Equal 0 $shaped['N'] 'a missing numeric member is sent 0'
+    Assert-Equal 0 (@($shaped['L'])).Count 'a missing array member is sent empty'
+    Assert-True ($null -eq $shaped['O']) 'a missing object member is sent null'
+    $script:NcmShapes.Clear()
+    $plain = [ordered]@{ RuleId = 'x' }
+    Assert-True ([object]::ReferenceEquals($plain, (ConvertTo-ServerShape $plain 'rule'))) 'without a learned shape the object is sent as it is'
+    function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$Arguments) {
+        [void]$script:Calls.Add("$SwisVerb")
+        if ($SwisVerb -eq 'GetPolicyRule') { return [PSCustomObject]@{ ID = $Arguments[0]; ServerOnlyMember = $null; Name = 'existing' } }
+        return $null
+    }
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) {
+        [void]$script:Calls.Add('query')
+        if ($Swql -eq 'SELECT TOP 1 PolicyRuleID FROM Cirrus.PolicyRules') { return @(@{ PolicyRuleID = 'r0' }) }
+        return @()
+    }
+    Initialize-NcmShapes @{} $null
+    Assert-Equal 'ID,ServerOnlyMember,Name' (@($script:NcmShapes['rule'].Keys) -join ',') 'the rule shape is read from GetPolicyRule on an existing rule'
+    Assert-True (-not $script:NcmShapes.ContainsKey('policy')) 'a table without rows leaves that kind to the published contract'
+    $wire = Get-WireArgument 'json' 'rule' ([ordered]@{ RuleName = 'n'; RuleId = 'id'; IsConfigBlockPatternRegEx = $false }) $null
+    Assert-Equal 'ID,ServerOnlyMember,Name' (@($wire.Keys) -join ',') 'the JSON wire argument follows the learned shape'
+    Assert-Equal 'id' $wire['ID'] 'RuleId is sent as the server''s ID'
+    Assert-Equal 'n' $wire['Name'] 'RuleName is sent as the server''s Name'
+    Assert-Equal '' $wire['ServerOnlyMember'] 'the server-only member is sent empty'
+    $script:NcmShapes.Clear()
+    function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$Arguments) { [void]$script:Calls.Add("$SwisVerb"); return $null }
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
+
+    # --- 6d. import summaries name the route and the totals (2.1.0) -------
+    $sumReport = @{ Name = 'Rep_v1'; AssignedPolicies = @(@{ PolicyName = 'P'; AssignedPolicyRules = @(@{ RuleId = 'a' }, @{ RuleId = 'b' }) }) }
+    $script:NcmImportRoutes['Rep_v1'] = 'API, per item (JSON contract objects)'
+    $sumLines = Get-NcmImportSummary @($sumReport) @(@{ Report = $sumReport; ReportId = 'abc'; Rules = 2 }) @()
+    Assert-Equal 'imported via API, per item (JSON contract objects): "Rep_v1" (abc) - 1 policy(ies), 2 rules' $sumLines[0] 'summary names the route, id and counts'
+    Assert-Equal 'NCM totals: 1 of 1 report(s), 1 of 1 policy(ies), 2 of 2 rule(s) imported and verified on the server' $sumLines[-1] 'NCM totals line'
+    $sumLines = Get-NcmImportSummary @($sumReport) @() @($sumReport) $true
+    Assert-True ($sumLines[0].StartsWith('console-importable file written; import it through the web console: "Rep_v1"')) 'a report the API refused is listed with its console file'
+    Assert-True ((Get-NcmOfflineSummary @($sumReport) @('a.xml')).StartsWith('NCM totals: 1 console file(s) written for 1 report(s), 1 policy(ies), 2 rule(s)')) 'offline totals'
+    $scmLines = Get-ScmImportSummary @(@{ Name = 'IIS Test Policy'; PolicyId = 7; Rules = 18 }, @{ Name = 'SQL'; PolicyId = $null; Rules = 79 })
+    Assert-Equal 'SCM policy "IIS Test Policy" (PolicyID 7) - 18 rules defined' $scmLines[0] 'SCM line with id'
+    Assert-Equal 'SCM policy "SQL" - 79 rules defined' $scmLines[1] 'SCM line without id'
+    Assert-Equal 'SCM totals: 2 policy(ies), 97 rule(s) imported' $scmLines[-1] 'SCM totals line'
+    Assert-Equal 1 (Get-ScmRuleCount $crlf) 'rule count survives CRLF'
 
     # --- 7. report naming and truncation match Python ----------------------
     $bench = @{ BenchmarkId = 'B1'; Title = 'T' * 300; Version = '1'; Release = 'Release: 1'; StatusDate = '';
@@ -379,7 +510,58 @@ try {
     # than wrapping the call in @() (which would nest the array one level).
     $built = New-NcmReports @($bench) '' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $true 'Running'; $r = $built[0]
     Assert-Equal 250 $r.Name.Length 'report named after a long title is cut to 250'
-    Assert-Equal 250 $r.AssignedPolicies[0].PolicyName.Length 'policy name is cut to 250'
+    Assert-Equal 100 $r.AssignedPolicies[0].PolicyName.Length 'a policy name over the limit is shortened and cut to 100 (Python POLICY_NAME_LIMIT)'
+    $longBench = @{ BenchmarkId = 'NDM'; Title = 'Cisco IOS Router NDM Security Technical Implementation Guide'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026'; StatusDate = ''; Source = 's.xml'; Edition = 'manual'; Rules = @() }
+    Assert-Equal 'Cisco IOS Router NDM Security Technical Implementation Guide V3 R8_v1' (Get-NcmPolicyName $longBench '_v1') 'a long policy name carries R<n> instead of the full release text'
+    Assert-Equal 'limits for SSH - HTTPS - and root' (Get-NcmSafeName 'limits for SSH, HTTPS, and root') 'commas become " -" (NCM refuses a name with a comma)'
+    $serverStored = [PSCustomObject]@{ Name = 'Rep_v1'; AssignedPoliciesList = @('p'); Policies = @([PSCustomObject]@{
+        Name = 'Pol_v1'; NodeSelectionString = "WebCriteria:<x/>SQL:Where (Vendor = 'Cisco') "
+        AssgnedPolicyRules = @([PSCustomObject]@{ Name = 'V-1 [medium] A' }, [PSCustomObject]@{ Name = 'V-2 [low] B' }) }) }
+    $readTree = Get-ReadBackTree $serverStored
+    Assert-Equal 'Pol_v1' $readTree.Policies[0].Policy 'read-back accepts the server''s Policies / Name members'
+    Assert-Equal 'V-1 [medium] A,V-2 [low] B' (@($readTree.Policies[0].Rules) -join ',') 'read-back accepts AssgnedPolicyRules / Name'
+    Assert-Equal "Where (Vendor = 'Cisco')" (Get-StoredScopeSql $serverStored) 'the stored scope SQL is read back'
+    # --- 6f. -Mode blocks and the pattern-drafts file (2.1.0) ---------------
+    $ipv6Check = ("Review the router configuration to determine if it is compliant with this requirement.`n`n" +
+        "Step 1: Verify that an inbound IPv6 ACL has been configured on the external interface.`n`n" +
+        "interface gigabitethernet1/0`n ipv6 address 2001::1:0:22/64`n ipv6 traffic-filter FILTER_IPV6 in`n`n" +
+        "ipv6 access-list FILTER_IPV6`n deny 60 any any dest-option log`n deny hbh any any dest-option log`n" +
+        " permit ipv6 " + [char]0x2026 + "`n " + [char]0x2026 + "`n deny ipv6 any any log`n`n" +
+        'If the router is not configured to drop IPv6 packets, this is a finding.')
+    $cfgBlocks = Get-ConfigBlocks $ipv6Check
+    Assert-Equal 3 @($cfgBlocks).Count 'three example blocks, prose and ellipses left out'
+    Assert-Equal "interface gigabitethernet1/0`n ipv6 address 2001::1:0:22/64`n ipv6 traffic-filter FILTER_IPV6 in" (@($cfgBlocks[0]) -join "`n") 'the first block keeps its indentation'
+    Assert-Equal ' permit ipv6' (@($cfgBlocks[1])[-1]) 'a trailing ellipsis is cut'
+    $blockRule = @{ VulnId = 'V-1'; RuleId = 'SV-1r1_rule'; StigId = 'T-1'; Severity = 'medium'; Title = 'T'; Discussion = 'd'; CheckContent = $ipv6Check; OvalRef = ''; FixText = 'Fix it.'; Ccis = @('CCI-000001'); DisplayId = 'V-1'; LegacyIds = @(); SrgId = ''; Sections = @() }
+    $built = New-NcmRule $blockRule 'G' 'blocks'
+    Assert-True ([bool]$built.AdvancedMode) 'blocks mode sets AdvancedMode'
+    Assert-Equal 3 @($built.MultiLineRulePatterns).Count 'one pattern per block'
+    Assert-Equal ',AND,AND' (@($built.MultiLineRulePatterns | ForEach-Object { $_.Condition }) -join ',') 'blocks are AND-joined'
+    Assert-Equal '' $built.SimplePatternText 'no simple pattern in advanced mode'
+    Assert-Equal "Fix Text:`nFix it.`n`nCCI: CCI-000001" $built.RemediateScript 'the Remediation field holds the Fix Text and CCIs only'
+    Assert-True ($built.Comments.Contains('DRAFT BLOCKS: 3 configuration example block(s)')) 'the note says where the patterns came from'
+    $draftsPath = Join-Path $scratch 'drafts.json'
+    [System.IO.File]::WriteAllText($draftsPath, ('{"schema":"disa-stig-tool/pattern-drafts/1","rules":{"V-1":{"advanced":true,"must_exist":true,"note":"reviewed",' +
+        '"patterns":[{"pattern":"ipv6 traffic-filter FILTER_IPV6 in","type":"Like","must_contain":true}]},' +
+        '"V-2":{"pattern":"ip http server","type":"Like","must_exist":false},"V-3":{"skip":true}}}'), $utf8)
+    $loaded = Read-PatternDrafts $draftsPath
+    Assert-Equal 2 $loaded.Count 'two drafts loaded, the skipped rule left out'
+    $fromDraft = New-NcmRule $blockRule 'G' 'manual' '_v1' $loaded
+    Assert-Equal 'ipv6 traffic-filter FILTER_IPV6 in' (@($fromDraft.MultiLineRulePatterns)[0].Pattern) 'the drafts file wins over the mode'
+    Assert-True ($fromDraft.Comments.Contains('PATTERN FROM DRAFTS FILE: reviewed')) 'the drafts note is carried'
+    Assert-Equal 'drafts' (Get-RuleDraftOrigin $fromDraft $loaded) 'origin: drafts'
+    Assert-Equal 'blocks' (Get-RuleDraftOrigin $built $null) 'origin: blocks'
+    [System.IO.File]::WriteAllText($draftsPath, '{"schema":"disa-stig-tool/pattern-drafts/1","rules":{"V-9":{"patterns":[{"type":"Like"}]}}}', $utf8)
+    Assert-Throws { Read-PatternDrafts $draftsPath } 'rule V-9: pattern 1 needs a "pattern"' 'a bad drafts file is refused with the rule named'
+    $crit = New-NodeSelectionCriterias "(Vendor = 'Cisco' AND MachineType LIKE '%IOS%')"
+    Assert-Equal 2 $crit.CriteriaType 'typed criteria: web picker'
+    Assert-Equal 'Cisco' $crit.WebSelectionCriterias[0].SelectedValue 'typed criteria carry the vendor'
+    Assert-True ((New-NodeSelectionString "(Vendor = 'Cisco')").Contains("<Id>$($crit.WebSelectionCriterias[0].Id)</Id>")) 'typed criteria share the Id of the XML form'
+    Assert-True ($null -eq (New-NodeSelectionCriterias "(MachineType LIKE '%IOS%')")) 'no vendor, no typed criteria'
+    $commaBench = @{ BenchmarkId = 'NDM'; Title = 'T, Inc'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026' }
+    Assert-Equal 'T - Inc V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1' (Get-NcmPolicyName $commaBench '_v1') 'a policy name loses its commas'
+    $shortBench = @{ BenchmarkId = 'NDM'; Title = 'Short'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026' }
+    Assert-Equal 'Short V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1' (Get-NcmPolicyName $shortBench '_v1') 'a policy name that fits keeps the full release text'
     Assert-Equal 'Running' $r.AssignedPolicies[0].ConfigTypes '-ConfigType reaches the policy'
     $built = New-NcmReports @($bench) 'Base' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $false; $r = $built[0]
     Assert-Equal 'Base - B1_v1' $r.Name 'base name plus benchmark id plus the suffix'
@@ -458,10 +640,13 @@ try {
         $script:ZipMemberMax = $savedMember; $script:ZipTotalMax = 1000
         Assert-Throws { Get-StigBenchmarks $zipPath } 'total limit' 'the total limit refuses the input'
     } finally { $script:ZipMemberMax = $savedMember; $script:ZipTotalMax = $savedTotal }
-    # Fix Text in Comments, RemediateScript empty, CLI kept.
+    # Check Content and Fix Text in the Remediation field as prose (2.1.0), CLI kept, never auto-executed.
     $fixRule = New-NcmRule @($dup.Rules)[0] 'G' 'manual'
-    Assert-True ($fixRule.RemediateScript -eq '' -and $fixRule.RemediateScriptType -eq 'CLI') 'RemediateScript is empty and CLI'
-    Assert-True ($fixRule.Comments.EndsWith("Fix:`nf")) 'the Fix Text ends the Comments'
+    Assert-True ($fixRule.RemediateScript.StartsWith("Check Content:`n") -or $fixRule.RemediateScript.StartsWith("Fix Text:`n")) 'the Remediation field carries the STIG prose under its headings'
+    Assert-True ($fixRule.RemediateScript.Contains("Fix Text:`nf")) 'the Fix Text is in the Remediation field'
+    Assert-Equal 'CLI' $fixRule.RemediateScriptType 'RemediateScriptType stays CLI'
+    Assert-True (-not $fixRule.ExecuteScriptAutomatically) 'nothing is auto-executed'
+    Assert-True (-not $fixRule.Comments.Contains("Fix:`n")) 'the Fix Text is no longer in the Comments'
     Assert-True ($fixRule.Comments.StartsWith('V-1 / SV-1r1_rule / STIG ID  / SRG SRG-NET-1')) 'the SRG id is in the reference line'
 
     # --- 9. stubbed SWIS: removal plan keeps shared policies and rules ------

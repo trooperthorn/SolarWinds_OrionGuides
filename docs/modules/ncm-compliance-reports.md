@@ -177,11 +177,61 @@ Round-trip gotchas:
 - Contract member names differ from SWQL columns (`Comments`/`Group` vs
   `Comment`/`Grouping`; rule `SimplePatternText` vs column `Pattern`) — map file
   fields to the verb contract, never to column names.
-- **Field observation (2026.2.2):** the JSON REST endpoint's handling of the
-  `SolarWinds.NCM.Contracts.Compliance.*` parameter types varies by server, and two
-  distinct rejections were observed: HTTP 400 "Value cannot be null. Parameter name:
-  input" (a JSON object handed to an XML reader) and HTTP 400 "Verb … cannot
-  unpackage parameter 0" (an XML string the DataContractSerializer refused). One
+- **Field observation (2026.2.2, read again on 2026.4.0 with the full fault bodies):**
+  the JSON REST endpoint's handling of the `SolarWinds.NCM.Contracts.Compliance.*`
+  parameter types varies by server, and two distinct rejections were observed: HTTP
+  400 "Value cannot be null. Parameter name: input" and HTTP 400 "Verb … cannot
+  unpackage parameter 0". The 2026.4.0 fault documents (the `FullException` member of
+  the error body) say what each one is. The first is **not** a wire-format rejection:
+  its stack is `System.ArgumentNullException` thrown by `Regex.IsMatch(String input,
+  String pattern)` inside `SolarWinds.Data.Providers.NCM.Invokers.PolicyReportsInvoker.AddPolicyRule(PolicyRule rule)`,
+  so the JSON object **was** deserialized into a `PolicyRule` and the verb ran; a string
+  member the invoker validates with a regular expression was null, and every member
+  the published 2026.2 contract lists had been sent. The member is therefore one the
+  server's type carries and the published contract does not. The second is Newtonsoft
+  (`JsonSerializationException: Error converting value "<…xml…>" to type
+  SolarWinds.NCM.Contracts.Compliance.PolicyRule`): a JSON *string* is never converted
+  to the contract type, so the DataContract-XML-string and plain-XML-string routes are
+  dead on this endpoint, whatever the server version. The practical consequence: read
+  the server's own shape first (`GetPolicyRule(ruleId)`, `GetPolicy(policyId, exportFlag)`
+  and `GetPolicyReport(reportId, exportFlag)` with `exportFlag` false, on any existing
+  row, return the full member set with the server's names), send the JSON object with
+  every member the server shows,
+  and fill the ones the published contract lacks with an empty value. The DISA STIG
+  tool does this since 2.1.0 and logs the members it had to add. Read that way on
+  2026.4.0 (2026-10-15), the server's JSON members are **not the published names**: a
+  `PolicyRule` carries `ID` and `Name` (not `RuleId` and `RuleName`) and no
+  `IsConfigBlockPatternRegEx`; a `Policy` carries `ID`, `Name`, `SelectionCriterias`,
+  `AssgnedPolicyRulesList` and `AssgnedPolicyRules` (the misspelling is the server's);
+  a `PolicyReport` carries `Policies` instead of `AssignedPolicies`. The null member
+  behind the first rejection was therefore `Name`. Send the JSON object under the
+  server's names; a GUID sent as `RuleId` is a GUID the server never stores. With the
+  names right, `AddPolicyRule` stored a rule and then refused the next one with HTTP
+  400 "Policy name contains comma character" (`System.ArgumentException` from the same
+  invoker; it is the rule's name it checks): **a rule name may not contain a comma**,
+  and none of the 3,126 rule, policy and report names on that server does. With that
+  settled, 35 rules were created and `AddPolicy` failed with an opaque
+  `NcmFaultContract` ("ProvideFault failed") for a policy whose `SelectionCriterias`
+  was null while `NodeSelectionString` was filled: send the typed criteria too
+  (`CriteriaType` 2 and a `WebSelectionCriterias` entry mirroring the picker XML),
+  which is what `GetPolicy` returns for every console-made policy. That did satisfy
+  `AddPolicy` and `AddPolicyReport` (35 rules, one policy, one report created and read
+  back on 2026-10-15). Two consequences for anyone reading the result: `GetPolicyReport`
+  answers with the server's names (`Policies`, `Name`, `AssgnedPolicyRules`), so a
+  verifier keyed on the published names sees nothing; and **the server regenerates the
+  `SQL:Where …` part of `NodeSelectionString` from the typed criteria**, so a condition
+  present only in the submitted SQL (a `MachineType LIKE` pattern beside the Vendor
+  criterion) is not stored. Unverified: whether a second `WebSelectionCriteria` for
+  `MachineType` can express LIKE; a console-made export shows `MatchType` `=` with the
+  value `%IOS%`, which the console turned into `MachineType = '%IOS%'`.
+- **Column widths (2026.4.0, from the NCM business-layer log and the table dump):**
+  `NCM_PolicyRules.Name` refuses a 212-character name with SQL error 2628 ("String or
+  binary data would be truncated") and stores a 184-character one, so treat it as
+  `nvarchar(200)`. The console import runs `AddPolicyReport`, `AddPolicy` and
+  `AddPolicyRule` row by row and stops at the first refused rule, **leaving the rules
+  before it in the rules library with no policy and with `Owner` rewritten to the
+  importing account**. `NCM_Policies.Name` and `NCM_PolicyReports.Name` widths are not
+  published; the longest shipped values are 64 and 55 characters. One
   server also accepted the nested JSON call and silently created only the report
   row. No single wire format is safe to assume: probe with one cheap
   `AddPolicyRule` call — a JSON object, then the contract as a DataContract XML
