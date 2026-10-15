@@ -81,6 +81,13 @@ XCCDF benchmark found inside".
   half-imported. `ImportPolicy` has no transaction and this tool never deletes an SCM
   policy, so a failure after that point stops the run and names the policies already
   created.
+- **Console file: placeholder pattern.** A simple-mode rule in the `.ncm-report.xml` now
+  carries one `MultiLineRulePattern` (`PatternType` Regex, empty `Pattern`, `Criteria`
+  true) instead of an empty `<MultiLineRulePatterns />`. Every console export examined,
+  including a 2026.4 file confirmed importable, has that shape, and the empty list was
+  the one structural difference between the tool's file and those exports. The API
+  payloads are unchanged. Unverified: whether this alone makes the console accept the
+  file.
 - **Unverified on a live server:** the import path for the files of such a pack. The
   payload is unchanged (the member text, as a single file always was), only the way it
   reaches the tool is new. The files carry `builtIn: true`; that column is read-only on
@@ -1010,7 +1017,7 @@ that actually filters nodes, e.g.
 | `PatternType` | string | `Like`, or `Regex` when a heuristic pattern carries `*` or `?` (see above). Regular expressions are evaluated by the .NET engine, and NCM reports the first line of a multi-line match as the violation |
 | `PatternMustExist` | boolean | `true` = violation when the pattern is missing; a heuristic draft for a must-not check sets `false` (violation when found) |
 | `AdvancedMode` | boolean | `false` — simple pattern, not `MultiLineRulePatterns` |
-| `MultiLineRulePatterns` | array | Empty; the contract's ten members are `{Pattern, PatternType, IsRegEx, Condition, Criteria, BeginBracket, EndBracket}` plus `RuleId`, `PatternId` and `FoundMatch`, which the server fills in. `Condition` is the `AND`/`OR` joining a pattern to the previous one and the brackets are the grouping parentheses |
+| `MultiLineRulePatterns` | array | Empty in the API payloads. The **console file** instead gives every simple-mode rule one placeholder `MultiLineRulePattern` (`PatternType` Regex, empty `Pattern`, `Criteria` true), because every real console export carries one and none carries an empty list (2.1.0). The contract's ten members are `{Pattern, PatternType, IsRegEx, Condition, Criteria, BeginBracket, EndBracket}` plus `RuleId`, `PatternId` and `FoundMatch`, which the server fills in. `Condition` is the `AND`/`OR` joining a pattern to the previous one and the brackets are the grouping parentheses |
 | `ConfigBlockStart` / `ConfigBlockEnd` / `ConfigBlockPatternType` / `ConfigBlockMustExist` / `IsConfigBlockPatternRegEx` | string/boolean | Unused (`""` / `Like` / `false`) — restricts matching to a config stanza |
 | `ErrorLevel` | number | `0` info, `1` warning, `2` critical. The console's *names* for these are editable per server (NCM Settings → Compliance Policy Report Management → Manage Violation Levels), so the words this tool prints may not match what an operator sees |
 | `RemediateScript` | string | Empty since 2.0.0; the Fix Text is prose and is in `Comments`. It is sent empty rather than left out: the contract (`types.json`) marks no member optional, and every rule in the audited console exports carries the element |

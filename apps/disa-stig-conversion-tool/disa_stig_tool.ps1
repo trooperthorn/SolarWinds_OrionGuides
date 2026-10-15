@@ -1494,6 +1494,18 @@ function Add-El($Xml, $Parent, [string]$Name, [string]$Text) {
 }
 function B([bool]$Value) { if ($Value) { 'true' } else { 'false' } }
 
+# Python SIMPLE_MODE_PLACEHOLDER_PATTERN / console_rule_patterns (2.1.0): every real
+# console export gives a simple-mode rule one MultiLineRulePattern with an empty Regex
+# pattern, never an empty list, so the console file does the same. The API contract
+# payloads are unchanged (the list stays empty there).
+$script:SimpleModePlaceholderPattern = @{ PatternType = 'Regex'; Pattern = ''; Criteria = $true;
+                                          Condition = ''; BeginBracket = ''; EndBracket = '' }
+function Get-ConsoleRulePatterns($Rule) {
+    $own = @($Rule.MultiLineRulePatterns)
+    if ($own.Count -gt 0 -or $Rule.AdvancedMode) { return , $own }
+    return , @($script:SimpleModePlaceholderPattern)
+}
+
 function ConvertTo-ConsoleReportXml($Report) {
     # Element order copied from real console exports - the receiving .NET XML
     # deserializer is order-sensitive; IsConfigBlockPatternRegEx is computed
@@ -1517,7 +1529,18 @@ function ConvertTo-ConsoleReportXml($Report) {
         $rulesEl = Add-El $x $pe 'AssignedPolicyRules' ''
         foreach ($r in $p.AssignedPolicyRules) {
             $re = Add-El $x $rulesEl 'PolicyRule' ''
-            Add-El $x $re 'MultiLineRulePatterns' '' | Out-Null
+            $patsEl = Add-El $x $re 'MultiLineRulePatterns' ''
+            foreach ($mp in (Get-ConsoleRulePatterns $r)) {
+                # Member order as the console writes it (and as Python _rule_xml_into does).
+                $me = Add-El $x $patsEl 'MultiLineRulePattern' ''
+                Add-El $x $me 'EndBracket' $mp.EndBracket | Out-Null
+                $mpType = $mp.PatternType; if (-not $mpType) { $mpType = 'Like' }
+                Add-El $x $me 'PatternType' ([string]$mpType) | Out-Null
+                Add-El $x $me 'Condition' $mp.Condition | Out-Null
+                Add-El $x $me 'Pattern' $mp.Pattern | Out-Null
+                Add-El $x $me 'Criteria' (B $mp.Criteria) | Out-Null
+                Add-El $x $me 'BeginBracket' $mp.BeginBracket | Out-Null
+            }
             Add-El $x $re 'RuleId' $r.RuleId | Out-Null
             Add-El $x $re 'RuleName' $r.RuleName | Out-Null
             Add-El $x $re 'Comments' $r.Comments | Out-Null

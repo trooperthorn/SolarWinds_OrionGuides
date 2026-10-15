@@ -2121,6 +2121,31 @@ class ContentFidelityTests(TempDirTest):
         self.assertEqual(set(re.findall(r"^  severity: (\S+)$", yaml_text, re.MULTILINE)),
                          {"High", "Medium", "Low"})
 
+    def test_console_file_gives_simple_mode_rules_the_placeholder_pattern(self):
+        # 2.1.0: real console exports never carry an empty <MultiLineRulePatterns />;
+        # a simple-mode rule gets one empty Regex pattern, in the console's member order.
+        report = tool.build_reports([make_benchmark("Ph_STIG", [make_rule(1), make_rule(2)])])[0]
+        with open(tool.write_console_file(report, self.tmp), encoding="utf-8", newline="") as fh:
+            text = fh.read()
+        self.assertNotIn("<MultiLineRulePatterns />", text)
+        placeholder = ("<MultiLineRulePatterns>\r\n            <MultiLineRulePattern>\r\n"
+                       "              <EndBracket />\r\n              <PatternType>Regex</PatternType>\r\n"
+                       "              <Condition />\r\n              <Pattern />\r\n"
+                       "              <Criteria>true</Criteria>\r\n              <BeginBracket />\r\n"
+                       "            </MultiLineRulePattern>\r\n          </MultiLineRulePatterns>")
+        self.assertEqual(text.count(placeholder), 2)
+        # A rule with patterns of its own, or in advanced mode, is left alone.
+        own = {"PatternType": "Like", "Pattern": "ip http server", "Criteria": True,
+               "Condition": "", "BeginBracket": "", "EndBracket": ""}
+        self.assertEqual(tool.console_rule_patterns({"MultiLineRulePatterns": [own]}), [own])
+        self.assertEqual(tool.console_rule_patterns({"AdvancedMode": True}), [])
+        self.assertEqual(tool.console_rule_patterns({"AdvancedMode": False}),
+                         [tool.SIMPLE_MODE_PLACEHOLDER_PATTERN])
+        # The API payloads keep the empty list the contract table documents.
+        rule = report["AssignedPolicies"][0]["AssignedPolicyRules"][0]
+        self.assertEqual(rule["MultiLineRulePatterns"], [])
+        self.assertIn("<MultiLineRulePatterns />", tool.dc_rule_xml(rule, ns=""))
+
     def test_console_file_keeps_the_xsd_and_xsi_declarations(self):
         report = tool.build_reports([make_benchmark("Ns_STIG", [make_rule(1)])])[0]
         with open(tool.write_console_file(report, self.tmp), encoding="utf-8", newline="") as fh:

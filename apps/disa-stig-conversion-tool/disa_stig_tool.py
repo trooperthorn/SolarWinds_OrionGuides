@@ -2129,10 +2129,28 @@ def _sub(parent, name, text):
     return el
 
 
+# Every real console export seen so far (2026.2.2 and the 2026.4 file Development
+# confirmed importable) gives a simple-mode rule one MultiLineRulePattern with an
+# empty Regex pattern; none carries an empty <MultiLineRulePatterns /> list. The console
+# file matches that (2.1.0). The API contract payloads (JSON, DataContract XML) are
+# unchanged: there the list stays empty, as documented in the README contract table.
+SIMPLE_MODE_PLACEHOLDER_PATTERN = {"PatternType": "Regex", "Pattern": "", "Criteria": True,
+                                   "Condition": "", "BeginBracket": "", "EndBracket": ""}
+
+
+def console_rule_patterns(rule):
+    """The MultiLineRulePattern entries a console file carries for ``rule``: its own,
+    or the simple-mode placeholder when it has none and is not in advanced mode."""
+    own = rule.get("MultiLineRulePatterns") or []
+    if own or rule.get("AdvancedMode"):
+        return own
+    return [SIMPLE_MODE_PLACEHOLDER_PATTERN]
+
+
 def _rule_xml_into(parent, rule):
     r = ET.SubElement(parent, "PolicyRule")
     pats = ET.SubElement(r, "MultiLineRulePatterns")
-    for p in rule.get("MultiLineRulePatterns") or []:
+    for p in console_rule_patterns(rule):
         m = ET.SubElement(pats, "MultiLineRulePattern")
         _sub(m, "EndBracket", p.get("EndBracket") or "")
         _sub(m, "PatternType", str(p.get("PatternType") or "Like"))
