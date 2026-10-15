@@ -359,6 +359,48 @@ try {
     Assert-Throws { Read-ScmPolicyFile $profile $null } 'collection profile' 'JSON .scm-profile is refused as a collection profile'
     Assert-Throws { Get-FileModule $profile } 'collection profile' 'Get-FileModule refuses a JSON .scm-profile'
 
+    # --- 5b. a zip of SCM policy YAML is an SCM input (2.1.0) ---------------
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    function New-TestZip([string]$ZipPath, $Members) {
+        # $Members: array of @(name, bytes)
+        if (Test-Path -LiteralPath $ZipPath) { Remove-Item -LiteralPath $ZipPath }
+        $fs = [System.IO.File]::Open($ZipPath, 'CreateNew')
+        $za = New-Object System.IO.Compression.ZipArchive($fs, 'Create')
+        foreach ($m in $Members) {
+            $e = $za.CreateEntry($m[0]); $s = $e.Open(); $s.Write($m[1], 0, $m[1].Length); $s.Dispose()
+        }
+        $za.Dispose(); $fs.Dispose()
+    }
+    $policy2 = $lf.Replace('IIS Test Policy', 'SQL Test Policy').Replace('81d7a7f2-d976-486d-a6b9-39f2298c2348', '2c5417c0-eec4-441f-b1cc-3144cdbafddc')
+    # UTF-8 with a BOM and CRLF, exactly as SolarWinds ships policy packs.
+    $crlfBom = [byte[]]@(0xEF, 0xBB, 0xBF) + [System.Text.Encoding]::UTF8.GetBytes($crlf)
+    $policyZip = Join-Path $scratch 'Policies.zip'
+    New-TestZip $policyZip @(
+        @('IIS_8.5_Server_STIG_(version_1,_rel._10).yaml', $crlfBom),
+        @('sub/SQL.yml', [System.Text.Encoding]::UTF8.GetBytes($policy2)),
+        @('Readme.pdf', [System.Text.Encoding]::ASCII.GetBytes('%PDF-1.4')))
+    Assert-Equal 'SCM' (Get-FileModule $policyZip) 'a zip of policy YAML routes to SCM'
+    $zipItems = Get-ScmInputs $policyZip $null   # one array object; see Get-ScmInputs
+    Assert-Equal 2 $zipItems.Count 'both policy members are read and the PDF is skipped'
+    Assert-Equal 'IIS_8.5_Server_STIG_(version_1,_rel._10).yaml' $zipItems[0].Member 'members come in ordinal order'
+    Assert-Equal $crlf $zipItems[0].Text 'BOM stripped, CRLF kept: ImportPolicy gets the member text verbatim'
+    Assert-Equal 'sub/SQL.yml' $zipItems[1].Member 'a member in a folder is read too'
+    $unpackDir = Join-Path $scratch 'unpacked'
+    New-Item -ItemType Directory -Path $unpackDir | Out-Null
+    $unpacked = Write-ScmPolicyMembers $zipItems $unpackDir $null   # one array object, like Get-ScmInputs
+    Assert-Equal 'IIS_8.5_Server_STIG__version_1__rel._10_.yaml' (Split-Path -Leaf $unpacked[0]) 'unpacked member name is sanitized like Python'
+    Assert-Equal ([Convert]::ToBase64String($crlfBom)) ([Convert]::ToBase64String([System.IO.File]::ReadAllBytes($unpacked[0]))) 'unpacked bytes are unchanged'
+    $mixedZip = Join-Path $scratch 'mixed.zip'
+    New-TestZip $mixedZip @(@('a.yaml', $crlfBom), @('U_X-xccdf.xml', [System.Text.Encoding]::UTF8.GetBytes('<x/>')))
+    Assert-Throws { Get-ScmInputs $mixedZip $null } 'mixes SCM policy YAML' 'a zip mixing policy YAML and XCCDF is refused'
+    $noneZip = Join-Path $scratch 'none.zip'
+    New-TestZip $noneZip @(@('notes.yaml', [System.Text.Encoding]::UTF8.GetBytes("a: 1`n")), @('p.yml', [System.Text.Encoding]::UTF8.GetBytes($profileJson)))
+    Assert-Throws { Get-ScmInputs $noneZip $null } 'none of its 2' 'a zip whose YAML members are not policies is refused'
+    $xmlOnlyZip = Join-Path $scratch 'stig.zip'
+    New-TestZip $xmlOnlyZip @(, @('U_X-xccdf.xml', [System.Text.Encoding]::UTF8.GetBytes('<x/>')))   # @(, …): one member, not flattened
+    Assert-True ($null -eq (Get-ScmInputs $xmlOnlyZip $null)) 'a zip without YAML members is left to the XCCDF reader'
+
     # --- 6. Import-ScmPolicyYaml validates !policy before any SWIS call -----
     $script:Calls = New-Object System.Collections.ArrayList
     function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$Arguments) {
@@ -367,6 +409,19 @@ try {
     function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
     Assert-Throws { Import-ScmPolicyYaml @{} 'name: not a policy' $captureLog } 'not an SCM compliance policy' 'Import-ScmPolicyYaml rejects text without !policy'
     Assert-Equal 0 $script:Calls.Count 'no SWIS call made for rejected text'
+
+    # --- 6b. Import-ScmPolicyItems checks every member before the first import
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) {
+        [void]$script:Calls.Add('query')
+        if ($Swql -match 'FROM Orion.PolicyEngine.Policy WHERE' -and $Parameters.n -eq 'SQL Test Policy') {
+            return @(@{ PolicyID = 7; Name = 'SQL Test Policy'; UniqueId = 'other'; BuiltIn = $true })
+        }
+        return @()
+    }
+    $script:Calls.Clear()
+    Assert-Throws { Import-ScmPolicyItems @{} $zipItems $null $null } 'SQL\.yml: a policy with the same name already exists.*built in.*Nothing was imported' 'a collision on the second member refuses the whole zip'
+    Assert-Equal 0 (@($script:Calls | Where-Object { $_ -eq 'ImportPolicy' })).Count 'no ImportPolicy call was made for the refused zip'
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
 
     # --- 7. report naming and truncation match Python ----------------------
     $bench = @{ BenchmarkId = 'B1'; Title = 'T' * 300; Version = '1'; Release = 'Release: 1'; StatusDate = '';

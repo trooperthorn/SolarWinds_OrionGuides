@@ -651,6 +651,81 @@ class ScmRoutingTests(TempDirTest):
         with open(os.path.join(self.tmp, written[0]), encoding="utf-8") as fh:
             self.assertTrue(fh.read().startswith("!policy\n"))
 
+    # -- 2.1.0: a zip of SCM policy YAML (a SolarWinds policy pack) is an SCM input --
+
+    POLICY_2 = POLICY_LF.replace("IIS Test Policy", "SQL Test Policy").replace(
+        "81d7a7f2-d976-486d-a6b9-39f2298c2348", "2c5417c0-eec4-441f-b1cc-3144cdbafddc")
+    # UTF-8 with a BOM and CRLF, exactly as SolarWinds ships policy packs.
+    POLICY_1_RAW = b"\xef\xbb\xbf" + POLICY_LF.replace("\n", "\r\n").encode()
+
+    def policy_zip(self, name="Policies.zip", extra=()):
+        members = [("IIS_8.5_Server_STIG_(version_1,_rel._10).yaml", self.POLICY_1_RAW),
+                   ("sub/SQL.yml", self.POLICY_2.encode()),
+                   ("Readme.pdf", b"%PDF-1.4")] + list(extra)
+        return self.write(name, zip_bytes(members))
+
+    def test_policy_zip_routes_to_scm_and_parses_every_member(self):
+        path = self.policy_zip()
+        self.assertEqual(tool.file_module(path), "SCM")
+        items = tool.scm_inputs(path)
+        self.assertEqual([it["member"] for it in items],
+                         ["IIS_8.5_Server_STIG_(version_1,_rel._10).yaml", "sub/SQL.yml"])
+        # The BOM is stripped and CRLF kept: ImportPolicy gets the member text verbatim.
+        self.assertEqual(items[0]["text"], POLICY_LF.replace("\n", "\r\n"))
+        self.assertEqual(items[0]["raw"], self.POLICY_1_RAW)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            tool.cmd_parse(argparse.Namespace(path=path, rules=False))
+        self.assertIn("zip of 2 SCM compliance policies", out.getvalue())
+        self.assertIn("IIS Test Policy  (SCM compliance policy, from IIS_8.5", out.getvalue())
+        self.assertIn("SQL Test Policy", out.getvalue())
+
+    def test_policy_zip_imports_each_member_after_one_collision_check(self):
+        path = self.policy_zip()
+        fake = FakeSwis()
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            tool.cmd_import(import_args(path))
+        sent = [call[2][0] for call in fake.verbs("ImportPolicy")]
+        self.assertEqual(sent, [POLICY_LF.replace("\n", "\r\n"), self.POLICY_2])
+        self.assertEqual([row["Name"] for row in fake.scm], ["IIS Test Policy", "SQL Test Policy"])
+        # A collision on the second member refuses the whole zip before any import.
+        fake = FakeSwis()
+        fake.scm.append({"PolicyID": 7, "Name": "SQL Test Policy", "UniqueId": "other",
+                         "Rules": 1})
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(tool.SwisError, r"SQL\.yml: a policy with the same name "
+                                                        r"already exists.*Nothing was imported"):
+                tool.cmd_import(import_args(path))
+        self.assertEqual(fake.verbs("ImportPolicy"), [])
+
+    def test_policy_zip_convert_unpacks_members_unchanged(self):
+        path = self.policy_zip()
+        cwd = os.getcwd()
+        os.chdir(self.tmp)
+        self.addCleanup(os.chdir, cwd)
+        with contextlib.redirect_stdout(io.StringIO()):
+            tool.cmd_build(import_args(path, output=None))
+        written = sorted(f for f in os.listdir(self.tmp) if f.endswith((".yaml", ".yml")))
+        self.assertEqual(written, ["IIS_8.5_Server_STIG__version_1__rel._10_.yaml", "SQL.yml"])
+        with open(os.path.join(self.tmp, written[0]), "rb") as fh:
+            self.assertEqual(fh.read(), self.POLICY_1_RAW)
+
+    def test_mixed_and_policy_free_zips(self):
+        mixed = self.policy_zip("mixed.zip", extra=[("U_X-xccdf.xml", b"<x/>")])
+        with self.assertRaisesRegex(ValueError, "mixes SCM policy YAML with XCCDF"):
+            tool.scm_inputs(mixed)
+        with self.assertRaisesRegex(ValueError, "mixes SCM policy YAML with XCCDF"):
+            tool.file_module(mixed)
+        nothing = self.write("none.zip", zip_bytes([("notes.yaml", "a: 1\n"),
+                                                    ("p.yml", PROFILE_JSON)]))
+        with self.assertRaisesRegex(ValueError, r"none of its 2 \.yaml/\.yml member"):
+            tool.scm_inputs(nothing)
+        # A STIG package has no YAML members and is left to the XCCDF reader.
+        self.assertIsNone(tool.scm_inputs(self.router_zip()))
+        self.assertEqual(tool.file_module(self.router_zip()), "NCM")
+
 
 # ---------------------------------------------------------------------------
 # 6/7. Multi-report runs and rollback scope
@@ -1221,7 +1296,7 @@ class LoggingTests(TempDirTest):
         self.assertIn("run end: exit code 1;", lines[-1])
 
     def test_version_constant(self):
-        self.assertEqual(tool.TOOL_VERSION, "2.0.0")
+        self.assertEqual(tool.TOOL_VERSION, "2.1.0")
         with open(PS_TOOL, encoding="ascii") as fh:
             self.assertIn(f"$script:ToolVersion = '{tool.TOOL_VERSION}'", fh.read())
 

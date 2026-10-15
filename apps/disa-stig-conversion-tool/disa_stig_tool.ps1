@@ -95,7 +95,7 @@ $ErrorActionPreference = 'Stop'
 
 # One version for the tool, shared by both editions (disa_stig_tool.py carries the
 # same number). It is written into every log file's start-of-run line.
-$script:ToolVersion = '2.0.0'
+$script:ToolVersion = '2.1.0'
 # The parameters this run was started with, for the start-of-run log line.
 $script:BoundAtStart = [ordered]@{}
 foreach ($boundKey in $PSBoundParameters.Keys) { $script:BoundAtStart[$boundKey] = $PSBoundParameters[$boundKey] }
@@ -1773,6 +1773,117 @@ function Read-ScmPolicyFile([string]$FilePath, [scriptblock]$Log) {
     return $text
 }
 
+function Read-ScmPolicyZip([string]$FilePath, [scriptblock]$Log) {
+    # Python read_scm_policy_zip (2.1.0): the SCM policies inside a zip of policy
+    # YAML, as SolarWinds delivers policy packs (one .yaml per policy, no XCCDF).
+    # Returns an array of @{ Label; Member; Text; Raw } (base name, full name in the
+    # archive, the text ImportPolicy takes verbatim, the original bytes), or $null
+    # when the zip has no .yaml/.yml member at all (a STIG package, then). A zip
+    # mixing policy YAML with .xml or nested .zip members is refused: one input is
+    # one module. A YAML member that is not a policy is skipped with a warning, and
+    # the input is refused when no member is a policy. The STIG reader's size limits
+    # apply; nested zips are not opened.
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($FilePath)
+    try {
+        $names = [string[]]@($zip.Entries | Where-Object { $_.Name } | ForEach-Object { $_.FullName })
+        [Array]::Sort($names, [System.StringComparer]::Ordinal)
+        $entries = @(foreach ($n in $names) { $zip.GetEntry($n) })
+        $members = @($entries | Where-Object { $_.Name -match '\.(yaml|yml)$' })
+        if ($members.Count -eq 0) { return $null }
+        $others = @($entries | Where-Object { $_.Name -match '\.(xml|zip)$' } | ForEach-Object { $_.FullName })
+        if ($others.Count -gt 0) {
+            $shown = @($others | Select-Object -First 3) -join ', '
+            if ($others.Count -gt 3) { $shown += ', ...' }
+            $reason = ("${FilePath}: mixes SCM policy YAML with XCCDF or nested zip members ($shown); " +
+                'one input is one module, so split it into a policy zip and a STIG package')
+            Write-ToolLog parse warn $reason
+            throw $reason
+        }
+        Write-ToolLog parse info ("input ${FilePath}: zip of SCM policy YAML ($($members.Count) .yaml/.yml member(s), " +
+            "$((Get-Item -LiteralPath $FilePath).Length) bytes)")
+        $out = New-Object System.Collections.ArrayList
+        $budget = [long]0
+        foreach ($entry in $members) {
+            $label = $entry.FullName
+            if ($entry.Length -gt $script:ZipMemberMax) {
+                Skip-ZipMember $label "refused: $($entry.Length) bytes uncompressed is over the $($script:ZipMemberMax)-byte member limit"
+                continue
+            }
+            if ($budget + $entry.Length -gt $script:ZipTotalMax) {
+                $reason = "refused: reading $label would take the input past the $($script:ZipTotalMax)-byte total limit for zip members"
+                Write-ToolLog parse warn $reason
+                throw $reason
+            }
+            try { $raw = Read-ZipEntryBytes $entry ([long]$entry.Length) }
+            catch {
+                Skip-ZipMember $label "the member cannot be read ($($_.Exception.Message))"
+                continue
+            }
+            $budget += $raw.Length
+            $text = ConvertFrom-TextBytes $raw
+            $kind = Get-ScmTextKind $text
+            if ($kind -eq 'profile') { Skip-ZipMember $label 'a JSON SCM collection profile, not a compliance policy'; continue }
+            if ($kind -ne 'policy') { Skip-ZipMember $label 'not a tagged-YAML SCM compliance policy'; continue }
+            Write-ToolLog scm info "read SCM policy member $label ($($raw.Length) bytes)"
+            [void]$out.Add(@{ Label = $entry.Name; Member = $entry.FullName; Text = $text; Raw = $raw })
+        }
+        if ($out.Count -eq 0) {
+            $reason = ("${FilePath}: none of its $($members.Count) .yaml/.yml member(s) is an SCM compliance " +
+                'policy (expected YAML documents tagged !policy with pluginName: SCM)')
+            Write-ToolLog parse warn $reason
+            throw $reason
+        }
+        foreach ($it in $out) {
+            $info = Get-ScmPolicyInfo $it.Text
+            $n = ([regex]::Matches($it.Text, '(?m)^- displayId:')).Count
+            Send-Log $Log 'scm' 'info' "[SCM] $($it.Member): SCM policy `"$($info.Name)`" - $n rule(s)"
+        }
+        return , @($out)
+    } finally { $zip.Dispose() }
+}
+
+function Get-ScmInputs([string]$FilePath, [scriptblock]$Log) {
+    # Python scm_inputs: every ready-made SCM policy an input carries, or $null when
+    # the input is XCCDF. A .yaml/.yml (or legacy .scm-profile) file is one policy
+    # (Member and Raw are $null); a zip of policy YAML is one per member.
+    # The result is always one array object (the comma), so a caller assigns it and
+    # indexes it: $items = Get-ScmInputs ...; $items[0].Member. Wrapping the call in
+    # @(...) would nest that array instead.
+    if ($FilePath -match $script:ScmInputPattern) {
+        $text = Read-ScmPolicyFile $FilePath $Log
+        return , @(@{ Label = (Split-Path -Leaf $FilePath); Member = $null; Text = $text; Raw = $null })
+    }
+    if ($FilePath -match '\.zip$') {
+        $items = Read-ScmPolicyZip $FilePath $Log
+        if ($null -eq $items) { return $null }
+        return , @($items)
+    }
+    return $null
+}
+
+function Write-ScmPolicyMembers($Items, [string]$Folder, [scriptblock]$Log) {
+    # Python write_scm_policy_members: offline conversion of a policy zip writes every
+    # member into $Folder byte for byte (it is already the import payload) under a
+    # sanitized copy of its own name. Returns the paths written.
+    $written = New-Object System.Collections.ArrayList
+    foreach ($it in $Items) {
+        $stem = [System.IO.Path]::GetFileNameWithoutExtension($it.Label)
+        $ext = [System.IO.Path]::GetExtension($it.Label).ToLowerInvariant()
+        if (-not $ext) { $ext = '.yaml' }
+        $out = Join-Path $Folder (Get-SafeFileName $stem $ext)
+        [System.IO.File]::WriteAllBytes($out, $it.Raw)
+        Add-ToolLogStat 'FilesWritten'
+        Write-ToolLog file info "wrote $([System.IO.Path]::GetFullPath($out)) ($($it.Raw.Length) bytes, member $($it.Member) unchanged)"
+        $info = Get-ScmPolicyInfo $it.Text
+        $n = ([regex]::Matches($it.Text, '(?m)^- displayId:')).Count
+        Send-Log $Log 'file' 'info' "[SCM] wrote ${out}: SCM policy `"$($info.Name)`" - $n rules (bytes unchanged)"
+        [void]$written.Add($out)
+    }
+    return , @($written)
+}
+
 # =========================================================================
 # SWIS client - built-in Invoke-RestMethod (HttpClient for a PS 7 pin)
 # =========================================================================
@@ -2956,40 +3067,91 @@ function Remove-NcmReports($Conn, $Plan, [scriptblock]$Log) {
     return $left
 }
 
+function Get-ScmPolicyCollision($Conn, $Info) {
+    # Python scm_policy_collision: the refusal message when a policy with $Info's
+    # name OR uniqueId already exists, else $null. SolarWinds rejects both
+    # collisions server side; this tool never overwrites or duplicates, and its own
+    # message is the legible one. The uniqueId matters because converted STIGs derive
+    # it deterministically, so a re-import under a new name still collides.
+    $name = $Info.Name
+    $uniqueId = $Info.UniqueId
+    $clauses = New-Object System.Collections.ArrayList
+    $swqlParams = @{}
+    if ($name) { [void]$clauses.Add('Name = @n'); $swqlParams['n'] = $name }
+    if ($uniqueId) { [void]$clauses.Add('UniqueId = @u'); $swqlParams['u'] = $uniqueId }
+    if ($clauses.Count -eq 0) { return $null }
+    $existing = @(Invoke-SwisQuery $Conn ('SELECT PolicyID, Name, UniqueId, BuiltIn ' +
+        'FROM Orion.PolicyEngine.Policy WHERE ' + ($clauses -join ' OR ')) $swqlParams)
+    if ($existing.Count -eq 0) { return $null }
+    $why = if ($existing[0].Name -eq $name) { 'the same name' } else { 'the same uniqueId' }
+    $builtIn = ''; if ($existing[0].BuiltIn) { $builtIn = ', built in' }
+    $msg = ("[SCM] a policy with $why already exists: ""$($existing[0].Name)"" " +
+        "(PolicyID $($existing[0].PolicyID), UniqueId $($existing[0].UniqueId)$builtIn); " +
+        'refusing to duplicate. SolarWinds rejects an import that matches either field.')
+    $parts = Split-NameSuffix $name
+    if ($null -ne $parts.N) {
+        $msg += ' ' + (Get-SuffixAdvice $Conn @(, @('Orion.PolicyEngine.Policy', $parts.Base)) "_v$($parts.N)")
+    }
+    return $msg
+}
+
+function Import-ScmPolicyItems($Conn, $Items, [scriptblock]$Log, [scriptblock]$OnSuccess) {
+    # Python import_scm_policy_items: import ready-made SCM policies (Get-ScmInputs)
+    # one by one. Every member's name and uniqueId are checked before the first
+    # ImportPolicy call, so a policy pack that collides with the server is refused
+    # whole. ImportPolicy has no transaction and this tool does not delete SCM
+    # policies, so a later failure stops the run and names what was created;
+    # $OnSuccess receives each verified import's result. Returns the results.
+    $items = @($Items)
+    if ($items.Count -gt 1) {
+        Write-ToolLog scm info "collision check for $($items.Count) policies before the first import"
+        foreach ($it in $items) {
+            $msg = Get-ScmPolicyCollision $Conn (Get-ScmPolicyInfo $it.Text)
+            if ($msg) {
+                $msg = "[SCM] $($it.Label): $($msg -replace '^\[SCM\] ', '') Nothing was imported."
+                Write-ToolLog scm error $msg
+                throw $msg
+            }
+        }
+        Send-Log $Log 'scm' 'info' "[SCM] collision check: none of the $($items.Count) policies exists yet"
+    }
+    $imported = New-Object System.Collections.ArrayList
+    foreach ($it in $items) {
+        try { $r = Import-ScmPolicyYaml $Conn $it.Text $Log }
+        catch {
+            if ($imported.Count -gt 0) {
+                $names = @($imported | ForEach-Object { """$($_.Name)"" (PolicyID $($_.PolicyId))" }) -join '; '
+                $msg = ("[SCM] stopping at $($it.Label): $($_.Exception.Message) $($imported.Count) of $($items.Count) " +
+                    "policies were imported before it and stay on the server: $names. Fix the cause and import " +
+                    'the remaining files one at a time.')
+                Write-ToolLog scm error $msg
+                throw $msg
+            }
+            throw
+        }
+        [void]$imported.Add($r)
+        $from = ''; if ($it.Member) { $from = " from $($it.Member)" }
+        Send-Log $Log 'scm' 'info' "[SCM] imported SCM policy `"$($r.Name)`" (PolicyID $($r.PolicyId))$from"
+        if ($OnSuccess) { & $OnSuccess $r $it }
+    }
+    return , @($imported)
+}
+
 function Import-ScmPolicyYaml($Conn, [string]$Yaml, [scriptblock]$Log) {
-    # SolarWinds rejects an import whose name OR uniqueId matches an existing
-    # policy. Both are checked here because this tool derives the uniqueId
-    # deterministically from the benchmark, so re-importing a STIG under a new
-    # name still collides, and the server-side rejection is far less legible.
+    # Refuses a name OR uniqueId collision (Get-ScmPolicyCollision) before the
+    # ImportPolicy call, then reads the rules back to verify the import.
     $info = Get-ScmPolicyInfo $Yaml
     if (-not $info.IsPolicy) {
         throw ('[SCM] not an SCM compliance policy (expected a YAML document tagged !policy ' +
             'with pluginName: SCM); nothing was sent to ImportPolicy')
     }
     $name = $info.Name
-    $uniqueId = $info.UniqueId
-    $shownUid = $uniqueId; if (-not $shownUid) { $shownUid = '(none)' }
+    $shownUid = $info.UniqueId; if (-not $shownUid) { $shownUid = '(none)' }
     Write-ToolLog scm info "SCM policy `"$name`" uniqueId $shownUid; checking for a name/uniqueId collision"
-
-    $clauses = New-Object System.Collections.ArrayList
-    $swqlParams = @{}
-    if ($name) { [void]$clauses.Add('Name = @n'); $swqlParams['n'] = $name }
-    if ($uniqueId) { [void]$clauses.Add('UniqueId = @u'); $swqlParams['u'] = $uniqueId }
-    if ($clauses.Count -gt 0) {
-        $existing = Invoke-SwisQuery $Conn ('SELECT PolicyID, Name, UniqueId, BuiltIn ' +
-            'FROM Orion.PolicyEngine.Policy WHERE ' + ($clauses -join ' OR ')) $swqlParams
-        if ($existing.Count -gt 0) {
-            $why = if ($existing[0].Name -eq $name) { 'the same name' } else { 'the same uniqueId' }
-            $msg = ("[SCM] a policy with $why already exists: ""$($existing[0].Name)"" " +
-                "(PolicyID $($existing[0].PolicyID), UniqueId $($existing[0].UniqueId)); " +
-                'refusing to duplicate. SolarWinds rejects an import that matches either field.')
-            $parts = Split-NameSuffix $name
-            if ($null -ne $parts.N) {
-                $msg += ' ' + (Get-SuffixAdvice $Conn @(, @('Orion.PolicyEngine.Policy', $parts.Base)) "_v$($parts.N)")
-            }
-            Write-ToolLog scm error $msg
-            throw $msg
-        }
+    $msg = Get-ScmPolicyCollision $Conn $info
+    if ($msg) {
+        Write-ToolLog scm error $msg
+        throw $msg
     }
     $policyId = Invoke-SwisVerbCall $Conn 'Orion.PolicyEngine.Policy' 'ImportPolicy' @($Yaml)
     if ($null -eq $policyId) {
@@ -3063,10 +3225,7 @@ function Get-FileModule([string]$FilePath, [string]$TargetChoice = 'auto') {
     # SCM policy files are always SCM (and a JSON collection profile is refused
     # here, before anything runs). XCCDF sources follow -Target like Python's
     # --target: network forces NCM, server forces SCM, auto detects.
-    if ($FilePath -match $script:ScmInputPattern) {
-        [void](Read-ScmPolicyFile $FilePath $null)
-        return 'SCM'
-    }
+    if ($null -ne (Get-ScmInputs $FilePath $null)) { return 'SCM' }
     $benchmarks = Get-StigBenchmarks $FilePath
     $leaf = Split-Path -Leaf $FilePath
     if ($TargetChoice -eq 'network') {
@@ -3573,9 +3732,18 @@ function Invoke-CliRun {
     if ($Convert) {
         foreach ($p in $Path) {
             $folder = Split-Path -Parent (Resolve-Path $p)
-            if ($p -match $script:ScmInputPattern) {
-                Write-Host "[SCM] $p is already an importable SCM policy - nothing to convert"
-                Write-ToolLog scm info "$p is already an importable SCM policy - nothing to convert"
+            $scmItems = Get-ScmInputs $p $log
+            if ($null -ne $scmItems) {
+                if ($null -eq $scmItems[0].Member) {
+                    Write-Host "[SCM] $p is already an importable SCM policy - nothing to convert"
+                    Write-ToolLog scm info "$p is already an importable SCM policy - nothing to convert"
+                    continue
+                }
+                # A policy zip: the members are already import payloads, so offline
+                # conversion unpacks them unchanged for the console or a later import.
+                [void](Write-ScmPolicyMembers $scmItems $folder $log)
+                Write-Host ('import with:  disa_stig_tool.ps1 -Path <the zip or one file> -Server ...  or through ' +
+                    'the web console: Settings -> SCM Settings -> Policies -> Import')
                 continue
             }
             $benchmarks = Get-StigBenchmarks $p
@@ -3616,11 +3784,12 @@ function Invoke-CliRun {
     $conn = New-CliConnection
     foreach ($p in $Path) {
         if ($module -eq 'SCM') {
-            if ($p -match $script:ScmInputPattern) {
-                $text = Read-ScmPolicyFile $p $log
-                $r = Import-ScmPolicyYaml $conn $text $log
-                Write-ToolLog scm info "imported SCM policy `"$($r.Name)`" (PolicyID $($r.PolicyId))"
-                Write-Host "SUCCESS [SCM] imported policy `"$($r.Name)`" (PolicyID $($r.PolicyId))" -ForegroundColor Green
+            $scmItems = Get-ScmInputs $p $log
+            if ($null -ne $scmItems) {
+                [void](Import-ScmPolicyItems $conn $scmItems $log {
+                    param($r, $it)
+                    Write-Host "SUCCESS [SCM] imported policy `"$($r.Name)`" (PolicyID $($r.PolicyId))" -ForegroundColor Green
+                })
             } else {
                 $benchmarks = Get-StigBenchmarks $p
                 $family = Get-ScmOsFamily $benchmarks $p
@@ -3921,12 +4090,22 @@ function Show-StigGui {
             $prefix = '[' + $state.Module + '] '
             try {
                 if ($state.Module -eq 'SCM') {
-                    if ($f -match $script:ScmInputPattern) {
-                        if ($Offline) { Add-Summary ($prefix + (Split-Path -Leaf $f) + ' is already importable - nothing to convert') $null; $ok++; continue }
-                        $text = Read-ScmPolicyFile $f $logBlock
-                        $scmResult = Import-ScmPolicyYaml $conn $text $logBlock
-                        $policyId = $scmResult.PolicyId
-                        Add-Summary ("SUCCESS " + $prefix + (Split-Path -Leaf $f) + " (PolicyID $policyId)") ([System.Drawing.Color]::Green); $ok++
+                    $scmItems = Get-ScmInputs $f $logBlock
+                    if ($null -ne $scmItems) {
+                        if ($Offline) {
+                            if ($null -eq $scmItems[0].Member) {
+                                Add-Summary ($prefix + (Split-Path -Leaf $f) + ' is already importable - nothing to convert') $null; $ok++; continue
+                            }
+                            foreach ($out in (Write-ScmPolicyMembers $scmItems (Split-Path -Parent $f) $logBlock)) {
+                                Add-Summary ("SUCCESS " + $prefix + "wrote " + (Split-Path -Leaf $out) + ' (policy member, bytes unchanged)') ([System.Drawing.Color]::Green)
+                            }
+                            $ok++; continue
+                        }
+                        [void](Import-ScmPolicyItems $conn $scmItems $logBlock {
+                            param($r, $it)
+                            Add-Summary ("SUCCESS " + $prefix + '"' + $r.Name + '"' + " (PolicyID $($r.PolicyId))") ([System.Drawing.Color]::Green)
+                        })
+                        $ok++
                     } else {
                         $guiSuffix = Test-Suffix $suffixBox.Text.Trim()
                         $benchmarks = Get-StigBenchmarks $f

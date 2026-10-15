@@ -110,7 +110,7 @@ import zlib
 
 # One version for the tool, shared by both editions (disa_stig_tool.ps1 carries the
 # same number). It is written into every log file's start-of-run line.
-TOOL_VERSION = "2.0.0"
+TOOL_VERSION = "2.1.0"
 USER_AGENT = f"disa-stig-conversion-tool/{TOOL_VERSION}"
 
 DEFAULT_PORT = 17774
@@ -979,22 +979,124 @@ def load_scm_policy(path, log=None):
     return text
 
 
-def import_scm_policy(swis, text, log=None):
-    """Import one SCM policy via Orion.PolicyEngine.Policy.ImportPolicy.
+SCM_ZIP_MEMBER_SUFFIXES = (".yaml", ".yml")
 
-    Returns (policy_id, name). Refuses to import when a policy with the same
-    name **or the same uniqueId** already exists — this tool never overwrites or
-    duplicates, and SolarWinds rejects both collisions server side. Checking the
-    uniqueId matters here because the tool derives it deterministically from the
-    benchmark, so re-importing a STIG under a new --name still collides, and the
-    server-side rejection is far less legible than this one.
 
-    The import is verified by reading the rules back: ImportPolicy returning an
-    id is not by itself evidence that the rules landed.
+def read_scm_policy_zip(path, log=None):
+    """The SCM compliance policies inside a zip of policy YAML (2.1.0).
+
+    SolarWinds delivers policy packs this way: one ``.yaml`` per policy, no XCCDF.
+    Returns a list of ``{"label", "member", "text", "raw"}`` (the member's base name,
+    its full name in the archive, the decoded text ImportPolicy takes verbatim, and
+    the original bytes), or ``None`` when the zip has no ``.yaml``/``.yml`` member at
+    all, in which case it is a STIG package for load_benchmarks. A zip that mixes
+    policy YAML with ``.xml`` or nested ``.zip`` members is refused: one input is one
+    module. A YAML member that is not a policy (a JSON collection profile, or any
+    other YAML) is skipped with a warning, and the whole input is refused when no
+    member is a policy. The size limits are the STIG reader's (ZIP_MEMBER_MAX,
+    ZIP_TOTAL_MAX); nested zips are not opened.
     """
-    info = scan_scm_policy(text)
-    log_event("scm", f"SCM policy \"{info['name']}\" uniqueId {info['uniqueId'] or '(none)'}, "
-                     f"{len(info['rules'])} rule(s); checking for a name/uniqueId collision")
+    with zipfile.ZipFile(path) as zf:
+        infos = [i for i in sorted(zf.infolist(), key=lambda i: i.filename)
+                 if not i.is_dir()]
+        members = [i for i in infos if i.filename.lower().endswith(SCM_ZIP_MEMBER_SUFFIXES)]
+        if not members:
+            return None
+        others = [i.filename for i in infos if i.filename.lower().endswith((".xml", ".zip"))]
+        if others:
+            reason = (f"{path}: mixes SCM policy YAML with XCCDF or nested zip members "
+                      f"({', '.join(others[:3])}{', …' if len(others) > 3 else ''}); one input "
+                      "is one module, so split it into a policy zip and a STIG package")
+            log_event("parse", reason, "warn")
+            raise ValueError(reason)
+        log_event("parse", f"input {path}: zip of SCM policy YAML ({len(members)} "
+                           f".yaml/.yml member(s), {os.path.getsize(path)} bytes)")
+        out, budget = [], 0
+        for info in members:
+            label = info.filename
+            if info.file_size > ZIP_MEMBER_MAX:
+                _skip_member(label, f"refused: {info.file_size} bytes uncompressed is over the "
+                                    f"{ZIP_MEMBER_MAX}-byte member limit")
+                continue
+            if budget + info.file_size > ZIP_TOTAL_MAX:
+                reason = (f"refused: reading {label} would take the input past the "
+                          f"{ZIP_TOTAL_MAX}-byte total limit for zip members")
+                log_event("parse", reason, "warn")
+                raise ValueError(reason)
+            try:
+                raw = zf.read(info)
+            except (zipfile.BadZipFile, zlib.error, OSError, EOFError,
+                    NotImplementedError) as exc:
+                _skip_member(label, f"the member cannot be read ({exc})")
+                continue
+            budget += len(raw)
+            try:
+                text = decode_text_bytes(raw)
+            except UnicodeDecodeError as exc:
+                _skip_member(label, f"not UTF-8 or UTF-16 text ({exc.reason})")
+                continue
+            kind = classify_scm_text(text)
+            if kind == "profile":
+                _skip_member(label, "a JSON SCM collection profile, not a compliance policy")
+                continue
+            if kind != "policy":
+                _skip_member(label, "not a tagged-YAML SCM compliance policy")
+                continue
+            log_event("scm", f"read SCM policy member {label} ({len(raw)} bytes)")
+            out.append({"label": os.path.basename(info.filename), "member": info.filename,
+                        "text": text, "raw": raw})
+        if not out:
+            reason = (f"{path}: none of its {len(members)} .yaml/.yml member(s) is an SCM "
+                      "compliance policy (expected YAML documents tagged !policy with "
+                      "pluginName: SCM)")
+            log_event("parse", reason, "warn")
+            raise ValueError(reason)
+        for it in out:
+            info = scan_scm_policy(it["text"])
+            _say(log, "scm", f"{it['member']}: SCM policy \"{info['name']}\" — "
+                             f"{len(info['rules'])} rule(s)")
+        return out
+
+
+def scm_inputs(path, log=None):
+    """Every ready-made SCM policy an input carries, or ``None`` when the input is
+    XCCDF: a ``.yaml``/``.yml`` (or legacy ``.scm-profile``) file is one policy, a zip
+    of policy YAML is one per member (read_scm_policy_zip). Each item has the keys
+    read_scm_policy_zip documents; a single file's ``member`` and ``raw`` are None."""
+    if is_scm_path(path):
+        return [{"label": os.path.basename(path), "member": None,
+                 "text": load_scm_policy(path, log=log), "raw": None}]
+    if os.path.isfile(path) and zipfile.is_zipfile(path):
+        return read_scm_policy_zip(path, log=log)
+    return None
+
+
+def write_scm_policy_members(items, folder, log=print):
+    """Offline conversion of a policy zip: write every policy member into ``folder``
+    byte for byte (the file is already the import payload, so nothing is re-encoded),
+    under a sanitized copy of its own name. Returns the paths written."""
+    written = []
+    for it in items:
+        stem, ext = os.path.splitext(it["label"])
+        out = os.path.join(folder, safe_file_name(stem, ext.lower() or ".yaml"))
+        with open(out, "wb") as fh:
+            fh.write(it["raw"])
+        _bump("files_written")
+        log_event("file", f"wrote {os.path.abspath(out)} ({len(it['raw'])} bytes, "
+                          f"member {it['member']} unchanged)")
+        info = scan_scm_policy(it["text"])
+        _say(log, "file", f"wrote {out}: SCM policy \"{info['name']}\" — "
+                          f"{len(info['rules'])} rules (bytes unchanged)")
+        written.append(out)
+    return written
+
+
+def scm_policy_collision(swis, info):
+    """The refusal message when a policy with ``info``'s name **or** uniqueId already
+    exists on the server, else None. SolarWinds rejects both collisions server side;
+    this tool never overwrites or duplicates, and its own message is the legible one.
+    Checking the uniqueId matters because converted STIGs derive it deterministically,
+    so a re-import under a new name still collides."""
     clauses, params = [], {}
     if info["name"]:
         clauses.append("Name = @n")
@@ -1002,23 +1104,83 @@ def import_scm_policy(swis, text, log=None):
     if info["uniqueId"]:
         clauses.append("UniqueId = @u")
         params["u"] = info["uniqueId"]
-    if clauses:
-        existing = swis.query(
-            "SELECT PolicyID, Name, UniqueId, BuiltIn FROM Orion.PolicyEngine.Policy "
-            "WHERE " + " OR ".join(clauses), params)
-        if existing:
-            hit = existing[0]
-            why = ("the same name" if (hit.get("Name") or "") == info["name"]
-                   else "the same uniqueId")
-            msg = (f"a policy with {why} already exists: \"{hit.get('Name')}\" "
-                   f"(PolicyID {hit.get('PolicyID')}, UniqueId {hit.get('UniqueId')}); "
-                   "refusing to duplicate. SolarWinds rejects an import that matches "
-                   "either field.")
-            base, n = strip_suffix(info["name"])
-            if n is not None:
-                msg += " " + suffix_advice(swis, [("Orion.PolicyEngine.Policy", base)], f"_v{n}")
-            log_event("scm", msg, "error")
-            raise SwisError(msg)
+    if not clauses:
+        return None
+    existing = swis.query(
+        "SELECT PolicyID, Name, UniqueId, BuiltIn FROM Orion.PolicyEngine.Policy "
+        "WHERE " + " OR ".join(clauses), params)
+    if not existing:
+        return None
+    hit = existing[0]
+    why = ("the same name" if (hit.get("Name") or "") == info["name"]
+           else "the same uniqueId")
+    msg = (f"a policy with {why} already exists: \"{hit.get('Name')}\" "
+           f"(PolicyID {hit.get('PolicyID')}, UniqueId {hit.get('UniqueId')}"
+           + (", built in" if hit.get("BuiltIn") else "") + "); "
+           "refusing to duplicate. SolarWinds rejects an import that matches "
+           "either field.")
+    base, n = strip_suffix(info["name"])
+    if n is not None:
+        msg += " " + suffix_advice(swis, [("Orion.PolicyEngine.Policy", base)], f"_v{n}")
+    return msg
+
+
+def import_scm_policy_items(swis, items, log=print, done=None):
+    """Import ready-made SCM policies (scm_inputs) one by one.
+
+    Every member's name and uniqueId are checked before the first ImportPolicy call,
+    so a policy pack that collides with what is already on the server is refused
+    whole, nothing half-imported. ImportPolicy itself has no transaction and this tool
+    does not delete SCM policies, so a failure after that point stops the run and the
+    message names the policies already created; ``done(policy_id, name, item)`` is
+    called after each verified import. Returns [(policy_id, name)].
+    """
+    if len(items) > 1:
+        log_event("scm", f"collision check for {len(items)} policies before the first import")
+        for it in items:
+            msg = scm_policy_collision(swis, scan_scm_policy(it["text"]))
+            if msg:
+                msg = f"{it['label']}: {msg} Nothing was imported."
+                log_event("scm", msg, "error")
+                raise SwisError(msg)
+        _say(log, "scm", f"collision check: none of the {len(items)} policies exists yet")
+    imported = []
+    for it in items:
+        try:
+            policy_id, name = import_scm_policy(swis, it["text"], log=log)
+        except SwisError as exc:
+            if imported:
+                names = "; ".join(f"\"{n}\" (PolicyID {p})" for p, n in imported)
+                msg = (f"stopping at {it['label']}: {exc} {len(imported)} of {len(items)} "
+                       f"policies were imported before it and stay on the server: {names}. "
+                       "Fix the cause and import the remaining files one at a time.")
+                log_event("scm", msg, "error")
+                raise SwisError(msg) from exc
+            raise
+        imported.append((policy_id, name))
+        _say(log, "scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id})"
+                         + (f" from {it['member']}" if it["member"] else ""))
+        if done:
+            done(policy_id, name, it)
+    return imported
+
+
+def import_scm_policy(swis, text, log=None):
+    """Import one SCM policy via Orion.PolicyEngine.Policy.ImportPolicy.
+
+    Returns (policy_id, name). Refuses to import when a policy with the same
+    name **or the same uniqueId** already exists (scm_policy_collision).
+
+    The import is verified by reading the rules back: ImportPolicy returning an
+    id is not by itself evidence that the rules landed.
+    """
+    info = scan_scm_policy(text)
+    log_event("scm", f"SCM policy \"{info['name']}\" uniqueId {info['uniqueId'] or '(none)'}, "
+                     f"{len(info['rules'])} rule(s); checking for a name/uniqueId collision")
+    msg = scm_policy_collision(swis, info)
+    if msg:
+        log_event("scm", msg, "error")
+        raise SwisError(msg)
     policy_id = swis.invoke("Orion.PolicyEngine.Policy", "ImportPolicy", text)
     if policy_id is None:
         log_event("scm", "ImportPolicy returned no PolicyID; the policy was not created", "error")
@@ -3592,14 +3754,20 @@ def scm_policy_filename(benchmark, stem=None, suffix=DEFAULT_SUFFIX):
 
 
 def cmd_parse(args):
-    if is_scm_path(args.path):
-        info = scan_scm_policy(load_scm_policy(args.path, log=print))
-        sev = ", ".join(f"{v} {k}" for k, v in sorted(info["severity_counts"].items()))
-        print(f"{info['name']}  (SCM compliance policy)")
-        print(f"  {len(info['rules'])} rules: {sev}")
-        if args.rules:
-            for r in info["rules"]:
-                print(f"    {r}")
+    items = scm_inputs(args.path, log=None)
+    if items is not None:
+        if items[0]["member"] is not None:
+            print(f"{os.path.basename(args.path)}: zip of {len(items)} SCM compliance "
+                  "policies (imported verbatim, one ImportPolicy call each)")
+        for it in items:
+            info = scan_scm_policy(it["text"])
+            sev = ", ".join(f"{v} {k}" for k, v in sorted(info["severity_counts"].items()))
+            where = f", from {it['member']}" if it["member"] else ""
+            print(f"{info['name']}  (SCM compliance policy{where})")
+            print(f"  {len(info['rules'])} rules: {sev}")
+            if args.rules:
+                for r in info["rules"]:
+                    print(f"    {r}")
         return
     benchmarks = load_benchmarks(args.path)
     print(resolve_route("auto", benchmarks, os.path.basename(args.path), strict=False)[2])
@@ -3687,12 +3855,21 @@ def probe_template_from_args(args):
 
 
 def cmd_build(args):
-    if is_scm_path(args.path):
-        info = scan_scm_policy(load_scm_policy(args.path, log=print))
-        print(f"\"{info['name']}\" is an SCM compliance policy: the YAML file itself is "
-              "the import payload — nothing to build.\n"
-              "Import it with:  disa_stig_tool.py import <file> …  "
-              "(or POST [yamlText] to Invoke/Orion.PolicyEngine.Policy/ImportPolicy)")
+    items = scm_inputs(args.path, log=print)
+    if items is not None:
+        if items[0]["member"] is None:
+            info = scan_scm_policy(items[0]["text"])
+            print(f"\"{info['name']}\" is an SCM compliance policy: the YAML file itself is "
+                  "the import payload — nothing to build.\n"
+                  "Import it with:  disa_stig_tool.py import <file> …  "
+                  "(or POST [yamlText] to Invoke/Orion.PolicyEngine.Policy/ImportPolicy)")
+            return
+        # A policy zip: the members are already import payloads, so offline
+        # conversion unpacks them unchanged for the console or a later import.
+        output_ignored(getattr(args, "output", None), len(items), "SCM policies")
+        write_scm_policy_members(items, ".", log=print)
+        print("import with:  disa_stig_tool.py import <the zip or one file> …  or through "
+              "the web console: Settings → SCM Settings → Policies → Import")
         return
     suffix = validate_suffix(getattr(args, "suffix", None))
     template, template_path = probe_template_from_args(args)
@@ -3786,7 +3963,7 @@ def connect(args):
 
 def cmd_test(args):
     """Evaluate the generated rules against a real config without importing."""
-    if is_scm_path(args.path):
+    if scm_inputs(args.path) is not None:
         sys.exit("error: rule testing is an NCM feature; an SCM policy has no "
                  "equivalent server-side dry run. Import it and use "
                  "Orion.PolicyEngine.Policy.PollNowAndEvaluate against one node.")
@@ -3877,15 +4054,15 @@ def cmd_remove(args):
 
 
 def cmd_import(args):
+    items = scm_inputs(args.path, log=print)
     swis = logged(connect(args))
 
-    if is_scm_path(args.path):
-        text = load_scm_policy(args.path, log=print)
-        policy_id, name = import_scm_policy(swis, text, log=print)
-        log_event("scm", f"imported SCM policy \"{name}\" (PolicyID {policy_id})")
-        print(f"imported SCM policy \"{name}\" (PolicyID {policy_id}).")
-        print("Assign it to nodes under Settings → SCM Settings → Policies, or via "
-              "Orion.PolicyEngine.Policy.AssignToEntity.")
+    if items is not None:
+        imported = import_scm_policy_items(swis, items, log=print)
+        print(f"imported {len(imported)} SCM compliance "
+              f"{'policy' if len(imported) == 1 else 'policies'}. Assign "
+              f"{'it' if len(imported) == 1 else 'them'} to nodes under Settings → SCM "
+              "Settings → Policies, or via Orion.PolicyEngine.Policy.AssignToEntity.")
         return
 
     suffix = validate_suffix(getattr(args, "suffix", None))
@@ -4099,8 +4276,7 @@ BTN_GREEN, BTN_YELLOW, BTN_RED = "#c6efce", "#ffeb9c", "#ffc7ce"
 
 def file_module(path):
     """NCM or SCM for one file — the module a batch locks to."""
-    if is_scm_path(path):
-        load_scm_policy(path)   # refuses a JSON collection profile up front
+    if scm_inputs(path) is not None:   # refuses a JSON collection profile up front
         return "SCM"
     benchmarks = load_benchmarks(path)
     kind, _info = detect_target(benchmarks, os.path.basename(path))
@@ -4548,18 +4724,24 @@ class App:
         self._run_bg(work)
 
     def _do_scm(self, swis, path, offline, prefix):
-        if is_scm_path(path):
-            if offline:
-                self._summary_line(f"{prefix} {os.path.basename(path)} is already an "
-                                   "importable SCM policy — nothing to convert")
-                return True
-            policy_id, name = import_scm_policy(swis, load_scm_policy(path, log=self._log),
-                                                log=self._log)
-            self._summary_line(f"SUCCESS {prefix} \"{name}\" (PolicyID {policy_id})",
-                               "success")
-            return True
         folder = os.path.dirname(path) if os.access(os.path.dirname(path) or ".",
                                                     os.W_OK) else tempfile.gettempdir()
+        items = scm_inputs(path, log=self._log)
+        if items is not None:
+            if offline:
+                if items[0]["member"] is None:
+                    self._summary_line(f"{prefix} {os.path.basename(path)} is already an "
+                                       "importable SCM policy — nothing to convert")
+                    return True
+                for out in write_scm_policy_members(items, folder, log=self._log):
+                    self._summary_line(f"SUCCESS {prefix} wrote {os.path.basename(out)} "
+                                       "(policy member, bytes unchanged)", "success")
+                return True
+            import_scm_policy_items(
+                swis, items, log=self._log,
+                done=lambda policy_id, name, _it: self._summary_line(
+                    f"SUCCESS {prefix} \"{name}\" (PolicyID {policy_id})", "success"))
+            return True
         suffix = validate_suffix(self.suffix.get().strip())
         benchmarks = load_benchmarks(path)
         kind, os_info = detect_target(benchmarks, os.path.basename(path))

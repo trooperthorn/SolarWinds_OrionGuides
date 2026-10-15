@@ -9,7 +9,7 @@ remediable item. Two target modules, detected automatically from the file:
 | --- | --- |
 | STIG zip / xccdf `.xml` / `.xsl` for a **network device** (Cisco, Juniper, Arista, Palo Alto, F5, Fortinet, …) | **NCM** compliance policy report (`Cirrus.PolicyReports`), node scope set from the vendor and, for Cisco, the platform's `MachineType` ([node scope](#node-scope-vendor-and-cisco-platform)) |
 | STIG zip / xccdf `.xml` for a **server OS** (Windows, Linux, RHEL, Debian, Ubuntu, CentOS) | **Server Configuration Monitor** — converted to an SCM policy and imported via `Orion.PolicyEngine.Policy.ImportPolicy` (Linux: see [Testing Linux STIGs in SCM](#testing-linux-stigs-in-scm)) |
-| SCM compliance policy `.yaml` / `.scm-policy.yaml` (`!policy`, `pluginName: SCM`) | **Server Configuration Monitor**, imported verbatim |
+| SCM compliance policy `.yaml` / `.scm-policy.yaml` (`!policy`, `pluginName: SCM`), or a **zip of them** (a SolarWinds policy pack such as `Policies.zip`) | **Server Configuration Monitor**, imported verbatim, one `ImportPolicy` call per policy ([details](#scm-policies-server-configuration-monitor)) |
 
 The **Compliance target** dropdown (or `--target`) controls the routing:
 **Auto Compliance Assignment** (default) decides from the file and benchmark
@@ -20,7 +20,7 @@ it is refused, offline `convert` included, until `--vendor` or `--node-where` sa
 nodes it applies to. Earlier builds scoped it to every Cisco node.
 
 The tool ships in **two self-contained single-file editions**, both at version
-**2.0.0** (`TOOL_VERSION` in the Python file, `$script:ToolVersion` in the PowerShell
+**2.1.0** (`TOOL_VERSION` in the Python file, `$script:ToolVersion` in the PowerShell
 file; every run log records it). The Python edition is the reference. For the same input
 and [version suffix](#version-suffix-and-the-upgrade-workflow) both derive the same NCM
 `RuleId`s and `PolicyId`s, the same SCM policy and rule `uniqueId`s, the same report and
@@ -58,6 +58,33 @@ Both GUIs open with a disclaimer — *"This is not built by SolarWinds Inc. or D
 All Code is visible for Code Audit and documentation is available for SWIS calls."* —
 and require acknowledging that imported reports must be checked and that resolution
 falls on Agency application of the DISA STIG standards before the tool opens.
+
+## What changed in 2.1.0
+
+2.1.0 (2026-10-15) accepts a **zip of SCM compliance policies** as an input, in both
+editions, which is how SolarWinds delivers policy packs (one `!policy` YAML per policy,
+UTF-8 with a BOM and CRLF, no XCCDF inside). Earlier builds refused such a zip with "no
+XCCDF benchmark found inside".
+
+- **Routing.** A zip whose `.yaml`/`.yml` members are tagged-YAML policies is an SCM input
+  like a single policy file: `parse` lists every policy, `import` sends each member's text
+  verbatim to `ImportPolicy`, `convert` (and the GUI's Local File Conversion Only) unpacks
+  the members next to the zip **byte for byte** under sanitized copies of their names, for
+  the console's Settings → SCM Settings → Policies → Import or a later `import`. Members
+  that are not policies (PDFs, a JSON collection profile, other YAML) are skipped with a
+  warning; a zip with no policy member is refused, and so is one that mixes policy YAML with
+  XCCDF `.xml` or nested zips (one input is one module). A STIG package has no YAML members
+  and is read as before.
+- **Collisions.** Every member's name and `uniqueId` are checked before the first
+  `ImportPolicy` call, so a pack that collides with a policy already on the server
+  (including the built-in ones, which the message now says) is refused whole, nothing
+  half-imported. `ImportPolicy` has no transaction and this tool never deletes an SCM
+  policy, so a failure after that point stops the run and names the policies already
+  created.
+- **Unverified on a live server:** the import path for the files of such a pack. The
+  payload is unchanged (the member text, as a single file always was), only the way it
+  reaches the tool is new. The files carry `builtIn: true`; that column is read-only on
+  the server and the doc records as unverified whether an import honours it.
 
 ## What changed in 2.0.0
 
@@ -200,6 +227,8 @@ The outputs are the exact payloads the API import would have sent:
   console.
 - **SCM** → one `.scm-policy.yaml` per benchmark (the `!policy` YAML document) — import
   through the console, or later with this tool's `import` against the file.
+- **A zip of SCM policies** → its policy members, unpacked next to the zip byte for byte
+  (they are already the import payload), under sanitized copies of their names.
 
 The repository's SCM documentation names no file extension for compliance policies,
 and the policies SolarWinds publishes are plain `.yaml`, so the tool writes
@@ -641,8 +670,18 @@ and optional fields. Current preview is regex-based. Both editions check `Name` 
 `UniqueId` before importing (the PowerShell edition normalizes CRLF line endings first,
 so a Windows-edited file is checked too) and read the rule count back afterwards; that
 read-back rejects a policy holding no rules, which also catches a returned id of 0, but
-it does not compare the count or the content with the file. A ZIP containing policy
-YAML is not accepted by the XCCDF package reader.
+it does not compare the count or the content with the file.
+
+Since 2.1.0 a **zip of policy YAML** is accepted too (SolarWinds ships policy packs this
+way, for example `Policies.zip` with the IIS, SQL Server and Windows Server STIG
+policies): every `.yaml`/`.yml` member that is a tagged-YAML policy is read, decoded by
+its bytes (UTF-8 or UTF-16, with or without a BOM; the BOM is dropped and the line
+endings kept), and imported verbatim with one `ImportPolicy` call per member after a
+collision check over the whole pack. `parse` lists the members, `convert` unpacks them
+unchanged for a console import, and `import <zip>` imports them. Non-policy members are
+skipped with a warning, a zip without any policy member is refused, and a zip that mixes
+policy YAML with XCCDF `.xml` or nested zips is refused as well, since one input is one
+module.
 
 ## Run log
 
