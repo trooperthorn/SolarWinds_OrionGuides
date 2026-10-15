@@ -193,9 +193,10 @@ Round-trip gotchas:
   SolarWinds.NCM.Contracts.Compliance.PolicyRule`): a JSON *string* is never converted
   to the contract type, so the DataContract-XML-string and plain-XML-string routes are
   dead on this endpoint, whatever the server version. The practical consequence: read
-  the server's own shape first (`GetPolicyRule(ruleId)`, `GetPolicy(policyId, false)`,
-  `GetPolicyReport(reportId, false)` on any existing row return the full member set
-  with the server's names), send the JSON object with every member the server shows,
+  the server's own shape first (`GetPolicyRule(ruleId)`, `GetPolicy(policyId, exportFlag)`
+  and `GetPolicyReport(reportId, exportFlag)` with `exportFlag` false, on any existing
+  row, return the full member set with the server's names), send the JSON object with
+  every member the server shows,
   and fill the ones the published contract lacks with an empty value. The DISA STIG
   tool does this since 2.1.0 and logs the members it had to add. One
   server also accepted the nested JSON call and silently created only the report
