@@ -608,10 +608,13 @@ try {
         $script:ZipMemberMax = $savedMember; $script:ZipTotalMax = 1000
         Assert-Throws { Get-StigBenchmarks $zipPath } 'total limit' 'the total limit refuses the input'
     } finally { $script:ZipMemberMax = $savedMember; $script:ZipTotalMax = $savedTotal }
-    # Fix Text in Comments, RemediateScript empty, CLI kept.
+    # Check Content and Fix Text in the Remediation field as prose (2.1.0), CLI kept, never auto-executed.
     $fixRule = New-NcmRule @($dup.Rules)[0] 'G' 'manual'
-    Assert-True ($fixRule.RemediateScript -eq '' -and $fixRule.RemediateScriptType -eq 'CLI') 'RemediateScript is empty and CLI'
-    Assert-True ($fixRule.Comments.EndsWith("Fix:`nf")) 'the Fix Text ends the Comments'
+    Assert-True ($fixRule.RemediateScript.StartsWith("Check Content:`n") -or $fixRule.RemediateScript.StartsWith("Fix Text:`n")) 'the Remediation field carries the STIG prose under its headings'
+    Assert-True ($fixRule.RemediateScript.Contains("Fix Text:`nf")) 'the Fix Text is in the Remediation field'
+    Assert-Equal 'CLI' $fixRule.RemediateScriptType 'RemediateScriptType stays CLI'
+    Assert-True (-not $fixRule.ExecuteScriptAutomatically) 'nothing is auto-executed'
+    Assert-True (-not $fixRule.Comments.Contains("Fix:`n")) 'the Fix Text is no longer in the Comments'
     Assert-True ($fixRule.Comments.StartsWith('V-1 / SV-1r1_rule / STIG ID  / SRG SRG-NET-1')) 'the SRG id is in the reference line'
 
     # --- 9. stubbed SWIS: removal plan keeps shared policies and rules ------

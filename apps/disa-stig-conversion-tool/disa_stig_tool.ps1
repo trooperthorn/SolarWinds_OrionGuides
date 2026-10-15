@@ -1436,9 +1436,9 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
             ' ' + $script:EmDash + ' no manual check text in this edition; the manual ' +
             'STIG for this product carries the prose.')
     }
-    # The Fix Text is guidance for an engineer, not a script (2.0.0): it lives here,
-    # and RemediateScript stays empty until reviewed commands are written into it.
-    if ($Rule.FixText) { [void]$parts.Add("Fix:`n" + $Rule.FixText) }
+    # The Check Content and the Fix Text go into the rule's Remediation field as prose
+    # (Python remediation_text, 2.1.0); ExecuteScriptAutomatically stays false.
+    $remediation = Get-RemediationText $Rule
     # NCM_PolicyRules.Name is nvarchar(100): a 2026.4.0 server refused a longer name
     # with SQL error 2628 (Python RULE_NAME_LIMIT). The full title stays in Comments.
     $name = Limit-Text (Get-NcmSafeName "$display [$($Rule.Severity)] $($Rule.Title)") $script:RuleNameLimit
@@ -1466,7 +1466,7 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
         # Sent empty rather than omitted (the contract marks no member optional and
         # the audited exports carry it on every rule), with RemediateScriptType CLI
         # as every audited rule has. Nothing is ever auto-executed.
-        RemediateScript = ''
+        RemediateScript = $remediation
         RemediateScriptType = 'CLI'
         ExecuteScriptAutomatically = $false
         ExecuteRemediationScriptPerBlock = $false
@@ -1475,12 +1475,22 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
     }
 }
 
+function Get-RemediationText($Rule) {
+    # Python remediation_text: the STIG's Check Content and Fix Text as prose under
+    # "Check Content:" and "Fix Text:" headings, the CCIs last; '' with neither.
+    $parts = New-Object System.Collections.ArrayList
+    if ($Rule.CheckContent) { [void]$parts.Add("Check Content:`n" + ([string]$Rule.CheckContent).Trim()) }
+    if ($Rule.FixText) { [void]$parts.Add("Fix Text:`n" + ([string]$Rule.FixText).Trim()) }
+    if ($parts.Count -gt 0 -and $Rule.Ccis -and @($Rule.Ccis).Count -gt 0) { [void]$parts.Add('CCI: ' + (@($Rule.Ccis) -join ', ')) }
+    return ($parts -join "`n`n")
+}
+
 function Write-NcmBuildCounts([string]$ReportName, $SourceRules, $Rules, [string]$PatternMode) {
     # Python log_build_counts: where the Fix Text went and, in heuristic mode, how many
     # rules got a draft of each polarity.
     $withFix = @(@($SourceRules) | Where-Object { $_.FixText }).Count
-    Write-ToolLog build info ("report `"$ReportName`": Fix Text of $withFix rule(s) kept in the rule Comments " +
-        'under "Fix:"; RemediateScript is left empty')
+    Write-ToolLog build info ("report `"$ReportName`": Check Content and Fix Text of $withFix rule(s) placed in the rule's " +
+        'Remediation field as prose ("Check Content:" / "Fix Text:"); ExecuteScriptAutomatically false')
     if ($PatternMode -ne 'heuristic') { return }
     $all = @($Rules)
     $drafted = @($all | Where-Object { -not ([string]$_.SimplePatternText).StartsWith('STIG-MANUAL-REVIEW-', [StringComparison]::Ordinal) })

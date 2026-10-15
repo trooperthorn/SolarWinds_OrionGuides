@@ -112,6 +112,14 @@ XCCDF benchmark found inside".
   run log lists what was renamed, filled and dropped. The XML-string routes stay as
   documented fallbacks, although the fault bodies show the endpoint never converts a
   JSON string to a contract type. Unverified until the next live run.
+- **Check Content and Fix Text in the Remediation field.** With the read-back fixed both
+  Cisco IOS Router reports imported and verified (127 of 127 rules). At the operator's
+  request the rule's Remediation field now carries the STIG's Check Content and Fix Text
+  as prose under `Check Content:` and `Fix Text:` headings with the CCIs last, the layout
+  of a working console-made STIG report; the Comments keep the identifiers, the sentinel
+  note, the description sections and the check text. `ExecuteScriptAutomatically` stays
+  false. SCM policies are unchanged (`checkText` and `remediationDescription` already
+  carry both).
 - **The read-back accepts the server's names; the server rebuilds the scope SQL.** With
   the typed criteria in place the whole NDM report imported (35 rules, the policy, the
   report), and the tool's own verification then rolled it back: it read the tree under
@@ -571,8 +579,8 @@ with the reason in the log. Packages download from
 | --- | --- |
 | Group id + severity + Rule title | `RuleName` — `V-215662 [medium] The Cisco router must…`; when one Group holds several Rules, each is named `V-215662/SV-215662r1_rule [medium] …` so names stay unique |
 | severity high / medium / low | `ErrorLevel` 2 / 1 / 0 (console names critical / warning / info by default; the names are editable per server). A missing, `unknown` or `info` severity is imported as medium, with a warning that lists the rules |
-| IDs (V, SV, STIG ID, CCIs, the Group title's SRG id, the legacy V- and SV- ids) + every description section (VulnDiscussion, FalsePositives, FalseNegatives, Mitigations, PotentialImpacts, ThirdPartyTools, MitigationControl, Responsibility, IAControls; empty ones are left out) + check-content + fixtext | `Comments`, in that order, the Fix Text last under `Fix:` |
-| fixtext (the Fix Text) | Not a script: since 2.0.0 it is kept in `Comments`, and `RemediateScript` is sent empty (type `CLI`); **never auto-executed** |
+| IDs (V, SV, STIG ID, CCIs, the Group title's SRG id, the legacy V- and SV- ids) + every description section (VulnDiscussion, FalsePositives, FalseNegatives, Mitigations, PotentialImpacts, ThirdPartyTools, MitigationControl, Responsibility, IAControls; empty ones are left out) + check-content | `Comments`, in that order, the check text last under `Check:` |
+| check-content + fixtext (the Check Content and the Fix Text) | `RemediateScript`, as prose under `Check Content:` and `Fix Text:` headings with the CCIs last (the layout of a working console-made STIG report; 2.1.0, at the operator's request), type `CLI`. It is guidance, not commands: `ExecuteScriptAutomatically` is false, so nothing runs unless an operator executes the remediation by hand, and sending this prose to a device would only produce rejected lines |
 | every Rule of every Group (each check) | one NCM rule. A Rule without an id gets `noid-<uuid5 of its title and position>`, and a rule id that repeats gets `-dup2`, `-dup3`, each with a warning |
 | one benchmark | one policy — the device scope ([node scope](#node-scope-vendor-and-cisco-platform): the vendor, plus the Cisco platform's `MachineType`, or `--node-where`) |
 | one benchmark | one report **named `<zip name> - <benchmark>_v1`** (the router zip yields an NDM report with 35 rules and an RTR report with 92), `Enabled`, in the `DISA STIG` folder — a converter packaging choice, not a one-policy limit in the console format |
@@ -891,10 +899,12 @@ line is written, so it is masked even in the logged command line.
 ## Safety posture
 
 - `ExecuteScriptAutomatically` is always false. A downloaded checklist must never be
-  allowed to push configuration to devices on its own. Since 2.0.0 the tool writes no
-  remediation script at all: the Fix Text is guidance, kept in the rule comments under
-  `Fix:`, and an engineer writes reviewed commands into the script field before anything
-  can be run from the console. The same caution applies
+  allowed to push configuration to devices on its own. Since 2.1.0 the remediation field
+  holds the STIG's Check Content and Fix Text as prose under headings, the way a working
+  console-made STIG report does (2.0.0 left it empty and kept the Fix Text in the
+  comments). That text is guidance, not commands: executing it by hand from the console
+  would send headings and sentences a device rejects, so an engineer replaces it with
+  reviewed commands before anything is meant to run. The same caution applies
   in reverse to SCM YAML: its `!scm.powershell` scripts run on every assigned node, so
   read them before importing a file from outside the organisation.
 - The importer never updates or deletes an existing report: a collision on any name or
@@ -1091,7 +1101,7 @@ that actually filters nodes, e.g.
 | `MultiLineRulePatterns` | array | Empty in the API payloads. The **console file** instead gives every simple-mode rule one placeholder `MultiLineRulePattern` (`PatternType` Regex, empty `Pattern`, `Criteria` true), because every real console export carries one and none carries an empty list (2.1.0). The contract's ten members are `{Pattern, PatternType, IsRegEx, Condition, Criteria, BeginBracket, EndBracket}` plus `RuleId`, `PatternId` and `FoundMatch`, which the server fills in. `Condition` is the `AND`/`OR` joining a pattern to the previous one and the brackets are the grouping parentheses |
 | `ConfigBlockStart` / `ConfigBlockEnd` / `ConfigBlockPatternType` / `ConfigBlockMustExist` / `IsConfigBlockPatternRegEx` | string/boolean | Unused (`""` / `Like` / `false`) — restricts matching to a config stanza |
 | `ErrorLevel` | number | `0` info, `1` warning, `2` critical. The console's *names* for these are editable per server (NCM Settings → Compliance Policy Report Management → Manage Violation Levels), so the words this tool prints may not match what an operator sees |
-| `RemediateScript` | string | Empty since 2.0.0; the Fix Text is prose and is in `Comments`. It is sent empty rather than left out: the contract (`types.json`) marks no member optional, and every rule in the audited console exports carries the element |
+| `RemediateScript` | string | The Check Content and Fix Text as prose under `Check Content:` / `Fix Text:` headings, CCIs last (2.1.0; 2.0.0 sent it empty and kept the Fix Text in `Comments`). Sent empty, not left out, when a rule has neither: the contract (`types.json`) marks no member optional, and every rule in the audited console exports carries the element |
 | `RemediateScriptType` | string | `CLI`, the value every audited rule carries, the one with an empty script included |
 | `ExecuteScriptAutomatically` | boolean | **Always `false`** — `true` pushes remediation to failing devices on its own |
 | `ExecuteRemediationScriptPerBlock`, `ExecuteScriptInConfigMode` | boolean | `false` |

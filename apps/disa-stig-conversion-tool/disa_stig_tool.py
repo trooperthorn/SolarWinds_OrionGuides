@@ -1882,6 +1882,20 @@ def rule_sections(rule):
     return [(label, body) for label, body in sections]
 
 
+def remediation_text(rule):
+    """The rule's Remediation field: the STIG's Check Content and Fix Text as prose under
+    "Check Content:" and "Fix Text:" headings, the CCIs last, the layout of a working
+    console-made STIG report. Empty when the rule has neither."""
+    parts = []
+    if rule.get("check_content"):
+        parts.append("Check Content:\n" + rule["check_content"].strip())
+    if rule.get("fix_text"):
+        parts.append("Fix Text:\n" + rule["fix_text"].strip())
+    if parts and rule.get("ccis"):
+        parts.append("CCI: " + ", ".join(rule["ccis"]))
+    return "\n\n".join(parts)
+
+
 def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
     """One XCCDF rule → one Cirrus.PolicyReports rule contract object.
 
@@ -1942,10 +1956,13 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
         ("Machine check (SCAP edition): OVAL definition " + rule["oval_ref"]
          + " — no manual check text in this edition; the manual STIG for this "
            "product carries the prose.") if rule.get("oval_ref") and not rule["check_content"] else "",
-        # The Fix Text is guidance for an engineer, not a script (2.0.0): it lives here,
-        # and RemediateScript stays empty until reviewed commands are written into it.
-        "Fix:\n" + rule["fix_text"] if rule["fix_text"] else "",
     ) if part)
+    # The Check Content and the Fix Text also go into the rule's Remediation field, in
+    # the layout a working console-made STIG report uses ("Check Content:" and
+    # "Fix Text:" headings, the CCIs last) (2.1.0, at the operator's request). It is
+    # prose, not a script: ExecuteScriptAutomatically stays false, so nothing runs
+    # unless an operator executes the remediation by hand, and the README says so.
+    remediation = remediation_text(rule)
 
     name = ncm_safe_name(f"{display} [{rule['severity']}] {rule['title']}")
     return {
@@ -1974,7 +1991,7 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
         # audited console exports carry it on every rule; RemediateScriptType stays
         # CLI, the value all 415 rules of that corpus carry, including the one whose
         # script is empty. Nothing is ever auto-executed either way.
-        "RemediateScript": "",
+        "RemediateScript": remediation,
         "RemediateScriptType": "CLI",
         "ExecuteScriptAutomatically": False,
         "ExecuteRemediationScriptPerBlock": False,
@@ -2148,8 +2165,9 @@ def log_build_counts(report_name, source_rules, rules, mode):
     """Info-level counts for one report: where the Fix Text went and, in heuristic
     mode, how many rules got a draft pattern of each polarity."""
     with_fix = sum(1 for r in source_rules if r["fix_text"])
-    log_event("build", f"report \"{report_name}\": Fix Text of {with_fix} rule(s) kept in the "
-                       "rule Comments under \"Fix:\"; RemediateScript is left empty")
+    log_event("build", f"report \"{report_name}\": Check Content and Fix Text of {with_fix} "
+                       "rule(s) placed in the rule's Remediation field as prose (\"Check "
+                       "Content:\" / \"Fix Text:\"); ExecuteScriptAutomatically false")
     if mode != "heuristic":
         return
     drafted = [r for r in rules if not r["SimplePatternText"].startswith("STIG-MANUAL-REVIEW-")]

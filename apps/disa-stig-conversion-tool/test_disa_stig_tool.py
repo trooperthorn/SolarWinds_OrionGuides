@@ -2270,24 +2270,34 @@ class ContentFidelityTests(TempDirTest):
                       counts[0])
 
     # item 7 ---------------------------------------------------------------
-    def test_fix_text_moves_to_comments_and_the_script_stays_empty(self):
-        rule = tool.rule_object(make_rule(5, fix="Configure:\nno ip http server"), "G", "manual")
-        self.assertEqual((rule["RemediateScript"], rule["RemediateScriptType"]), ("", "CLI"))
+    def test_check_and_fix_text_go_into_the_remediation_field_as_prose(self):
+        # 2.1.0: the Remediation field carries the Check Content and Fix Text under the
+        # headings a working console-made STIG report uses, the CCIs last; it is prose
+        # and ExecuteScriptAutomatically stays false. The Comments keep the identifiers,
+        # the sentinel note, the description sections and the check text.
+        rule = tool.rule_object(make_rule(5, check="Review the config.",
+                                          fix="Configure:\nno ip http server"), "G", "manual")
+        self.assertEqual(rule["RemediateScript"],
+                         "Check Content:\nReview the config.\n\nFix Text:\nConfigure:\nno ip http server"
+                         "\n\nCCI: CCI-000005")
+        self.assertEqual(rule["RemediateScriptType"], "CLI")
         self.assertFalse(rule["ExecuteScriptAutomatically"])
-        self.assertTrue(rule["Comments"].endswith("Fix:\nConfigure:\nno ip http server"))
-        no_fix = tool.rule_object(make_rule(6, fix=""), "G", "manual")
-        self.assertNotIn("Fix:", no_fix["Comments"])
+        self.assertNotIn("Fix:", rule["Comments"])
+        self.assertIn("Check:\nReview the config.", rule["Comments"])
+        neither = tool.rule_object(make_rule(6, fix=""), "G", "manual")
+        self.assertEqual(neither["RemediateScript"], "")
+        only_fix = tool.rule_object(make_rule(7, fix="Do it."), "G", "manual")
+        self.assertEqual(only_fix["RemediateScript"], "Fix Text:\nDo it.\n\nCCI: CCI-000007")
         reports = tool.build_reports([make_benchmark("Fix_STIG", [make_rule(5), make_rule(6, fix="")])])
         out = tool.write_console_file(reports[0], self.tmp)
         with open(out, encoding="utf-8", newline="") as fh:
             text = fh.read()
-        self.assertIn("<RemediateScript />", text)
+        self.assertIn("<RemediateScript>Fix Text:\r\nConfigure it.\r\n\r\nCCI: CCI-000005</RemediateScript>",
+                      text)
+        self.assertIn("<RemediateScript />", text)   # the rule with neither
         self.assertIn("<RemediateScriptType>CLI</RemediateScriptType>", text)
-        self.assertIn("Fix:\r\nConfigure it.", text)
-        self.assertIn('Fix Text of 1 rule(s) kept in the rule Comments under "Fix:"', "\n".join(self.lines()))
-        for fmt in ("xml-dc", "xml-plain"):
-            dc = tool.WIRE_FORMATS[fmt]["rule"](reports[0]["AssignedPolicies"][0]["AssignedPolicyRules"][0])
-            self.assertIn("RemediateScript />", dc)
+        self.assertIn("Check Content and Fix Text of 1 rule(s) placed in the rule's Remediation field",
+                      "\n".join(self.lines()))
 
     # item 8 ---------------------------------------------------------------
     def test_scm_rules_stay_failed_without_a_translate_node(self):
@@ -2481,8 +2491,11 @@ class ContentFidelityTests(TempDirTest):
                                             "/ SRG SRG-NET-000362-RTR-000112 / legacy V-78221, SV-92927\n\n"))
         for needle in ("Discussion:\nWhy The router", "False positives:\nNone known.",
                        "Mitigations:\nFilter at the edge.", "IA controls:\nECSC-1",
-                       "Responsibility:\nNetwork Administrator", "Fix:\nRemove it:"):
+                       "Responsibility:\nNetwork Administrator"):
             self.assertIn(needle, comments)
+        # The Fix Text lives in the Remediation field since 2.1.0, under its heading.
+        self.assertIn("Fix Text:\nRemove it:", tool.rule_object(rule, "G", "manual")["RemediateScript"])
+        self.assertNotIn("Fix:\nRemove it:", comments)
         description = tool.scm_rule_description(rule)
         self.assertTrue(description.startswith("Why The router must not forward directed broadcasts.\n\n"
                                                "False positives:\nNone known."))
