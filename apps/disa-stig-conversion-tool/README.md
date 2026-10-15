@@ -97,16 +97,32 @@ XCCDF benchmark found inside".
   policy references are listed as orphans: a server can keep a rule although its
   `AddPolicyRule` answer was an error, and such a rule carries a server-assigned id the
   id-based collision check cannot see. Nothing is created, changed or deleted.
-- **JSON objects take the server's own shape.** The 2026.4 fault body for the JSON
-  route showed `ArgumentNullException` from `Regex.IsMatch` inside NCM's own
-  `AddPolicyRule`: the object had been deserialized and the verb had run, but a string
-  member the published 2026.2 contract does not list was null. Before the first probe
-  both editions now read one existing rule, policy and report back (`GetPolicyRule`,
-  `GetPolicy`, `GetPolicyReport`) and send every JSON object in the server's member
-  order with every member the server shows, filling the ones the tool's contract lacks
-  with an empty value; the run log names those members. The XML-string routes stay as
-  documented fallbacks, although the same fault bodies show the endpoint never
-  converts a JSON string to a contract type. Unverified until the next live run.
+- **JSON objects take the server's own shape and names.** Read live on 2026.4.0 with
+  `GetPolicyRule`, `GetPolicy` and `GetPolicyReport`: the server's JSON members are not
+  the published 2026.2 contract's. A rule carries `ID` and `Name` (not `RuleId` and
+  `RuleName`) and no `IsConfigBlockPatternRegEx`; a policy carries `ID`, `Name`,
+  `SelectionCriterias`, `AssgnedPolicyRulesList` and `AssgnedPolicyRules` (sic); a
+  report carries `Policies` (not `AssignedPolicies`). That is why the JSON route failed:
+  the server never saw a rule name and its own `AddPolicyRule` threw
+  `ArgumentNullException` from `Regex.IsMatch`. Before the first probe both editions
+  now read one existing rule, policy and report back and send every JSON object in the
+  server's member order under the server's names (members are matched by name, then by
+  stem: `RuleId` → `ID`, `AssignedPolicies` → `Policies`), filling members the tool has
+  no value for with an empty value and dropping members the server does not show; the
+  run log lists what was renamed, filled and dropped. The XML-string routes stay as
+  documented fallbacks, although the fault bodies show the endpoint never converts a
+  JSON string to a contract type. Unverified until the next live run.
+- **Rule names are cut to 200 characters, policy names shortened past 100.** The NCM
+  business-layer log of the same server shows the console import of the generated file
+  dying on its third rule with SQL error 2628, "String or binary data would be
+  truncated in table NCM_PolicyRules, column Name": the generated `V-<id> [severity]
+  <title>` names ran to 212 characters, and a 184-character one is stored, so
+  `RULE_NAME_LIMIT` is 200. The two rules before it stayed in the rules library with no
+  policy, with `Owner` rewritten to the importing account; `audit` therefore also finds
+  tool-created rules by their `DISA STIG` grouping. The policy name's column width is
+  not published and SolarWinds' longest shipped name is 64, so a generated policy name
+  over 100 characters becomes `<title> V<version> R<n>` plus the suffix; names that fit
+  are unchanged, and the full release text stays in the policy Comments.
 - **Import summary in the log view.** After every NCM run the summary pane (and the run
   log) says how each report reached the server (`imported via API, per item (JSON
   contract objects)`, `imported via API, one nested AddPolicyReport`, or
@@ -1042,7 +1058,7 @@ that actually filters nodes, e.g.
 | Field | Type | The tool sets |
 | --- | --- | --- |
 | `RuleId` | string GUID | uuid5 of the DISA rule id and the version suffix (stable across re-imports with the same suffix) |
-| `RuleName`, `Comments`, `Grouping`, `Owner` | string | Name ≤250 chars; comments carry the identifiers (CCIs, SRG id, legacy ids), the draft or sentinel note, every description section, the check text and the Fix Text under `Fix:` |
+| `RuleName`, `Comments`, `Grouping`, `Owner` | string | Name ≤200 chars (`NCM_PolicyRules.Name`: a 212-char name fails with SQL error 2628 on 2026.4.0, a 184-char one is stored); comments carry the identifiers (CCIs, SRG id, legacy ids), the draft or sentinel note, every description section, the check text and the Fix Text under `Fix:` |
 | `SimplePatternText` | string | Sentinel or heuristic pattern |
 | `PatternType` | string | `Like`, or `Regex` when a heuristic pattern carries `*` or `?` (see above). Regular expressions are evaluated by the .NET engine, and NCM reports the first line of a multi-line match as the violation |
 | `PatternMustExist` | boolean | `true` = violation when the pattern is missing; a heuristic draft for a must-not check sets `false` (violation when found) |

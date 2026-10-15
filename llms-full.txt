@@ -23014,7 +23014,22 @@ Round-trip gotchas:
   row, return the full member set with the server's names), send the JSON object with
   every member the server shows,
   and fill the ones the published contract lacks with an empty value. The DISA STIG
-  tool does this since 2.1.0 and logs the members it had to add. One
+  tool does this since 2.1.0 and logs the members it had to add. Read that way on
+  2026.4.0 (2026-10-15), the server's JSON members are **not the published names**: a
+  `PolicyRule` carries `ID` and `Name` (not `RuleId` and `RuleName`) and no
+  `IsConfigBlockPatternRegEx`; a `Policy` carries `ID`, `Name`, `SelectionCriterias`,
+  `AssgnedPolicyRulesList` and `AssgnedPolicyRules` (the misspelling is the server's);
+  a `PolicyReport` carries `Policies` instead of `AssignedPolicies`. The null member
+  behind the first rejection was therefore `Name`. Send the JSON object under the
+  server's names; a GUID sent as `RuleId` is a GUID the server never stores.
+- **Column widths (2026.4.0, from the NCM business-layer log and the table dump):**
+  `NCM_PolicyRules.Name` refuses a 212-character name with SQL error 2628 ("String or
+  binary data would be truncated") and stores a 184-character one, so treat it as
+  `nvarchar(200)`. The console import runs `AddPolicyReport`, `AddPolicy` and
+  `AddPolicyRule` row by row and stops at the first refused rule, **leaving the rules
+  before it in the rules library with no policy and with `Owner` rewritten to the
+  importing account**. `NCM_Policies.Name` and `NCM_PolicyReports.Name` widths are not
+  published; the longest shipped values are 64 and 55 characters. One
   server also accepted the nested JSON call and silently created only the report
   row. No single wire format is safe to assume: probe with one cheap
   `AddPolicyRule` call — a JSON object, then the contract as a DataContract XML

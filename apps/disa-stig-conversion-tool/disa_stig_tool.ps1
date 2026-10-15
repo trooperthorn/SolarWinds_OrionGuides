@@ -331,6 +331,7 @@ function Get-ScmProbeId([string]$VulnId, [string]$RuleId = '') {
 # ids. Same rules as the Python edition (validate_suffix, with_suffix).
 $script:DefaultSuffix = '_v1'
 $script:NameLimit = 250
+$script:RuleNameLimit = 200   # NCM_PolicyRules.Name: a 184-char name is stored on 2026.4.0, a 212-char one fails with SQL error 2628
 
 function Test-Suffix([string]$Value) {
     # Returns the suffix to use, or throws. Empty means the default (_v1).
@@ -1131,6 +1132,20 @@ function Get-ScmPolicyName($Benchmark, [string]$Suffix = '_v1') {
     return Get-SuffixedName "$($Benchmark.Title) V$($Benchmark.Version) ($($Benchmark.Release))" $Suffix
 }
 
+# Python POLICY_NAME_LIMIT / ncm_policy_name: an NCM policy name longer than this is
+# shortened to "<title> V<version> R<release>" before the suffix; names that fit are
+# unchanged. The column's width is not published; SolarWinds' longest shipped name is 64.
+$script:PolicyNameLimit = 100
+
+function Get-NcmPolicyName($Benchmark, [string]$Suffix = '_v1') {
+    $full = Get-SuffixedName "$($Benchmark.Title) V$($Benchmark.Version) ($($Benchmark.Release))" $Suffix
+    if ($full.Length -le $script:PolicyNameLimit) { return $full }
+    $m = [regex]::Match([string]$Benchmark.Release, 'Release:\s*(\d+)')
+    $short = "$($Benchmark.Title) V$($Benchmark.Version)"
+    if ($m.Success) { $short += " R$($m.Groups[1].Value)" }
+    return Get-SuffixedName $short $Suffix $script:PolicyNameLimit
+}
+
 function Get-ReportBaseName([string]$SourcePath, [string]$ReportName) {
     # Python build_reports: an explicit name wins; otherwise a zip's file name;
     # otherwise nothing, so each report is named after its benchmark title.
@@ -1391,7 +1406,9 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
     # The Fix Text is guidance for an engineer, not a script (2.0.0): it lives here,
     # and RemediateScript stays empty until reviewed commands are written into it.
     if ($Rule.FixText) { [void]$parts.Add("Fix:`n" + $Rule.FixText) }
-    $name = Limit-Text "$display [$($Rule.Severity)] $($Rule.Title)" 250
+    # NCM_PolicyRules.Name is nvarchar(100): a 2026.4.0 server refused a longer name
+    # with SQL error 2628 (Python RULE_NAME_LIMIT). The full title stays in Comments.
+    $name = Limit-Text "$display [$($Rule.Severity)] $($Rule.Title)" $script:RuleNameLimit
     $lvl = 1
     if ($script:SeverityToErrorLevel.ContainsKey($Rule.Severity)) {
         $lvl = $script:SeverityToErrorLevel[$Rule.Severity]
@@ -1456,7 +1473,7 @@ function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
         $rules = @($b.Rules | ForEach-Object { New-NcmRule $_ $ruleGroup $PatternMode $Suffix })
         $policy = [ordered]@{
             PolicyId = Get-NcmPolicyId $b $Suffix
-            PolicyName = Get-SuffixedName "$($b.Title) V$($b.Version) ($($b.Release))" $Suffix
+            PolicyName = Get-NcmPolicyName $b $Suffix
             Comments = ("Imported by the DISA STIG Conversion Tool from $($b.Source) " +
                         "(benchmark $($b.BenchmarkId), status date $($b.StatusDate)).")
             Grouping = $Folder
@@ -2364,32 +2381,65 @@ function Get-DefaultLike($Sample) {
     return ''
 }
 
+# Python member_stem: the 2026.4.0 server names its JSON members differently from
+# the published contract (rule ID/Name, policy AssgnedPolicyRulesList (sic),
+# report Policies). Two members match when their stems agree: lower case, with
+# these qualifying prefixes stripped repeatedly.
+$script:MemberPrefixes = @('assigned', 'assgned', 'node', 'rule', 'policy')
+
+function Get-MemberStem([string]$Name) {
+    $stem = ([string]$Name).ToLowerInvariant()
+    $changed = $true
+    while ($changed) {
+        $changed = $false
+        foreach ($p in $script:MemberPrefixes) {
+            if ($stem.StartsWith($p) -and $stem.Length -gt $p.Length) { $stem = $stem.Substring($p.Length); $changed = $true }
+        }
+    }
+    return $stem
+}
+
 function ConvertTo-ServerShape($Obj, [string]$Kind) {
-    # Python conform_to_shape: the object in the server's member order, the tool's
-    # values kept (matched without regard to case), missing members filled with an
-    # empty value of the sample's type, the tool's extra members appended.
+    # Python conform_to_shape: the object in the server's member order. Every member
+    # the server shows gets the tool's value by name (any case) or, failing that, by
+    # stem (RuleId -> ID, PolicyName -> Name, AssignedPolicies -> Policies); a member
+    # the tool has no value for is sent empty; the tool's members the server does not
+    # show are dropped. Without a learned shape the object is returned as it is.
     if (-not $script:NcmShapes.ContainsKey($Kind)) { return $Obj }
     $shape = $script:NcmShapes[$Kind]
-    $have = @{}
-    foreach ($k in $Obj.Keys) { $have[([string]$k).ToLowerInvariant()] = $k }
+    $unused = [ordered]@{}
+    $byLower = @{}
+    $byStem = @{}
+    foreach ($k in $Obj.Keys) {
+        $unused[[string]$k] = $Obj[$k]
+        $byLower[([string]$k).ToLowerInvariant()] = [string]$k
+        $stem = Get-MemberStem $k
+        if (-not $byStem.ContainsKey($stem)) { $byStem[$stem] = [string]$k }
+    }
     $out = [ordered]@{}
+    $renamed = New-Object System.Collections.ArrayList
     $missing = New-Object System.Collections.ArrayList
     foreach ($k in $shape.Keys) {
-        $lk = ([string]$k).ToLowerInvariant()
-        if ($have.ContainsKey($lk)) { $out[[string]$k] = $Obj[$have[$lk]] }
-        else { $out[[string]$k] = Get-DefaultLike $shape[$k]; [void]$missing.Add($k) }
+        $key = [string]$k
+        $mine = $null
+        if ($byLower.ContainsKey($key.ToLowerInvariant())) { $mine = $byLower[$key.ToLowerInvariant()] }
+        if ($null -eq $mine) {
+            $stem = Get-MemberStem $key
+            if ($byStem.ContainsKey($stem) -and $unused.Contains($byStem[$stem])) { $mine = $byStem[$stem]; [void]$renamed.Add("$mine -> $key") }
+        }
+        if ($null -ne $mine -and $unused.Contains($mine)) { $out[$key] = $unused[$mine]; $unused.Remove($mine) }
+        else { $out[$key] = Get-DefaultLike $shape[$k]; [void]$missing.Add($key) }
     }
-    $shapeLower = @{}
-    foreach ($k in $shape.Keys) { $shapeLower[([string]$k).ToLowerInvariant()] = $true }
-    $extra = @($Obj.Keys | Where-Object { -not $shapeLower.ContainsKey(([string]$_).ToLowerInvariant()) })
-    foreach ($k in $extra) { $out[[string]$k] = $Obj[$k] }
+    $dropped = @($unused.Keys)
     if (-not $script:NcmShapes.ContainsKey("logged:$Kind")) {
         $script:NcmShapes["logged:$Kind"] = $true
-        $msg = "JSON $Kind objects follow the server's $($shape.Count)-member shape; "
-        if ($missing.Count -gt 0) { $msg += "members the tool's contract lacked, sent empty: $($missing -join ', ')" } else { $msg += "the tool's contract lacked none" }
-        if ($extra.Count -gt 0) { $msg += "; the tool's members the server does not show, kept: $($extra -join ', ')" }
+        $parts = New-Object System.Collections.ArrayList
+        [void]$parts.Add("JSON $Kind objects follow the server's $($shape.Count)-member shape")
+        if ($renamed.Count -gt 0) { [void]$parts.Add("renamed to the server's members: $($renamed -join ', ')") }
+        if ($missing.Count -gt 0) { [void]$parts.Add("members the tool has no value for, sent empty: $($missing -join ', ')") }
+        if ($dropped.Count -gt 0) { [void]$parts.Add("the tool's members the server does not show, dropped: $($dropped -join ', ')") }
         $lvl = 'info'; if ($missing.Count -gt 0) { $lvl = 'warn' }
-        Write-ToolLog import $lvl $msg
+        Write-ToolLog import $lvl ($parts -join '; ')
     }
     return $out
 }
@@ -3844,12 +3894,20 @@ function Get-NcmServerAudit($Conn, $ReportNames, $PolicyNames, $PolicyIds, $Rule
     }
     $out.rules_by_name = @($byName)
     $out.rules_by_owner = @(Invoke-SwisQuery $Conn 'SELECT PolicyRuleID, Name, Grouping FROM Cirrus.PolicyRules WHERE Owner = @o' @{ o = $script:RuleOwner })
-    $ownedIds = @($out.rules_by_owner | ForEach-Object { Get-RowValue $_ 'PolicyRuleID' })
+    # A console import rewrites Owner to the importing account (seen live), so the
+    # tool's grouping is the second mark of a tool-created rule; both sets are merged.
+    $out.rules_by_grouping = @(Invoke-SwisQuery $Conn 'SELECT PolicyRuleID, Name, Grouping, Owner FROM Cirrus.PolicyRules WHERE Grouping LIKE @g' @{ g = 'DISA STIG%' })
+    $toolMade = New-Object System.Collections.ArrayList
+    $seenIds = @{}
+    foreach ($row in @($out.rules_by_owner) + @($out.rules_by_grouping)) {
+        $rid = ([string](Get-RowValue $row 'PolicyRuleID')).ToLowerInvariant()
+        if (-not $seenIds.ContainsKey($rid)) { $seenIds[$rid] = $true; [void]$toolMade.Add($row) }
+    }
     $referenced = @{}
-    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids' $ownedIds)) {
+    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids' @($toolMade | ForEach-Object { Get-RowValue $_ 'PolicyRuleID' }))) {
         $referenced[([string](Get-RowValue $row 'PolicyRuleID')).ToLowerInvariant()] = $true
     }
-    $out.orphans = @($out.rules_by_owner | Where-Object { -not $referenced.ContainsKey(([string](Get-RowValue $_ 'PolicyRuleID')).ToLowerInvariant()) })
+    $out.orphans = @($toolMade | Where-Object { -not $referenced.ContainsKey(([string](Get-RowValue $_ 'PolicyRuleID')).ToLowerInvariant()) })
     return $out
 }
 
@@ -3903,7 +3961,8 @@ function Invoke-CliAudit {
     & $section 'Cirrus.PolicyRules (by generated id)' $found.rules_by_id @('PolicyRuleID', 'Name', 'Owner', 'Grouping')
     & $section 'Cirrus.PolicyRules (by generated name)' $found.rules_by_name @('PolicyRuleID', 'Name', 'Owner')
     & $section "Cirrus.PolicyRules (Owner = `"$($script:RuleOwner)`", any run)" $found.rules_by_owner @('PolicyRuleID', 'Name', 'Grouping')
-    & $section 'orphan rules: created by this tool, referenced by no policy' $found.orphans @('PolicyRuleID', 'Name', 'Grouping')
+    & $section 'Cirrus.PolicyRules (Grouping under "DISA STIG", any run; a console import rewrites Owner)' $found.rules_by_grouping @('PolicyRuleID', 'Name', 'Grouping', 'Owner')
+    & $section 'orphan rules: created by this tool, referenced by no policy' $found.orphans @('PolicyRuleID', 'Name', 'Grouping', 'Owner')
     if (@($found.orphans).Count -gt 0) {
         $msg = ("$(@($found.orphans).Count) rule(s) this tool created sit in the NCM rules library without a policy: a failed " +
             'API import left them (the server kept the rule although the HTTP answer was an error, or a rollback could ' +

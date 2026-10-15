@@ -175,6 +175,7 @@ DEFAULT_SUFFIX = "_v1"
 SUFFIX_PATTERN = re.compile(r"^_v[0-9]+\Z")
 SUFFIX_TAIL = re.compile(r"_v([0-9]+)\Z")
 NAME_LIMIT = 250
+RULE_NAME_LIMIT = 200   # NCM_PolicyRules.Name: a 184-char name is stored on 2026.4.0, a 212-char one fails with SQL error 2628 (the message shows 100 chars of the value)
 
 
 def validate_suffix(suffix):
@@ -1823,6 +1824,26 @@ def ncm_rule_id(rule, suffix=DEFAULT_SUFFIX):
     return str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm:" + rule["rule_id"] + suffix))
 
 
+# NCM_Policies.Name: the longest policy name SolarWinds ships is 64 characters and the
+# column's width is not published, so a generated name longer than this is shortened to
+# "<title> V<version> R<release>" before the suffix (2.1.0). Names that fit are unchanged.
+POLICY_NAME_LIMIT = 100
+
+
+def ncm_policy_name(benchmark, suffix=DEFAULT_SUFFIX):
+    """The NCM policy name: ``<title> V<version> (<release>)`` plus the suffix, or when
+    that exceeds POLICY_NAME_LIMIT, ``<title> V<version> R<n>`` with the release number
+    DISA's "Release: n Benchmark Date: ..." carries (the full release stays in the
+    policy Comments), cut to the limit with the suffix preserved."""
+    full = with_suffix(f"{benchmark['title']} V{benchmark['version']} ({benchmark['release']})",
+                       suffix)
+    if len(full) <= POLICY_NAME_LIMIT:
+        return full
+    m = re.search(r"Release:\s*(\d+)", benchmark.get("release") or "")
+    short = f"{benchmark['title']} V{benchmark['version']}" + (f" R{m.group(1)}" if m else "")
+    return with_suffix(short, suffix, limit=POLICY_NAME_LIMIT)
+
+
 def ncm_policy_id(benchmark, suffix=DEFAULT_SUFFIX):
     return str(uuid.uuid5(uuid.NAMESPACE_URL, "stig2ncm-policy:"
                           + (benchmark["benchmark_id"] or benchmark["title"]) + suffix))
@@ -1918,7 +1939,11 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
     name = f"{display} [{rule['severity']}] {rule['title']}"
     return {
         "RuleId": ncm_rule_id(rule, suffix),
-        "RuleName": name[:250],
+        # NCM_PolicyRules.Name is nvarchar(100): a 2026.4.0 server refused a longer
+        # name with SQL error 2628 ("String or binary data would be truncated ...
+        # column 'Name'", NcmBusinessLayerPlugin.log, 2026-10-15), both through the
+        # API and through the console import. The full title stays in Comments.
+        "RuleName": name[:RULE_NAME_LIMIT],
         "Comments": comments,
         "Grouping": grouping,
         "SimplePatternText": pattern,
@@ -2045,7 +2070,7 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
         rules = [rule_object(r, policy_group, mode, suffix) for r in b["rules"]]
         policy = {
             "PolicyId": ncm_policy_id(b, suffix),
-            "PolicyName": with_suffix(f"{b['title']} V{b['version']} ({b['release']})", suffix),
+            "PolicyName": ncm_policy_name(b, suffix),
             "Comments": f"Imported by the DISA STIG Conversion Tool from {b['source']} (benchmark {b['benchmark_id']}, "
                         f"status date {b['status_date']}).",
             "Grouping": grouping,
@@ -2383,36 +2408,72 @@ def _default_like(sample):
     return ""
 
 
+# The 2026.4.0 server names its JSON members differently from the published 2026.2
+# contract: a rule carries ID and Name (not RuleId and RuleName), a policy carries ID,
+# Name, SelectionCriterias, AssgnedPolicyRulesList and AssgnedPolicyRules (sic), a
+# report carries Policies (not AssignedPolicies). Two members match when their stems
+# agree: lower case, with these qualifying prefixes stripped repeatedly.
+_MEMBER_PREFIXES = ("assigned", "assgned", "node", "rule", "policy")
+
+
+def member_stem(name):
+    stem = str(name).lower()
+    changed = True
+    while changed:
+        changed = False
+        for prefix in _MEMBER_PREFIXES:
+            if stem.startswith(prefix) and len(stem) > len(prefix):
+                stem = stem[len(prefix):]
+                changed = True
+    return stem
+
+
 def conform_to_shape(obj, kind):
-    """``obj`` rebuilt in the server's member order for ``kind`` (see NCM_SHAPES):
-    members the server shows and the tool has keep the tool's value (matched without
-    regard to case), members the tool lacks get an empty value of the sample's type,
-    and members the tool has that the server does not show are appended. Without a
-    learned shape the object is returned as it is. The differences are logged once."""
+    """``obj`` rebuilt in the server's member order for ``kind`` (see NCM_SHAPES).
+
+    Every member the server shows gets the tool's value when a member of the tool's
+    object has the same name (without regard to case) or, failing that, the same stem
+    (member_stem: RuleId -> ID, PolicyName -> Name, AssignedRulesList ->
+    AssgnedPolicyRulesList, AssignedPolicies -> Policies); a member the tool has no
+    value for gets an empty value of the sample's type. Members of the tool's object
+    the server does not show are dropped: Newtonsoft would ignore them, and a GUID
+    sent under a name the server does not know is a GUID the server never stores.
+    Without a learned shape the object is returned as it is. What was renamed, filled
+    and dropped is logged once per kind.
+    """
     shape = NCM_SHAPES.get(kind)
     if not shape:
         return obj
-    have = {k.lower(): k for k in obj}
-    out, missing = {}, []
+    unused = dict(obj)
+    by_lower = {k.lower(): k for k in obj}
+    by_stem = {}
+    for k in obj:
+        by_stem.setdefault(member_stem(k), k)
+    out, renamed, missing = {}, [], []
     for key, sample in shape.items():
-        mine = have.get(key.lower())
-        if mine is not None:
-            out[key] = obj[mine]
+        mine = by_lower.get(key.lower())
+        if mine is None:
+            candidate = by_stem.get(member_stem(key))
+            if candidate is not None and candidate in unused:
+                mine = candidate
+                renamed.append(f"{mine} -> {key}")
+        if mine is not None and mine in unused:
+            out[key] = unused.pop(mine)
         else:
             out[key] = _default_like(sample)
             missing.append(key)
-    extra = [k for k in obj if k.lower() not in {s.lower() for s in shape}]
-    for k in extra:
-        out[k] = obj[k]
+    dropped = list(unused)
     if not NCM_SHAPES.get(f"logged:{kind}"):
         NCM_SHAPES[f"logged:{kind}"] = True
-        log_event("import", f"JSON {kind} objects follow the server's {len(shape)}-member shape; "
-                            + (f"members the tool's contract lacked, sent empty: "
-                               f"{', '.join(missing)}" if missing else "the tool's contract "
-                               "lacked none")
-                            + (f"; the tool's members the server does not show, kept: "
-                               f"{', '.join(extra)}" if extra else ""),
-                  "warn" if missing else "info")
+        parts = [f"JSON {kind} objects follow the server's {len(shape)}-member shape"]
+        if renamed:
+            parts.append("renamed to the server's members: " + ", ".join(renamed))
+        if missing:
+            parts.append("members the tool has no value for, sent empty: " + ", ".join(missing))
+        if dropped:
+            parts.append("the tool's members the server does not show, dropped: "
+                         + ", ".join(dropped))
+        log_event("import", "; ".join(parts), "warn" if missing else "info")
     return out
 
 
@@ -4221,7 +4282,7 @@ def _query_in_chunks(swis, swql, ids, size=100):
 
 
 def ncm_server_audit(swis, report_names=(), policy_names=(), policy_ids=(), rule_ids=(),
-                     rule_names=(), owner=RULE_OWNER):
+                     rule_names=(), owner=RULE_OWNER, grouping_prefix="DISA STIG"):
     """Read-only: what each NCM compliance table holds for the given names and ids.
 
     Returns a dict with one list of rows per table (``reports``, ``assignments``,
@@ -4261,11 +4322,22 @@ def ncm_server_audit(swis, report_names=(), policy_names=(), policy_ids=(), rule
     out["rules_by_owner"] = swis.query(
         "SELECT PolicyRuleID, Name, Grouping FROM Cirrus.PolicyRules WHERE Owner = @o",
         {"o": owner}) if owner else []
-    owned_ids = [r.get("PolicyRuleID") for r in out["rules_by_owner"]]
+    # A console import rewrites Owner to the importing account (seen live: rules this
+    # tool generated stored with Owner 'admin'), so the tool's grouping is the second
+    # mark of a tool-created rule, and the two sets are merged for the orphan check.
+    out["rules_by_grouping"] = swis.query(
+        "SELECT PolicyRuleID, Name, Grouping, Owner FROM Cirrus.PolicyRules "
+        "WHERE Grouping LIKE @g", {"g": grouping_prefix + "%"}) if grouping_prefix else []
+    tool_made, seen_ids = [], set()
+    for row in out["rules_by_owner"] + out["rules_by_grouping"]:
+        rid = str(row.get("PolicyRuleID")).lower()
+        if rid not in seen_ids:
+            seen_ids.add(rid)
+            tool_made.append(row)
     referenced = {str(a.get("PolicyRuleID")).lower() for a in _query_in_chunks(
         swis, "SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment "
-              "WHERE PolicyRuleID IN @ids", owned_ids)}
-    out["orphans"] = [r for r in out["rules_by_owner"]
+              "WHERE PolicyRuleID IN @ids", [r.get("PolicyRuleID") for r in tool_made])}
+    out["orphans"] = [r for r in tool_made
                       if str(r.get("PolicyRuleID")).lower() not in referenced]
     return out
 
@@ -4322,14 +4394,18 @@ def cmd_audit(args):
             ("PolicyRuleID", "Name", "Owner"))
     section(f"Cirrus.PolicyRules (Owner = \"{RULE_OWNER}\", any run)", found["rules_by_owner"],
             ("PolicyRuleID", "Name", "Grouping"))
+    section("Cirrus.PolicyRules (Grouping under \"DISA STIG\", any run; a console import "
+            "rewrites Owner)", found["rules_by_grouping"],
+            ("PolicyRuleID", "Name", "Grouping", "Owner"))
     section("orphan rules: created by this tool, referenced by no policy", found["orphans"],
-            ("PolicyRuleID", "Name", "Grouping"))
+            ("PolicyRuleID", "Name", "Grouping", "Owner"))
     if found["orphans"]:
         msg = (f"{len(found['orphans'])} rule(s) this tool created sit in the NCM rules "
-               "library without a policy: a failed API import left them (the server kept "
-               "the rule although the HTTP answer was an error, or a rollback could not "
-               "reach them). They are visible under Compliance -> Manage Policy Rules and "
-               "can be deleted there, or with Cirrus.PolicyReports.DeletePolicyRules(ids).")
+               "library without a policy: a console or API import stopped after creating "
+               "them (seen live: a console import that failed on a later rule's name left "
+               "the rules before it). They are visible under Compliance -> Manage Policy "
+               "Rules and can be deleted there, or with "
+               "Cirrus.PolicyReports.DeletePolicyRules(ids).")
         print("\n" + msg)
         log_event("verify", msg, "warn")
     print("\naudit is read-only: nothing was created, changed or deleted.")

@@ -446,9 +446,15 @@ try {
     # --- 6e. JSON objects take the server's member shape (2.1.0) ------------
     $script:NcmShapes.Clear()
     $script:NcmShapes['rule'] = [ordered]@{ Comments = $null; Flag = $true; N = 2; L = @(); O = (New-Object PSObject) }
-    $shaped = ConvertTo-ServerShape ([ordered]@{ RuleId = 'x'; comments = 'c' }) 'rule'
-    Assert-Equal 'Comments,Flag,N,L,O,RuleId' (@($shaped.Keys) -join ',') 'server member order first, the tool''s extras appended'
+    $shaped = ConvertTo-ServerShape ([ordered]@{ RuleId = 'x'; comments = 'c'; Odd = 1 }) 'rule'
+    Assert-Equal 'Comments,Flag,N,L,O' (@($shaped.Keys) -join ',') 'server member order; the tool''s members the server does not show are dropped'
     Assert-Equal 'c' $shaped['Comments'] 'the tool''s value is kept regardless of key case'
+    foreach ($pair in @(@('RuleId', 'ID'), @('RuleName', 'Name'), @('PolicyId', 'ID'), @('PolicyName', 'Name'),
+                        @('AssignedRulesList', 'AssgnedPolicyRulesList'), @('AssignedPolicyRules', 'AssgnedPolicyRules'),
+                        @('NodeSelectionCriterias', 'SelectionCriterias'), @('AssignedPolicies', 'Policies'))) {
+        Assert-Equal (Get-MemberStem $pair[1]) (Get-MemberStem $pair[0]) "stem of $($pair[0]) matches the server's $($pair[1])"
+    }
+    Assert-True ((Get-MemberStem 'AssignedPoliciesList') -ne (Get-MemberStem 'Policies')) 'the id list and the nested list keep distinct stems'
     Assert-Equal $false $shaped['Flag'] 'a missing boolean member is sent false'
     Assert-Equal 0 $shaped['N'] 'a missing numeric member is sent 0'
     Assert-Equal 0 (@($shaped['L'])).Count 'a missing array member is sent empty'
@@ -458,7 +464,7 @@ try {
     Assert-True ([object]::ReferenceEquals($plain, (ConvertTo-ServerShape $plain 'rule'))) 'without a learned shape the object is sent as it is'
     function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$Arguments) {
         [void]$script:Calls.Add("$SwisVerb")
-        if ($SwisVerb -eq 'GetPolicyRule') { return [PSCustomObject]@{ RuleId = $Arguments[0]; ServerOnlyMember = $null; RuleName = 'existing' } }
+        if ($SwisVerb -eq 'GetPolicyRule') { return [PSCustomObject]@{ ID = $Arguments[0]; ServerOnlyMember = $null; Name = 'existing' } }
         return $null
     }
     function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) {
@@ -467,10 +473,12 @@ try {
         return @()
     }
     Initialize-NcmShapes @{} $null
-    Assert-Equal 'RuleId,ServerOnlyMember,RuleName' (@($script:NcmShapes['rule'].Keys) -join ',') 'the rule shape is read from GetPolicyRule on an existing rule'
+    Assert-Equal 'ID,ServerOnlyMember,Name' (@($script:NcmShapes['rule'].Keys) -join ',') 'the rule shape is read from GetPolicyRule on an existing rule'
     Assert-True (-not $script:NcmShapes.ContainsKey('policy')) 'a table without rows leaves that kind to the published contract'
-    $wire = Get-WireArgument 'json' 'rule' ([ordered]@{ RuleName = 'n'; RuleId = 'id' }) $null
-    Assert-Equal 'RuleId,ServerOnlyMember,RuleName' (@($wire.Keys) -join ',') 'the JSON wire argument follows the learned shape'
+    $wire = Get-WireArgument 'json' 'rule' ([ordered]@{ RuleName = 'n'; RuleId = 'id'; IsConfigBlockPatternRegEx = $false }) $null
+    Assert-Equal 'ID,ServerOnlyMember,Name' (@($wire.Keys) -join ',') 'the JSON wire argument follows the learned shape'
+    Assert-Equal 'id' $wire['ID'] 'RuleId is sent as the server''s ID'
+    Assert-Equal 'n' $wire['Name'] 'RuleName is sent as the server''s Name'
     Assert-Equal '' $wire['ServerOnlyMember'] 'the server-only member is sent empty'
     $script:NcmShapes.Clear()
     function Invoke-SwisVerbCall($Conn, [string]$Entity, [string]$SwisVerb, [array]$Arguments) { [void]$script:Calls.Add("$SwisVerb"); return $null }
@@ -502,7 +510,11 @@ try {
     # than wrapping the call in @() (which would nest the array one level).
     $built = New-NcmReports @($bench) '' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $true 'Running'; $r = $built[0]
     Assert-Equal 250 $r.Name.Length 'report named after a long title is cut to 250'
-    Assert-Equal 250 $r.AssignedPolicies[0].PolicyName.Length 'policy name is cut to 250'
+    Assert-Equal 100 $r.AssignedPolicies[0].PolicyName.Length 'a policy name over the limit is shortened and cut to 100 (Python POLICY_NAME_LIMIT)'
+    $longBench = @{ BenchmarkId = 'NDM'; Title = 'Cisco IOS Router NDM Security Technical Implementation Guide'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026'; StatusDate = ''; Source = 's.xml'; Edition = 'manual'; Rules = @() }
+    Assert-Equal 'Cisco IOS Router NDM Security Technical Implementation Guide V3 R8_v1' (Get-NcmPolicyName $longBench '_v1') 'a long policy name carries R<n> instead of the full release text'
+    $shortBench = @{ BenchmarkId = 'NDM'; Title = 'Short'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026' }
+    Assert-Equal 'Short V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1' (Get-NcmPolicyName $shortBench '_v1') 'a policy name that fits keeps the full release text'
     Assert-Equal 'Running' $r.AssignedPolicies[0].ConfigTypes '-ConfigType reaches the policy'
     $built = New-NcmReports @($bench) 'Base' "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $false; $r = $built[0]
     Assert-Equal 'Base - B1_v1' $r.Name 'base name plus benchmark id plus the suffix'

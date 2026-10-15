@@ -318,6 +318,10 @@ class FakeSwis:
         if "FROM Cirrus.PolicyRules WHERE Name = @n" in swql:
             return [{"PolicyRuleID": k, "Name": v, "Owner": tool.RULE_OWNER}
                     for k, v in self.rules.items() if v == p["n"]]
+        if "FROM Cirrus.PolicyRules WHERE Grouping LIKE @g" in swql:
+            # Every rule the fake holds sits in the tool's grouping.
+            return [{"PolicyRuleID": k, "Name": v, "Grouping": p["g"].rstrip("%"), "Owner": "admin"}
+                    for k, v in self.rules.items()]
         raise AssertionError(f"FakeSwis has no answer for: {swql}")
 
     def invoke(self, entity, verb, *args):
@@ -327,17 +331,29 @@ class FakeSwis:
         return self.results.get(verb, result)
 
     # -- Cirrus.PolicyReports verbs ------------------------------------------
+    # The server's 2026.4 member names (seen live): a rule carries ID and Name, a
+    # policy ID, Name and AssgnedPolicyRulesList (sic), a report Policies. The fake
+    # accepts both the published names and the server's, like a lenient server would.
+    @staticmethod
+    def _member(obj, *names):
+        for n in names:
+            if n in obj:
+                return obj[n]
+        raise KeyError(names)
+
     def _AddPolicyRule(self, rule):
         if self._rejecting() or self.reject_items or not isinstance(rule, dict):
             raise tool.SwisError(DOCUMENTED_400S[0])
-        self.rules[rule["RuleId"]] = rule["RuleName"]
-        return f'"{rule["RuleId"]}"'
+        rid = self._member(rule, "RuleId", "ID")
+        self.rules[rid] = self._member(rule, "RuleName", "Name")
+        return f'"{rid}"'
 
     def _AddPolicy(self, policy, import_flag):
         if self._rejecting():
             raise tool.SwisError(DOCUMENTED_400S[1])
         pid = str(uuid.uuid4())
-        self.add_policy(pid, policy["AssignedRulesList"], policy["PolicyName"])
+        self.add_policy(pid, self._member(policy, "AssignedRulesList", "AssgnedPolicyRulesList"),
+                        self._member(policy, "PolicyName", "Name"))
         return pid
 
     def _AddPolicyReport(self, report, import_flag):
@@ -363,40 +379,57 @@ class FakeSwis:
                 policies.append(pid)
         return self.add_report(root.findtext("Name"), policies)
 
-    # The member set a server shows for one rule / policy (learn_ncm_shapes): the
-    # published 2026.2 contract plus one member the server knows and it does not.
-    SERVER_RULE_SHAPE = ("MultiLineRulePatterns", "RuleId", "RuleName", "Comments",
-                         "ServerOnlyMember", "Grouping", "RemediateScript", "ConfigBlockStart",
-                         "ConfigBlockEnd", "ConfigBlockPatternType", "ConfigBlockMustExist",
-                         "PatternType", "PatternMustExist", "AdvancedMode", "ErrorLevel",
-                         "SimplePatternText", "ExecuteScriptAutomatically", "Owner",
-                         "RemediateScriptType", "IsConfigBlockPatternRegEx",
+    # The member sets a 2026.4.0 server showed for one rule and one policy
+    # (learn_ncm_shapes, GetPolicyRule / GetPolicy read live on 2026-10-15): ID and Name
+    # instead of RuleId / RuleName and PolicyId / PolicyName, no
+    # IsConfigBlockPatternRegEx, misspelled AssgnedPolicyRulesList / AssgnedPolicyRules,
+    # SelectionCriterias instead of NodeSelectionCriterias.
+    SERVER_RULE_SHAPE = ("Name", "MultiLineRulePatterns", "ID", "Comments", "Grouping",
+                         "RemediateScript", "ConfigBlockStart", "ConfigBlockEnd",
+                         "ConfigBlockPatternType", "ConfigBlockMustExist", "PatternType",
+                         "PatternMustExist", "AdvancedMode", "ErrorLevel", "SimplePatternText",
+                         "ExecuteScriptAutomatically", "Owner", "RemediateScriptType",
                          "ExecuteRemediationScriptPerBlock", "ExecuteScriptInConfigMode")
+    SERVER_POLICY_SHAPE = ("Name", "SelectionCriterias", "NodeSelectionString", "ID",
+                           "ConfigTypes", "AssgnedPolicyRulesList", "AssgnedPolicyRules",
+                           "Grouping", "Comments")
 
     def _GetPolicyRule(self, rule_id):
         if rule_id not in self.rules:
             return None
         sample = {k: "" for k in self.SERVER_RULE_SHAPE}
-        sample.update(MultiLineRulePatterns=[], RuleId=rule_id, RuleName=self.rules[rule_id],
+        sample.update(MultiLineRulePatterns=[], ID=rule_id, Name=self.rules[rule_id],
                       ConfigBlockMustExist=False, PatternMustExist=True, AdvancedMode=False,
                       ErrorLevel=1, ExecuteScriptAutomatically=False,
-                      IsConfigBlockPatternRegEx=False, ExecuteRemediationScriptPerBlock=False,
-                      ExecuteScriptInConfigMode=False, ServerOnlyMember=None)
+                      ExecuteRemediationScriptPerBlock=False, ExecuteScriptInConfigMode=False)
         return sample
 
     def _GetPolicy(self, policy_id, export_flag):
         pol = self.policies.get(policy_id)
         if pol is None:
             return None
-        return {"NodeSelectionCriterias": None, "NodeSelectionString": "", "PolicyId": policy_id,
-                "ConfigTypes": "Any", "AssignedRulesList": list(pol["rules"]),
-                "AssignedPolicyRules": [], "Grouping": "", "Comments": "",
-                "PolicyName": pol["PolicyName"]}
+        sample = {k: "" for k in self.SERVER_POLICY_SHAPE}
+        sample.update(Name=pol["PolicyName"], SelectionCriterias={"CriteriaType": 2},
+                      ID=policy_id, ConfigTypes="Any", AssgnedPolicyRulesList=list(pol["rules"]),
+                      AssgnedPolicyRules=[])
+        return sample
+
+    SERVER_REPORT_SHAPE = ("Name", "ID", "Comments", "Group", "ShowSummaryFlag",
+                           "ShowRulesWithoutViolationFlag", "AssignedPoliciesList", "Policies",
+                           "ReportStatus")
 
     def _GetPolicyReport(self, report_id, export_flag):
         rep = self.reports.get(report_id)
         if rep is None:
             return None
+        if not export_flag:
+            # The server's 2026.4 shape for a plain read (learn_ncm_shapes).
+            sample = {k: "" for k in self.SERVER_REPORT_SHAPE}
+            sample.update(Name=rep["Name"], ID=report_id, ShowSummaryFlag=False,
+                          ShowRulesWithoutViolationFlag=True,
+                          AssignedPoliciesList=list(rep["policies"]), Policies=[],
+                          ReportStatus=0)
+            return sample
         pols = []
         for pid in rep["policies"]:
             pol = self.policies.get(pid, {"PolicyName": "?", "rules": []})
@@ -833,27 +866,58 @@ class AuditTests(TempDirTest):
         self.addCleanup(tool.NCM_SHAPES.clear)
         zip_path = self.router_zip()
         fake = FakeSwis()
-        # One rule already on the server, so GetPolicyRule has something to read.
+        # One rule, policy and report already on the server, so each Get verb has a
+        # row to read the server's shape from.
         fake.rules["2b79fcd4-5d27-4773-b556-3ba85b486fc0"] = "existing"
+        fake.add_policy("73f0cfe7-b59f-4b55-925e-00dc86e00d1f",
+                        ["2b79fcd4-5d27-4773-b556-3ba85b486fc0"], "Existing policy")
+        fake.add_report("Existing report", ["73f0cfe7-b59f-4b55-925e-00dc86e00d1f"])
         with mock.patch.object(tool, "connect", return_value=fake), \
                 contextlib.redirect_stdout(io.StringIO()):
             tool.cmd_import(import_args(zip_path))
         self.assertEqual(fake.verbs("GetPolicyRule")[0][2],
                          ("2b79fcd4-5d27-4773-b556-3ba85b486fc0",))
+        self.assertEqual(fake.verbs("GetPolicy")[0][2],
+                         ("73f0cfe7-b59f-4b55-925e-00dc86e00d1f", False))
+        # The report went out with the server's names: Policies, not AssignedPolicies.
+        report_sent = fake.verbs("AddPolicyReport")[0][2][0]
+        self.assertEqual(list(report_sent), list(FakeSwis.SERVER_REPORT_SHAPE))
+        self.assertEqual(report_sent["Policies"], [])
+        self.assertEqual(len(report_sent["AssignedPoliciesList"]), 1)
         sent = fake.verbs("AddPolicyRule")[0][2][0]
-        # Server order, the server-only member present and empty, nothing lost.
+        built = tool.build_reports(tool.load_benchmarks(zip_path), source_path=zip_path)
+        first = built[0]["AssignedPolicies"][0]["AssignedPolicyRules"][0]
+        # Server order and the server's names: RuleId -> ID and RuleName -> Name carry the
+        # tool's values, the member the server does not show is dropped, nothing invented.
         self.assertEqual(list(sent), list(FakeSwis.SERVER_RULE_SHAPE))
-        self.assertEqual(sent["ServerOnlyMember"], "")
+        self.assertEqual(sent["ID"], first["RuleId"])
+        self.assertEqual(sent["Name"], first["RuleName"])
+        self.assertNotIn("RuleId", sent)
+        self.assertNotIn("IsConfigBlockPatternRegEx", sent)
         self.assertTrue(sent["SimplePatternText"].startswith("STIG-MANUAL-REVIEW-V-"))
         self.assertEqual(sent["Owner"], tool.RULE_OWNER)
+        # The policy went out with the server's misspelled list member.
+        policy = fake.verbs("AddPolicy")[0][2][0]
+        self.assertEqual(list(policy), list(FakeSwis.SERVER_POLICY_SHAPE))
+        self.assertEqual(len(policy["AssgnedPolicyRulesList"]),
+                         len(built[0]["AssignedPolicies"][0]["AssignedPolicyRules"]))
+        self.assertTrue(policy["Name"].endswith("_v1"))
+        # Stems: the published names map onto the server's.
+        for mine, server in (("RuleId", "ID"), ("RuleName", "Name"), ("PolicyId", "ID"),
+                             ("PolicyName", "Name"), ("AssignedRulesList", "AssgnedPolicyRulesList"),
+                             ("AssignedPolicyRules", "AssgnedPolicyRules"),
+                             ("NodeSelectionCriterias", "SelectionCriterias"),
+                             ("AssignedPolicies", "Policies"), ("Comments", "Comments")):
+            self.assertEqual(tool.member_stem(mine), tool.member_stem(server), (mine, server))
+        self.assertNotEqual(tool.member_stem("AssignedPoliciesList"), tool.member_stem("Policies"))
         # Without a learned shape the object is sent as the tool builds it.
         tool.NCM_SHAPES.clear()
-        rule = {"RuleId": "x", "Comments": "c"}
+        rule = {"RuleId": "x", "Comments": "c", "Odd": 1}
         self.assertIs(tool.conform_to_shape(rule, "rule"), rule)
-        tool.NCM_SHAPES["rule"] = {"Comments": None, "Flag": True, "N": 2, "L": [], "O": {}}
+        tool.NCM_SHAPES["rule"] = {"ID": "guid", "Comments": None, "Flag": True, "N": 2,
+                                   "L": [], "O": {}}
         self.assertEqual(tool.conform_to_shape(rule, "rule"),
-                         {"Comments": "c", "Flag": False, "N": 0, "L": [], "O": None,
-                          "RuleId": "x"})
+                         {"ID": "x", "Comments": "c", "Flag": False, "N": 0, "L": [], "O": None})
 
     def test_audit_needs_a_path_or_a_name(self):
         with self.assertRaises(SystemExit):
@@ -1678,8 +1742,17 @@ class SuffixTests(TempDirTest):
         self.assertEqual(v2["Name"], "Pkg - NDM_v2")
         for report, suffix in ((v1, "_v1"), (v2, "_v2")):
             policy = report["AssignedPolicies"][0]
-            self.assertEqual(len(policy["PolicyName"]), 250)
+            # A name over POLICY_NAME_LIMIT is shortened to "<title> V<version> R<n>" and
+            # cut to the limit (2.1.0); the suffix survives the cut.
+            self.assertEqual(len(policy["PolicyName"]), tool.POLICY_NAME_LIMIT)
             self.assertTrue(policy["PolicyName"].endswith(suffix), "the suffix survives the cut")
+        # A name that fits keeps the full "(Release: ...)" form; a long one carries R<n>.
+        short = tool.build_reports([make_benchmark("NDM", [make_rule(1)], title="Short")])[0]
+        self.assertEqual(short["AssignedPolicies"][0]["PolicyName"],
+                         "Short V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1")
+        long_title = "Cisco IOS Router NDM Security Technical Implementation Guide"
+        long_rep = tool.build_reports([make_benchmark("NDM", [make_rule(1)], title=long_title)])[0]
+        self.assertEqual(long_rep["AssignedPolicies"][0]["PolicyName"], long_title + " V3 R8_v1")
         ids = lambda rep: {rep["AssignedPolicies"][0]["PolicyId"]} | {
             r["RuleId"] for r in rep["AssignedPolicies"][0]["AssignedPolicyRules"]}
         self.assertEqual(ids(v1) & ids(v2), set(), "_v2 shares no id with _v1")
@@ -2700,7 +2773,10 @@ class PowerShellEditionTests(TempDirTest):
         self.assertEqual(len(ps["files"][9]["reports"]), 5)
         self.assertIn("\\u2028", ps["files"][7]["scm"][0])
         cut = ps["memory"][4]["reports"][0]["AssignedPolicies"][0]["AssignedPolicyRules"][-1]["RuleName"]
-        self.assertEqual(cut, "V-30 [medium] " + "A" * 230 + ASTRAL * 6)
+        # RULE_NAME_LIMIT (200) code points, in both editions, so the astral characters
+        # beyond it are cut whole.
+        self.assertEqual(cut, ("V-30 [medium] " + "A" * 230 + ASTRAL * 6)[:tool.RULE_NAME_LIMIT])
+        self.assertEqual(len(cut), 200)
         self.assertTrue(ps["memory"][4]["reports"][0]["Name"].endswith(ASTRAL * 7 + "_v1"))
         # The comparison covered real decisions, not only refusals.
         self.assertEqual(sum(1 for r in ps["scopes"] if r.get("error")), 6)
