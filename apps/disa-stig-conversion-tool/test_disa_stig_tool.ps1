@@ -513,6 +513,9 @@ try {
     Assert-Equal 100 $r.AssignedPolicies[0].PolicyName.Length 'a policy name over the limit is shortened and cut to 100 (Python POLICY_NAME_LIMIT)'
     $longBench = @{ BenchmarkId = 'NDM'; Title = 'Cisco IOS Router NDM Security Technical Implementation Guide'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026'; StatusDate = ''; Source = 's.xml'; Edition = 'manual'; Rules = @() }
     Assert-Equal 'Cisco IOS Router NDM Security Technical Implementation Guide V3 R8_v1' (Get-NcmPolicyName $longBench '_v1') 'a long policy name carries R<n> instead of the full release text'
+    Assert-Equal 'limits for SSH - HTTPS - and root' (Get-NcmSafeName 'limits for SSH, HTTPS, and root') 'commas become " -" (NCM refuses a name with a comma)'
+    $commaBench = @{ BenchmarkId = 'NDM'; Title = 'T, Inc'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026' }
+    Assert-Equal 'T - Inc V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1' (Get-NcmPolicyName $commaBench '_v1') 'a policy name loses its commas'
     $shortBench = @{ BenchmarkId = 'NDM'; Title = 'Short'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026' }
     Assert-Equal 'Short V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1' (Get-NcmPolicyName $shortBench '_v1') 'a policy name that fits keeps the full release text'
     Assert-Equal 'Running' $r.AssignedPolicies[0].ConfigTypes '-ConfigType reaches the policy'

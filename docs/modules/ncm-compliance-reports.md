@@ -205,7 +205,11 @@ Round-trip gotchas:
   `AssgnedPolicyRulesList` and `AssgnedPolicyRules` (the misspelling is the server's);
   a `PolicyReport` carries `Policies` instead of `AssignedPolicies`. The null member
   behind the first rejection was therefore `Name`. Send the JSON object under the
-  server's names; a GUID sent as `RuleId` is a GUID the server never stores.
+  server's names; a GUID sent as `RuleId` is a GUID the server never stores. With the
+  names right, `AddPolicyRule` stored a rule and then refused the next one with HTTP
+  400 "Policy name contains comma character" (`System.ArgumentException` from the same
+  invoker; it is the rule's name it checks): **a rule name may not contain a comma**,
+  and none of the 3,126 rule, policy and report names on that server does.
 - **Column widths (2026.4.0, from the NCM business-layer log and the table dump):**
   `NCM_PolicyRules.Name` refuses a 212-character name with SQL error 2628 ("String or
   binary data would be truncated") and stores a 184-character one, so treat it as

@@ -1746,6 +1746,16 @@ class SuffixTests(TempDirTest):
             # cut to the limit (2.1.0); the suffix survives the cut.
             self.assertEqual(len(policy["PolicyName"]), tool.POLICY_NAME_LIMIT)
             self.assertTrue(policy["PolicyName"].endswith(suffix), "the suffix survives the cut")
+        # No generated name carries a comma: NCM's AddPolicyRule refuses it.
+        self.assertEqual(tool.ncm_safe_name("limits for SSH, HTTPS, and root"),
+                         "limits for SSH - HTTPS - and root")
+        comma = make_benchmark("NDM,1", [make_rule(1, title="Set a, b, and c.")], title="T, Inc")
+        rep = tool.build_reports([comma], name="Pkg, v1")[0]
+        self.assertEqual(rep["Name"], "Pkg - v1 - NDM -1_v1")
+        self.assertEqual(rep["AssignedPolicies"][0]["PolicyName"],
+                         "T - Inc V3 (Release: 8 Benchmark Date: 01 Jul 2026)_v1")
+        self.assertEqual(rep["AssignedPolicies"][0]["AssignedPolicyRules"][0]["RuleName"],
+                         "V-1 [medium] Set a - b - and c.")
         # A name that fits keeps the full "(Release: ...)" form; a long one carries R<n>.
         short = tool.build_reports([make_benchmark("NDM", [make_rule(1)], title="Short")])[0]
         self.assertEqual(short["AssignedPolicies"][0]["PolicyName"],

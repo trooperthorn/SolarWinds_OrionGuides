@@ -1137,11 +1137,20 @@ function Get-ScmPolicyName($Benchmark, [string]$Suffix = '_v1') {
 # unchanged. The column's width is not published; SolarWinds' longest shipped name is 64.
 $script:PolicyNameLimit = 100
 
+function Get-NcmSafeName([string]$Text) {
+    # Python ncm_safe_name: NCM's AddPolicyRule refuses a name holding a comma
+    # ("Policy name contains comma character"); every comma becomes " -" and runs
+    # of spaces are collapsed.
+    $cleaned = ([string]$Text) -replace '\s*,', ' -'
+    return (($cleaned -replace ' {2,}', ' ')).Trim()
+}
+
 function Get-NcmPolicyName($Benchmark, [string]$Suffix = '_v1') {
-    $full = Get-SuffixedName "$($Benchmark.Title) V$($Benchmark.Version) ($($Benchmark.Release))" $Suffix
+    $title = Get-NcmSafeName $Benchmark.Title
+    $full = Get-SuffixedName "$title V$($Benchmark.Version) ($(Get-NcmSafeName $Benchmark.Release))" $Suffix
     if ($full.Length -le $script:PolicyNameLimit) { return $full }
     $m = [regex]::Match([string]$Benchmark.Release, 'Release:\s*(\d+)')
-    $short = "$($Benchmark.Title) V$($Benchmark.Version)"
+    $short = "$title V$($Benchmark.Version)"
     if ($m.Success) { $short += " R$($m.Groups[1].Value)" }
     return Get-SuffixedName $short $Suffix $script:PolicyNameLimit
 }
@@ -1408,7 +1417,7 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
     if ($Rule.FixText) { [void]$parts.Add("Fix:`n" + $Rule.FixText) }
     # NCM_PolicyRules.Name is nvarchar(100): a 2026.4.0 server refused a longer name
     # with SQL error 2628 (Python RULE_NAME_LIMIT). The full title stays in Comments.
-    $name = Limit-Text "$display [$($Rule.Severity)] $($Rule.Title)" $script:RuleNameLimit
+    $name = Limit-Text (Get-NcmSafeName "$display [$($Rule.Severity)] $($Rule.Title)") $script:RuleNameLimit
     $lvl = 1
     if ($script:SeverityToErrorLevel.ContainsKey($Rule.Severity)) {
         $lvl = $script:SeverityToErrorLevel[$Rule.Severity]
@@ -1489,7 +1498,7 @@ function New-NcmReports($Benchmarks, [string]$BaseName, [string]$Where,
         }
         [void]$reports.Add([ordered]@{
             ID = [guid]::NewGuid().ToString()
-            Name = Get-SuffixedName $name $Suffix
+            Name = Get-SuffixedName (Get-NcmSafeName $name) $Suffix
             Comments = "DISA STIG imported by the DISA STIG Conversion Tool from $($b.Source) ($($b.Release))."
             Group = $Folder
             ShowSummaryFlag = $true

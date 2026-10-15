@@ -112,6 +112,12 @@ XCCDF benchmark found inside".
   run log lists what was renamed, filled and dropped. The XML-string routes stay as
   documented fallbacks, although the fault bodies show the endpoint never converts a
   JSON string to a contract type. Unverified until the next live run.
+- **No comma in a generated name.** With the server's member names in place the first
+  rule imported; the second was refused by NCM's own validator with "Policy name
+  contains comma character" (the rule name, despite the wording), and the rollback
+  removed the first. None of the 3,126 names that server holds has a comma, so every
+  comma in a rule, policy or report name becomes " -", the punctuation NCM's own names
+  use most. The exact title stays in the rule Comments.
 - **Rule names are cut to 200 characters, policy names shortened past 100.** The NCM
   business-layer log of the same server shows the console import of the generated file
   dying on its third rule with SQL error 2628, "String or binary data would be

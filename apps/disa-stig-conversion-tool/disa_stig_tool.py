@@ -1830,17 +1830,28 @@ def ncm_rule_id(rule, suffix=DEFAULT_SUFFIX):
 POLICY_NAME_LIMIT = 100
 
 
+def ncm_safe_name(text):
+    """A name NCM accepts: its AddPolicyRule validator refused a rule whose name held a
+    comma ("Policy name contains comma character", 2026.4.0, 2026-10-15), and none of
+    the 3,126 rule, policy and report names on that server holds one. Every comma
+    becomes " -", the hyphen being the punctuation NCM's own names use most; runs of
+    spaces are collapsed. The exact title stays in the rule Comments."""
+    cleaned = re.sub(r"\s*,", " -", str(text or ""))
+    return re.sub(r" {2,}", " ", cleaned).strip()
+
+
 def ncm_policy_name(benchmark, suffix=DEFAULT_SUFFIX):
     """The NCM policy name: ``<title> V<version> (<release>)`` plus the suffix, or when
     that exceeds POLICY_NAME_LIMIT, ``<title> V<version> R<n>`` with the release number
     DISA's "Release: n Benchmark Date: ..." carries (the full release stays in the
     policy Comments), cut to the limit with the suffix preserved."""
-    full = with_suffix(f"{benchmark['title']} V{benchmark['version']} ({benchmark['release']})",
+    title = ncm_safe_name(benchmark["title"])
+    full = with_suffix(f"{title} V{benchmark['version']} ({ncm_safe_name(benchmark['release'])})",
                        suffix)
     if len(full) <= POLICY_NAME_LIMIT:
         return full
     m = re.search(r"Release:\s*(\d+)", benchmark.get("release") or "")
-    short = f"{benchmark['title']} V{benchmark['version']}" + (f" R{m.group(1)}" if m else "")
+    short = f"{title} V{benchmark['version']}" + (f" R{m.group(1)}" if m else "")
     return with_suffix(short, suffix, limit=POLICY_NAME_LIMIT)
 
 
@@ -1936,7 +1947,7 @@ def rule_object(rule, grouping, mode, suffix=DEFAULT_SUFFIX):
         "Fix:\n" + rule["fix_text"] if rule["fix_text"] else "",
     ) if part)
 
-    name = f"{display} [{rule['severity']}] {rule['title']}"
+    name = ncm_safe_name(f"{display} [{rule['severity']}] {rule['title']}")
     return {
         "RuleId": ncm_rule_id(rule, suffix),
         # NCM_PolicyRules.Name is nvarchar(100): a 2026.4.0 server refused a longer
@@ -2083,7 +2094,7 @@ def build_reports(benchmarks, name=None, grouping="DISA STIG", node_where="(Vend
         report_name = f"{base} - {b['benchmark_id']}" if name and b["benchmark_id"] else base
         reports.append({
             "ID": str(uuid.uuid4()),  # advisory only — the server assigns its own GUID
-            "Name": with_suffix(report_name, suffix),
+            "Name": with_suffix(ncm_safe_name(report_name), suffix),
             "Comments": f"DISA STIG imported by the DISA STIG Conversion Tool from "
                         f"{b['source']} ({b['release']}).",
             "Group": grouping,
