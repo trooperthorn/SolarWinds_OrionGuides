@@ -2774,7 +2774,9 @@ function Get-ReadBackTree($Stored) {
     # cannot be compared: not an object, an entry that is not an object, or the
     # nested AssignedPolicies absent while AssignedPoliciesList names policies.
     if (-not (Test-ToolObject $Stored)) { return $null }
-    $policies = Get-RowValue $Stored 'AssignedPolicies'
+    # The 2026.4.0 server answers with its own member names (Policies, Name,
+    # AssgnedPolicyRules); the published ones are accepted too (Python _member).
+    $policies = Get-FirstMember $Stored @('AssignedPolicies', 'Policies')
     $tree = New-Object System.Collections.ArrayList
     if ($null -eq $policies -or $policies -is [string]) {
         $listed = @(Get-RowValue $Stored 'AssignedPoliciesList' | Where-Object { $null -ne $_ })
@@ -2784,14 +2786,38 @@ function Get-ReadBackTree($Stored) {
     foreach ($p in @($policies)) {
         if (-not (Test-ToolObject $p)) { return $null }
         $names = New-Object System.Collections.ArrayList
-        foreach ($r in @(Get-RowValue $p 'AssignedPolicyRules')) {
+        foreach ($r in @(Get-FirstMember $p @('AssignedPolicyRules', 'AssgnedPolicyRules'))) {
             if ($null -eq $r) { continue }
             if (-not (Test-ToolObject $r)) { return $null }
-            [void]$names.Add([string](Get-RowValue $r 'RuleName'))
+            [void]$names.Add([string](Get-FirstMember $r @('RuleName', 'Name')))
         }
-        [void]$tree.Add([pscustomobject]@{ Policy = [string](Get-RowValue $p 'PolicyName'); Rules = [string[]]@($names) })
+        [void]$tree.Add([pscustomobject]@{ Policy = [string](Get-FirstMember $p @('PolicyName', 'Name')); Rules = [string[]]@($names) })
     }
     return @{ Policies = $tree }
+}
+
+function Get-FirstMember($Obj, [string[]]$Names) {
+    # Python _member: the first of $Names present on $Obj (any case), else $null.
+    foreach ($n in $Names) {
+        if ($Obj -is [System.Collections.IDictionary]) {
+            foreach ($k in $Obj.Keys) { if ([string]$k -ieq $n) { return $Obj[$k] } }
+        } else {
+            foreach ($prop in $Obj.PSObject.Properties) { if ($prop.Name -ieq $n) { return $prop.Value } }
+        }
+    }
+    return $null
+}
+
+function Get-StoredScopeSql($Stored) {
+    # Python stored_scope_sql: the "SQL:Where ..." part of the first stored policy's
+    # NodeSelectionString, or $null. The server rebuilds that SQL from the typed
+    # SelectionCriterias, so a condition that lived only in the submitted SQL is gone.
+    if (-not (Test-ToolObject $Stored)) { return $null }
+    $policies = Get-FirstMember $Stored @('AssignedPolicies', 'Policies')
+    if ($null -eq $policies -or $policies -is [string] -or @($policies).Count -eq 0) { return $null }
+    $text = [string](Get-FirstMember @($policies)[0] @('NodeSelectionString'))
+    if ($text -notmatch 'SQL:') { return $null }
+    return $text.Substring($text.IndexOf('SQL:') + 4).Trim()
 }
 
 function Compare-NcmReportTree($Expected, $Actual) {
@@ -2869,6 +2895,19 @@ function Test-NcmImport($Conn, [string]$ReportId, $Report, [scriptblock]$Log) {
         throw (New-NcmVerificationError ($msg + '. ' + $script:RoleHint))
     }
     Send-Log $Log 'verify' 'info' "[NCM] verified: report holds $($actual.Policies.Count) policies and $nRules rules, matching the import (policy names and rule names compared)"
+    $sentSql = $null
+    foreach ($p in @($Report.AssignedPolicies)) {
+        $text = [string]$p.NodeSelectionString
+        if ($text -match 'SQL:') { $sentSql = $text.Substring($text.IndexOf('SQL:') + 4).Trim() }
+        break
+    }
+    $storedSql = Get-StoredScopeSql $stored
+    if ($sentSql -and $storedSql -and (($sentSql -replace '\s+', ' ') -ne ($storedSql -replace '\s+', ' '))) {
+        Send-Log $Log 'verify' 'warn' ("[NCM] warning: the server stored the node scope as `"$storedSql`", not the submitted `"$sentSql`": " +
+            'it rebuilds the SQL from the typed selection criteria, which carry the Vendor condition only. Add the ' +
+            'remaining condition (the MachineType pattern) in the console under the report''s node selection, or it ' +
+            'scopes every node of that vendor.')
+    }
     return @{ ReportId = $ReportId; Policies = $actual.Policies.Count; Rules = $nRules }
 }
 

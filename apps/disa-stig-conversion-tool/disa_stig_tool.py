@@ -2657,7 +2657,9 @@ def read_back_tree(stored):
     not returned, which is not the same as an empty report)."""
     if not isinstance(stored, dict):
         return None
-    policies = stored.get("AssignedPolicies")
+    # The 2026.4.0 server answers with its own member names (Policies, Name,
+    # AssgnedPolicyRules); the published ones are accepted too (see member_stem).
+    policies = _member(stored, "AssignedPolicies", "Policies")
     if not isinstance(policies, list):
         listed = stored.get("AssignedPoliciesList")
         return None if isinstance(listed, list) and listed else []
@@ -2665,11 +2667,37 @@ def read_back_tree(stored):
     for p in policies:
         if not isinstance(p, dict):
             return None
-        rules = p.get("AssignedPolicyRules") or []
+        rules = _member(p, "AssignedPolicyRules", "AssgnedPolicyRules") or []
         if not isinstance(rules, list) or not all(isinstance(r, dict) for r in rules):
             return None
-        tree.append((str(p.get("PolicyName") or ""), [str(r.get("RuleName") or "") for r in rules]))
+        tree.append((str(_member(p, "PolicyName", "Name") or ""),
+                     [str(_member(r, "RuleName", "Name") or "") for r in rules]))
     return tree
+
+
+def _member(obj, *names):
+    """The first of ``names`` present in ``obj`` (the published contract name and the
+    server's own), matched without regard to case; None when none is."""
+    lower = {str(k).lower(): k for k in obj}
+    for name in names:
+        key = lower.get(name.lower())
+        if key is not None:
+            return obj[key]
+    return None
+
+
+def stored_scope_sql(stored):
+    """The ``SQL:Where …`` part of the first stored policy's NodeSelectionString, or
+    None. The 2026.4.0 server rebuilds that SQL from the typed SelectionCriterias it
+    was given, so a condition that lived only in the submitted SQL (the Cisco
+    MachineType pattern) is not what the stored report filters on."""
+    if not isinstance(stored, dict):
+        return None
+    policies = _member(stored, "AssignedPolicies", "Policies")
+    if not isinstance(policies, list) or not policies or not isinstance(policies[0], dict):
+        return None
+    text = str(_member(policies[0], "NodeSelectionString") or "")
+    return text.split("SQL:", 1)[1].strip() if "SQL:" in text else None
 
 
 def compare_report_trees(expected, actual):
@@ -2740,6 +2768,19 @@ def _verify_report(swis, report_id, report, log):
         raise NcmVerificationError(msg)
     _say(log, "verify", f"verified: report holds {len(actual)} policies and {n_rules} rules, "
                         "matching the import (policy names and rule names compared)")
+    sent_sql = None
+    for p in report.get("AssignedPolicies") or []:
+        text = str(p.get("NodeSelectionString") or "")
+        sent_sql = text.split("SQL:", 1)[1].strip() if "SQL:" in text else None
+        break
+    stored_sql = stored_scope_sql(stored)
+    if sent_sql and stored_sql and " ".join(sent_sql.split()) != " ".join(stored_sql.split()):
+        _say(log, "verify",
+             f"warning: the server stored the node scope as \"{stored_sql}\", not the submitted "
+             f"\"{sent_sql}\": it rebuilds the SQL from the typed selection criteria, which carry "
+             "the Vendor condition only. Add the remaining condition (the MachineType pattern) "
+             "in the console under the report's node selection, or it scopes every node of "
+             "that vendor.", "warn")
     return report_id, len(actual), n_rules
 
 

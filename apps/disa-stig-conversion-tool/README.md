@@ -112,6 +112,19 @@ XCCDF benchmark found inside".
   run log lists what was renamed, filled and dropped. The XML-string routes stay as
   documented fallbacks, although the fault bodies show the endpoint never converts a
   JSON string to a contract type. Unverified until the next live run.
+- **The read-back accepts the server's names; the server rebuilds the scope SQL.** With
+  the typed criteria in place the whole NDM report imported (35 rules, the policy, the
+  report), and the tool's own verification then rolled it back: it read the tree under
+  the published names and the server answered with its own (`Policies`, `Name`,
+  `AssgnedPolicyRules`). The read-back now accepts both. The same reply showed the
+  stored policy's SQL as `Where (Vendor = 'Cisco')`: the server regenerates the SQL part
+  of `NodeSelectionString` from the typed `SelectionCriterias`, so the Cisco
+  `MachineType` condition, which lived only in the submitted SQL, is dropped on an API
+  import. The verification now warns when the stored scope differs from the submitted
+  one; add the MachineType condition in the console under the report's node selection.
+  Unverified: whether a second `WebSelectionCriteria` for `MachineType` can carry a LIKE
+  pattern (a console-made export shows `MatchType` `=` producing `MachineType = '%IOS%'`,
+  which matches nothing).
 - **The policy carries the typed node criteria.** With the names and the comma rule in
   place all 35 rules of the NDM report were created; `AddPolicy` then failed behind an
   opaque `NcmFaultContract` with `SelectionCriterias` sent null, the one member the

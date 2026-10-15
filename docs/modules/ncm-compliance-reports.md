@@ -214,8 +214,16 @@ Round-trip gotchas:
   `NcmFaultContract` ("ProvideFault failed") for a policy whose `SelectionCriterias`
   was null while `NodeSelectionString` was filled: send the typed criteria too
   (`CriteriaType` 2 and a `WebSelectionCriterias` entry mirroring the picker XML),
-  which is what `GetPolicy` returns for every console-made policy. Unverified: whether
-  that alone satisfies `AddPolicy`.
+  which is what `GetPolicy` returns for every console-made policy. That did satisfy
+  `AddPolicy` and `AddPolicyReport` (35 rules, one policy, one report created and read
+  back on 2026-10-15). Two consequences for anyone reading the result: `GetPolicyReport`
+  answers with the server's names (`Policies`, `Name`, `AssgnedPolicyRules`), so a
+  verifier keyed on the published names sees nothing; and **the server regenerates the
+  `SQL:Where …` part of `NodeSelectionString` from the typed criteria**, so a condition
+  present only in the submitted SQL (a `MachineType LIKE` pattern beside the Vendor
+  criterion) is not stored. Unverified: whether a second `WebSelectionCriteria` for
+  `MachineType` can express LIKE; a console-made export shows `MatchType` `=` with the
+  value `%IOS%`, which the console turned into `MachineType = '%IOS%'`.
 - **Column widths (2026.4.0, from the NCM business-layer log and the table dump):**
   `NCM_PolicyRules.Name` refuses a 212-character name with SQL error 2628 ("String or
   binary data would be truncated") and stores a 184-character one, so treat it as

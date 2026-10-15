@@ -928,6 +928,36 @@ class AuditTests(TempDirTest):
         self.assertEqual(tool.conform_to_shape(rule, "rule"),
                          {"ID": "x", "Comments": "c", "Flag": False, "N": 0, "L": [], "O": None})
 
+    def test_read_back_accepts_the_servers_member_names(self):
+        # The 2026.4.0 export reply: Policies / Name / AssgnedPolicyRules / Name, and
+        # a NodeSelectionString the server rebuilt from the typed criteria.
+        stored = {"Name": "Rep_v1", "ID": "r", "AssignedPoliciesList": ["p"],
+                  "Policies": [{"Name": "Pol_v1", "ID": "p",
+                                "NodeSelectionString": "WebCriteria:<x/>SQL:Where (Vendor = 'Cisco') ",
+                                "AssgnedPolicyRulesList": ["a", "b"],
+                                "AssgnedPolicyRules": [{"Name": "V-1 [medium] A", "ID": "a"},
+                                                       {"Name": "V-2 [low] B", "ID": "b"}]}]}
+        self.assertEqual(tool.read_back_tree(stored),
+                         [("Pol_v1", ["V-1 [medium] A", "V-2 [low] B"])])
+        self.assertEqual(tool.stored_scope_sql(stored), "Where (Vendor = 'Cisco')")
+        # The published names still read.
+        published = {"AssignedPolicies": [{"PolicyName": "P", "AssignedPolicyRules":
+                                           [{"RuleName": "R"}]}]}
+        self.assertEqual(tool.read_back_tree(published), [("P", ["R"])])
+        # A tree that was not returned is still told apart from an empty report.
+        self.assertIsNone(tool.read_back_tree({"AssignedPoliciesList": ["p"], "Policies": None}))
+        # The verifier accepts the server-shaped tree and warns about the rebuilt scope.
+        report = {"AssignedPolicies": [{"PolicyName": "Pol_v1", "NodeSelectionString":
+                                        "WebCriteria:<x/>SQL:Where (Vendor = 'Cisco' AND MachineType LIKE '%IOS%') ",
+                                        "AssignedPolicyRules": [{"RuleName": "V-1 [medium] A"},
+                                                                {"RuleName": "V-2 [low] B"}]}]}
+        swis = mock.Mock()
+        swis.invoke.return_value = stored
+        lines, log = capture()
+        self.assertEqual(tool._verify_report(swis, "r", report, log), ("r", 1, 2))
+        self.assertTrue(any("stored the node scope as \"Where (Vendor = 'Cisco')\"" in line
+                            for line in lines), lines)
+
     def test_audit_needs_a_path_or_a_name(self):
         with self.assertRaises(SystemExit):
             tool.cmd_audit(argparse.Namespace(path=None, name=None, suffix="_v1"))

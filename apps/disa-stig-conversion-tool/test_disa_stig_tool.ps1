@@ -514,6 +514,13 @@ try {
     $longBench = @{ BenchmarkId = 'NDM'; Title = 'Cisco IOS Router NDM Security Technical Implementation Guide'; Version = '3'; Release = 'Release: 8 Benchmark Date: 01 Jul 2026'; StatusDate = ''; Source = 's.xml'; Edition = 'manual'; Rules = @() }
     Assert-Equal 'Cisco IOS Router NDM Security Technical Implementation Guide V3 R8_v1' (Get-NcmPolicyName $longBench '_v1') 'a long policy name carries R<n> instead of the full release text'
     Assert-Equal 'limits for SSH - HTTPS - and root' (Get-NcmSafeName 'limits for SSH, HTTPS, and root') 'commas become " -" (NCM refuses a name with a comma)'
+    $serverStored = [PSCustomObject]@{ Name = 'Rep_v1'; AssignedPoliciesList = @('p'); Policies = @([PSCustomObject]@{
+        Name = 'Pol_v1'; NodeSelectionString = "WebCriteria:<x/>SQL:Where (Vendor = 'Cisco') "
+        AssgnedPolicyRules = @([PSCustomObject]@{ Name = 'V-1 [medium] A' }, [PSCustomObject]@{ Name = 'V-2 [low] B' }) }) }
+    $readTree = Get-ReadBackTree $serverStored
+    Assert-Equal 'Pol_v1' $readTree.Policies[0].Policy 'read-back accepts the server''s Policies / Name members'
+    Assert-Equal 'V-1 [medium] A,V-2 [low] B' (@($readTree.Policies[0].Rules) -join ',') 'read-back accepts AssgnedPolicyRules / Name'
+    Assert-Equal "Where (Vendor = 'Cisco')" (Get-StoredScopeSql $serverStored) 'the stored scope SQL is read back'
     $crit = New-NodeSelectionCriterias "(Vendor = 'Cisco' AND MachineType LIKE '%IOS%')"
     Assert-Equal 2 $crit.CriteriaType 'typed criteria: web picker'
     Assert-Equal 'Cisco' $crit.WebSelectionCriterias[0].SelectedValue 'typed criteria carry the vendor'
