@@ -309,6 +309,13 @@ class FakeSwis:
                     if row["Name"] == p.get("n") or row["UniqueId"] == p.get("u")]
         if "FROM Orion.PolicyEngine.Rule WHERE PolicyID = @p" in swql:
             return [{"N": next((r["Rules"] for r in self.scm if r["PolicyID"] == p["p"]), 0)}]
+        if "FROM Cirrus.PolicyRules WHERE Owner = @o" in swql:
+            # Every rule the fake holds counts as tool-created.
+            return ([{"PolicyRuleID": k, "Name": v, "Grouping": "DISA STIG"}
+                     for k, v in self.rules.items()] if p.get("o") == tool.RULE_OWNER else [])
+        if "FROM Cirrus.PolicyRules WHERE Name = @n" in swql:
+            return [{"PolicyRuleID": k, "Name": v, "Owner": tool.RULE_OWNER}
+                    for k, v in self.rules.items() if v == p["n"]]
         raise AssertionError(f"FakeSwis has no answer for: {swql}")
 
     def invoke(self, entity, verb, *args):
@@ -725,6 +732,51 @@ class ScmRoutingTests(TempDirTest):
         # A STIG package has no YAML members and is left to the XCCDF reader.
         self.assertIsNone(tool.scm_inputs(self.router_zip()))
         self.assertEqual(tool.file_module(self.router_zip()), "NCM")
+
+
+class AuditTests(TempDirTest):
+    def test_audit_lists_each_table_and_finds_orphans(self):
+        zip_path = self.router_zip()
+        fake = FakeSwis()
+        report = tool.build_reports(tool.load_benchmarks(zip_path), source_path=zip_path)[0]
+        pol = report["AssignedPolicies"][0]
+        for r in pol["AssignedPolicyRules"]:
+            fake.rules[r["RuleId"]] = r["RuleName"]
+        fake.add_policy(pol["PolicyId"], [r["RuleId"] for r in pol["AssignedPolicyRules"]],
+                        pol["PolicyName"])
+        fake.add_report(report["Name"], [pol["PolicyId"]])
+        # A failed API attempt left one tool-owned rule under a server-assigned id.
+        orphan = "11111111-1111-1111-1111-111111111111"
+        fake.rules[orphan] = pol["AssignedPolicyRules"][0]["RuleName"]
+        out = io.StringIO()
+        with mock.patch.object(tool, "connect", return_value=fake), \
+                contextlib.redirect_stdout(out):
+            found = tool.cmd_audit(argparse.Namespace(path=zip_path, name=None, suffix="_v1"))
+        self.assertEqual([r["Name"] for r in found["reports"]], [report["Name"]])
+        self.assertEqual(len(found["assignments"]), 1)
+        self.assertEqual([p["PolicyID"] for p in found["policies"]], [pol["PolicyId"]])
+        self.assertEqual(len(found["rule_assignments"]), len(pol["AssignedPolicyRules"]))
+        self.assertEqual(len(found["rules_by_id"]), len(pol["AssignedPolicyRules"]))
+        # The name lookup sees the orphan the id lookup cannot.
+        self.assertIn(orphan, [r["PolicyRuleID"] for r in found["rules_by_name"]])
+        self.assertEqual([r["PolicyRuleID"] for r in found["orphans"]], [orphan])
+        self.assertIn("orphan rules: created by this tool, referenced by no policy: 1 row(s)",
+                      out.getvalue())
+        self.assertIn("audit is read-only", out.getvalue())
+        self.assertEqual([c for c in fake.calls if c[0] == "invoke"], [])
+
+    def test_audit_needs_a_path_or_a_name(self):
+        with self.assertRaises(SystemExit):
+            tool.cmd_audit(argparse.Namespace(path=None, name=None, suffix="_v1"))
+
+    def test_log_body_limit_zero_keeps_whole_bodies(self):
+        tool.setup_logging(os.path.join(self.tmp, "a.log"), "debug", body_limit=0)
+        self.addCleanup(tool.close_logging)
+        self.assertEqual(tool.truncate_body("x" * 10000), "x" * 10000)
+        tool.setup_logging(os.path.join(self.tmp, "b.log"), "debug", body_limit=10)
+        self.assertTrue(tool.truncate_body("x" * 11).startswith("xxxxxxxxxx... [truncated"))
+        tool.setup_logging(os.path.join(self.tmp, "c.log"), "debug")
+        self.assertEqual(len(tool.truncate_body("x" * 4096)), 4096)
 
 
 # ---------------------------------------------------------------------------

@@ -86,8 +86,10 @@ param(
     [switch]$Yes,
     [switch]$DryRun,
     [switch]$NoGui,
+    [switch]$Audit,
     [string]$LogFile,
-    [ValidateSet('debug', 'info', 'warn')][string]$LogLevel = 'info'
+    [ValidateSet('debug', 'info', 'warn')][string]$LogLevel = 'info',
+    [int]$LogBodyLimit = 4096
 )
 
 Set-StrictMode -Version 2
@@ -127,7 +129,9 @@ function Hide-Secrets([string]$Text) {
 $script:LogComponents = @('main', 'parse', 'route', 'scope', 'build', 'swis', 'import', 'verify',
                           'rollbk', 'remove', 'scm', 'file', 'gui')
 $script:LogLevels = @{ debug = 0; info = 1; warn = 2; error = 3 }
-$script:LogBodyLimit = 4096   # debug-level request/response bodies are cut to this many chars
+# Debug-level request, response and error bodies are cut to this many chars
+# (-LogBodyLimit, Python --log-body-limit; 0 writes every body whole).
+$script:LogBodyLimit = [Math]::Max(0, [int]$LogBodyLimit)
 $script:Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $script:LogState = @{ Path = $null; Level = 'info'; Started = [datetime]::UtcNow; Stats = @{} }
 
@@ -222,7 +226,7 @@ function Send-Log([scriptblock]$Log, [string]$Component, [string]$Level, [string
 
 function Limit-LogBody([string]$Text) {
     if ($null -eq $Text) { return '' }
-    if ($Text.Length -le $script:LogBodyLimit) { return $Text }
+    if ($script:LogBodyLimit -eq 0 -or $Text.Length -le $script:LogBodyLimit) { return $Text }
     return (Limit-Text $Text $script:LogBodyLimit) + "... [truncated, $($Text.Length) chars]"
 }
 
@@ -2030,6 +2034,9 @@ function New-SwisRequestBody($Body) {
 function Get-SwisErrorDetail([string]$Text) {
     # SWIS error bodies carry a Message member (docs/swis/rest-api.md); fall back to the raw text.
     if (-not $Text) { return '' }
+    # At debug level the whole fault document is kept (ExceptionDetail, StackTrace,
+    # inner faults), not only the Message the error line carries.
+    if (Test-ToolLogDebug) { Write-ToolLog swis debug ('error body: ' + (Limit-LogBody $Text)) }
     try {
         $parsed = ConvertFrom-Json $Text
         if ($null -ne $parsed -and $parsed.PSObject.Properties['Message']) { return [string]$parsed.Message }
@@ -3653,6 +3660,116 @@ function New-CliConnection {
     return $conn
 }
 
+$script:RuleOwner = 'DISA STIG Conversion Tool'
+
+function Get-NcmServerAudit($Conn, $ReportNames, $PolicyNames, $PolicyIds, $RuleIds, $RuleNames) {
+    # Python ncm_server_audit: read-only, what each NCM compliance table holds for the
+    # given names and ids, plus the orphan rules this tool created (by Owner) that no
+    # policy references. The name lookups catch rules a server stored under its own
+    # GUID, which the id-based collision check cannot see.
+    $out = [ordered]@{}
+    $reports = New-Object System.Collections.ArrayList
+    foreach ($n in @($ReportNames)) {
+        foreach ($row in @(Invoke-SwisQuery $Conn ('SELECT PolicyReportID, Name, Grouping, ReportStatus, CacheStatus, LastError ' +
+                'FROM Cirrus.PolicyReports WHERE Name = @n') @{ n = $n })) { [void]$reports.Add($row) }
+    }
+    $out.reports = @($reports)
+    $reportIds = @($out.reports | ForEach-Object { Get-RowValue $_ 'PolicyReportID' })
+    $out.assignments = @(Invoke-SwisQueryIds $Conn 'SELECT PolicyReportID, PolicyID FROM Cirrus.PolicyAssignment WHERE PolicyReportID IN @ids' $reportIds)
+    $linked = @($out.assignments | ForEach-Object { Get-RowValue $_ 'PolicyID' })
+    $policies = New-Object System.Collections.ArrayList
+    $seen = @{}
+    foreach ($n in @($PolicyNames)) {
+        foreach ($row in @(Invoke-SwisQuery $Conn 'SELECT PolicyID, Name FROM Cirrus.Policies WHERE Name = @n' @{ n = $n })) {
+            $seen[([string](Get-RowValue $row 'PolicyID')).ToLowerInvariant()] = $true; [void]$policies.Add($row)
+        }
+    }
+    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID, Name, Grouping, ConfigType FROM Cirrus.Policies WHERE PolicyID IN @ids' (@($PolicyIds) + $linked))) {
+        $k = ([string](Get-RowValue $row 'PolicyID')).ToLowerInvariant()
+        if (-not $seen.ContainsKey($k)) { $seen[$k] = $true; [void]$policies.Add($row) }
+    }
+    $out.policies = @($policies)
+    $out.rule_assignments = @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyID IN @ids' `
+        @($out.policies | ForEach-Object { Get-RowValue $_ 'PolicyID' }))
+    $out.rules_by_id = @(Invoke-SwisQueryIds $Conn 'SELECT PolicyRuleID, Name, Owner, Grouping FROM Cirrus.PolicyRules WHERE PolicyRuleID IN @ids' @($RuleIds))
+    $byName = New-Object System.Collections.ArrayList
+    foreach ($n in @($RuleNames)) {
+        foreach ($row in @(Invoke-SwisQuery $Conn 'SELECT PolicyRuleID, Name, Owner FROM Cirrus.PolicyRules WHERE Name = @n' @{ n = $n })) { [void]$byName.Add($row) }
+    }
+    $out.rules_by_name = @($byName)
+    $out.rules_by_owner = @(Invoke-SwisQuery $Conn 'SELECT PolicyRuleID, Name, Grouping FROM Cirrus.PolicyRules WHERE Owner = @o' @{ o = $script:RuleOwner })
+    $ownedIds = @($out.rules_by_owner | ForEach-Object { Get-RowValue $_ 'PolicyRuleID' })
+    $referenced = @{}
+    foreach ($row in @(Invoke-SwisQueryIds $Conn 'SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids' $ownedIds)) {
+        $referenced[([string](Get-RowValue $row 'PolicyRuleID')).ToLowerInvariant()] = $true
+    }
+    $out.orphans = @($out.rules_by_owner | Where-Object { -not $referenced.ContainsKey(([string](Get-RowValue $_ 'PolicyRuleID')).ToLowerInvariant()) })
+    return $out
+}
+
+function Invoke-CliAudit {
+    # Python `audit`: read-only, which NCM compliance tables hold rows from a STIG
+    # package (-Path) or a report (-Name), including rules failed API imports left.
+    if (-not $Name -and (-not $Path -or $Path.Count -eq 0)) { throw '-Audit needs -Path <package>, -Name <exact report name>, or both' }
+    $runSuffix = Test-Suffix $Suffix
+    $reportNames = New-Object System.Collections.ArrayList
+    if ($Name) { [void]$reportNames.Add($Name) }
+    $policyNames = New-Object System.Collections.ArrayList
+    $policyIds = New-Object System.Collections.ArrayList
+    $ruleIds = New-Object System.Collections.ArrayList
+    $ruleNames = New-Object System.Collections.ArrayList
+    foreach ($p in @($Path)) {
+        $benchmarks = Get-StigBenchmarks $p
+        # The scope affects no name or id, so the default one is used.
+        $reports = New-NcmReports $benchmarks (Get-ReportBaseName $p '') "(Vendor = 'Cisco')" 'manual' 'DISA STIG' $true 'Any' $runSuffix
+        foreach ($rep in $reports) {
+            [void]$reportNames.Add($rep.Name)
+            foreach ($pol in $rep.AssignedPolicies) {
+                [void]$policyNames.Add($pol.PolicyName); [void]$policyIds.Add($pol.PolicyId)
+                foreach ($r in $pol.AssignedPolicyRules) { [void]$ruleIds.Add($r.RuleId); [void]$ruleNames.Add($r.RuleName) }
+            }
+        }
+        Write-Host ("$(Split-Path -Leaf $p): $(@($reports).Count) report(s), $($policyNames.Count) policy(ies), " +
+            "$($ruleIds.Count) rule(s) would be generated with suffix ${runSuffix}; looking each up on the server")
+    }
+    Write-ToolLog verify info "audit: $($reportNames.Count) report name(s), $($policyNames.Count) policy name(s), $($ruleIds.Count) rule id(s), owner `"$($script:RuleOwner)`""
+    $conn = New-CliConnection
+    $found = Get-NcmServerAudit $conn @($reportNames) @($policyNames) @($policyIds) @($ruleIds) @($ruleNames)
+    $section = {
+        param([string]$Title, $Rows, [string[]]$Columns)
+        $rows = @($Rows)
+        Write-Host ''
+        Write-Host "${Title}: $($rows.Count) row(s)"
+        Write-ToolLog verify info "audit ${Title}: $($rows.Count) row(s)"
+        $shown = 0
+        foreach ($row in $rows) {
+            $cells = @(foreach ($c in $Columns) { $v = Get-RowValue $row $c; if ($null -ne $v -and "$v" -ne '') { "$c=" + (Limit-OneLine "$v" 70) } })
+            if ($shown -lt 50) { Write-Host ('  ' + ($cells -join '  ')) }
+            $shown++
+            Write-ToolLog verify debug ('  ' + (@(foreach ($c in $Columns) { "$c=" + (Get-RowValue $row $c) }) -join '; '))
+        }
+        if ($rows.Count -gt 50) { Write-Host "  ... $($rows.Count - 50) more in the run log" }
+    }
+    & $section 'Cirrus.PolicyReports (by name)' $found.reports @('PolicyReportID', 'Name', 'Grouping', 'ReportStatus', 'CacheStatus', 'LastError')
+    & $section 'Cirrus.PolicyAssignment (report -> policy)' $found.assignments @('PolicyReportID', 'PolicyID')
+    & $section 'Cirrus.Policies (by name, by generated id, by assignment)' $found.policies @('PolicyID', 'Name', 'Grouping', 'ConfigType')
+    & $section 'Cirrus.PolicyRuleAssignment (policy -> rule)' $found.rule_assignments @('PolicyID', 'PolicyRuleID')
+    & $section 'Cirrus.PolicyRules (by generated id)' $found.rules_by_id @('PolicyRuleID', 'Name', 'Owner', 'Grouping')
+    & $section 'Cirrus.PolicyRules (by generated name)' $found.rules_by_name @('PolicyRuleID', 'Name', 'Owner')
+    & $section "Cirrus.PolicyRules (Owner = `"$($script:RuleOwner)`", any run)" $found.rules_by_owner @('PolicyRuleID', 'Name', 'Grouping')
+    & $section 'orphan rules: created by this tool, referenced by no policy' $found.orphans @('PolicyRuleID', 'Name', 'Grouping')
+    if (@($found.orphans).Count -gt 0) {
+        $msg = ("$(@($found.orphans).Count) rule(s) this tool created sit in the NCM rules library without a policy: a failed " +
+            'API import left them (the server kept the rule although the HTTP answer was an error, or a rollback could ' +
+            'not reach them). They are visible under Compliance -> Manage Policy Rules and can be deleted there, or with ' +
+            'Cirrus.PolicyReports.DeletePolicyRules(ids).')
+        Write-Host ''; Write-Host $msg -ForegroundColor Yellow
+        Write-ToolLog verify warn $msg
+    }
+    Write-Host ''; Write-Host 'audit is read-only: nothing was created, changed or deleted.'
+    return $found
+}
+
 function Invoke-CliRemove {
     # Same semantics as Python `remove`: read the tree, delete the report row,
     # then its unshared policies (DeletePolicies, deleteChildren false), then its
@@ -4244,7 +4361,11 @@ function Complete-ToolRunWithError($ErrorRecord) {
     return $msg
 }
 
-if ($Remove) {
+if ($Audit) {
+    try { Start-ToolRun 'cli'; [void](Invoke-CliAudit) }
+    catch { $runError = Complete-ToolRunWithError $_; Write-Error $runError; exit 1 }
+    Complete-ToolRun 0
+} elseif ($Remove) {
     try { Start-ToolRun 'cli'; Invoke-CliRemove }
     catch { $runError = Complete-ToolRunWithError $_; Write-Error $runError; exit 1 }
     Complete-ToolRun 0

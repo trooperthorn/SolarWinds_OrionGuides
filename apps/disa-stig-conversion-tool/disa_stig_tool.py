@@ -40,8 +40,14 @@ Never hard-code it and never pass it on the command line.
 
 Every run writes a log file, one line per decision and per SWIS call, with secrets
 redacted; its path is printed when the run starts and ends. --log-file PATH and
---log-level debug|info|warn (on every command, and after "gui") change it. See the
-"Run log" section of README.md.
+--log-level debug|info|warn (on every command, and after "gui") change it, and
+--log-body-limit 0 writes the debug-level request, response and error bodies whole.
+See the "Run log" section of README.md.
+
+    See what the server holds for a package (read-only; also lists rules a failed
+    API import left behind):
+        python disa_stig_tool.py audit U_Cisco_IOS_Router_Y26M07_STIG.zip \\
+            --host orion.example.com --user admin
 
 What the import produces
 ------------------------
@@ -396,16 +402,18 @@ def close_logging():
     _LOG_STATE.update(path=None, handler=None, stream=None)
 
 
-def setup_logging(path=None, level="info"):
+def setup_logging(path=None, level="info", body_limit=None):
     """Open the run log once per run and return its absolute path.
 
     An explicit ``path`` that cannot be opened is an error. When the default
     location cannot be created, the log falls back to the temp directory rather
-    than stopping the run.
+    than stopping the run. ``body_limit`` (--log-body-limit, 2.1.0) caps the
+    debug-level request, response and error bodies; 0 writes them whole.
     """
     close_logging()
     if level not in LOG_LEVELS:
         raise ValueError(f"unknown log level {level!r}; use debug, info or warn")
+    _LOG_STATE["body_limit"] = LOG_BODY_LIMIT if body_limit is None else max(0, int(body_limit))
     candidates = [path] if path else [
         default_log_path(),
         os.path.join(tempfile.gettempdir(), "disa-stig-tool", "logs",
@@ -463,9 +471,11 @@ def _say(log, component, message, level="info"):
     log_event(component, message, level)
 
 
-def truncate_body(text, limit=LOG_BODY_LIMIT):
+def truncate_body(text, limit=None):
     text = str(text)
-    if len(text) <= limit:
+    if limit is None:
+        limit = _LOG_STATE.get("body_limit", LOG_BODY_LIMIT)
+    if limit == 0 or len(text) <= limit:
         return text
     return text[:limit] + f"... [truncated, {len(text)} chars]"
 
@@ -567,6 +577,11 @@ class SwisClient:
             return json.loads(payload) if payload.strip() else None
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")
+            if log_debug_enabled():
+                # The whole fault document (ExceptionDetail, StackTrace, inner
+                # faults), not only its Message, which is all the error line keeps.
+                log_event("swis", f"error body HTTP {exc.code} {path}: "
+                                  + truncate_body(detail), "debug")
             try:
                 detail = json.loads(detail).get("Message", detail)
             except (ValueError, AttributeError):
@@ -4024,6 +4039,134 @@ def similar_report_names(swis, name):
             "suffix such as _v1): " + ", ".join(f"\"{n}\"" for n in names[:10]))
 
 
+RULE_OWNER = "DISA STIG Conversion Tool"
+
+
+def _query_in_chunks(swis, swql, ids, size=100):
+    """Run an ``IN @ids`` query over ``ids`` in bounded chunks."""
+    rows = []
+    ids = [i for i in ids if i]
+    for i in range(0, len(ids), size):
+        rows.extend(swis.query(swql, {"ids": ids[i:i + size]}))
+    return rows
+
+
+def ncm_server_audit(swis, report_names=(), policy_names=(), policy_ids=(), rule_ids=(),
+                     rule_names=(), owner=RULE_OWNER):
+    """Read-only: what each NCM compliance table holds for the given names and ids.
+
+    Returns a dict with one list of rows per table (``reports``, ``assignments``,
+    ``policies``, ``rule_assignments``, ``rules_by_id``, ``rules_by_name``,
+    ``rules_by_owner``) plus ``orphans``: rules the tool created (by Owner) that no
+    policy references. The name lookups matter because a server that stores a rule
+    under its own GUID (AddPolicyRule returns the id it assigned) is invisible to
+    the id-based collision check, and a rule created by an AddPolicyRule call whose
+    HTTP answer was still an error would sit in the rules library unreferenced.
+    """
+    out = {}
+    out["reports"] = [row for n in report_names for row in swis.query(
+        "SELECT PolicyReportID, Name, Grouping, ReportStatus, CacheStatus, LastError "
+        "FROM Cirrus.PolicyReports WHERE Name = @n", {"n": n})]
+    report_ids = [r.get("PolicyReportID") for r in out["reports"]]
+    out["assignments"] = _query_in_chunks(
+        swis, "SELECT PolicyReportID, PolicyID FROM Cirrus.PolicyAssignment "
+              "WHERE PolicyReportID IN @ids", report_ids)
+    linked_policy_ids = [a.get("PolicyID") for a in out["assignments"]]
+    out["policies"] = [row for n in policy_names for row in swis.query(
+        "SELECT PolicyID, Name FROM Cirrus.Policies WHERE Name = @n", {"n": n})]
+    seen = {str(p.get("PolicyID")).lower() for p in out["policies"]}
+    for row in _query_in_chunks(swis, "SELECT PolicyID, Name, Grouping, ConfigType FROM "
+                                      "Cirrus.Policies WHERE PolicyID IN @ids",
+                                list(policy_ids) + linked_policy_ids):
+        if str(row.get("PolicyID")).lower() not in seen:
+            seen.add(str(row.get("PolicyID")).lower())
+            out["policies"].append(row)
+    out["rule_assignments"] = _query_in_chunks(
+        swis, "SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment "
+              "WHERE PolicyID IN @ids", [p.get("PolicyID") for p in out["policies"]])
+    out["rules_by_id"] = _query_in_chunks(
+        swis, "SELECT PolicyRuleID, Name, Owner, Grouping FROM Cirrus.PolicyRules "
+              "WHERE PolicyRuleID IN @ids", list(rule_ids))
+    out["rules_by_name"] = [row for n in rule_names for row in swis.query(
+        "SELECT PolicyRuleID, Name, Owner FROM Cirrus.PolicyRules WHERE Name = @n", {"n": n})]
+    out["rules_by_owner"] = swis.query(
+        "SELECT PolicyRuleID, Name, Grouping FROM Cirrus.PolicyRules WHERE Owner = @o",
+        {"o": owner}) if owner else []
+    owned_ids = [r.get("PolicyRuleID") for r in out["rules_by_owner"]]
+    referenced = {str(a.get("PolicyRuleID")).lower() for a in _query_in_chunks(
+        swis, "SELECT PolicyID, PolicyRuleID FROM Cirrus.PolicyRuleAssignment "
+              "WHERE PolicyRuleID IN @ids", owned_ids)}
+    out["orphans"] = [r for r in out["rules_by_owner"]
+                      if str(r.get("PolicyRuleID")).lower() not in referenced]
+    return out
+
+
+def cmd_audit(args):
+    """Read-only: which NCM compliance tables hold rows from a package or report."""
+    if not args.path and not args.name:
+        sys.exit("error: give a STIG package path, --name <report name>, or both")
+    suffix = validate_suffix(args.suffix)
+    report_names = [args.name] if args.name else []
+    policy_names, policy_ids, rule_ids, rule_names = [], [], [], []
+    if args.path:
+        benchmarks = load_benchmarks(args.path)
+        # The scope does not affect any name or id, so the default one is used.
+        reports = build_reports(benchmarks, source_path=args.path, suffix=suffix)
+        for rep in reports:
+            report_names.append(rep["Name"])
+            for pol in rep["AssignedPolicies"]:
+                policy_names.append(pol["PolicyName"])
+                policy_ids.append(pol["PolicyId"])
+                for rule in pol["AssignedPolicyRules"]:
+                    rule_ids.append(rule["RuleId"])
+                    rule_names.append(rule["RuleName"])
+        print(f"{os.path.basename(args.path)}: {len(reports)} report(s), "
+              f"{len(policy_names)} policy(ies), {len(rule_ids)} rule(s) would be generated "
+              f"with suffix {suffix}; looking each up on the server")
+    log_event("verify", f"audit: {len(report_names)} report name(s), {len(policy_names)} "
+                        f"policy name(s), {len(rule_ids)} rule id(s), owner \"{RULE_OWNER}\"")
+    swis = logged(connect(args))
+    found = ncm_server_audit(swis, report_names, policy_names, policy_ids, rule_ids, rule_names)
+
+    def section(title, rows, columns):
+        print(f"\n{title}: {len(rows)} row(s)")
+        log_event("verify", f"audit {title}: {len(rows)} row(s)")
+        for row in rows[:50]:
+            print("  " + "  ".join(f"{c}={_one_line(row.get(c), 70)}" for c in columns
+                                   if row.get(c) not in (None, "")))
+        if len(rows) > 50:
+            print(f"  ... {len(rows) - 50} more in the run log")
+        for row in rows:
+            log_event("verify", "  " + "; ".join(f"{c}={row.get(c)}" for c in columns), "debug")
+
+    section("Cirrus.PolicyReports (by name)", found["reports"],
+            ("PolicyReportID", "Name", "Grouping", "ReportStatus", "CacheStatus", "LastError"))
+    section("Cirrus.PolicyAssignment (report -> policy)", found["assignments"],
+            ("PolicyReportID", "PolicyID"))
+    section("Cirrus.Policies (by name, by generated id, by assignment)", found["policies"],
+            ("PolicyID", "Name", "Grouping", "ConfigType"))
+    section("Cirrus.PolicyRuleAssignment (policy -> rule)", found["rule_assignments"],
+            ("PolicyID", "PolicyRuleID"))
+    section("Cirrus.PolicyRules (by generated id)", found["rules_by_id"],
+            ("PolicyRuleID", "Name", "Owner", "Grouping"))
+    section("Cirrus.PolicyRules (by generated name)", found["rules_by_name"],
+            ("PolicyRuleID", "Name", "Owner"))
+    section(f"Cirrus.PolicyRules (Owner = \"{RULE_OWNER}\", any run)", found["rules_by_owner"],
+            ("PolicyRuleID", "Name", "Grouping"))
+    section("orphan rules: created by this tool, referenced by no policy", found["orphans"],
+            ("PolicyRuleID", "Name", "Grouping"))
+    if found["orphans"]:
+        msg = (f"{len(found['orphans'])} rule(s) this tool created sit in the NCM rules "
+               "library without a policy: a failed API import left them (the server kept "
+               "the rule although the HTTP answer was an error, or a rollback could not "
+               "reach them). They are visible under Compliance -> Manage Policy Rules and "
+               "can be deleted there, or with Cirrus.PolicyReports.DeletePolicyRules(ids).")
+        print("\n" + msg)
+        log_event("verify", msg, "warn")
+    print("\naudit is read-only: nothing was created, changed or deleted.")
+    return found
+
+
 def cmd_remove(args):
     """Delete an imported policy report, the supported way to undo an import.
 
@@ -4184,8 +4327,11 @@ def add_log_args(p):
                         "~/.local/state/disa-stig-tool/logs)")
     p.add_argument("--log-level", choices=("debug", "info", "warn"), default="info",
                    help="info (default) logs every decision and SWIS call; debug adds the "
-                        "redacted request and response bodies (cut to 4 KB); warn keeps "
-                        "only warnings and errors")
+                        "redacted request, response and HTTP error bodies (cut to "
+                        "--log-body-limit); warn keeps only warnings and errors")
+    p.add_argument("--log-body-limit", type=int, default=LOG_BODY_LIMIT, metavar="CHARS",
+                   help=f"cut each debug-level body to this many characters (default "
+                        f"{LOG_BODY_LIMIT}); 0 writes every body whole")
 
 
 def add_connection_args(p):
@@ -4951,6 +5097,20 @@ def build_parser():
                          "unshared policies and rules, and never shared ones")
     rm.add_argument("--yes", action="store_true", help="confirm the deletion")
     add_log_args(rm)
+
+    au = sub.add_parser("audit", help="read-only: show which NCM compliance tables on the "
+                                      "server hold rows from a STIG package or report, "
+                                      "including rules left behind by failed API imports")
+    add_connection_args(au)
+    au.add_argument("path", nargs="?",
+                    help="STIG zip, directory or *-xccdf.xml whose generated names and ids "
+                         "are looked up (optional with --name)")
+    au.add_argument("--name", help="exact report name to look up instead of, or as well "
+                                   "as, the package")
+    au.add_argument("--suffix", default=DEFAULT_SUFFIX,
+                    help=f"version suffix the names and ids were generated with "
+                         f"(default {DEFAULT_SUFFIX})")
+    add_log_args(au)
     return top
 
 
@@ -4985,7 +5145,7 @@ def main(argv=None):
     # No arguments (a double-click on Windows) or an explicit "gui" opens the GUI.
     if not argv or argv[0] == "gui":
         gui_args = build_gui_parser().parse_args(argv[1:])
-        path = setup_logging(gui_args.log_file, gui_args.log_level)
+        path = setup_logging(gui_args.log_file, gui_args.log_level, gui_args.log_body_limit)
         _announce_log(path)
         log_run_start(argv, mode="gui")
         code = 0
@@ -5007,14 +5167,14 @@ def main(argv=None):
         return
     configure_console_streams()
     args = build_parser().parse_args(argv)
-    path = setup_logging(args.log_file, args.log_level)
+    path = setup_logging(args.log_file, args.log_level, getattr(args, "log_body_limit", None))
     _announce_log(path)
     log_run_start(argv)
     code = 0
     try:
         {"download": cmd_download, "parse": cmd_parse, "build": cmd_build,
          "convert": cmd_build, "import": cmd_import, "test": cmd_test,
-         "remove": cmd_remove}[args.cmd](args)
+         "remove": cmd_remove, "audit": cmd_audit}[args.cmd](args)
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else 1
         if isinstance(exc.code, str):

@@ -423,6 +423,26 @@ try {
     Assert-Equal 0 (@($script:Calls | Where-Object { $_ -eq 'ImportPolicy' })).Count 'no ImportPolicy call was made for the refused zip'
     function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
 
+    # --- 6c. Get-NcmServerAudit is read-only and finds orphan rules (2.1.0) --
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) {
+        [void]$script:Calls.Add('query')
+        if ($Swql -match 'FROM Cirrus.PolicyRules WHERE Owner = @o') {
+            return @(@{ PolicyRuleID = 'aaaa'; Name = 'linked'; Grouping = 'g' }, @{ PolicyRuleID = 'bbbb'; Name = 'orphan'; Grouping = 'g' })
+        }
+        if ($Swql -match 'FROM Cirrus.PolicyRuleAssignment WHERE PolicyRuleID IN @ids') { return @(@{ PolicyID = 'p1'; PolicyRuleID = 'AAAA' }) }
+        if ($Swql -match 'FROM Cirrus.PolicyReports WHERE Name = @n') { return @(@{ PolicyReportID = 'r1'; Name = $Parameters.n; Grouping = 'g' }) }
+        if ($Swql -match 'FROM Cirrus.PolicyAssignment WHERE PolicyReportID IN @ids') { return @(@{ PolicyReportID = 'r1'; PolicyID = 'p1' }) }
+        if ($Swql -match 'FROM Cirrus.Policies WHERE PolicyID IN @ids') { return @(@{ PolicyID = 'p1'; Name = 'pol' }) }
+        return @()
+    }
+    $script:Calls.Clear()
+    $serverAudit = Get-NcmServerAudit @{} @('Rep') @() @() @('x') @('linked')
+    Assert-Equal 1 (@($serverAudit.reports)).Count 'audit finds the report by name'
+    Assert-Equal 1 (@($serverAudit.policies)).Count 'audit finds the policy through the assignment'
+    Assert-Equal 'bbbb' (@($serverAudit.orphans))[0].PolicyRuleID 'the tool-owned rule no policy references is an orphan (id match is case-insensitive)'
+    Assert-Equal 0 (@($script:Calls | Where-Object { $_ -ne 'query' })).Count 'the audit only queries'
+    function Invoke-SwisQuery($Conn, [string]$Swql, $Parameters) { [void]$script:Calls.Add('query'); return @() }
+
     # --- 7. report naming and truncation match Python ----------------------
     $bench = @{ BenchmarkId = 'B1'; Title = 'T' * 300; Version = '1'; Release = 'Release: 1'; StatusDate = '';
                 Source = 's.xml'; Edition = 'manual'; Rules = @(@{ VulnId = 'V-1'; RuleId = 'SV-1r1_rule'; StigId = 'X-1';

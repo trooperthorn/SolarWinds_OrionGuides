@@ -88,6 +88,18 @@ XCCDF benchmark found inside".
   the one structural difference between the tool's file and those exports. The API
   payloads are unchanged. Unverified: whether this alone makes the console accept the
   file.
+- **`audit` command / `-Audit`** (read-only). Given a STIG package, a report name
+  (`--name` / `-Name`), or both, it looks up on the server what each NCM compliance
+  table holds for the names and ids the tool would generate: `Cirrus.PolicyReports`,
+  `Cirrus.PolicyAssignment`, `Cirrus.Policies`, `Cirrus.PolicyRuleAssignment` and
+  `Cirrus.PolicyRules`, the last by generated id, by generated name and by
+  `Owner = "DISA STIG Conversion Tool"` across every run. Rules the tool created that no
+  policy references are listed as orphans: a server can keep a rule although its
+  `AddPolicyRule` answer was an error, and such a rule carries a server-assigned id the
+  id-based collision check cannot see. Nothing is created, changed or deleted.
+- **`--log-body-limit CHARS` / `-LogBodyLimit`.** Debug-level request, response and
+  HTTP error bodies were always cut to 4 KB; `0` now writes them whole, and the whole
+  SWIS fault document (not only its `Message`) is logged at debug level.
 - **Unverified on a live server:** the import path for the files of such a pack. The
   payload is unchanged (the member text, as a single file always was), only the way it
   reaches the tool is new. The files carry `builtIn: true`; that column is read-only on
