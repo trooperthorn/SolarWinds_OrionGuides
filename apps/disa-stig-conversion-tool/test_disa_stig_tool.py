@@ -1043,6 +1043,60 @@ class AuditTests(TempDirTest):
                        "rules": {"V-9": {"patterns": [{"type": "Like"}]}}}, fh)
         with self.assertRaisesRegex(ValueError, r"rule V-9: pattern 1 needs a \"pattern\""):
             tool.load_pattern_drafts(out)
+        # Schema 2: confidence, review_reason and config_block. A schema-1 file still loads.
+        self.assertEqual(tool.PATTERN_DRAFTS_SCHEMA, "disa-stig-tool/pattern-drafts/2")
+        schema2 = {"schema": tool.PATTERN_DRAFTS_SCHEMA, "rules": {
+            "V-1": {"advanced": True, "must_exist": True, "note": "reviewed by the task",
+                    "confidence": "medium", "review_reason": "scope inferred from 'all interfaces'",
+                    "config_block": {"start": "^interface \\S+", "end": "!", "type": "Regex",
+                                     "must_exist": True},
+                    "patterns": [{"pattern": "ipv6 traffic-filter \\S+ in", "type": "Regex",
+                                  "must_contain": True}]},
+            "V-2": {"skip": True, "confidence": "low", "review_reason": "an interview"}}}
+        with open(out, "w", encoding="utf-8") as fh:
+            json.dump(schema2, fh)
+        drafts = tool.load_pattern_drafts(out)
+        self.assertEqual(sorted(drafts), ["V-1"])
+        self.assertEqual((drafts["V-1"]["confidence"], drafts["V-1"]["review_reason"]),
+                         ("medium", "scope inferred from 'all interfaces'"))
+        rebuilt = tool.build_reports([bench], mode="manual", drafts=drafts)
+        r1, r2 = rebuilt[0]["AssignedPolicies"][0]["AssignedPolicyRules"]
+        self.assertEqual((r1["ConfigBlockStart"], r1["ConfigBlockEnd"], r1["ConfigBlockPatternType"],
+                          r1["ConfigBlockMustExist"], r1["IsConfigBlockPatternRegEx"]),
+                         ("^interface \\S+", "!", "Regex", True, True))
+        self.assertIn("PATTERN FROM DRAFTS FILE: reviewed by the task Review confidence: medium. "
+                      "Review reason: scope inferred from 'all interfaces'", r1["Comments"])
+        self.assertEqual((r2["ConfigBlockStart"], r2["ConfigBlockMustExist"]), ("", False))
+        # The writer emits schema 2 and carries the members back out for the next pass.
+        tool.write_pattern_drafts(out, [bench], rebuilt, drafts, log=None)
+        with open(out, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        self.assertEqual(doc["schema"], "disa-stig-tool/pattern-drafts/2")
+        self.assertEqual(doc["rules"]["V-1"]["config_block"],
+                         {"start": "^interface \\S+", "end": "!", "type": "Regex", "must_exist": True})
+        self.assertEqual((doc["rules"]["V-1"]["confidence"], doc["rules"]["V-1"]["review_reason"]),
+                         ("medium", "scope inferred from 'all interfaces'"))
+        self.assertNotIn("config_block", doc["rules"]["V-2"])
+        self.assertNotIn("confidence", doc["rules"]["V-2"])
+        self.assertEqual(sorted(tool.load_pattern_drafts(out)), ["V-1", "V-2"])
+        schema2["schema"] = "disa-stig-tool/pattern-drafts/1"
+        with open(out, "w", encoding="utf-8") as fh:
+            json.dump(schema2, fh)
+        self.assertEqual(sorted(tool.load_pattern_drafts(out)), ["V-1"])
+        for bad, message in (({"confidence": "sure", "pattern": "x"},
+                              r"rule V-9: confidence must be low, medium or high"),
+                             ({"pattern": "x", "config_block": {"end": "!"}},
+                              r"rule V-9: \"config_block\" must be an object with a non-empty \"start\""),
+                             ({"pattern": "x", "config_block": {"start": "interface", "type": "Glob"}},
+                              r"rule V-9: config_block type must be Like or Regex")):
+            with open(out, "w", encoding="utf-8") as fh:
+                json.dump({"schema": tool.PATTERN_DRAFTS_SCHEMA, "rules": {"V-9": bad}}, fh)
+            with self.assertRaisesRegex(ValueError, message):
+                tool.load_pattern_drafts(out)
+        with open(out, "w", encoding="utf-8") as fh:
+            json.dump({"schema": "disa-stig-tool/pattern-drafts/3", "rules": {}}, fh)
+        with self.assertRaisesRegex(ValueError, r"schema 'disa-stig-tool/pattern-drafts/3' is not"):
+            tool.load_pattern_drafts(out)
         # The bookkeeping keys never reach the console file or the server shape.
         tool.NCM_SHAPES.clear()
         self.addCleanup(tool.NCM_SHAPES.clear)
@@ -1634,7 +1688,7 @@ class LoggingTests(TempDirTest):
         self.assertIn("run end: exit code 1;", lines[-1])
 
     def test_version_constant(self):
-        self.assertEqual(tool.TOOL_VERSION, "2.1.0")
+        self.assertEqual(tool.TOOL_VERSION, "2.2.0")
         with open(PS_TOOL, encoding="ascii") as fh:
             self.assertIn(f"$script:ToolVersion = '{tool.TOOL_VERSION}'", fh.read())
 

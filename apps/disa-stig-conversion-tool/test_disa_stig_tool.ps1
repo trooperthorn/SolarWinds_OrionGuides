@@ -579,6 +579,41 @@ try {
     Assert-Equal 'blocks' (Get-RuleDraftOrigin $built $null) 'origin: blocks'
     [System.IO.File]::WriteAllText($draftsPath, '{"schema":"disa-stig-tool/pattern-drafts/1","rules":{"V-9":{"patterns":[{"type":"Like"}]}}}', $utf8)
     Assert-Throws { Read-PatternDrafts $draftsPath } 'rule V-9: pattern 1 needs a "pattern"' 'a bad drafts file is refused with the rule named'
+    # Schema 2 (2.2.0): confidence, review_reason and config_block; a schema-1 file still loads.
+    Assert-Equal 'disa-stig-tool/pattern-drafts/2' $script:PatternDraftsSchema 'the writer emits schema 2'
+    $schema2 = ('{"schema":"disa-stig-tool/pattern-drafts/2","rules":{"V-1":{"advanced":true,"must_exist":true,"note":"reviewed by the task",' +
+        '"confidence":"medium","review_reason":"scope inferred from ''all interfaces''",' +
+        '"config_block":{"start":"^interface \\S+","end":"!","type":"Regex","must_exist":true},' +
+        '"patterns":[{"pattern":"ipv6 traffic-filter \\S+ in","type":"Regex","must_contain":true}]},' +
+        '"V-2":{"skip":true,"confidence":"low","review_reason":"an interview"}}}')
+    [System.IO.File]::WriteAllText($draftsPath, $schema2, $utf8)
+    $loaded2 = Read-PatternDrafts $draftsPath
+    Assert-Equal 1 $loaded2.Count 'schema 2: the skipped rule is left out'
+    Assert-Equal 'medium' $loaded2['V-1'].Confidence 'schema 2: confidence is read'
+    $fromDraft2 = New-NcmRule $blockRule 'G' 'manual' '_v1' $loaded2
+    Assert-Equal '^interface \S+,!,Regex,True,True' (@($fromDraft2.ConfigBlockStart, $fromDraft2.ConfigBlockEnd, $fromDraft2.ConfigBlockPatternType, $fromDraft2.ConfigBlockMustExist, $fromDraft2.IsConfigBlockPatternRegEx) -join ',') 'config_block maps onto the ConfigBlock members'
+    Assert-True ($fromDraft2.Comments.Contains("PATTERN FROM DRAFTS FILE: reviewed by the task Review confidence: medium. Review reason: scope inferred from 'all interfaces'")) 'confidence and reason are carried into the note'
+    Assert-Equal '' $fromDraft.ConfigBlockStart 'no config_block: the ConfigBlock members stay empty'
+    $bench2 = @{ BenchmarkId = 'B'; Title = 'B'; Version = '1'; Release = 'Release: 1 Benchmark Date: 01 Jan 2026'; StatusDate = ''; Source = 's'; Edition = 'manual'; Rules = @($blockRule) }
+    $rep2 = @{ AssignedPolicies = @(@{ AssignedPolicyRules = @($fromDraft2) }) }
+    $outPath = Join-Path $scratch 'drafts-out.json'
+    [void](Write-PatternDrafts $outPath @($bench2) @($rep2) $loaded2 { param($m) })
+    $written = ConvertFrom-Json ([System.IO.File]::ReadAllText($outPath))
+    Assert-Equal 'disa-stig-tool/pattern-drafts/2' $written.schema 'the written file is schema 2'
+    Assert-Equal '^interface \S+' $written.rules.'V-1'.config_block.start 'config_block is written back'
+    Assert-Equal 'Regex' $written.rules.'V-1'.config_block.type 'config_block type is written back'
+    Assert-Equal 'medium' $written.rules.'V-1'.confidence 'confidence is written back'
+    Assert-Equal "scope inferred from 'all interfaces'" $written.rules.'V-1'.review_reason 'review_reason is written back'
+    [System.IO.File]::WriteAllText($draftsPath, ($schema2 -replace 'pattern-drafts/2', 'pattern-drafts/1'), $utf8)
+    Assert-Equal 1 (Read-PatternDrafts $draftsPath).Count 'a schema-1 file still loads'
+    [System.IO.File]::WriteAllText($draftsPath, '{"schema":"disa-stig-tool/pattern-drafts/2","rules":{"V-9":{"pattern":"x","confidence":"sure"}}}', $utf8)
+    Assert-Throws { Read-PatternDrafts $draftsPath } 'rule V-9: confidence must be low, medium or high' 'a bad confidence is refused'
+    [System.IO.File]::WriteAllText($draftsPath, '{"schema":"disa-stig-tool/pattern-drafts/2","rules":{"V-9":{"pattern":"x","config_block":{"end":"!"}}}}', $utf8)
+    Assert-Throws { Read-PatternDrafts $draftsPath } 'rule V-9: "config_block" must be an object with a non-empty "start"' 'a config_block without a start is refused'
+    [System.IO.File]::WriteAllText($draftsPath, '{"schema":"disa-stig-tool/pattern-drafts/2","rules":{"V-9":{"pattern":"x","config_block":{"start":"interface","type":"Glob"}}}}', $utf8)
+    Assert-Throws { Read-PatternDrafts $draftsPath } 'rule V-9: config_block type must be Like or Regex' 'a bad config_block type is refused'
+    [System.IO.File]::WriteAllText($draftsPath, '{"schema":"disa-stig-tool/pattern-drafts/3","rules":{}}', $utf8)
+    Assert-Throws { Read-PatternDrafts $draftsPath } 'is not disa-stig-tool/pattern-drafts/1 or disa-stig-tool/pattern-drafts/2' 'an unknown schema is refused'
     $crit = New-NodeSelectionCriterias "(Vendor = 'Cisco' AND MachineType LIKE '%IOS%')"
     Assert-Equal 2 $crit.CriteriaType 'typed criteria: web picker'
     Assert-Equal 'Cisco' $crit.WebSelectionCriterias[0].SelectedValue 'typed criteria carry the vendor'

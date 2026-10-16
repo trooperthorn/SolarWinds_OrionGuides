@@ -108,7 +108,7 @@ $ErrorActionPreference = 'Stop'
 
 # One version for the tool, shared by both editions (disa_stig_tool.py carries the
 # same number). It is written into every log file's start-of-run line.
-$script:ToolVersion = '2.1.0'
+$script:ToolVersion = '2.2.0'
 # The parameters this run was started with, for the start-of-run log line.
 $script:BoundAtStart = [ordered]@{}
 foreach ($boundKey in $PSBoundParameters.Keys) { $script:BoundAtStart[$boundKey] = $PSBoundParameters[$boundKey] }
@@ -1417,26 +1417,52 @@ function New-BlocksDraft([string]$CheckContent) {
     return @{ Patterns = @($patterns); Blocks = $patterns.Count }
 }
 
-$script:PatternDraftsSchema = 'disa-stig-tool/pattern-drafts/1'
+# Schema 2 (Python PATTERN_DRAFTS_SCHEMA): confidence, review_reason and config_block per
+# rule; a schema-1 file still loads and the writer emits schema 2.
+$script:PatternDraftsSchema = 'disa-stig-tool/pattern-drafts/2'
+$script:PatternDraftsSchemasAccepted = @('disa-stig-tool/pattern-drafts/1', $script:PatternDraftsSchema)
+$script:ConfidenceLevels = @('low', 'medium', 'high')
+
+function Get-DraftConfigBlock([string]$Path, [string]$Rid, $Block) {
+    # Python _draft_config_block: the validated config_block as rule-object members, or $null.
+    if ($null -eq $Block) { return $null }
+    $start = ''
+    if ($Block -isnot [string] -and $Block.PSObject.Properties['start']) { $start = [string]$Block.start }
+    if (-not $start.Trim()) { throw "${Path}: rule ${Rid}: `"config_block`" must be an object with a non-empty `"start`"" }
+    $btype = 'Like'; if ($Block.PSObject.Properties['type'] -and $Block.type) { $btype = [string]$Block.type }
+    if (@('Like', 'Regex') -notcontains $btype) { throw "${Path}: rule ${Rid}: config_block type must be Like or Regex" }
+    $end = ''; if ($Block.PSObject.Properties['end'] -and $Block.end) { $end = [string]$Block.end }
+    $blockMustExist = $false; if ($Block.PSObject.Properties['must_exist']) { $blockMustExist = [bool]$Block.must_exist }
+    return @{ ConfigBlockStart = $start; ConfigBlockEnd = $end; ConfigBlockPatternType = $btype
+              ConfigBlockMustExist = $blockMustExist; IsConfigBlockPatternRegEx = ($btype -eq 'Regex') }
+}
 
 function Read-PatternDrafts([string]$Path) {
-    # Python load_pattern_drafts: @{ <rule id> = @{ MustExist; Note; Patterns | Pattern, Type } }
-    # from a pattern-drafts JSON file, validated; $null without a path.
+    # Python load_pattern_drafts: @{ <rule id> = @{ MustExist; Note; Confidence; ReviewReason;
+    # ConfigBlock; Patterns | Pattern, Type } } from a pattern-drafts JSON file, validated;
+    # $null without a path.
     if (-not $Path) { return $null }
     $raw = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
     try { $doc = ConvertFrom-Json $raw } catch { throw "${Path}: not JSON ($($_.Exception.Message))" }
     if ($null -eq $doc -or -not $doc.PSObject.Properties['rules']) { throw "${Path}: not a pattern-drafts file (an object with a `"rules`" object)" }
-    if ($doc.PSObject.Properties['schema'] -and $doc.schema -and $doc.schema -ne $script:PatternDraftsSchema) {
-        throw "${Path}: schema '$($doc.schema)' is not $($script:PatternDraftsSchema)"
+    if ($doc.PSObject.Properties['schema'] -and $doc.schema -and $script:PatternDraftsSchemasAccepted -notcontains $doc.schema) {
+        throw "${Path}: schema '$($doc.schema)' is not $($script:PatternDraftsSchemasAccepted -join ' or ')"
     }
     $drafts = @{}
     foreach ($prop in $doc.rules.PSObject.Properties) {
         $rid = $prop.Name; $d = $prop.Value
         if ($null -eq $d -or $d -is [string]) { throw "${Path}: rule ${rid}: the draft must be an object" }
+        $confidence = ''
+        if ($d.PSObject.Properties['confidence'] -and $null -ne $d.confidence) {
+            $confidence = [string]$d.confidence
+            if ($script:ConfidenceLevels -notcontains $confidence) { throw "${Path}: rule ${rid}: confidence must be low, medium or high" }
+        }
         if ($d.PSObject.Properties['skip'] -and $d.skip) { continue }
         $mustExist = $true; if ($d.PSObject.Properties['must_exist']) { $mustExist = [bool]$d.must_exist }
         $note = ''; if ($d.PSObject.Properties['note'] -and $d.note) { $note = [string]$d.note }
-        $entry = @{ MustExist = $mustExist; Note = $note }
+        $reason = ''; if ($d.PSObject.Properties['review_reason'] -and $d.review_reason) { $reason = [string]$d.review_reason }
+        $block = $null; if ($d.PSObject.Properties['config_block']) { $block = Get-DraftConfigBlock $Path $rid $d.config_block }
+        $entry = @{ MustExist = $mustExist; Note = $note; Confidence = $confidence; ReviewReason = $reason; ConfigBlock = $block }
         $hasPatterns = $d.PSObject.Properties['patterns'] -and $null -ne $d.patterns
         $advanced = ($d.PSObject.Properties['advanced'] -and $d.advanced) -or $hasPatterns
         if ($advanced) {
@@ -1509,6 +1535,19 @@ function Write-PatternDrafts([string]$Path, $Benchmarks, $Reports, $Drafts, [scr
                     $entry.pattern = [string]$ro.SimplePatternText
                     $entry.type = [string]$ro.PatternType
                 }
+                # Schema 2 members, written only when set (Python pattern_drafts_document).
+                if ($ro.ConfigBlockStart) {
+                    $entry.config_block = [ordered]@{ start = [string]$ro.ConfigBlockStart; end = [string]$ro.ConfigBlockEnd
+                                                      type = [string]$(if ($ro.ConfigBlockPatternType) { $ro.ConfigBlockPatternType } else { 'Like' })
+                                                      must_exist = [bool]$ro.ConfigBlockMustExist }
+                }
+                $draft = $null
+                if ($Drafts) {
+                    if ($Drafts.ContainsKey($key)) { $draft = $Drafts[$key] }
+                    elseif ($Drafts.ContainsKey([string]$ro._vuln_id)) { $draft = $Drafts[[string]$ro._vuln_id] }
+                }
+                if ($draft -and $draft.ContainsKey('Confidence') -and $draft.Confidence) { $entry.confidence = [string]$draft.Confidence }
+                if ($draft -and $draft.ContainsKey('ReviewReason') -and $draft.ReviewReason) { $entry.review_reason = [string]$draft.ReviewReason }
                 $rules[$key] = $entry
             }
         }
@@ -1516,7 +1555,8 @@ function Write-PatternDrafts([string]$Path, $Benchmarks, $Reports, $Drafts, [scr
     $doc = [ordered]@{
         schema = $script:PatternDraftsSchema
         about = ('Edit a rule''s pattern or patterns (and must_exist), set "skip": true to leave a rule to the run''s own mode, ' +
-                 'and pass the file back with --pattern-drafts. Values in the patterns are the STIG''s examples until reviewed.')
+                 'and pass the file back with --pattern-drafts. Values in the patterns are the STIG''s examples until reviewed. ' +
+                 'Schema 2 adds per rule: confidence (low, medium or high), review_reason, and config_block {start, end, type, must_exist}.')
         rules = $rules
     }
     [System.IO.File]::WriteAllText($Path, ((ConvertTo-Json -InputObject $doc -Depth 8) -replace "`r`n", "`n") + "`n", $script:Utf8NoBom)
@@ -1595,6 +1635,8 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
     $multi = @()
     $note = 'PATTERN NOT SET: this sentinel never matches, so the rule flags every ' +
             'node as a violation until you replace it with a real pattern for this check.'
+    $configBlock = @{ ConfigBlockStart = ''; ConfigBlockEnd = ''; ConfigBlockPatternType = 'Like'
+                      ConfigBlockMustExist = $false; IsConfigBlockPatternRegEx = $false }
     $draftEntry = $null
     if ($Drafts) {
         if ($Drafts.ContainsKey([string]$display)) { $draftEntry = $Drafts[[string]$display] }
@@ -1611,6 +1653,10 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
         $why = $draftEntry.Note
         if (-not $why) { $why = 'supplied for this rule by a reviewer or an automated task; verify it before trusting this rule''s results.' }
         $note = 'PATTERN FROM DRAFTS FILE: ' + $why
+        # Schema 2: the reviewer's confidence and reason travel with the rule into NCM.
+        if ($draftEntry.ContainsKey('Confidence') -and $draftEntry.Confidence) { $note += ' Review confidence: ' + $draftEntry.Confidence + '.' }
+        if ($draftEntry.ContainsKey('ReviewReason') -and $draftEntry.ReviewReason) { $note += ' Review reason: ' + $draftEntry.ReviewReason }
+        if ($draftEntry.ContainsKey('ConfigBlock') -and $draftEntry.ConfigBlock) { $configBlock = @{} + $draftEntry.ConfigBlock }
         $n = @($multi).Count; if ($n -eq 0) { $n = 1 }
         Write-ToolLog build debug "${display}: pattern from the drafts file ($n pattern(s), must exist $mustExist)"
     } elseif ($PatternMode -eq 'blocks') {
@@ -1691,11 +1737,12 @@ function New-NcmRule($Rule, [string]$RuleGrouping, [string]$PatternMode, [string
         PatternMustExist = $mustExist
         AdvancedMode = (@($multi).Count -gt 0)
         MultiLineRulePatterns = @($multi)
-        ConfigBlockStart = ''
-        ConfigBlockEnd = ''
-        ConfigBlockPatternType = 'Like'
-        ConfigBlockMustExist = $false
-        IsConfigBlockPatternRegEx = $false
+        # Empty unless a schema-2 drafts entry scopes the rule to a config block.
+        ConfigBlockStart = [string]$configBlock.ConfigBlockStart
+        ConfigBlockEnd = [string]$configBlock.ConfigBlockEnd
+        ConfigBlockPatternType = [string]$configBlock.ConfigBlockPatternType
+        ConfigBlockMustExist = [bool]$configBlock.ConfigBlockMustExist
+        IsConfigBlockPatternRegEx = [bool]$configBlock.IsConfigBlockPatternRegEx
         ErrorLevel = $lvl
         # No remediation script (2.0.0): the Fix Text is prose and goes into Comments.
         # Sent empty rather than omitted (the contract marks no member optional and

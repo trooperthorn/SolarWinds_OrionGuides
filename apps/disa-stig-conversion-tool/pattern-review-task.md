@@ -1,7 +1,8 @@
 # Pattern review task: from STIG check text to real NCM rules
 
-Plan, 2026-10-15. Status: design, not built. Everything in the "Tool side" section that is
-marked *exists* is in the tool today (2.1.0); everything else is proposed.
+Plan, 2026-10-15. Status: steps 1 and 3 of the order of work are built (2.2.0, the same
+day); steps 2, 4 and 5 are open. Everything in the "Tool side" section that is marked
+*exists* is in the tool today; everything else is proposed.
 
 ## What the task is for
 
@@ -80,9 +81,10 @@ Rules the task applies to every outcome:
 
 ## File contract
 
-Input and output are the pattern-drafts schema (`disa-stig-tool/pattern-drafts/1`).
-The task writes back only these members per rule; the tool ignores members it does not
-know, which is what makes the two extra ones safe today:
+Input and output are the pattern-drafts schema (`disa-stig-tool/pattern-drafts/2` since
+2.2.0; a schema-1 file still reads). The task writes back only these members per rule,
+plus its own `outcome`, which the tool ignores as it ignores every member it does not
+know:
 
 ```json
 "V-215668": {
@@ -107,18 +109,28 @@ the audit trail (who reviewed, when, what changed) lands in NCM with the rule.
 | --- | --- | --- |
 | `--write-pattern-drafts`, `--pattern-drafts`, validation with the rule and pattern named | exists | both editions |
 | `skip`, `must_exist`, `note`, `patterns` with `type`, `must_contain`, `condition`, single `pattern` | exists | schema 1 |
-| `confidence`, `review_reason` | proposed, schema 2 | read and carried into the note; unknown members are ignored today, so a schema-2 file already loads |
-| `config_block`: `{start, end, type, must_exist}` per rule | proposed, schema 2 | maps to `ConfigBlockStart`, `ConfigBlockEnd`, `ConfigBlockPatternType`, `ConfigBlockMustExist`, which the rule object already carries but nothing sets |
+| `confidence`, `review_reason` | exists, schema 2 (2.2.0) | validated on read (`confidence` must be low, medium or high) and carried into the rule's Comments note after the drafts note; written back by `--write-pattern-drafts` when set; both editions |
+| `config_block`: `{start, end, type, must_exist}` per rule | exists, schema 2 (2.2.0) | maps to `ConfigBlockStart`, `ConfigBlockEnd`, `ConfigBlockPatternType`, `ConfigBlockMustExist` (and `IsConfigBlockPatternRegEx`); `start` required, `type` Like or Regex; both editions |
 | `OR` inside a group with brackets | proposed | `BeginBracket` / `EndBracket` exist on the pattern; the drafts schema would gain `group` |
 | `test` with advanced-mode rules | to verify | `TestRuleOnBackedUpConfig` takes the same `PolicyRule` contract, so the JSON object with `MultiLineRulePatterns` should test; unverified until a backed-up Cisco config exists |
 | The server rebuilds the scope SQL from the typed criteria | known limit | the `MachineType` condition is lost on API import; add it in the console, or add a second `WebSelectionCriteria` once a LIKE match type is confirmed |
 
 ## Running the task
 
-Recommended shape: a small script beside the tool, `pattern_review.py`, standard
+Built (2.2.0) as a small script beside the tool, `pattern_review.py`, standard
 `anthropic` SDK, one request per rule, run as a Message Batch (half price, no rate
 pressure, results keyed by `custom_id` = rule id), with structured output so every
-answer is schema-valid before the tool sees it. Design choices, each with the reason:
+answer is schema-valid before the tool sees it:
+
+```
+python pattern_review.py drafts.json --out reviewed.json      # submit, wait, write
+python pattern_review.py drafts.json --dry-run                # the prompts, no API call
+python pattern_review.py drafts.json --out reviewed.json --no-wait        # submit only
+python pattern_review.py drafts.json --out reviewed.json --batch-id msgbatch_...
+python pattern_review.py reviewed.json --score labelled.json  # step 4's measurement
+```
+
+Design choices, each with the reason:
 
 - **Model:** `claude-opus-5-5`, adaptive thinking (the default), effort `high`. The job
   is reading comprehension of security prose with a cost of being wrong; a cheaper
@@ -135,13 +147,21 @@ answer is schema-valid before the tool sees it. Design choices, each with the re
   `interface` block dropped and the reason), then the rule: id, title, STIG id, check
   text, Fix Text, the current draft. The Fix Text is included because it often states
   the command more plainly than the check.
-- **Refusals**: pass `fallbacks: "default"` with the `server-side-fallback-2026-07-01`
-  beta, so a rule whose check text trips a safety classifier (some STIG text reads like
-  attack instructions) is answered by a fallback model rather than dropped; log which
-  rules fell back.
-- **Determinism for review:** write the model id, the prompt hash and the date into
-  every `note`, keep the batch's raw results beside `reviewed.json`, and never overwrite
-  a reviewed file in place.
+- **Refusals**: a rule whose check text trips a safety classifier (some STIG text reads
+  like attack instructions) is answered by a fallback model rather than dropped. The
+  Batches API rejects the `fallbacks` parameter, so the script re-sends a refused rule on
+  its own through `messages.create` with `fallbacks: "default"` under the
+  `server-side-fallback-2026-07-01` beta; the reviewed file lists which rules fell back
+  and their notes name the model that answered.
+- **Determinism for review:** every `note` starts with
+  `reviewed <date> by <model> (prompt <sha256 prefix>, pattern_review <version>)`, the
+  file's `review` object repeats them with the batch id and the failed rules, the batch's
+  raw results are kept beside `reviewed.json` as `reviewed.batch-results.jsonl`, and an
+  existing output file is never overwritten.
+- **Tests without the API:** `test_pattern_review.py` drives the script through a fake
+  client (the prompt builder, the scorer, a refusal retried on the fallback, an invalid
+  answer, the round trip into `--pattern-drafts`); the tests that need the Pydantic model
+  skip where `pydantic` is not installed, so the tool's CI job still runs them.
 
 The alternative is to run the same prompt from a Claude Code session or a repo skill
 over the file: fine for a first pass by hand, but the batch script is what makes the
@@ -167,13 +187,23 @@ XCCDF, compare pattern by pattern, and count exact matches, equivalent patterns,
 disagreements by outcome class. That number, not a demo, decides whether the task runs
 unattended on the next release.
 
+`pattern_review.py REVIEWED.json --score LABELLED.json` does the counting once the
+labelled rules are in a pattern-drafts file (the console export has to be converted to
+one; that converter is part of step 4): exact is the same pattern text, type and
+polarity; equivalent is the same after a Like literal and the Regex that escapes it are
+normalized (whitespace, case, anchors); everything else is a disagreement, listed by
+rule with its outcome and confidence. Rules present in only one file are reported, not
+scored. `--score-out FILE` keeps the report as JSON. No numbers yet.
+
 ## Order of work
 
-1. Schema 2 in the tool: `confidence`, `review_reason`, `config_block`; carry the note.
-   Both editions, tests, docs. Small.
-2. `test` with advanced-mode rules against a backed-up config, once a Cisco node exists
-   in the lab NCM. Verifies steps 4 and the matching semantics of multi-line `Like`.
-3. `pattern_review.py`: the batch script with the prompt and the Pydantic model, a
-   `--dry-run` that prints the per-rule prompts, and a scorer against a labelled file.
-4. Score on the Switch RTR STIG; tune the prompt; record the numbers in this file.
-5. Run on the Router package, review, import as `_v4`, compare in the console.
+1. **Built (2.2.0).** Schema 2 in the tool: `confidence`, `review_reason`,
+   `config_block`; carry the note. Both editions, tests, docs.
+2. **Open.** `test` with advanced-mode rules against a backed-up config, once a Cisco node
+   exists in the lab NCM. Verifies step 4 and the matching semantics of multi-line `Like`.
+3. **Built (2.2.0).** `pattern_review.py`: the batch script with the prompt and the
+   Pydantic model, a `--dry-run` that prints the per-rule prompts, and a scorer against a
+   labelled file. Not yet run against the API: the first live run is step 4.
+4. **Open.** Convert the Switch RTR labelled rules to a pattern-drafts file, score with
+   `--score`, tune the prompt, record the numbers in this file.
+5. **Open.** Run on the Router package, review, import as `_v4`, compare in the console.
