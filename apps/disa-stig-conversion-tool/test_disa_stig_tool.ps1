@@ -204,6 +204,32 @@ try {
     Assert-True (@($swisText -split "`n" | Where-Object { $_ -and $_ -cnotmatch $lineRe }).Count -eq 0) 'debug lines match the contract too'
     Set-Item -Path function:Invoke-SwisRest -Value $realRest
 
+    # --- 2b2. API token auth (2026.4+): bearer header, exclusivity, redaction --
+    # The same rules test_disa_stig_tool.py checks on SwisClient and auth_mode().
+    Assert-Equal 'token' (Resolve-CliAuthMode $true '' $false) 'auth mode: -ApiToken alone is token'
+    Assert-Equal 'basic' (Resolve-CliAuthMode $false 'admin' $false) 'auth mode: -Username alone is basic'
+    Assert-Equal 'windows' (Resolve-CliAuthMode $false '' $true) 'auth mode: -WindowsAuth alone is windows'
+    Assert-Throws { Resolve-CliAuthMode $true 'admin' $false } '-ApiToken and -Username are mutually exclusive' '-ApiToken excludes -Username'
+    Assert-Throws { Resolve-CliAuthMode $true '' $true } 'mutually exclusive' '-ApiToken excludes -WindowsAuth'
+    Assert-Throws { Resolve-CliAuthMode $false 'admin' $true } 'mutually exclusive' '-Username excludes -WindowsAuth'
+    Assert-Throws { Resolve-CliAuthMode $false '' $false } 'pass -Username .* -ApiToken .* or -WindowsAuth' 'no credential choice is an error'
+    $tokenLog = Join-Path $scratch 'token.log'
+    [void](Initialize-ToolLog $tokenLog 'debug')
+    $tokenConn = New-SwisConnection 'orion.example.com' 17774 '' '' $false $false $null 'PsSecret-Tok-6120'
+    Assert-Equal 'PsSecret-Tok-6120' $tokenConn.Token 'the connection carries the token'
+    Assert-Equal 'Bearer PsSecret-Tok-6120' (Get-SwisAuthHeader $tokenConn) 'token auth sends Authorization: Bearer'
+    Assert-Equal ('Basic ' + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes('admin:PsSecret-Conn-4471'))) (Get-SwisAuthHeader $conn) 'password auth still sends Authorization: Basic'
+    $winConn = New-SwisConnection 'orion.example.com' 17774 '' '' $true $false $null
+    Assert-True ($null -eq (Get-SwisAuthHeader $winConn)) 'the Windows login sets no Authorization header itself'
+    Assert-Throws { New-SwisConnection 'orion.example.com' 17774 'admin' '' $false $false $null 'PsSecret-Tok-6120' } 'mutually exclusive' 'a token and a username are refused together'
+    Assert-Throws { New-SwisConnection 'orion.example.com' 17774 '' 'pw' $false $false $null 'PsSecret-Tok-6120' } 'mutually exclusive' 'a token and a password are refused together'
+    Assert-Throws { New-SwisConnection 'orion.example.com' 17774 '' '' $true $false $null 'PsSecret-Tok-6120' } 'mutually exclusive' 'a token and the Windows login are refused together'
+    Write-ToolLog main error 'server echoed the token PsSecret-Tok-6120 back'
+    $tokenText = [System.IO.File]::ReadAllText($tokenLog)
+    Assert-True (-not $tokenText.Contains('PsSecret-Tok-6120')) 'the API token never reaches the log'
+    Assert-True ($tokenText.Contains('with an API token (bearer)') -and -not $tokenText.Contains("as user ''")) 'the endpoint line names the auth method, not a user'
+    Assert-True ($swisText.Contains("as user 'admin' (basic auth)")) 'a password connection says basic auth'
+
     # --- 2c. XML: DTD/XXE refused with a logged reason; declared encoding ----
     $xmlLog = Join-Path $scratch 'xml.log'
     [void](Initialize-ToolLog $xmlLog 'info')

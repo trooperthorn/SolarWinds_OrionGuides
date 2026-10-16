@@ -292,8 +292,10 @@ the checks read it.
 python disa_stig_tool.py          ← no arguments (or a double-click on Windows) opens the GUI
 ```
 
-One window: server IP/FQDN + SWIS port, username/password or a **Login with current
-Windows user** checkbox with a **live connection status line** beneath it, a file list
+One window: server IP/FQDN + SWIS port, username/password, an **API token** field
+(platform 2026.4+, used instead of a username and password — see
+[Connection](#connection)) or a **Login with current Windows user** checkbox, with a
+**live connection status line** beneath them, a file list
 taking **up to 10 STIG files per batch** (zip, xccdf `.xml`, `.xsl`, SCM policy
 `.yaml`/`.scm-policy.yaml`, a legacy policy `.scm-profile`, or a URL), the
 **Compliance target** dropdown, the **NCM node scope** box (`auto`, or a WHERE clause like
@@ -388,6 +390,10 @@ python3 disa_stig_tool.py parse U_Cisco_IOS_Router_Y26M07_STIG.zip --rules
 export SWIS_PASSWORD=…
 python3 disa_stig_tool.py test U_Cisco_IOS_Router_Y26M07_STIG.zip \
     --host orion.example.com --user admin --config-id <ConfigID>
+#    or, on platform 2026.4+, with an API token instead of a user and password:
+export SWIS_API_TOKEN=…
+python3 disa_stig_tool.py test U_Cisco_IOS_Router_Y26M07_STIG.zip \
+    --host orion.example.com --api-token --config-id <ConfigID>
 
 # 4. Import: creates the report, its policies and rules, and starts compliance caching
 python3 disa_stig_tool.py import U_Cisco_IOS_Router_Y26M07_STIG.zip \
@@ -448,6 +454,7 @@ them.
 | `--config-file` / `--config-id` / `--limit` | `-ConfigFile` / `-ConfigId` / `-Limit` | Inputs for `test` |
 | `--dry-run` / `--yes` | `-DryRun` / `-Yes` | Preview or confirm `remove` |
 | `--host` / `--port` / `--user` | `-Server` / `-Port` / `-Username` (or `-WindowsAuth`) | Connection; the password comes from `SWIS_PASSWORD` or a prompt in both |
+| `--api-token` | `-ApiToken` | Authenticate with a SWIS API token (platform 2026.4+) instead of `--user` / `-Username`; the token comes from `SWIS_API_TOKEN` or a prompt in both, never the command line |
 | `--pin-server-cert` / `--insecure` / `--ca-file` | `-PinServerCert` / `-Insecure` / none | TLS trust |
 | `-o` / `--output` | none | Output file for a convert that yields one NCM report or SCM policy (ignored, with a warning, when there are several) |
 | `--log-file PATH` | `-LogFile PATH` | Where the [run log](#run-log) goes (default below) |
@@ -845,8 +852,9 @@ directory. What a run records at `info`:
   how many rules got a draft of each polarity), every file written, and SCM probe ids
   that had to be sanitized (as warnings);
 - every SWIS call: `entity.verb` or the query, a short argument summary, the duration,
-  and `ok` or the error message, plus the endpoint, the user name and the TLS mode of the
-  connection (never the password);
+  and `ok` or the error message, plus the endpoint, the authentication method (`basic
+  auth` with the user name, `API token (bearer)`, or `Negotiate`) and the TLS mode of the
+  connection (never the password or the token);
 - import, verification, rollback and removal decisions, including the wire-format
   classification of every rejection, the permission preflight and the role each verb
   needs, each `IN @ids` sanity probe, `StartCaching`'s result, and the transport and
@@ -856,8 +864,9 @@ directory. What a run records at `info`:
 
 `debug` adds the request and response body of every SWIS call, redacted and cut to
 4 KB, and each rule's heuristic decision with the sentence it came from. `warn` keeps only warnings and errors. Every line passes through the same secret
-redaction as the console, and the `SWIS_PASSWORD` value is registered before the first
-line is written, so it is masked even in the logged command line.
+redaction as the console, and the `SWIS_PASSWORD` and `SWIS_API_TOKEN` values are
+registered before the first line is written, so they are masked even in the logged
+command line.
 
 ## Security rules
 
@@ -887,10 +896,17 @@ line is written, so it is masked even in the logged command line.
   with `Content-Type: application/json; charset=utf-8`; Windows PowerShell 5.1 would
   otherwise encode a string body as ISO-8859-1 and mangle STIG text outside Latin-1.
 - **Credentials live in memory only.** Nothing is written to disk, credentials never
-  appear in URLs, and the CLI takes the password from `SWIS_PASSWORD` or an interactive
-  prompt — never a command-line argument.
-- **Passwords are always redacted** from everything the tool prints or logs, including
-  server error messages that might echo them.
+  appear in URLs, and the CLI takes the password from `SWIS_PASSWORD` (or the API token
+  from `SWIS_API_TOKEN`) or an interactive prompt — never a command-line argument;
+  `--api-token` / `-ApiToken` is a switch, not a value.
+- **Passwords and API tokens are always redacted** from everything the tool prints or
+  logs, including server error messages that might echo them. The run log names the
+  authentication method a connection used (`basic auth`, `API token (bearer)` or
+  `Negotiate`), never the credential.
+- **One credential per connection.** An API token excludes a username/password and the
+  Windows login in the CLI (`--api-token` with `--user`, or `-ApiToken` with `-Username`
+  or `-WindowsAuth`, is refused before any prompt or network access) and in the GUI
+  (a token with a username or password filled in is refused).
 - **XML is read without DTDs.** A STIG file that declares a `<!DOCTYPE>` is refused,
   with the reason in the run log, so external entities (XXE) and entity expansion are
   never processed. The PowerShell edition loads XML through an `XmlReader` with
@@ -1044,7 +1060,7 @@ verb contracts shipped in this repository (`data/schema/2026.2/`). Deeper treatm
 | Port | `17774` (platform 2023.1+; `17778` is the deprecated pre-2023 REST port, `17777` is SOAP) |
 | Query | `POST /Query` with `{"query": …, "parameters": {…}}` |
 | Invoke | `POST /Invoke/{Entity}/{Verb}` with a **positional JSON array** of arguments — order is the contract |
-| Auth | HTTP Basic (Orion local or AD account), or Windows Negotiate/SSPI for the current-user option |
+| Auth | HTTP Basic (Orion local or AD account); `Authorization: Bearer <API token>` for a SWIS API token (platform 2026.4+, `--api-token` / `-ApiToken` / the GUI field); or Windows Negotiate/SSPI for the current-user option |
 | TLS | SWIS ships a self-signed certificate; trust it via a CA bundle rather than disabling verification outside a lab |
 
 Required rights, from the 2026.2 verb descriptions: `AddPolicyRule`, `AddPolicy`,
@@ -1055,6 +1071,26 @@ administrators" option is on, all of them are valid only for Orion administrator
 (Before 2.0.0 this README and the tool's verification error said WebUploader was the
 minimum for an import, which was wrong.) SCM policy import/assignment requires the **manageNodes**
 right on `Orion.PolicyEngine.Policy`.
+
+**API tokens (platform 2026.4+).** The 2026.4 release notes say an API token can be
+created for an individual user account and used instead of a password to authenticate
+automation, and that a non-admin user can disable, regenerate or delete their token from
+their profile. The wire format comes from a SolarWinds solutions architect's Thwack post
+announcing SDK 3.4 ("JWT from an API Token", 2026-10-07): the token is a JWT, sent to the
+same HTTPS JSON endpoint on port 17774 in the `Authorization: Bearer` header; admins
+create tokens on the Manage Accounts page, tied to an existing account, and the user
+manages it from the Profiles menu. The tool sends exactly that: every verb, path and
+payload is unchanged, only the header differs, and the token carries the account's rights
+(the same NCM roles above apply). The token is read from `SWIS_API_TOKEN` or a hidden
+prompt in the CLI, or typed into the GUI's **API token** field, and is redacted like a
+password. The SDK's separate OAuth sign-in (`Connect-SwisOAuth`, SWQL Studio's "Orion
+(v3) OAuth", a browser authorization-code flow against `/oauth/authorize`) is interactive
+and is not implemented here. **Unverified:** whether the JSON endpoint also accepts the
+token as the Basic-auth password (the release notes' "instead of a password" wording),
+and whether a disabled token is refused immediately; the Success Center has no page for
+API tokens yet. To test: create a token for the import account on a 2026.4 server, run
+`import --api-token` with `SWIS_API_TOKEN` set, and check that the run log's endpoint
+line says `API token (bearer)` and the import verifies.
 
 ## NCM: entities and verbs used
 
